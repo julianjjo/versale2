@@ -1,4 +1,4 @@
-import type { ReactNode, ButtonHTMLAttributes, InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes } from "react";
+import { useId, type ReactNode, type ButtonHTMLAttributes, type InputHTMLAttributes, type TextareaHTMLAttributes, type SelectHTMLAttributes } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 
@@ -45,15 +45,21 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
 }
 
-export function Input({ label, error, className = "", ...props }: InputProps) {
+export function Input({ label, error, id, className = "", ...props }: InputProps) {
+  const generatedId = useId();
+  const fieldId = id ?? generatedId;
   return (
     <div>
       {label && (
-        <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
+        <label
+          htmlFor={fieldId}
+          className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300"
+        >
           {label}
         </label>
       )}
       <input
+        id={fieldId}
         className={`w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-500 ${className}`}
         {...props}
       />
@@ -70,17 +76,24 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 export function Textarea({
   label,
   error,
+  id,
   className = "",
   ...props
 }: TextareaProps) {
+  const generatedId = useId();
+  const fieldId = id ?? generatedId;
   return (
     <div>
       {label && (
-        <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
+        <label
+          htmlFor={fieldId}
+          className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300"
+        >
           {label}
         </label>
       )}
       <textarea
+        id={fieldId}
         className={`w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-500 ${className}`}
         {...props}
       />
@@ -98,18 +111,25 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 export function Select({
   label,
   error,
+  id,
   className = "",
   children,
   ...props
 }: SelectProps) {
+  const generatedId = useId();
+  const fieldId = id ?? generatedId;
   return (
     <div>
       {label && (
-        <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
+        <label
+          htmlFor={fieldId}
+          className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300"
+        >
           {label}
         </label>
       )}
       <select
+        id={fieldId}
         className={`w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-500 ${className}`}
         {...props}
       >

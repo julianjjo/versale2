@@ -234,6 +234,11 @@ export function ProductCard({ product }: { product: Product }) {
               {product.condition} · {product.size}
             </span>
           </div>
+          {product.seller && (
+            <p className="text-xs text-zinc-500 mt-1">
+              Sold by {product.seller.name}
+            </p>
+          )}
         </div>
       </Card>
     </Link>
