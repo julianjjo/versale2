@@ -7,7 +7,7 @@ export class ReviewsService {
 
   async create(createReviewDto: any, userId: string, productId: string) {
     // Check if the product exists and is approved
-    const product = await this.prisma.product.findUnique({
+    const product = await this.prisma.client.product.findUnique({
       where: { id: productId },
     });
 
@@ -20,7 +20,7 @@ export class ReviewsService {
     }
 
     // Check if the user has already reviewed this product (optional: allow only one review per user per product)
-    const existingReview = await this.prisma.review.findFirst({
+    const existingReview = await this.prisma.client.review.findFirst({
       where: {
         userId,
         productId,
@@ -29,7 +29,7 @@ export class ReviewsService {
 
     if (existingReview) {
       // Update the existing review
-      return this.prisma.review.update({
+      return this.prisma.client.review.update({
         where: { id: existingReview.id },
         data: {
           rating: createReviewDto.rating,
@@ -39,7 +39,7 @@ export class ReviewsService {
     }
 
     // Create a new review
-    return this.prisma.review.create({
+    return this.prisma.client.review.create({
       data: {
         rating: createReviewDto.rating,
         comment: createReviewDto.comment,
@@ -50,7 +50,7 @@ export class ReviewsService {
   }
 
   async findAllByProduct(productId: string) {
-    return this.prisma.review.findMany({
+    return this.prisma.client.review.findMany({
       where: { productId },
       include: {
         user: { select: { id: true, name: true } },
@@ -60,7 +60,7 @@ export class ReviewsService {
   }
 
   async update(id: string, updateReviewDto: any, userId: string) {
-    const review = await this.prisma.review.findUnique({
+    const review = await this.prisma.client.review.findUnique({
       where: { id },
     });
 
@@ -72,14 +72,14 @@ export class ReviewsService {
       throw new Error('Not authorized to update this review');
     }
 
-    return this.prisma.review.update({
+    return this.prisma.client.review.update({
       where: { id },
       data: updateReviewDto,
     });
   }
 
   async remove(id: string, userId: string) {
-    const review = await this.prisma.review.findUnique({
+    const review = await this.prisma.client.review.findUnique({
       where: { id },
     });
 
@@ -91,7 +91,7 @@ export class ReviewsService {
       throw new Error('Not authorized to delete this review');
     }
 
-    return this.prisma.review.delete({ where: { id } });
+    return this.prisma.client.review.delete({ where: { id } });
   }
 
   // Admin: get all reviews (with pagination)
@@ -100,7 +100,7 @@ export class ReviewsService {
     const skip = (page - 1) * limit;
 
     const [reviews, total] = await Promise.all([
-      this.prisma.review.findMany({
+      this.prisma.client.review.findMany({
         skip,
         take: limit,
         include: {
@@ -109,7 +109,7 @@ export class ReviewsService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.review.count(),
+      this.prisma.client.review.count(),
     ]);
 
     return {

@@ -3,15 +3,15 @@ import { IsString, IsNotEmpty, IsOptional, IsIn, IsNumber, Min } from 'class-val
 export class CreateProductDto {
   @IsString()
   @IsNotEmpty()
-  title: string;
+  title!: string;
 
   @IsString()
   @IsNotEmpty()
-  description: string;
+  description!: string;
 
   @IsString()
   @IsNotEmpty()
-  category: string;
+  category!: string;
 
   @IsString()
   @IsOptional()
@@ -19,17 +19,17 @@ export class CreateProductDto {
 
   @IsString()
   @IsNotEmpty()
-  size: string;
+  size!: string;
 
   @IsString()
   @IsNotEmpty()
   @IsIn(['New', 'Like New', 'Good', 'Fair'])
-  condition: string;
+  condition!: string;
 
   @IsNumber()
   @Min(0)
-  price: number;
+  price!: number;
 
   @IsOptional()
-  images?: string[];
+  images?: any;
 }

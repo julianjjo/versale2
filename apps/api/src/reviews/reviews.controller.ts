@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, Delete, Query, UseGuards, Req } from '@nestjs/common';
+import { AuthRequest } from '../types/request.types';
 import { ReviewsService } from './reviews.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -16,22 +17,22 @@ export class ReviewsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async createReview(@Request() req, @Body() body: { productId: string; rating: number; comment?: string }) {
-    const userId = req.user.userId;
+  async createReview(@Req() req: AuthRequest, @Body() body: { productId: string; rating: number; comment?: string }) {
+    const userId = req.user.id;
     return this.reviewsService.create(body, userId, body.productId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  async updateReview(@Request() req, @Param('id') id: string, @Body() body: { rating?: number; comment?: string }) {
-    const userId = req.user.userId;
+  async updateReview(@Req() req: AuthRequest, @Param('id') id: string, @Body() body: { rating?: number; comment?: string }) {
+    const userId = req.user.id;
     return this.reviewsService.update(id, body, userId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  async deleteReview(@Request() req, @Param('id') id: string) {
-    const userId = req.user.userId;
+  async deleteReview(@Req() req: AuthRequest, @Param('id') id: string) {
+    const userId = req.user.id;
     return this.reviewsService.remove(id, userId);
   }
 

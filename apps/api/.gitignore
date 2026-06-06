@@ -3,3 +3,8 @@ node_modules
 .env
 
 /generated/prisma
+/dev.db
+
+# Backup files
+*.bak
+*.bak2

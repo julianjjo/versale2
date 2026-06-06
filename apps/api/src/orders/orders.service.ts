@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CartService } from '../cart/cart.service';
+import { OrderStatus } from '../users/role.enum';
 
 @Injectable()
 export class OrdersService {
@@ -46,8 +47,8 @@ export class OrdersService {
       data: {
         userId,
         totalAmount,
-        status: 'PENDING' as const, // Cast as const literal to satisfy type
-        // shippingAddress: {}, // This field is optional in the schema now
+        status: 'PENDING',
+        shippingAddress: {}, // empty JSON object, as it's required
         items: {
           create: orderItems,
         },
@@ -56,9 +57,7 @@ export class OrdersService {
         items: {
           include: {
             product: {
-              include: {
-                images: true,
-              },
+              // Note: images is a Json field and is returned by default
             },
           },
         },
@@ -78,9 +77,7 @@ export class OrdersService {
         items: {
           include: {
             product: {
-              include: {
-                images: true,
-              },
+              // Note: images is a Json field and is returned by default
             },
           },
         },
@@ -96,9 +93,7 @@ export class OrdersService {
         items: {
           include: {
             product: {
-              include: {
-                images: true,
-              },
+              // Note: images is a Json field and is returned by default
             },
           },
         },
@@ -125,9 +120,7 @@ export class OrdersService {
         items: {
           include: {
             product: {
-              include: {
-                images: true,
-              },
+              // Note: images is a Json field and is returned by default
             },
           },
         },
@@ -137,12 +130,10 @@ export class OrdersService {
   }
 
   // Admin: update order status
-  async updateOrderStatus(id: string, status: string) {
+  async updateOrderStatus(id: string, status: OrderStatus) {
     return this.prisma.client.order.update({
       where: { id },
-      data: { 
-        status: status as const // Cast as const literal
-      },
+      data: { status },
     });
   }
 }

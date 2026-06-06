@@ -17,7 +17,6 @@ export class CartService {
           include: {
             product: {
               include: {
-                images: true,
                 seller: { select: { id: true, name: true } },
               },
             },
@@ -35,7 +34,6 @@ export class CartService {
             include: {
               product: {
                 include: {
-                  images: true,
                   seller: { select: { id: true, name: true } },
                 },
               },
@@ -69,7 +67,6 @@ export class CartService {
         include: {
           product: {
             include: {
-              images: true,
               seller: { select: { id: true, name: true } },
             },
           },
@@ -87,7 +84,6 @@ export class CartService {
         include: {
           product: {
             include: {
-              images: true,
               seller: { select: { id: true, name: true } },
             },
           },
@@ -122,7 +118,6 @@ export class CartService {
       include: {
         product: {
           include: {
-            images: true,
             seller: { select: { id: true, name: true } },
           },
         },

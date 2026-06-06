@@ -7,14 +7,17 @@ import { UpdateProductDto } from './dto/update-product.dto';
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createProductDto: CreateProductDto, sellerId: string) {
-    return this.prisma.client.product.create({
-      data: {
-        ...createProductDto,
-        sellerId,
-      },
-    });
-  }
+    async create(createProductDto: CreateProductDto, sellerId: string) {
+        // Ensure images is always present (null if not provided) for Prisma Json type
+        const data = { 
+            ...createProductDto, 
+            sellerId,
+            images: createProductDto.images ?? null 
+        };
+        return this.prisma.client.product.create({
+            data,
+        });
+    }
 
   async findAll(query: any) {
     const { search, minPrice, maxPrice, size, brand, condition, page = 1, limit = 10 } = query;
@@ -57,7 +60,6 @@ export class ProductsService {
         orderBy: { createdAt: 'desc' },
         include: {
           seller: { select: { id: true, name: true } },
-          images: true,
           _count: { select: { reviews: true } },
         },
       }),
@@ -80,7 +82,6 @@ export class ProductsService {
       where: { id },
       include: {
         seller: { select: { id: true, name: true } },
-        images: true,
         reviews: {
           select: {
             id: true,
@@ -102,28 +103,34 @@ export class ProductsService {
     return product;
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto, userId: string) {
-    const product = await this.prisma.client.product.findUnique({
-      where: { id },
-    });
+    async update(id: string, updateProductDto: UpdateProductDto, userId: string) {
+        const product = await this.prisma.client.product.findUnique({
+            where: { id },
+        });
 
-    if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
+        if (!product) {
+            throw new NotFoundException(`Product with ID ${id} not found`);
+        }
+
+        if (product.sellerId !== userId) {
+            throw new Error('Not authorized to update this product');
+        }
+
+        // Convert images from string[] to Json/any if provided
+        const data = { ...updateProductDto };
+        if (data.images !== undefined) {
+            // Keep as is since Json type can handle arrays
+        }
+
+        return this.prisma.client.product.update({
+            where: { id },
+            data,
+            include: {
+                seller: { select: { id: true, name: true } },
+                // Note: images is a Json field and is returned by default
+            },
+        });
     }
-
-    if (product.sellerId !== userId) {
-      throw new Error('Not authorized to update this product');
-    }
-
-    return this.prisma.client.product.update({
-      where: { id },
-      data: updateProductDto,
-      include: {
-        seller: { select: { id: true, name: true } },
-        images: true,
-      },
-    });
-  }
 
   async remove(id: string, userId: string) {
     const product = await this.prisma.client.product.findUnique({
@@ -153,7 +160,6 @@ export class ProductsService {
         orderBy: { createdAt: 'desc' },
         include: {
           seller: { select: { id: true, name: true } },
-          images: true,
           _count: { select: { reviews: true } },
         },
       }),

@@ -26,7 +26,7 @@ export class UpdateProductDto {
   @IsIn(['New', 'Like New', 'Good', 'Fair'])
   condition?: string;
 
-  @IsNumber({ min: 0 })
+  @IsNumber()
   @IsOptional()
   @Min(0)
   price?: number;

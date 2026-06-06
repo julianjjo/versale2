@@ -1,9 +1,11 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, UseGuards, Req } from '@nestjs/common';
+import { AuthRequest } from '../types/request.types';
 import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../users/role.enum';
+import { OrderStatus } from '../users/role.enum';
 
 @Controller('orders')
 export class OrdersController {
@@ -11,22 +13,22 @@ export class OrdersController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async createOrder(@Request() req) {
-    const userId = req.user.userId;
+  async createOrder(@Req() req: AuthRequest) {
+    const userId = req.user.id;
     return this.ordersService.createOrder(userId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  async getUserOrders(@Request() req) {
-    const userId = req.user.userId;
+  async getUserOrders(@Req() req: AuthRequest) {
+    const userId = req.user.id;
     return this.ordersService.getUserOrders(userId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  async getOrderById(@Request() req, @Param('id') id: string) {
-    const userId = req.user.userId;
+  async getOrderById(@Req() req: AuthRequest, @Param('id') id: string) {
+    const userId = req.user.id;
     return this.ordersService.getOrderById(id, userId);
   }
 
@@ -42,6 +44,6 @@ export class OrdersController {
   @Roles(Role.ADMIN)
   @Patch(':id/status')
   async updateOrderStatus(@Param('id') id: string, @Body() body: { status: string }) {
-    return this.ordersService.updateOrderStatus(id, body.status);
+    return this.ordersService.updateOrderStatus(id, body.status as OrderStatus);
   }
 }
