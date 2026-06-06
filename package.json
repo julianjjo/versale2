@@ -1,0 +1,35 @@
+{
+  "name": "versale",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm run start:dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build": "npm run build --workspace=apps/api && npm run build --workspace=apps/web",
+    "start": "concurrently \"npm:start:api\" \"npm:start:web\"",
+    "start:api": "npm run start:prod --workspace=apps/api",
+    "start:web": "npm run start --workspace=apps/web",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write .",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "eslint": "^8.45.0",
+    "prettier": "^3.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-import": "^2.27.0",
+    "eslint-plugin-node": "^11.0.0",
+    "eslint-plugin-promise": "^6.0.0",
+    "jest": "^29.6.0",
+    "ts-jest": "^29.1.0",
+    "@types/jest": "^29.5.0"
+  }
+}
