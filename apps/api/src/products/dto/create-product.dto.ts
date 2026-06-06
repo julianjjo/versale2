@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsOptional, IsIn, IsNumber, Min } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsIn,
+  IsNumber,
+  IsPositive,
+} from 'class-validator';
 
 export class CreateProductDto {
   @IsString()
@@ -26,10 +33,10 @@ export class CreateProductDto {
   @IsIn(['New', 'Like New', 'Good', 'Fair'])
   condition!: string;
 
-  @IsNumber()
-  @Min(0)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsPositive()
   price!: number;
 
   @IsOptional()
-  images?: any;
+  images?: string[];
 }

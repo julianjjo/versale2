@@ -2,16 +2,30 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { OrdersService } from '../orders.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CartService } from '../../cart/cart.service';
-import { NotFoundException } from '@nestjs/common';
-import { OrderStatus } from '../../users/role.enum';
+import {
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { OrderStatus } from '../order-status.enum';
 
 describe('OrdersService', () => {
   let service: OrdersService;
   let prismaService: PrismaService;
   let cartService: CartService;
 
+  const mockTx = {
+    order: {
+      create: jest.fn(),
+    },
+    cartItem: {
+      deleteMany: jest.fn(),
+    },
+  };
+
   const mockPrismaService = {
     client: {
+      $transaction: jest.fn((fn: (tx: typeof mockTx) => unknown) => fn(mockTx)),
       product: {
         findUnique: jest.fn(),
       },
@@ -20,6 +34,9 @@ describe('OrdersService', () => {
         findMany: jest.fn(),
         findUnique: jest.fn(),
         update: jest.fn(),
+      },
+      cartItem: {
+        deleteMany: jest.fn(),
       },
     },
   };
@@ -54,16 +71,8 @@ describe('OrdersService', () => {
         id: 'cart1',
         userId,
         items: [
-          {
-            id: 'item1',
-            productId: 'product1',
-            quantity: 2,
-          },
-          {
-            id: 'item2',
-            productId: 'product2',
-            quantity: 1,
-          },
+          { id: 'item1', productId: 'product1', quantity: 2 },
+          { id: 'item2', productId: 'product2', quantity: 1 },
         ],
       };
 
@@ -72,6 +81,7 @@ describe('OrdersService', () => {
         title: 'Product 1',
         isApproved: true,
         price: 10.0,
+        sellerId: 'sellerA',
       };
 
       const mockProduct2 = {
@@ -79,26 +89,17 @@ describe('OrdersService', () => {
         title: 'Product 2',
         isApproved: true,
         price: 20.0,
+        sellerId: 'sellerB',
       };
 
       const mockOrder = {
         id: 'order1',
         userId,
-        totalAmount: 40.0, // 10*2 + 20*1
+        totalAmount: 40.0,
         status: 'PENDING',
         items: [
-          {
-            id: 'oi1',
-            productId: 'product1',
-            quantity: 2,
-            price: 10.0,
-          },
-          {
-            id: 'oi2',
-            productId: 'product2',
-            quantity: 1,
-            price: 20.0,
-          },
+          { id: 'oi1', productId: 'product1', quantity: 2, price: 10.0 },
+          { id: 'oi2', productId: 'product2', quantity: 1, price: 20.0 },
         ],
       };
 
@@ -106,109 +107,116 @@ describe('OrdersService', () => {
       mockPrismaService.client.product.findUnique
         .mockResolvedValueOnce(mockProduct1)
         .mockResolvedValueOnce(mockProduct2);
-      mockPrismaService.client.order.create.mockResolvedValue(mockOrder);
+      mockTx.order.create.mockResolvedValue(mockOrder);
+      mockTx.cartItem.deleteMany.mockResolvedValue({ count: 2 });
 
       const result = await service.createOrder(userId);
 
       expect(mockCartService.getCart).toHaveBeenCalledWith(userId);
-      expect(mockPrismaService.client.product.findUnique).toHaveBeenCalledTimes(2);
-      expect(mockPrismaService.client.order.create).toHaveBeenCalledWith({
+      expect(mockPrismaService.client.product.findUnique).toHaveBeenCalledTimes(
+        2,
+      );
+      expect(mockTx.order.create).toHaveBeenCalledWith({
         data: {
           userId,
           totalAmount: 40.0,
-          status: 'PENDING',
+          status: OrderStatus.PENDING,
           shippingAddress: {},
           items: {
             create: [
-              {
-                productId: 'product1',
-                quantity: 2,
-                price: 10.0,
-              },
-              {
-                productId: 'product2',
-                quantity: 1,
-                price: 20.0,
-              },
+              { productId: 'product1', quantity: 2, price: 10.0 },
+              { productId: 'product2', quantity: 1, price: 20.0 },
             ],
           },
         },
         include: {
-          items: {
-            include: {
-              product: {
-                // Note: images is a Json field and is returned by default
-              },
-            },
-          },
+          items: { include: { product: true } },
         },
       });
-      expect(mockCartService.clearCart).toHaveBeenCalledWith(userId);
+      expect(mockTx.cartItem.deleteMany).toHaveBeenCalledWith({
+        where: { cartId: 'cart1' },
+      });
       expect(result).toEqual(mockOrder);
     });
 
-    it('should throw error if cart is empty', async () => {
+    it('should throw BadRequestException if cart is empty', async () => {
       const userId = 'user1';
-      const mockCart = {
+      mockCartService.getCart.mockResolvedValue({
         id: 'cart1',
         userId,
         items: [],
-      };
+      });
 
-      mockCartService.getCart.mockResolvedValue(mockCart);
-
-      await expect(service.createOrder(userId)).rejects.toThrow('Cart is empty');
+      await expect(service.createOrder(userId)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
-    it('should throw error if product no longer available', async () => {
+    it('should throw BadRequestException if product no longer available', async () => {
       const userId = 'user1';
       const mockCart = {
         id: 'cart1',
         userId,
-        items: [
-          {
-            id: 'item1',
-            productId: 'product1',
-            quantity: 1,
-          },
-        ],
+        items: [{ id: 'item1', productId: 'product1', quantity: 1 }],
       };
 
-      // Product not found (null) - should throw error
       mockCartService.getCart.mockResolvedValue(mockCart);
       mockPrismaService.client.product.findUnique.mockResolvedValue(null);
 
       await expect(service.createOrder(userId)).rejects.toThrow(
-        'Product undefined is no longer available',
+        BadRequestException,
       );
     });
 
-    it('should throw error if product not approved', async () => {
+    it('should throw BadRequestException if product not approved', async () => {
       const userId = 'user1';
       const mockCart = {
         id: 'cart1',
         userId,
-        items: [
-          {
-            id: 'item1',
-            productId: 'product1',
-            quantity: 1,
-          },
-        ],
+        items: [{ id: 'item1', productId: 'product1', quantity: 1 }],
       };
 
       const mockProduct = {
         id: 'product1',
         title: 'Product 1',
-        isApproved: false, // not approved
+        isApproved: false,
         price: 10.0,
+        sellerId: 'sellerA',
       };
 
       mockCartService.getCart.mockResolvedValue(mockCart);
-      mockPrismaService.client.product.findUnique.mockResolvedValue(mockProduct);
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
 
       await expect(service.createOrder(userId)).rejects.toThrow(
-        'Product Product 1 is no longer available',
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException if user tries to buy their own product', async () => {
+      const userId = 'user1';
+      const mockCart = {
+        id: 'cart1',
+        userId,
+        items: [{ id: 'item1', productId: 'product1', quantity: 1 }],
+      };
+
+      const mockProduct = {
+        id: 'product1',
+        title: 'Product 1',
+        isApproved: true,
+        price: 10.0,
+        sellerId: userId,
+      };
+
+      mockCartService.getCart.mockResolvedValue(mockCart);
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+
+      await expect(service.createOrder(userId)).rejects.toThrow(
+        BadRequestException,
       );
     });
   });
@@ -217,12 +225,7 @@ describe('OrdersService', () => {
     it('should return orders for a user', async () => {
       const userId = 'user1';
       const mockOrders = [
-        {
-          id: 'order1',
-          userId,
-          totalAmount: 100.0,
-          status: 'PENDING',
-        },
+        { id: 'order1', userId, totalAmount: 100.0, status: 'PENDING' },
       ];
 
       mockPrismaService.client.order.findMany.mockResolvedValue(mockOrders);
@@ -231,15 +234,7 @@ describe('OrdersService', () => {
 
       expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
         where: { userId },
-        include: {
-          items: {
-            include: {
-              product: {
-                // Note: images is a Json field and is returned by default
-              },
-            },
-          },
-        },
+        include: { items: { include: { product: true } } },
         orderBy: { createdAt: 'desc' },
       });
       expect(result).toEqual(mockOrders);
@@ -263,41 +258,27 @@ describe('OrdersService', () => {
 
       expect(mockPrismaService.client.order.findUnique).toHaveBeenCalledWith({
         where: { id: orderId },
-        include: {
-          items: {
-            include: {
-              product: {
-                // Note: images is a Json field and is returned by default
-              },
-            },
-          },
-        },
+        include: { items: { include: { product: true } } },
       });
       expect(result).toEqual(mockOrder);
     });
 
     it('should throw NotFoundException if order not found', async () => {
-      const orderId = 'nonexistent';
-      const userId = 'user1';
       mockPrismaService.client.order.findUnique.mockResolvedValue(null);
 
-      await expect(service.getOrderById(orderId, userId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.getOrderById('nonexistent', 'user1'),
+      ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw error if order does not belong to user', async () => {
-      const orderId = 'order1';
-      const userId = 'user1';
-      const mockOrder = {
-        id: orderId,
-        userId: 'user2', // different user
-      };
+    it('should throw ForbiddenException if order does not belong to user', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        userId: 'user2',
+      });
 
-      mockPrismaService.client.order.findUnique.mockResolvedValue(mockOrder);
-
-      await expect(service.getOrderById(orderId, userId)).rejects.toThrow(
-        'Not authorized to access this order',
+      await expect(service.getOrderById('order1', 'user1')).rejects.toThrow(
+        ForbiddenException,
       );
     });
   });
@@ -305,16 +286,8 @@ describe('OrdersService', () => {
   describe('getAllOrders', () => {
     it('should return all orders for admin', async () => {
       const mockOrders = [
-        {
-          id: 'order1',
-          userId: 'user1',
-          totalAmount: 100.0,
-        },
-        {
-          id: 'order2',
-          userId: 'user2',
-          totalAmount: 200.0,
-        },
+        { id: 'order1', userId: 'user1', totalAmount: 100.0 },
+        { id: 'order2', userId: 'user2', totalAmount: 200.0 },
       ];
 
       mockPrismaService.client.order.findMany.mockResolvedValue(mockOrders);
@@ -324,13 +297,7 @@ describe('OrdersService', () => {
       expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
         include: {
           user: { select: { id: true, name: true, email: true } },
-          items: {
-            include: {
-              product: {
-                // Note: images is a Json field and is returned by default
-              },
-            },
-          },
+          items: { include: { product: true } },
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -342,10 +309,7 @@ describe('OrdersService', () => {
     it('should update order status', async () => {
       const orderId = 'order1';
       const status: OrderStatus = OrderStatus.PAID;
-      const mockOrder = {
-        id: orderId,
-        status: OrderStatus.PAID,
-      };
+      const mockOrder = { id: orderId, status: OrderStatus.PAID };
 
       mockPrismaService.client.order.update.mockResolvedValue(mockOrder);
 

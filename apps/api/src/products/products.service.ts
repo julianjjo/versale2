@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -7,32 +11,39 @@ import { UpdateProductDto } from './dto/update-product.dto';
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
-    async create(createProductDto: CreateProductDto, sellerId: string) {
-        // Ensure images is always present (null if not provided) for Prisma Json type
-        const data = { 
-            ...createProductDto, 
-            sellerId,
-            images: createProductDto.images ?? null 
-        };
-        return this.prisma.client.product.create({
-            data,
-        });
-    }
+  async create(createProductDto: CreateProductDto, sellerId: string) {
+    const { images, ...rest } = createProductDto;
+    return this.prisma.client.product.create({
+      data: {
+        ...rest,
+        sellerId,
+        ...(images !== undefined ? { images: images } : {}),
+      },
+    });
+  }
 
   async findAll(query: any) {
-    const { search, minPrice, maxPrice, size, brand, condition, page = 1, limit = 10 } = query;
+    const {
+      search,
+      minPrice,
+      maxPrice,
+      size,
+      brand,
+      condition,
+      page = 1,
+      limit = 10,
+    } = query;
     const skip = (page - 1) * limit;
 
-    const where: any = {
-      isApproved: true,
-    };
+    const where: any = { isApproved: true };
 
     if (search) {
+      const term = String(search);
       where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { brand: { contains: search, mode: 'insensitive' } },
-        { category: { contains: search, mode: 'insensitive' } },
+        { title: { contains: term } },
+        { description: { contains: term } },
+        { brand: { contains: term } },
+        { category: { contains: term } },
       ];
     }
 
@@ -46,7 +57,7 @@ export class ProductsService {
       where.size = size;
     }
     if (brand) {
-      where.brand = { contains: brand, mode: 'insensitive' };
+      where.brand = { contains: String(brand) };
     }
     if (condition) {
       where.condition = condition;
@@ -103,34 +114,25 @@ export class ProductsService {
     return product;
   }
 
-    async update(id: string, updateProductDto: UpdateProductDto, userId: string) {
-        const product = await this.prisma.client.product.findUnique({
-            where: { id },
-        });
+  async update(id: string, updateProductDto: UpdateProductDto, userId: string) {
+    const product = await this.prisma.client.product.findUnique({
+      where: { id },
+    });
 
-        if (!product) {
-            throw new NotFoundException(`Product with ID ${id} not found`);
-        }
-
-        if (product.sellerId !== userId) {
-            throw new Error('Not authorized to update this product');
-        }
-
-        // Convert images from string[] to Json/any if provided
-        const data = { ...updateProductDto };
-        if (data.images !== undefined) {
-            // Keep as is since Json type can handle arrays
-        }
-
-        return this.prisma.client.product.update({
-            where: { id },
-            data,
-            include: {
-                seller: { select: { id: true, name: true } },
-                // Note: images is a Json field and is returned by default
-            },
-        });
+    if (!product) {
+      throw new NotFoundException(`Product with ID ${id} not found`);
     }
+
+    if (product.sellerId !== userId) {
+      throw new ForbiddenException('Not authorized to update this product');
+    }
+
+    return this.prisma.client.product.update({
+      where: { id },
+      data: { ...updateProductDto },
+      include: { seller: { select: { id: true, name: true } } },
+    });
+  }
 
   async remove(id: string, userId: string) {
     const product = await this.prisma.client.product.findUnique({
@@ -142,13 +144,12 @@ export class ProductsService {
     }
 
     if (product.sellerId !== userId) {
-      throw new Error('Not authorized to delete this product');
+      throw new ForbiddenException('Not authorized to delete this product');
     }
 
     return this.prisma.client.product.delete({ where: { id } });
   }
 
-  // For admin: get all products (including not approved)
   async findAllForAdmin(query: any) {
     const { page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
@@ -177,7 +178,6 @@ export class ProductsService {
     };
   }
 
-  // For admin: approve a product
   async approveProduct(id: string) {
     return this.prisma.client.product.update({
       where: { id },

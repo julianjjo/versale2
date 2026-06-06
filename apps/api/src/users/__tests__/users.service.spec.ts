@@ -45,7 +45,9 @@ describe('UsersService', () => {
       };
 
       const hashedPassword = 'hashed_password_123';
-      jest.spyOn(bcrypt, 'hash').mockImplementation(() => Promise.resolve(hashedPassword));
+      jest
+        .spyOn(bcrypt, 'hash')
+        .mockImplementation(() => Promise.resolve(hashedPassword));
 
       const mockUser = {
         id: 'user1',
@@ -186,7 +188,9 @@ describe('UsersService', () => {
       };
 
       const hashedPassword = 'new_hashed_password';
-      jest.spyOn(bcrypt, 'hash').mockImplementation(() => Promise.resolve(hashedPassword));
+      jest
+        .spyOn(bcrypt, 'hash')
+        .mockImplementation(() => Promise.resolve(hashedPassword));
 
       const mockUpdatedUser = {
         id: userId,

@@ -1,7 +1,14 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
+import { User } from '@prisma/client';
+
+export type AuthenticatedUser = Omit<User, 'password'>;
 
 @Injectable()
 export class AuthService {
@@ -16,25 +23,19 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new Error('User already exists');
+      throw new ConflictException('User already exists');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await this.prisma.client.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name,
-      },
+      data: { email, password: hashedPassword, name },
     });
 
     return this.generateToken(user);
   }
 
   async login(email: string, password: string) {
-    const user = await this.prisma.client.user.findUnique({
-      where: { email },
-    });
+    const user = await this.prisma.client.user.findUnique({ where: { email } });
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -48,7 +49,7 @@ export class AuthService {
     return this.generateToken(user);
   }
 
-  private generateToken(user: any) {
+  private generateToken(user: User) {
     const payload = { sub: user.id, email: user.email, role: user.role };
     return {
       access_token: this.jwtService.sign(payload),
@@ -61,21 +62,21 @@ export class AuthService {
     };
   }
 
-  async validateUser(email: string, password: string): Promise<any> {
-    const user = await this.prisma.client.user.findUnique({
-      where: { email },
-    });
-
+  async validateUser(
+    email: string,
+    password: string,
+  ): Promise<AuthenticatedUser | null> {
+    const user = await this.prisma.client.user.findUnique({ where: { email } });
     if (!user) {
       return null;
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (isPasswordValid) {
-      const { password, ...result } = user;
-      return result;
+    if (!isPasswordValid) {
+      return null;
     }
 
-    return null;
+    const { password: _password, ...result } = user;
+    return result;
   }
 }

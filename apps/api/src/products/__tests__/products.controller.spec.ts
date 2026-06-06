@@ -22,9 +22,7 @@ describe('ProductsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProductsController],
-      providers: [
-        { provide: ProductsService, useValue: mockProductsService },
-      ],
+      providers: [{ provide: ProductsService, useValue: mockProductsService }],
     }).compile();
 
     controller = module.get<ProductsController>(ProductsController);
@@ -97,7 +95,10 @@ describe('ProductsController', () => {
 
       const result = await controller.create(createProductDto, mockReq);
 
-      expect(productsService.create).toHaveBeenCalledWith(createProductDto, userId);
+      expect(productsService.create).toHaveBeenCalledWith(
+        createProductDto,
+        userId,
+      );
       expect(result).toEqual(mockResult);
     });
   });
@@ -122,9 +123,17 @@ describe('ProductsController', () => {
 
       mockProductsService.update.mockResolvedValue(mockResult);
 
-      const result = await controller.update(productId, updateProductDto, mockReq);
+      const result = await controller.update(
+        productId,
+        updateProductDto,
+        mockReq,
+      );
 
-      expect(productsService.update).toHaveBeenCalledWith(productId, updateProductDto, userId);
+      expect(productsService.update).toHaveBeenCalledWith(
+        productId,
+        updateProductDto,
+        userId,
+      );
       expect(result).toEqual(mockResult);
     });
   });

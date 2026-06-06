@@ -90,7 +90,9 @@ describe('ProductsService', () => {
         reviews: [],
       };
 
-      mockPrismaService.client.product.findUnique.mockResolvedValue(mockProduct);
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
 
       const result = await service.findOne(productId);
 
@@ -151,7 +153,9 @@ describe('ProductsService', () => {
         id: productId,
       };
 
-      mockPrismaService.client.product.findUnique.mockResolvedValue(existingProduct);
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        existingProduct,
+      );
       mockPrismaService.client.product.update.mockResolvedValue(updatedProduct);
 
       const result = await service.update(productId, updateProductDto, userId);
@@ -176,9 +180,9 @@ describe('ProductsService', () => {
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(null);
 
-      await expect(service.update(productId, updateProductDto, userId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.update(productId, updateProductDto, userId),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw error if user is not the seller', async () => {
@@ -192,11 +196,13 @@ describe('ProductsService', () => {
         sellerId: userId, // different from wrongUserId
       };
 
-      mockPrismaService.client.product.findUnique.mockResolvedValue(existingProduct);
-
-      await expect(service.update(productId, updateProductDto, wrongUserId)).rejects.toThrow(
-        'Not authorized to update this product',
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        existingProduct,
       );
+
+      await expect(
+        service.update(productId, updateProductDto, wrongUserId),
+      ).rejects.toThrow('Not authorized to update this product');
     });
   });
 
@@ -210,8 +216,12 @@ describe('ProductsService', () => {
         sellerId: userId, // same as userId
       };
 
-      mockPrismaService.client.product.findUnique.mockResolvedValue(existingProduct);
-      mockPrismaService.client.product.delete.mockResolvedValue(existingProduct);
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        existingProduct,
+      );
+      mockPrismaService.client.product.delete.mockResolvedValue(
+        existingProduct,
+      );
 
       const result = await service.remove(productId, userId);
 
@@ -245,7 +255,9 @@ describe('ProductsService', () => {
         sellerId: userId, // different from wrongUserId
       };
 
-      mockPrismaService.client.product.findUnique.mockResolvedValue(existingProduct);
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        existingProduct,
+      );
 
       await expect(service.remove(productId, wrongUserId)).rejects.toThrow(
         'Not authorized to delete this product',
@@ -294,14 +306,14 @@ describe('ProductsService', () => {
         where: {
           isApproved: true,
           OR: [
-            { title: { contains: 'test', mode: 'insensitive' } },
-            { description: { contains: 'test', mode: 'insensitive' } },
-            { brand: { contains: 'test', mode: 'insensitive' } },
-            { category: { contains: 'test', mode: 'insensitive' } },
+            { title: { contains: 'test' } },
+            { description: { contains: 'test' } },
+            { brand: { contains: 'test' } },
+            { category: { contains: 'test' } },
           ],
           price: { gte: 10, lte: 100 },
           size: 'M',
-          brand: { contains: 'TestBrand', mode: 'insensitive' },
+          brand: { contains: 'TestBrand' },
           condition: 'New',
         },
         skip: 0, // (1-1)*10 = 0, number due to subtraction coercion
@@ -316,14 +328,14 @@ describe('ProductsService', () => {
         where: {
           isApproved: true,
           OR: [
-            { title: { contains: 'test', mode: 'insensitive' } },
-            { description: { contains: 'test', mode: 'insensitive' } },
-            { brand: { contains: 'test', mode: 'insensitive' } },
-            { category: { contains: 'test', mode: 'insensitive' } },
+            { title: { contains: 'test' } },
+            { description: { contains: 'test' } },
+            { brand: { contains: 'test' } },
+            { category: { contains: 'test' } },
           ],
           price: { gte: 10, lte: 100 },
           size: 'M',
-          brand: { contains: 'TestBrand', mode: 'insensitive' },
+          brand: { contains: 'TestBrand' },
           condition: 'New',
         },
       });

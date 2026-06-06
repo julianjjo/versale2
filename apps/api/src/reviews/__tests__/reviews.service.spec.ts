@@ -62,7 +62,9 @@ describe('ReviewsService', () => {
         comment: 'Great product!',
       };
 
-      mockPrismaService.client.product.findUnique.mockResolvedValue(mockProduct);
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
       mockPrismaService.client.review.findFirst.mockResolvedValue(null);
       mockPrismaService.client.review.create.mockResolvedValue(mockReview);
 
@@ -113,7 +115,9 @@ describe('ReviewsService', () => {
         isApproved: false,
       };
 
-      mockPrismaService.client.product.findUnique.mockResolvedValue(mockProduct);
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
 
       await expect(
         service.create(createReviewDto, userId, productId),
@@ -149,8 +153,12 @@ describe('ReviewsService', () => {
         comment: 'Updated review',
       };
 
-      mockPrismaService.client.product.findUnique.mockResolvedValue(mockProduct);
-      mockPrismaService.client.review.findFirst.mockResolvedValue(existingReview);
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+      mockPrismaService.client.review.findFirst.mockResolvedValue(
+        existingReview,
+      );
       mockPrismaService.client.review.update.mockResolvedValue(updatedReview);
 
       const result = await service.create(createReviewDto, userId, productId);
@@ -214,7 +222,9 @@ describe('ReviewsService', () => {
         comment: 'Updated comment',
       };
 
-      mockPrismaService.client.review.findUnique.mockResolvedValue(existingReview);
+      mockPrismaService.client.review.findUnique.mockResolvedValue(
+        existingReview,
+      );
       mockPrismaService.client.review.update.mockResolvedValue(updatedReview);
 
       const result = await service.update(reviewId, updateReviewDto, userId);
@@ -252,7 +262,9 @@ describe('ReviewsService', () => {
         userId: wrongUserId, // different user
       };
 
-      mockPrismaService.client.review.findUnique.mockResolvedValue(existingReview);
+      mockPrismaService.client.review.findUnique.mockResolvedValue(
+        existingReview,
+      );
 
       await expect(
         service.update(reviewId, updateReviewDto, userId),
@@ -270,7 +282,9 @@ describe('ReviewsService', () => {
         userId,
       };
 
-      mockPrismaService.client.review.findUnique.mockResolvedValue(existingReview);
+      mockPrismaService.client.review.findUnique.mockResolvedValue(
+        existingReview,
+      );
       mockPrismaService.client.review.delete.mockResolvedValue(existingReview);
 
       const result = await service.remove(reviewId, userId);
@@ -305,7 +319,9 @@ describe('ReviewsService', () => {
         userId: wrongUserId, // different user
       };
 
-      mockPrismaService.client.review.findUnique.mockResolvedValue(existingReview);
+      mockPrismaService.client.review.findUnique.mockResolvedValue(
+        existingReview,
+      );
 
       await expect(service.remove(reviewId, userId)).rejects.toThrow(
         'Not authorized to delete this review',

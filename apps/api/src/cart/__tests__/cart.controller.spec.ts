@@ -18,9 +18,7 @@ describe('CartController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CartController],
-      providers: [
-        { provide: CartService, useValue: mockCartService },
-      ],
+      providers: [{ provide: CartService, useValue: mockCartService }],
     }).compile();
 
     controller = module.get<CartController>(CartController);
@@ -75,7 +73,11 @@ describe('CartController', () => {
 
       const result = await controller.addItem(mockReq, body);
 
-      expect(cartService.addItem).toHaveBeenCalledWith(userId, productId, quantity);
+      expect(cartService.addItem).toHaveBeenCalledWith(
+        userId,
+        productId,
+        quantity,
+      );
       expect(result).toEqual(mockResult);
     });
   });
@@ -99,7 +101,11 @@ describe('CartController', () => {
 
       const result = await controller.updateItem(mockReq, itemId, body);
 
-      expect(cartService.updateItem).toHaveBeenCalledWith(itemId, quantity, userId);
+      expect(cartService.updateItem).toHaveBeenCalledWith(
+        itemId,
+        quantity,
+        userId,
+      );
       expect(result).toEqual(mockResult);
     });
   });

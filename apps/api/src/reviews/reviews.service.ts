@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -6,7 +11,6 @@ export class ReviewsService {
   constructor(private prisma: PrismaService) {}
 
   async create(createReviewDto: any, userId: string, productId: string) {
-    // Check if the product exists and is approved
     const product = await this.prisma.client.product.findUnique({
       where: { id: productId },
     });
@@ -16,19 +20,18 @@ export class ReviewsService {
     }
 
     if (!product.isApproved) {
-      throw new Error('Product is not approved for sale');
+      throw new BadRequestException('Product is not approved for sale');
     }
 
-    // Check if the user has already reviewed this product (optional: allow only one review per user per product)
+    if (product.sellerId === userId) {
+      throw new BadRequestException('You cannot review your own product');
+    }
+
     const existingReview = await this.prisma.client.review.findFirst({
-      where: {
-        userId,
-        productId,
-      },
+      where: { userId, productId },
     });
 
     if (existingReview) {
-      // Update the existing review
       return this.prisma.client.review.update({
         where: { id: existingReview.id },
         data: {
@@ -38,7 +41,6 @@ export class ReviewsService {
       });
     }
 
-    // Create a new review
     return this.prisma.client.review.create({
       data: {
         rating: createReviewDto.rating,
@@ -52,9 +54,7 @@ export class ReviewsService {
   async findAllByProduct(productId: string) {
     return this.prisma.client.review.findMany({
       where: { productId },
-      include: {
-        user: { select: { id: true, name: true } },
-      },
+      include: { user: { select: { id: true, name: true } } },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -69,7 +69,7 @@ export class ReviewsService {
     }
 
     if (review.userId !== userId) {
-      throw new Error('Not authorized to update this review');
+      throw new ForbiddenException('Not authorized to update this review');
     }
 
     return this.prisma.client.review.update({
@@ -88,13 +88,12 @@ export class ReviewsService {
     }
 
     if (review.userId !== userId) {
-      throw new Error('Not authorized to delete this review');
+      throw new ForbiddenException('Not authorized to delete this review');
     }
 
     return this.prisma.client.review.delete({ where: { id } });
   }
 
-  // Admin: get all reviews (with pagination)
   async getAllReviews(query: any) {
     const { page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;

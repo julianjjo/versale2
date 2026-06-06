@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { AuthRequest } from '../types/request.types';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -24,26 +35,29 @@ export class ProductsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async create(@Body() createProductDto: CreateProductDto, @Req() req: AuthRequest) {
-    const userId = req.user.id;
-    return this.productsService.create(createProductDto, userId);
+  async create(
+    @Body() createProductDto: CreateProductDto,
+    @Req() req: AuthRequest,
+  ) {
+    return this.productsService.create(createProductDto, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto, @Req() req: AuthRequest) {
-    const userId = req.user.id;
-    return this.productsService.update(id, updateProductDto, userId);
+  async update(
+    @Param('id') id: string,
+    @Body() updateProductDto: UpdateProductDto,
+    @Req() req: AuthRequest,
+  ) {
+    return this.productsService.update(id, updateProductDto, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   async remove(@Param('id') id: string, @Req() req: AuthRequest) {
-    const userId = req.user.id;
-    return this.productsService.remove(id, userId);
+    return this.productsService.remove(id, req.user.id);
   }
 
-  // Admin routes
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Get('admin/all')

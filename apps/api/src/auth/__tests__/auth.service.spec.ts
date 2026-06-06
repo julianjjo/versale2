@@ -48,7 +48,9 @@ describe('AuthService', () => {
       const name = 'Test User';
       const hashedPassword = 'hashed_password_123';
 
-      jest.spyOn(bcrypt, 'hash').mockImplementation(() => Promise.resolve(hashedPassword));
+      jest
+        .spyOn(bcrypt, 'hash')
+        .mockImplementation(() => Promise.resolve(hashedPassword));
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
       mockPrismaService.client.user.create.mockResolvedValue({
         id: '1',
@@ -123,7 +125,9 @@ describe('AuthService', () => {
       };
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(user);
-      jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(true));
+      jest
+        .spyOn(bcrypt, 'compare')
+        .mockImplementation(() => Promise.resolve(true));
       mockJwtService.sign.mockReturnValue('fake-jwt-token');
 
       const result = await service.login(email, password);
@@ -172,7 +176,9 @@ describe('AuthService', () => {
       };
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(user);
-      jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(false));
+      jest
+        .spyOn(bcrypt, 'compare')
+        .mockImplementation(() => Promise.resolve(false));
 
       await expect(service.login(email, password)).rejects.toThrow(
         UnauthorizedException,
@@ -195,7 +201,9 @@ describe('AuthService', () => {
       };
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(user);
-      jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(true));
+      jest
+        .spyOn(bcrypt, 'compare')
+        .mockImplementation(() => Promise.resolve(true));
 
       const result = await service.validateUser(email, password);
 
@@ -228,7 +236,9 @@ describe('AuthService', () => {
       };
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(user);
-      jest.spyOn(bcrypt, 'compare').mockImplementation(() => Promise.resolve(false));
+      jest
+        .spyOn(bcrypt, 'compare')
+        .mockImplementation(() => Promise.resolve(false));
 
       const result = await service.validateUser(email, password);
 

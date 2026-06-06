@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { OrdersController } from '../orders.controller';
 import { OrdersService } from '../orders.service';
 import { AuthRequest } from '../../../src/types/request.types';
-import { OrderStatus } from '../../users/role.enum';
+import { OrderStatus } from '../order-status.enum';
 
 describe('OrdersController', () => {
   let controller: OrdersController;
@@ -19,9 +19,7 @@ describe('OrdersController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [OrdersController],
-      providers: [
-        { provide: OrdersService, useValue: mockOrdersService },
-      ],
+      providers: [{ provide: OrdersService, useValue: mockOrdersService }],
     }).compile();
 
     controller = module.get<OrdersController>(OrdersController);
@@ -47,9 +45,9 @@ describe('OrdersController', () => {
 
       mockOrdersService.createOrder.mockResolvedValue(mockResult);
 
-      const result = await controller.createOrder(mockReq);
+      const result = await controller.createOrder(mockReq, {});
 
-      expect(ordersService.createOrder).toHaveBeenCalledWith(userId);
+      expect(ordersService.createOrder).toHaveBeenCalledWith(userId, {});
       expect(result).toEqual(mockResult);
     });
   });
@@ -123,8 +121,7 @@ describe('OrdersController', () => {
   describe('updateOrderStatus', () => {
     it('should call ordersService.updateOrderStatus with id and status', async () => {
       const orderId = 'order1';
-      const status = 'PAID';
-      const body = { status };
+      const body: { status: OrderStatus } = { status: OrderStatus.PAID };
       const mockResult = {
         id: orderId,
         status: OrderStatus.PAID,
@@ -134,7 +131,10 @@ describe('OrdersController', () => {
 
       const result = await controller.updateOrderStatus(orderId, body);
 
-      expect(ordersService.updateOrderStatus).toHaveBeenCalledWith(orderId, OrderStatus.PAID);
+      expect(ordersService.updateOrderStatus).toHaveBeenCalledWith(
+        orderId,
+        OrderStatus.PAID,
+      );
       expect(result).toEqual(mockResult);
     });
   });

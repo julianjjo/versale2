@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsIn, IsNumber, Min } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsIn,
+  IsNumber,
+  IsPositive,
+} from 'class-validator';
 
 export class UpdateProductDto {
   @IsString()
@@ -26,9 +32,9 @@ export class UpdateProductDto {
   @IsIn(['New', 'Like New', 'Good', 'Fair'])
   condition?: string;
 
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @IsOptional()
-  @Min(0)
+  @IsPositive()
   price?: number;
 
   @IsOptional()

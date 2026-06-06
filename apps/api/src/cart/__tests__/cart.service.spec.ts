@@ -135,7 +135,9 @@ describe('CartService', () => {
         isApproved: true,
       };
 
-      const getCartSpy = jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
+      const getCartSpy = jest
+        .spyOn(service, 'getCart')
+        .mockResolvedValue(mockCart as any);
       mockProductsService.findOne.mockResolvedValue(mockProduct);
       mockPrismaService.client.cartItem.create.mockResolvedValue({
         id: 'item1',
@@ -189,12 +191,14 @@ describe('CartService', () => {
         isApproved: false, // Not approved
       };
 
-      const getCartSpy = jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
+      const getCartSpy = jest
+        .spyOn(service, 'getCart')
+        .mockResolvedValue(mockCart as any);
       mockProductsService.findOne.mockResolvedValue(mockProduct);
 
-      await expect(service.addItem(userId, productId, quantity)).rejects.toThrow(
-        'Product is not approved for sale',
-      );
+      await expect(
+        service.addItem(userId, productId, quantity),
+      ).rejects.toThrow('Product is not approved for sale');
     });
 
     it('should update quantity if item already exists', async () => {
@@ -226,7 +230,9 @@ describe('CartService', () => {
         isApproved: true,
       };
 
-      const getCartSpy = jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
+      const getCartSpy = jest
+        .spyOn(service, 'getCart')
+        .mockResolvedValue(mockCart as any);
       mockProductsService.findOne.mockResolvedValue(mockProduct);
       mockPrismaService.client.cartItem.update.mockResolvedValue({
         id: 'item1',
@@ -262,7 +268,9 @@ describe('CartService', () => {
         userId,
       };
 
-      const getCartSpy = jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
+      const getCartSpy = jest
+        .spyOn(service, 'getCart')
+        .mockResolvedValue(mockCart as any);
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue({
         id: cartItemId,
         cartId: 'cart1',
@@ -291,7 +299,9 @@ describe('CartService', () => {
         userId,
       };
 
-      const getCartSpy = jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
+      const getCartSpy = jest
+        .spyOn(service, 'getCart')
+        .mockResolvedValue(mockCart as any);
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue(null);
 
       await expect(
@@ -309,7 +319,9 @@ describe('CartService', () => {
         userId,
       };
 
-      const getCartSpy = jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
+      const getCartSpy = jest
+        .spyOn(service, 'getCart')
+        .mockResolvedValue(mockCart as any);
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue({
         id: cartItemId,
         cartId: 'cart1', // item belongs to cart1
@@ -332,7 +344,9 @@ describe('CartService', () => {
         userId,
       };
 
-      const getCartSpy = jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
+      const getCartSpy = jest
+        .spyOn(service, 'getCart')
+        .mockResolvedValue(mockCart as any);
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue({
         id: cartItemId,
         cartId: 'cart1',
@@ -356,12 +370,14 @@ describe('CartService', () => {
         userId,
       };
 
-      const getCartSpy = jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
+      const getCartSpy = jest
+        .spyOn(service, 'getCart')
+        .mockResolvedValue(mockCart as any);
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.removeItem(cartItemId, userId),
-      ).rejects.toThrow(/Cart item with ID .* not found/);
+      await expect(service.removeItem(cartItemId, userId)).rejects.toThrow(
+        /Cart item with ID .* not found/,
+      );
     });
 
     it('should throw error if cart item belongs to another user', async () => {
@@ -373,16 +389,18 @@ describe('CartService', () => {
         userId,
       };
 
-      const getCartSpy = jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
+      const getCartSpy = jest
+        .spyOn(service, 'getCart')
+        .mockResolvedValue(mockCart as any);
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue({
         id: cartItemId,
         cartId: 'cart1', // item belongs to cart1
         cart: { id: 'cart1' },
       });
 
-      await expect(
-        service.removeItem(cartItemId, userId),
-      ).rejects.toThrow('Not authorized to remove this cart item');
+      await expect(service.removeItem(cartItemId, userId)).rejects.toThrow(
+        'Not authorized to remove this cart item',
+      );
     });
   });
 
@@ -395,14 +413,18 @@ describe('CartService', () => {
         userId,
       };
 
-      const getCartSpy = jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
+      const getCartSpy = jest
+        .spyOn(service, 'getCart')
+        .mockResolvedValue(mockCart as any);
 
       await service.clearCart(userId);
 
       expect(getCartSpy).toHaveBeenCalledWith(userId);
-      expect(mockPrismaService.client.cartItem.deleteMany).toHaveBeenCalledWith({
-        where: { cartId: 'cart1' },
-      });
+      expect(mockPrismaService.client.cartItem.deleteMany).toHaveBeenCalledWith(
+        {
+          where: { cartId: 'cart1' },
+        },
+      );
     });
   });
 });

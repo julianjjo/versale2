@@ -1,44 +1,50 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { AuthRequest } from '../types/request.types';
 import { CartService } from './cart.service';
+import { AddCartItemDto, UpdateCartItemDto } from './dto/cart.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('cart')
+@UseGuards(JwtAuthGuard)
 export class CartController {
   constructor(private cartService: CartService) {}
 
-  @UseGuards(JwtAuthGuard)
   @Get()
   async getCart(@Req() req: AuthRequest) {
-    const userId = req.user.id;
-    return this.cartService.getCart(userId);
+    return this.cartService.getCart(req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('items')
-  async addItem(@Req() req: AuthRequest, @Body() body: { productId: string; quantity: number }) {
-    const userId = req.user.id;
-    return this.cartService.addItem(userId, body.productId, body.quantity);
+  async addItem(@Req() req: AuthRequest, @Body() body: AddCartItemDto) {
+    return this.cartService.addItem(req.user.id, body.productId, body.quantity);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Patch('items/:itemId')
-  async updateItem(@Req() req: AuthRequest, @Param('itemId') itemId: string, @Body() body: { quantity: number }) {
-    const userId = req.user.id;
-    return this.cartService.updateItem(itemId, body.quantity, userId);
+  async updateItem(
+    @Req() req: AuthRequest,
+    @Param('itemId') itemId: string,
+    @Body() body: UpdateCartItemDto,
+  ) {
+    return this.cartService.updateItem(itemId, body.quantity, req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Delete('items/:itemId')
   async removeItem(@Req() req: AuthRequest, @Param('itemId') itemId: string) {
-    const userId = req.user.id;
-    return this.cartService.removeItem(itemId, userId);
+    return this.cartService.removeItem(itemId, req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Delete()
   async clearCart(@Req() req: AuthRequest) {
-    const userId = req.user.id;
-    return this.cartService.clearCart(userId);
+    return this.cartService.clearCart(req.user.id);
   }
 }

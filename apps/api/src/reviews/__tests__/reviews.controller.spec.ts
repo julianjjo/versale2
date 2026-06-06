@@ -18,9 +18,7 @@ describe('ReviewsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ReviewsController],
-      providers: [
-        { provide: ReviewsService, useValue: mockReviewsService },
-      ],
+      providers: [{ provide: ReviewsService, useValue: mockReviewsService }],
     }).compile();
 
     controller = module.get<ReviewsController>(ReviewsController);
@@ -73,7 +71,11 @@ describe('ReviewsController', () => {
 
       const result = await controller.createReview(mockReq, body);
 
-      expect(reviewsService.create).toHaveBeenCalledWith(body, userId, body.productId);
+      expect(reviewsService.create).toHaveBeenCalledWith(
+        body,
+        userId,
+        body.productId,
+      );
       expect(result).toEqual(mockResult);
     });
   });
@@ -99,7 +101,11 @@ describe('ReviewsController', () => {
 
       const result = await controller.updateReview(mockReq, reviewId, body);
 
-      expect(reviewsService.update).toHaveBeenCalledWith(reviewId, body, userId);
+      expect(reviewsService.update).toHaveBeenCalledWith(
+        reviewId,
+        body,
+        userId,
+      );
       expect(result).toEqual(mockResult);
     });
   });

@@ -103,10 +103,12 @@ versale/
 - `POST /auth/login` - Login and receive JWT token
 
 ### Users
+- `GET /users/me` - Get current user's profile (authenticated)
+- `PATCH /users/me` - Update current user's profile (authenticated)
 - `GET /users` - Get all users (admin only)
-- `GET /users/:id` - Get user by ID
-- `PATCH /users/me` - Update current user's profile
-- `GET /users/me` - Get current user's profile
+- `GET /users/:id` - Get user by ID (authenticated)
+- `PATCH /users/:id` - Update any user (admin only)
+- `DELETE /users/:id` - Delete a user (admin only)
 
 ### Products
 - `GET /products` - Get all products with filtering
@@ -116,25 +118,30 @@ versale/
 - `DELETE /products/:id` - Delete a product (authenticated, owner only)
 
 ### Cart
-- `GET /cart` - Get current user's cart
-- `POST /cart/items` - Add item to cart
-- `PATCH /cart/items/:itemId` - Update cart item quantity
-- `DELETE /cart/items/:itemId` - Remove item from cart
+- `GET /cart` - Get current user's cart (authenticated)
+- `POST /cart/items` - Add item to cart (authenticated)
+- `PATCH /cart/items/:itemId` - Update cart item quantity (authenticated)
+- `DELETE /cart/items/:itemId` - Remove item from cart (authenticated)
+- `DELETE /cart` - Clear current user's cart (authenticated)
 
 ### Orders
-- `POST /orders` - Create order from cart
-- `GET /orders` - Get user's order history
-- `GET /orders/:id` - Get order by ID
+- `POST /orders` - Create order from cart (authenticated)
+- `GET /orders` - Get user's order history (authenticated)
+- `GET /orders/:id` - Get order by ID (authenticated, owner only)
+- `GET /orders/admin/all` - Get all orders (admin only)
+- `PATCH /orders/admin/:id/status` - Update order status (admin only)
 
 ### Reviews
-- `GET /products/:id/reviews` - Get reviews for a product
-- `POST /products/:id/reviews` - Create a review for a product (authenticated)
+- `GET /reviews/product/:productId` - Get reviews for a product
+- `POST /reviews` - Create a review for a product (authenticated)
+- `PATCH /reviews/:id` - Update a review (authenticated, owner only)
+- `DELETE /reviews/:id` - Delete a review (authenticated, owner only)
 
 ### Admin
-- `GET /admin/stats` - Get platform statistics
-- `GET /admin/users` - Get all users
-- `GET /admin/products` - Get all products (including pending approval)
-- `PATCH /admin/products/:id/approve` - Approve a product
+- `GET /products/admin/all` - Get all products (including pending approval)
+- `PATCH /products/admin/:id/approve` - Approve a product
+- `GET /orders/admin/all` - Get all orders
+- `PATCH /orders/admin/:id/status` - Update order status
 
 ## Testing
 
