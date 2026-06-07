@@ -33,7 +33,9 @@ export class ProductsService {
       page = 1,
       limit = 10,
     } = query;
-    const skip = (page - 1) * limit;
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
 
     const where: any = { isApproved: true };
 
@@ -67,7 +69,7 @@ export class ProductsService {
       this.prisma.client.product.findMany({
         where,
         skip,
-        take: limit,
+        take: limitNum,
         orderBy: { createdAt: 'desc' },
         include: {
           seller: { select: { id: true, name: true } },
@@ -152,12 +154,14 @@ export class ProductsService {
 
   async findAllForAdmin(query: any) {
     const { page = 1, limit = 10 } = query;
-    const skip = (page - 1) * limit;
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
 
     const [products, total] = await Promise.all([
       this.prisma.client.product.findMany({
         skip,
-        take: limit,
+        take: limitNum,
         orderBy: { createdAt: 'desc' },
         include: {
           seller: { select: { id: true, name: true } },
@@ -171,9 +175,9 @@ export class ProductsService {
       data: products,
       meta: {
         total,
-        page: Number(page),
-        limit: Number(limit),
-        pages: Math.ceil(total / limit),
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum),
       },
     };
   }

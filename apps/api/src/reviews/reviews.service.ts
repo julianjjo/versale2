@@ -96,12 +96,14 @@ export class ReviewsService {
 
   async getAllReviews(query: any) {
     const { page = 1, limit = 10 } = query;
-    const skip = (page - 1) * limit;
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
 
     const [reviews, total] = await Promise.all([
       this.prisma.client.review.findMany({
         skip,
-        take: limit,
+        take: limitNum,
         include: {
           user: { select: { id: true, name: true } },
           product: { select: { id: true, title: true } },
@@ -115,9 +117,9 @@ export class ReviewsService {
       data: reviews,
       meta: {
         total,
-        page: Number(page),
-        limit: Number(limit),
-        pages: Math.ceil(total / limit),
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum),
       },
     };
   }

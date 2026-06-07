@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 
 vi.mock("../token", () => ({
   tokenStore: {
@@ -19,7 +20,7 @@ vi.mock("../api", () => ({
 
 import { tokenStore } from "../token";
 import { api } from "../api";
-import { useAuth } from "../auth";
+import { useAuth, AuthProvider, fetchProfile } from "../auth";
 
 const mockedTokenStore = tokenStore as unknown as {
   get: ReturnType<typeof vi.fn>;
@@ -32,15 +33,50 @@ const mockedApi = api as unknown as {
   post: ReturnType<typeof vi.fn>;
 };
 
+function wrapper({ children }: { children: ReactNode }) {
+  return <AuthProvider>{children}</AuthProvider>;
+}
+
+describe("fetchProfile", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns null when no token is present", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    expect(await fetchProfile()).toBeNull();
+  });
+
+  it("returns the user when the api call succeeds", async () => {
+    mockedTokenStore.get.mockReturnValue("tok");
+    mockedApi.get.mockResolvedValue({
+      data: { id: "u1", email: "a@b.c", name: "Alice", role: "USER" },
+    });
+    expect(await fetchProfile()).toEqual({
+      id: "u1",
+      email: "a@b.c",
+      name: "Alice",
+      role: "USER",
+    });
+  });
+
+  it("clears the token and returns null on failure", async () => {
+    mockedTokenStore.get.mockReturnValue("stale");
+    mockedApi.get.mockRejectedValue(new Error("401"));
+    expect(await fetchProfile()).toBeNull();
+    expect(mockedTokenStore.clear).toHaveBeenCalled();
+  });
+});
+
 describe("useAuth", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("starts with no user and loading true, then settles to user-null when no token", async () => {
+  it("starts with no user and loading true, then settles to null when no token", async () => {
     mockedTokenStore.get.mockReturnValue(null);
 
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -54,7 +90,7 @@ describe("useAuth", () => {
       data: { id: "u1", email: "a@b.c", name: "Alice", role: "USER" },
     });
 
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -68,11 +104,11 @@ describe("useAuth", () => {
     });
   });
 
-  it("clears the token if profile fetch fails", async () => {
+  it("clears the token if profile fetch fails on mount", async () => {
     mockedTokenStore.get.mockReturnValue("bad-token");
     mockedApi.get.mockRejectedValue(new Error("401"));
 
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper });
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
@@ -91,7 +127,7 @@ describe("useAuth", () => {
       },
     });
 
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
@@ -121,7 +157,7 @@ describe("useAuth", () => {
       },
     });
 
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
@@ -143,7 +179,7 @@ describe("useAuth", () => {
       data: { id: "u1", email: "a@b.c", name: "Alice", role: "USER" },
     });
 
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.user).not.toBeNull());
 
     act(() => result.current.logout());
@@ -157,7 +193,7 @@ describe("useAuth", () => {
       data: { id: "u1", email: "a@b.c", name: "Alice", role: "USER" },
     });
 
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.user).not.toBeNull());
 
     mockedApi.get.mockResolvedValueOnce({
@@ -170,5 +206,9 @@ describe("useAuth", () => {
 
     expect(result.current.user?.email).toBe("new@b.c");
     expect(result.current.user?.role).toBe("ADMIN");
+  });
+
+  it("throws when used outside of an AuthProvider", () => {
+    expect(() => renderHook(() => useAuth())).toThrow(/AuthProvider/);
   });
 });

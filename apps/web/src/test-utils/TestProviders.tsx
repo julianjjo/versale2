@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { AuthProvider } from "@/lib/auth";
 
 export function createTestQueryClient() {
   return new QueryClient({
@@ -18,5 +19,9 @@ export function TestProviders({
   client?: QueryClient;
 }) {
   const c = client ?? createTestQueryClient();
-  return <QueryClientProvider client={c}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={c}>
+      <AuthProvider>{children}</AuthProvider>
+    </QueryClientProvider>
+  );
 }

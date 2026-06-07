@@ -47,6 +47,11 @@ out/
 coverage/
 *.lcov*
 
+# Playwright
+playwright-report/
+test-results/
+playwright/.cache/
+
 # Misc
 npm-debug.log
 yarn-debug.log

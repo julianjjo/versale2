@@ -2,25 +2,33 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import LoginPage from "../page";
+import { TestProviders } from "@/test-utils/TestProviders";
 
 const pushMock = vi.fn();
 const refreshMock = vi.fn();
 const loginMock = vi.fn();
+const signupMock = vi.fn();
+const logoutMock = vi.fn();
+const refreshAuthMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock, refresh: refreshMock }),
 }));
 
-vi.mock("@/lib/auth", () => ({
-  useAuth: () => ({
-    user: null,
-    isLoading: false,
-    login: loginMock,
-    signup: vi.fn(),
-    logout: vi.fn(),
-    refresh: vi.fn(),
-  }),
-}));
+vi.mock("@/lib/auth", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
+  return {
+    ...actual,
+    useAuth: () => ({
+      user: null,
+      isLoading: false,
+      login: loginMock,
+      signup: signupMock,
+      logout: logoutMock,
+      refresh: refreshAuthMock,
+    }),
+  };
+});
 
 describe("LoginPage", () => {
   beforeEach(() => {
@@ -29,8 +37,16 @@ describe("LoginPage", () => {
     loginMock.mockResolvedValue(undefined);
   });
 
+  function renderLogin() {
+    return render(
+      <TestProviders>
+        <LoginPage />
+      </TestProviders>,
+    );
+  }
+
   it("renders the login form", () => {
-    render(<LoginPage />);
+    renderLogin();
     expect(
       screen.getByRole("heading", { name: /log in/i }),
     ).toBeInTheDocument();
@@ -43,7 +59,7 @@ describe("LoginPage", () => {
 
   it("calls login with the entered email and password", async () => {
     const user = userEvent.setup();
-    render(<LoginPage />);
+    renderLogin();
 
     await user.type(screen.getByLabelText("Email"), "alice@example.com");
     await user.type(screen.getByLabelText("Password"), "secret123");
@@ -57,7 +73,7 @@ describe("LoginPage", () => {
   it("shows an error message when login fails", async () => {
     loginMock.mockRejectedValueOnce(new Error("Invalid credentials"));
     const user = userEvent.setup();
-    render(<LoginPage />);
+    renderLogin();
 
     await user.type(screen.getByLabelText("Email"), "alice@example.com");
     await user.type(screen.getByLabelText("Password"), "wrong");
@@ -78,7 +94,7 @@ describe("LoginPage", () => {
     );
 
     const user = userEvent.setup();
-    render(<LoginPage />);
+    renderLogin();
 
     await user.type(screen.getByLabelText("Email"), "a@b.c");
     await user.type(screen.getByLabelText("Password"), "password");
@@ -93,7 +109,7 @@ describe("LoginPage", () => {
   });
 
   it("links to the signup page", () => {
-    render(<LoginPage />);
+    renderLogin();
     const link = screen.getByRole("link", { name: /sign up/i });
     expect(link).toHaveAttribute("href", "/signup");
   });

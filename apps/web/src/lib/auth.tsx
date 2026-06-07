@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import { api } from "./api";
 import { tokenStore } from "./token";
 import type { AuthResponse, User } from "./types";
@@ -14,20 +20,22 @@ export interface AuthState {
   refresh: () => Promise<void>;
 }
 
-export function useAuth(): AuthState {
+const AuthContext = createContext<AuthState | null>(null);
+
+export async function fetchProfile(): Promise<User | null> {
+  if (!tokenStore.get()) return null;
+  try {
+    const res = await api.get<User>("/users/me");
+    return res.data;
+  } catch {
+    tokenStore.clear();
+    return null;
+  }
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  const fetchProfile = async (): Promise<User | null> => {
-    if (!tokenStore.get()) return null;
-    try {
-      const res = await api.get<User>("/users/me");
-      return res.data;
-    } catch {
-      tokenStore.clear();
-      return null;
-    }
-  };
 
   useEffect(() => {
     let mounted = true;
@@ -72,5 +80,19 @@ export function useAuth(): AuthState {
     setUser(profile);
   };
 
-  return { user, isLoading, login, signup, logout, refresh };
+  return (
+    <AuthContext.Provider
+      value={{ user, isLoading, login, signup, logout, refresh }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth(): AuthState {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return ctx;
 }

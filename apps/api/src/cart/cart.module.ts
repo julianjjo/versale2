@@ -7,5 +7,6 @@ import { ProductsService } from '../products/products.service';
 @Module({
   controllers: [CartController],
   providers: [CartService, PrismaService, ProductsService],
+  exports: [CartService],
 })
 export class CartModule {}

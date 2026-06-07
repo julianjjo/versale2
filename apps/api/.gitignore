@@ -4,6 +4,7 @@ node_modules
 
 /generated/prisma
 /dev.db
+/e2e.db
 
 # Backup files
 *.bak

@@ -20,9 +20,13 @@ const authState = {
   refresh: vi.fn(),
 };
 
-vi.mock("@/lib/auth", () => ({
-  useAuth: () => authState,
-}));
+vi.mock("@/lib/auth", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
+  return {
+    ...actual,
+    useAuth: () => authState,
+  };
+});
 
 vi.mock("next/link", () => ({
   default: ({ children, href, ...rest }: { children: React.ReactNode; href: string }) => (

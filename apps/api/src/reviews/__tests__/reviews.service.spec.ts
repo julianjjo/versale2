@@ -350,7 +350,7 @@ describe('ReviewsService', () => {
 
       expect(mockPrismaService.client.review.findMany).toHaveBeenCalledWith({
         skip: 0,
-        take: '10', // limit remains as string
+        take: 10,
         include: {
           user: { select: { id: true, name: true } },
           product: { select: { id: true, title: true } },

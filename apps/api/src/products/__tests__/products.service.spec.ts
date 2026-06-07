@@ -316,8 +316,8 @@ describe('ProductsService', () => {
           brand: { contains: 'TestBrand' },
           condition: 'New',
         },
-        skip: 0, // (1-1)*10 = 0, number due to subtraction coercion
-        take: '10', // limit remains as string
+        skip: 0,
+        take: 10,
         orderBy: { createdAt: 'desc' },
         include: {
           seller: { select: { id: true, name: true } },
@@ -383,8 +383,8 @@ describe('ProductsService', () => {
       const result = await service.findAllForAdmin(query);
 
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith({
-        skip: 5, // (2-1)*5 = 5, number due to subtraction coercion
-        take: '5', // limit remains as string
+        skip: 5,
+        take: 5,
         orderBy: { createdAt: 'desc' },
         include: {
           seller: { select: { id: true, name: true } },
