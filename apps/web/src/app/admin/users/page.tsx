@@ -2,7 +2,13 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
-import { Spinner, Card, EmptyState, Badge, Button } from "@/components/ui";
+import {
+  Spinner,
+  Card,
+  EmptyState,
+  Badge,
+  Button,
+} from "@/components/ui";
 import type { User } from "@/lib/types";
 import { useState } from "react";
 
@@ -30,7 +36,7 @@ export default function AdminUsersPage() {
 
   if (isLoading) {
     return (
-      <div className="py-8 flex items-center justify-center gap-2 text-zinc-500">
+      <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
         <Spinner className="h-5 w-5" /> Loading…
       </div>
     );
@@ -40,8 +46,12 @@ export default function AdminUsersPage() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-4">All users</h2>
-      {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
+      <h2 className="heading-section mb-4 text-text-primary">All users</h2>
+      {error && (
+        <p className="mb-3 text-sm text-danger" role="alert">
+          {error}
+        </p>
+      )}
       {users.length === 0 ? (
         <EmptyState title="No users" />
       ) : (
@@ -49,9 +59,11 @@ export default function AdminUsersPage() {
           {users.map((u) => (
             <Card key={u.id}>
               <div className="flex items-center gap-4">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{u.name}</p>
-                  <p className="text-xs text-zinc-500">{u.email}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-text-primary">
+                    {u.name}
+                  </p>
+                  <p className="text-xs text-text-muted">{u.email}</p>
                 </div>
                 <Badge variant={u.role === "ADMIN" ? "info" : "default"}>
                   {u.role}

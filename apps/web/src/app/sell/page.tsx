@@ -13,7 +13,12 @@ import {
   Card,
   Spinner,
   EmptyState,
+  PageContainer,
+  SectionHeader,
 } from "@/components/ui";
+
+const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
+const CONDITIONS = ["New", "Like New", "Good", "Fair"];
 
 export default function SellPage() {
   const router = useRouter();
@@ -33,28 +38,23 @@ export default function SellPage() {
 
   if (isAuthLoading) {
     return (
-      <div className="py-8 flex items-center justify-center gap-2 text-zinc-500">
-        <Spinner className="h-5 w-5" /> Loading…
-      </div>
+      <PageContainer>
+        <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
+          <Spinner className="h-5 w-5" /> Loading…
+        </div>
+      </PageContainer>
     );
   }
 
   if (!user) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-12">
+      <PageContainer size="narrow">
         <EmptyState
           title="Please log in"
           description="You need an account to list items for sale."
-          action={
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center rounded-md bg-zinc-900 dark:bg-zinc-50 text-zinc-50 dark:text-zinc-900 px-4 py-2 text-sm"
-            >
-              Log in
-            </Link>
-          }
+          action={<Link href="/login">Log in</Link>}
         />
-      </div>
+      </PageContainer>
     );
   }
 
@@ -90,8 +90,11 @@ export default function SellPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="text-2xl font-semibold mb-6">List an item for sale</h1>
+    <PageContainer size="narrow">
+      <SectionHeader
+        title="List an item for sale"
+        description="Share a piece from your wardrobe with the community."
+      />
 
       <Card>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -110,7 +113,7 @@ export default function SellPage() {
             placeholder="Describe the item, fit, condition details, etc."
             required
           />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Input
               label="Category"
               value={form.category}
@@ -125,7 +128,7 @@ export default function SellPage() {
               placeholder="e.g. Levi's"
             />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Select
               label="Size"
               value={form.size}
@@ -133,7 +136,7 @@ export default function SellPage() {
               required
             >
               <option value="">Select a size</option>
-              {["XS", "S", "M", "L", "XL", "XXL"].map((s) => (
+              {SIZES.map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
@@ -145,7 +148,7 @@ export default function SellPage() {
               onChange={(e) => update("condition", e.target.value)}
               required
             >
-              {["New", "Like New", "Good", "Fair"].map((c) => (
+              {CONDITIONS.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -168,13 +171,18 @@ export default function SellPage() {
             onChange={(e) => update("images", e.target.value)}
             rows={2}
             placeholder="One image URL per line or comma-separated"
+            hint="Paste direct image links, one per line."
           />
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-text-muted">
             Your listing will be reviewed by an admin before appearing on the
             marketplace.
           </p>
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          <div className="flex gap-2">
+          {error && (
+            <p className="text-sm text-danger" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? "Submitting…" : "Submit listing"}
             </Button>
@@ -188,6 +196,6 @@ export default function SellPage() {
           </div>
         </form>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

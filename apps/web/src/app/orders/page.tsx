@@ -1,16 +1,22 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { Spinner, Card, EmptyState, Badge } from "@/components/ui";
+import {
+  Spinner,
+  Card,
+  EmptyState,
+  Badge,
+  PageContainer,
+  SectionHeader,
+  Price,
+  type BadgeVariant,
+} from "@/components/ui";
 import type { Order, OrderStatus } from "@/lib/types";
 
-const STATUS_VARIANT: Record<
-  OrderStatus,
-  "default" | "success" | "warning" | "danger" | "info"
-> = {
+const STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
   PENDING: "warning",
   PAID: "info",
   SHIPPED: "info",
@@ -19,6 +25,7 @@ const STATUS_VARIANT: Record<
 };
 
 export default function OrdersPage() {
+  const router = useRouter();
   const { user, isLoading: isAuthLoading } = useAuth();
 
   const { data, isLoading } = useQuery<Order[]>({
@@ -32,85 +39,82 @@ export default function OrdersPage() {
 
   if (isAuthLoading) {
     return (
-      <div className="py-8 flex items-center justify-center gap-2 text-zinc-500">
-        <Spinner className="h-5 w-5" /> Loading…
-      </div>
+      <PageContainer>
+        <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
+          <Spinner className="h-5 w-5" /> Loading…
+        </div>
+      </PageContainer>
     );
   }
 
   if (!user) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-12">
+      <PageContainer size="narrow">
         <EmptyState
           title="Please log in"
           description="You need an account to view your orders."
-          action={
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center rounded-md bg-zinc-900 dark:bg-zinc-50 text-zinc-50 dark:text-zinc-900 px-4 py-2 text-sm"
-            >
-              Log in
-            </Link>
-          }
+          action={<button onClick={() => router.push("/login")}>Log in</button>}
         />
-      </div>
+      </PageContainer>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="py-8 flex items-center justify-center gap-2 text-zinc-500">
-        <Spinner className="h-5 w-5" /> Loading…
-      </div>
+      <PageContainer>
+        <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
+          <Spinner className="h-5 w-5" /> Loading orders…
+        </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="text-2xl font-semibold mb-6">Order history</h1>
+    <PageContainer size="default">
+      <SectionHeader
+        title="Order history"
+        description="Track and review your past purchases."
+      />
       {data && data.length === 0 ? (
         <EmptyState
           title="No orders yet"
           description="Once you place an order, it will appear here."
           action={
-            <Link
-              href="/products"
-              className="inline-flex items-center justify-center rounded-md bg-zinc-900 dark:bg-zinc-50 text-zinc-50 dark:text-zinc-900 px-4 py-2 text-sm"
-            >
+            <button onClick={() => router.push("/products")}>
               Browse products
-            </Link>
+            </button>
           }
         />
       ) : (
         <div className="space-y-3">
           {data?.map((order) => (
-            <Link
+            <a
               key={order.id}
               href={`/orders/${order.id}`}
-              className="block hover:shadow-md transition-shadow"
+              className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             >
-              <Card>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-zinc-500">
+              <Card className="hover:shadow-md">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-sm text-text-muted">
                     Order #{order.id.slice(0, 8)}
                   </span>
                   <Badge variant={STATUS_VARIANT[order.status]}>
                     {order.status}
                   </Badge>
                 </div>
-                <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                <p className="mt-2 text-sm text-text-primary">
                   {order.items.length} item
-                  {order.items.length === 1 ? "" : "s"} · $
-                  {order.totalAmount.toFixed(2)}
+                  {order.items.length === 1 ? "" : "s"} ·{" "}
+                  <Price value={order.totalAmount} className="font-semibold" />
                 </p>
-                <p className="text-xs text-zinc-400 mt-1">
+                <p className="mt-1 text-xs text-text-muted">
                   Placed on {new Date(order.createdAt).toLocaleDateString()}
                 </p>
               </Card>
-            </Link>
+            </a>
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

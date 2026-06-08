@@ -13,9 +13,9 @@ const test = base.extend<{ cleanup: void }>({
 test.describe("Authentication", () => {
   test("shows the login page when not authenticated", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("link", { name: /^login$/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^login$/i })).toBeVisible();
     await expect(
-      page.getByRole("link", { name: /sign up/i }),
+      page.getByRole("button", { name: /sign up/i }),
     ).toBeVisible();
   });
 
@@ -26,7 +26,8 @@ test.describe("Authentication", () => {
     await page.getByLabel("Name").fill("Signup Test");
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill("password123");
-    await page.getByRole("button", { name: /sign up/i }).click();
+    // Scope to the form's submit button (avoids matching the header "Sign up" link).
+    await page.getByRole("main").getByRole("button", { name: /sign up/i }).click();
 
     await page.waitForURL(/\/products/, { timeout: 10_000 });
     await expect(page.getByText("Signup Test")).toBeVisible();
@@ -37,7 +38,7 @@ test.describe("Authentication", () => {
     await page.getByLabel("Name").fill("Existing");
     await page.getByLabel("Email").fill("user@e2e.test");
     await page.getByLabel("Password").fill("password123");
-    await page.getByRole("button", { name: /sign up/i }).click();
+    await page.getByRole("main").getByRole("button", { name: /sign up/i }).click();
 
     await expect(
       page.getByText(/already exists|signup failed|user already/i),
@@ -48,7 +49,7 @@ test.describe("Authentication", () => {
     await page.goto("/login");
     await page.getByLabel("Email").fill("user@e2e.test");
     await page.getByLabel("Password").fill("user12345");
-    await page.getByRole("button", { name: /^log in$/i }).click();
+    await page.getByRole("main").getByRole("button", { name: /^log in$/i }).click();
 
     await page.waitForURL(/\/products/, { timeout: 10_000 });
     await expect(page.getByText("E2E User")).toBeVisible();
@@ -58,7 +59,7 @@ test.describe("Authentication", () => {
     await page.goto("/login");
     await page.getByLabel("Email").fill("user@e2e.test");
     await page.getByLabel("Password").fill("wrongpassword");
-    await page.getByRole("button", { name: /^log in$/i }).click();
+    await page.getByRole("main").getByRole("button", { name: /^log in$/i }).click();
 
     await expect(
       page.getByText(/invalid credentials|login failed/i),
@@ -70,11 +71,11 @@ test.describe("Authentication", () => {
     await page.goto("/login");
     await page.getByLabel("Email").fill("user@e2e.test");
     await page.getByLabel("Password").fill("user12345");
-    await page.getByRole("button", { name: /^log in$/i }).click();
+    await page.getByRole("main").getByRole("button", { name: /^log in$/i }).click();
     await page.waitForURL(/\/products/, { timeout: 10_000 });
 
     await page.getByRole("button", { name: /logout/i }).click();
     await page.waitForURL("/", { timeout: 5_000 });
-    await expect(page.getByRole("link", { name: /^login$/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^login$/i })).toBeVisible();
   });
 });

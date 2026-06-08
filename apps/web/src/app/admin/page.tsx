@@ -1,10 +1,10 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
-import { Spinner, Card } from "@/components/ui";
-import type { Order, Product, User } from "@/lib/types";
 import Link from "next/link";
+import { api } from "@/lib/api";
+import { Spinner, Card, Price } from "@/components/ui";
+import type { Order, Product, User } from "@/lib/types";
 
 export default function AdminOverview() {
   const { data: products, isLoading: productsLoading } = useQuery({
@@ -43,56 +43,56 @@ export default function AdminOverview() {
 
   const loading = productsLoading || ordersLoading || usersLoading;
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
+        <Spinner className="h-5 w-5" /> Loading…
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {loading ? (
-        <div className="py-8 flex items-center justify-center gap-2 text-zinc-500">
-          <Spinner className="h-5 w-5" /> Loading…
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
-              label="Pending products"
-              value={pendingProducts}
-              href="/admin/products"
-            />
-            <StatCard
-              label="Total orders"
-              value={totalOrders}
-              href="/admin/orders"
-            />
-            <StatCard
-              label="Total users"
-              value={totalUsers}
-              href="/admin/users"
-            />
-            <StatCard
-              label="Revenue (USD)"
-              value={`$${totalRevenue.toFixed(2)}`}
-            />
-          </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="Pending products"
+          value={pendingProducts}
+          href="/admin/products"
+        />
+        <StatCard
+          label="Total orders"
+          value={totalOrders}
+          href="/admin/orders"
+        />
+        <StatCard
+          label="Total users"
+          value={totalUsers}
+          href="/admin/users"
+        />
+        <StatCard label="Revenue (USD)" value={`$${totalRevenue.toFixed(2)}`} />
+      </div>
 
-          {orders && orders.length > 0 && (
-            <Card>
-              <h2 className="font-semibold mb-3">Recent orders</h2>
-              <div className="space-y-2">
-                {orders.slice(0, 5).map((order) => (
-                  <div
-                    key={order.id}
-                    className="flex items-center justify-between text-sm border-b border-zinc-100 dark:border-zinc-800 last:border-0 pb-2 last:pb-0"
-                  >
-                    <span>#{order.id.slice(0, 8)}</span>
-                    <span>{order.status}</span>
-                    <span className="font-medium">
-                      ${order.totalAmount.toFixed(2)}
-                    </span>
-                  </div>
-                ))}
+      {orders && orders.length > 0 && (
+        <Card>
+          <h2 className="heading-card mb-3">Recent orders</h2>
+          <div className="divide-y divide-border">
+            {orders.slice(0, 5).map((order) => (
+              <div
+                key={order.id}
+                className="flex items-center justify-between py-2 text-sm first:pt-0 last:pb-0"
+              >
+                <span className="font-mono text-text-muted">
+                  #{order.id.slice(0, 8)}
+                </span>
+                <span className="text-text-primary">{order.status}</span>
+                <Price
+                  value={order.totalAmount}
+                  className="font-semibold"
+                />
               </div>
-            </Card>
-          )}
-        </>
+            ))}
+          </div>
+        </Card>
       )}
     </div>
   );
@@ -108,10 +108,21 @@ function StatCard({
   href?: string;
 }) {
   const inner = (
-    <Card className="hover:shadow-md transition-shadow h-full">
-      <p className="text-sm text-zinc-500">{label}</p>
-      <p className="text-2xl font-semibold mt-1">{value}</p>
+    <Card className="h-full transition-shadow hover:shadow-md">
+      <p className="text-eyebrow">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-text-primary">
+        {value}
+      </p>
     </Card>
   );
-  return href ? <Link href={href}>{inner}</Link> : inner;
+  return href ? (
+    <Link
+      href={href}
+      className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+    >
+      {inner}
+    </Link>
+  ) : (
+    inner
+  );
 }

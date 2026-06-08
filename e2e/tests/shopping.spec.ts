@@ -27,7 +27,9 @@ test.describe("Shopping flow", () => {
     await page.getByRole("heading", { name: "Vintage Denim Jacket" }).click();
     await expect(page).toHaveURL(/\/products\/.+/);
     await expect(page.getByText("$45.00")).toBeVisible();
-    await expect(page.getByText("Levi's · Jackets")).toBeVisible();
+    // Brand + category are rendered as separate elements (eyebrow + caption)
+    await expect(page.getByText("Levi's").first()).toBeVisible();
+    await expect(page.getByText("Jackets").first()).toBeVisible();
   });
 
   test("guest can view a product but cannot add to cart", async ({ page }) => {

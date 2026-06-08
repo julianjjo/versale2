@@ -4,7 +4,17 @@ import { useState } from "react";
 import Link from "next/link";
 import { api, extractApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { Spinner, Card, EmptyState, Input, Button, Badge } from "@/components/ui";
+import {
+  Spinner,
+  Card,
+  EmptyState,
+  Input,
+  Button,
+  Badge,
+  PageContainer,
+  SectionHeader,
+  type BadgeVariant,
+} from "@/components/ui";
 import type { User } from "@/lib/types";
 
 export default function ProfilePage() {
@@ -12,28 +22,23 @@ export default function ProfilePage() {
 
   if (isAuthLoading) {
     return (
-      <div className="py-8 flex items-center justify-center gap-2 text-zinc-500">
-        <Spinner className="h-5 w-5" /> Loading…
-      </div>
+      <PageContainer>
+        <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
+          <Spinner className="h-5 w-5" /> Loading…
+        </div>
+      </PageContainer>
     );
   }
 
   if (!user) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-12">
+      <PageContainer size="narrow">
         <EmptyState
           title="Please log in"
           description="You need an account to view your profile."
-          action={
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center rounded-md bg-zinc-900 dark:bg-zinc-50 text-zinc-50 dark:text-zinc-900 px-4 py-2 text-sm"
-            >
-              Log in
-            </Link>
-          }
+          action={<Link href="/login">Log in</Link>}
         />
-      </div>
+      </PageContainer>
     );
   }
 
@@ -84,15 +89,15 @@ function ProfileForm({
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="text-2xl font-semibold mb-6">Your profile</h1>
+    <PageContainer size="narrow">
+      <SectionHeader title="Your profile" description="Manage your account information." />
 
       <Card>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-zinc-500">Logged in as</p>
-            <p className="font-medium">{user.name}</p>
-            <p className="text-sm text-zinc-500">{user.email}</p>
+            <p className="text-eyebrow">Logged in as</p>
+            <p className="mt-1 font-medium text-text-primary">{user.name}</p>
+            <p className="text-sm text-text-muted">{user.email}</p>
           </div>
           <Badge variant={user.role === "ADMIN" ? "info" : "default"}>
             {user.role}
@@ -100,14 +105,14 @@ function ProfileForm({
         </div>
         <button
           onClick={logout}
-          className="text-sm text-red-600 hover:underline"
+          className="mt-3 text-sm font-medium text-danger transition-colors hover:text-danger/80"
         >
           Log out
         </button>
       </Card>
 
       <Card className="mt-4">
-        <h2 className="font-semibold mb-4">Update profile</h2>
+        <h2 className="heading-card mb-4">Update profile</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             label="Name"
@@ -129,14 +134,23 @@ function ProfileForm({
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Leave blank to keep current password"
             minLength={6}
+            hint="At least 6 characters."
           />
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          {success && <p className="text-sm text-green-600">{success}</p>}
+          {error && (
+            <p className="text-sm text-danger" role="alert">
+              {error}
+            </p>
+          )}
+          {success && (
+            <p className="text-sm text-success" role="status">
+              {success}
+            </p>
+          )}
           <Button type="submit" disabled={isSaving}>
             {isSaving ? "Saving…" : "Save changes"}
           </Button>
         </form>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

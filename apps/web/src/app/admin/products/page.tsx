@@ -2,7 +2,14 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
-import { Spinner, Card, EmptyState, Badge, Button } from "@/components/ui";
+import {
+  Spinner,
+  Card,
+  EmptyState,
+  Badge,
+  Button,
+  Price,
+} from "@/components/ui";
 import type { Product } from "@/lib/types";
 import { useState } from "react";
 import Link from "next/link";
@@ -45,7 +52,7 @@ export default function AdminProductsPage() {
 
   if (isLoading) {
     return (
-      <div className="py-8 flex items-center justify-center gap-2 text-zinc-500">
+      <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
         <Spinner className="h-5 w-5" /> Loading…
       </div>
     );
@@ -56,8 +63,12 @@ export default function AdminProductsPage() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-4">All products</h2>
-      {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
+      <h2 className="heading-section mb-4 text-text-primary">All products</h2>
+      {error && (
+        <p className="mb-3 text-sm text-danger" role="alert">
+          {error}
+        </p>
+      )}
       {products.length === 0 ? (
         <EmptyState title="No products yet" />
       ) : (
@@ -65,33 +76,33 @@ export default function AdminProductsPage() {
           {products.map((product) => (
             <Card key={product.id}>
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-md flex items-center justify-center text-zinc-400 text-xs flex-shrink-0 overflow-hidden">
+                <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
                   {product.images?.[0] ? (
                     <img
                       src={product.images[0]}
                       alt={product.title}
-                      className="object-cover w-full h-full"
+                      className="h-full w-full object-cover"
                     />
                   ) : (
                     "—"
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <Link
                     href={`/products/${product.id}`}
-                    className="font-medium hover:underline block truncate"
+                    className="block truncate font-medium text-text-primary hover:underline"
                   >
                     {product.title}
                   </Link>
-                  <p className="text-xs text-zinc-500">
-                    {product.category} · Size {product.size} · $
-                    {product.price.toFixed(2)}
+                  <p className="text-xs text-text-muted">
+                    {product.category} · Size {product.size} ·{" "}
+                    <Price value={product.price} />
                   </p>
-                  <p className="text-xs text-zinc-400 mt-1">
+                  <p className="mt-1 text-xs text-text-muted">
                     Seller: {product.seller?.name ?? "—"}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex flex-shrink-0 items-center gap-2">
                   {product.isApproved ? (
                     <Badge variant="success">Approved</Badge>
                   ) : (
@@ -126,7 +137,7 @@ export default function AdminProductsPage() {
       )}
 
       {meta && meta.pages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-6">
+        <div className="mt-6 flex items-center justify-center gap-2">
           <Button
             variant="secondary"
             disabled={meta.page <= 1}
@@ -134,7 +145,7 @@ export default function AdminProductsPage() {
           >
             ‹ Prev
           </Button>
-          <span className="text-sm text-zinc-500">
+          <span className="text-sm text-text-muted">
             Page {meta.page} of {meta.pages}
           </span>
           <Button

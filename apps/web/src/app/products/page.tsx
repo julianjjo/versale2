@@ -1,10 +1,14 @@
 import { ProductsBrowser } from "@/components/products/products-browser";
+import { PageContainer, SectionHeader } from "@/components/ui";
 
 export default function ProductsPage() {
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <h1 className="text-2xl font-semibold mb-6">Browse products</h1>
+    <PageContainer size="wide">
+      <SectionHeader
+        title="Browse marketplace"
+        description="Find pre-owned pieces from sellers in the community."
+      />
       <ProductsBrowser />
-    </div>
+    </PageContainer>
   );
 }

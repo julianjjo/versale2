@@ -2,7 +2,15 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
-import { Spinner, Card, EmptyState, Badge } from "@/components/ui";
+import {
+  Spinner,
+  Card,
+  EmptyState,
+  Badge,
+  Select,
+  Price,
+  type BadgeVariant,
+} from "@/components/ui";
 import type { Order, OrderStatus } from "@/lib/types";
 import { useState } from "react";
 import Link from "next/link";
@@ -15,10 +23,7 @@ const STATUSES: OrderStatus[] = [
   "CANCELLED",
 ];
 
-const STATUS_VARIANT: Record<
-  OrderStatus,
-  "default" | "success" | "warning" | "danger" | "info"
-> = {
+const STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
   PENDING: "warning",
   PAID: "info",
   SHIPPED: "info",
@@ -57,7 +62,7 @@ export default function AdminOrdersPage() {
 
   if (isLoading) {
     return (
-      <div className="py-8 flex items-center justify-center gap-2 text-zinc-500">
+      <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
         <Spinner className="h-5 w-5" /> Loading…
       </div>
     );
@@ -67,31 +72,35 @@ export default function AdminOrdersPage() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-4">All orders</h2>
-      {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
+      <h2 className="heading-section mb-4 text-text-primary">All orders</h2>
+      {error && (
+        <p className="mb-3 text-sm text-danger" role="alert">
+          {error}
+        </p>
+      )}
       {orders.length === 0 ? (
         <EmptyState title="No orders yet" />
       ) : (
         <div className="space-y-3">
           {orders.map((order) => (
             <Card key={order.id}>
-              <div className="flex items-center gap-4 flex-wrap">
-                <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="min-w-0 flex-1">
                   <Link
                     href={`/orders/${order.id}`}
-                    className="font-medium hover:underline"
+                    className="font-mono font-medium text-text-primary hover:underline"
                   >
                     Order #{order.id.slice(0, 8)}
                   </Link>
-                  <p className="text-xs text-zinc-500 mt-1">
+                  <p className="mt-1 text-xs text-text-muted">
                     {order.items.length} item
-                    {order.items.length === 1 ? "" : "s"} · $
-                    {order.totalAmount.toFixed(2)} ·{" "}
+                    {order.items.length === 1 ? "" : "s"} ·{" "}
+                    <Price value={order.totalAmount} /> ·{" "}
                     {new Date(order.createdAt).toLocaleDateString()}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <select
+                  <Select
                     value={order.status}
                     onChange={(e) =>
                       updateStatus.mutate({
@@ -100,14 +109,15 @@ export default function AdminOrdersPage() {
                       })
                     }
                     disabled={updateStatus.isPending}
-                    className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-sm"
+                    aria-label="Order status"
+                    className="h-9 w-32 text-sm"
                   >
                     {STATUSES.map((s) => (
                       <option key={s} value={s}>
                         {s}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                   <Badge variant={STATUS_VARIANT[order.status]}>
                     {order.status}
                   </Badge>

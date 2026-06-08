@@ -1,22 +1,39 @@
-import { useId, type ReactNode, type ButtonHTMLAttributes, type InputHTMLAttributes, type TextareaHTMLAttributes, type SelectHTMLAttributes } from "react";
+import {
+  useId,
+  type ReactNode,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type TextareaHTMLAttributes,
+  type SelectHTMLAttributes,
+  type HTMLAttributes,
+} from "react";
 
-type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
+export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost" | "accent";
+export type ButtonSize = "sm" | "md" | "lg";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   fullWidth?: boolean;
-  size?: "sm" | "md";
+  size?: ButtonSize;
 }
 
 const buttonClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-zinc-900 dark:bg-zinc-50 text-zinc-50 dark:text-zinc-900 hover:opacity-90 disabled:opacity-50",
+    "bg-secondary text-text-inverse hover:bg-secondary/90 active:bg-secondary/95",
+  accent:
+    "bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/95",
   secondary:
-    "border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50",
+    "bg-surface text-text-primary border border-border hover:bg-surface-muted active:bg-surface-muted/80",
   danger:
-    "bg-red-600 text-white hover:bg-red-700 disabled:opacity-50",
+    "bg-danger text-text-inverse hover:bg-danger/90 active:bg-danger/95",
   ghost:
-    "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50",
+    "bg-transparent text-text-primary hover:bg-surface-muted active:bg-surface-muted/80",
+};
+
+const sizeClasses: Record<ButtonSize, string> = {
+  sm: "h-8 px-3 text-xs",
+  md: "h-10 px-4 text-sm",
+  lg: "h-12 px-6 text-base",
 };
 
 export function Button({
@@ -25,14 +42,15 @@ export function Button({
   size = "md",
   className = "",
   children,
+  type = "button",
   ...props
 }: ButtonProps) {
-  const sizeClass = size === "sm" ? "px-3 py-1.5 text-xs" : "px-4 py-2 text-sm";
   const base =
-    "inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500";
+    "inline-flex items-center justify-center gap-2 rounded-md font-medium tracking-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50 disabled:cursor-not-allowed select-none";
   return (
     <button
-      className={`${base} ${sizeClass} ${buttonClasses[variant]} ${fullWidth ? "w-full" : ""} ${className}`}
+      type={type}
+      className={`${base} ${sizeClasses[size]} ${buttonClasses[variant]} ${fullWidth ? "w-full" : ""} ${className}`}
       {...props}
     >
       {children}
@@ -43,27 +61,42 @@ export function Button({
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  hint?: string;
 }
 
-export function Input({ label, error, id, className = "", ...props }: InputProps) {
+export function Input({
+  label,
+  error,
+  hint,
+  id,
+  className = "",
+  ...props
+}: InputProps) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
   return (
-    <div>
+    <div className="flex flex-col gap-1.5">
       {label && (
         <label
           htmlFor={fieldId}
-          className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300"
+          className="text-sm font-medium text-text-primary"
         >
           {label}
         </label>
       )}
       <input
         id={fieldId}
-        className={`w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-500 ${className}`}
+        className={`h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:border-text-primary focus:outline-none focus:ring-2 focus:ring-text-primary/20 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:opacity-60 ${className}`}
         {...props}
       />
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {hint && !error && (
+        <p className="text-xs text-text-muted">{hint}</p>
+      )}
+      {error && (
+        <p className="text-xs font-medium text-danger" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -71,11 +104,13 @@ export function Input({ label, error, id, className = "", ...props }: InputProps
 interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
   error?: string;
+  hint?: string;
 }
 
 export function Textarea({
   label,
   error,
+  hint,
   id,
   className = "",
   ...props
@@ -83,21 +118,28 @@ export function Textarea({
   const generatedId = useId();
   const fieldId = id ?? generatedId;
   return (
-    <div>
+    <div className="flex flex-col gap-1.5">
       {label && (
         <label
           htmlFor={fieldId}
-          className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300"
+          className="text-sm font-medium text-text-primary"
         >
           {label}
         </label>
       )}
       <textarea
         id={fieldId}
-        className={`w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-500 ${className}`}
+        className={`min-h-20 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:border-text-primary focus:outline-none focus:ring-2 focus:ring-text-primary/20 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:opacity-60 ${className}`}
         {...props}
       />
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {hint && !error && (
+        <p className="text-xs text-text-muted">{hint}</p>
+      )}
+      {error && (
+        <p className="text-xs font-medium text-danger" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -105,12 +147,14 @@ export function Textarea({
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
+  hint?: string;
   children: ReactNode;
 }
 
 export function Select({
   label,
   error,
+  hint,
   id,
   className = "",
   children,
@@ -119,30 +163,37 @@ export function Select({
   const generatedId = useId();
   const fieldId = id ?? generatedId;
   return (
-    <div>
+    <div className="flex flex-col gap-1.5">
       {label && (
         <label
           htmlFor={fieldId}
-          className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300"
+          className="text-sm font-medium text-text-primary"
         >
           {label}
         </label>
       )}
       <select
         id={fieldId}
-        className={`w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-500 ${className}`}
+        className={`h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-text-primary transition-colors focus:border-text-primary focus:outline-none focus:ring-2 focus:ring-text-primary/20 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:opacity-60 ${className}`}
         {...props}
       >
         {children}
       </select>
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {hint && !error && (
+        <p className="text-xs text-text-muted">{hint}</p>
+      )}
+      {error && (
+        <p className="text-xs font-medium text-danger" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
 
 export function Spinner({ className = "" }: { className?: string }) {
   return (
-    <div
+    <span
       className={`inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent ${className}`}
       role="status"
       aria-label="Loading"
@@ -154,20 +205,29 @@ export function EmptyState({
   title,
   description,
   action,
+  icon,
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
+  icon?: ReactNode;
 }) {
   return (
-    <div className="text-center py-12">
-      <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
-        {title}
-      </h3>
-      {description && (
-        <p className="mt-1 text-sm text-zinc-500">{description}</p>
+    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-surface-muted/40 px-6 py-12 text-center">
+      {icon && (
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface text-text-muted">
+          {icon}
+        </div>
       )}
-      {action && <div className="mt-4">{action}</div>}
+      <div className="space-y-1">
+        <h3 className="heading-card text-text-primary">{title}</h3>
+        {description && (
+          <p className="mx-auto max-w-sm text-sm text-text-muted">
+            {description}
+          </p>
+        )}
+      </div>
+      {action && <div className="mt-2">{action}</div>}
     </div>
   );
 }
@@ -175,38 +235,146 @@ export function EmptyState({
 export function Card({
   children,
   className = "",
+  as: Tag = "div",
+  ...rest
 }: {
   children: ReactNode;
   className?: string;
+  as?: "div" | "article" | "section";
+} & HTMLAttributes<HTMLDivElement>) {
+  return (
+    <Tag
+      className={`rounded-lg border border-border bg-surface p-4 shadow-sm transition-shadow ${className}`}
+      {...rest}
+    >
+      {children}
+    </Tag>
+  );
+}
+
+export type BadgeVariant =
+  | "default"
+  | "primary"
+  | "success"
+  | "warning"
+  | "danger"
+  | "info";
+
+const badgeClasses: Record<BadgeVariant, string> = {
+  default: "bg-surface-muted text-text-muted border-border",
+  primary: "bg-primary/15 text-primary-foreground border-primary/30",
+  success:
+    "bg-success/10 text-success border-success/20",
+  warning:
+    "bg-warning/10 text-warning border-warning/20",
+  danger: "bg-danger/10 text-danger border-danger/20",
+  info: "bg-info/10 text-info border-info/20",
+};
+
+export function Badge({
+  children,
+  variant = "default",
+  className = "",
+}: {
+  children: ReactNode;
+  variant?: BadgeVariant;
+  className?: string;
 }) {
   return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${badgeClasses[variant]} ${className}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+export function PageContainer({
+  children,
+  className = "",
+  size = "default",
+}: {
+  children: ReactNode;
+  className?: string;
+  size?: "narrow" | "default" | "wide";
+}) {
+  const widths: Record<string, string> = {
+    narrow: "max-w-2xl",
+    default: "max-w-5xl",
+    wide: "max-w-6xl",
+  };
+  return (
     <div
-      className={`rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 ${className}`}
+      className={`mx-auto w-full px-4 py-8 sm:px-6 sm:py-10 ${widths[size]} ${className}`}
     >
       {children}
     </div>
   );
 }
 
-export function Badge({
-  children,
-  variant = "default",
+export function SectionHeader({
+  title,
+  description,
+  action,
 }: {
-  children: ReactNode;
-  variant?: "default" | "success" | "warning" | "danger" | "info";
+  title: string;
+  description?: string;
+  action?: ReactNode;
 }) {
-  const variants: Record<string, string> = {
-    default: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-    success: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
-    warning: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-    danger: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-    info: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  };
+  return (
+    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h1 className="heading-section text-text-primary">{title}</h1>
+        {description && (
+          <p className="mt-1 text-sm text-text-muted">{description}</p>
+        )}
+      </div>
+      {action && <div className="flex-shrink-0">{action}</div>}
+    </div>
+  );
+}
+
+export function Price({
+  value,
+  className = "",
+  ...rest
+}: {
+  value: number;
+  className?: string;
+} & HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variants[variant]}`}
+      className={`font-mono font-medium tabular-nums text-text-primary ${className}`}
+      {...rest}
     >
-      {children}
+      ${value.toFixed(2)}
     </span>
+  );
+}
+
+export function StarRating({
+  value,
+  size = "sm",
+}: {
+  value: number;
+  size?: "sm" | "md";
+}) {
+  const rounded = Math.round(value);
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 text-warning ${
+        size === "md" ? "text-base" : "text-sm"
+      }`}
+      aria-label={`${value.toFixed(1)} out of 5 stars`}
+    >
+      {"★".repeat(rounded)}
+      <span className="text-border">{"★".repeat(5 - rounded)}</span>
+    </span>
+  );
+}
+
+export function Divider({ className = "" }: { className?: string }) {
+  return (
+    <hr className={`border-0 border-t border-border ${className}`} />
   );
 }

@@ -1,7 +1,21 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Button, Input, Textarea, Select, Spinner, EmptyState, Card, Badge } from "../index";
+import {
+  Button,
+  Input,
+  Textarea,
+  Select,
+  Spinner,
+  EmptyState,
+  Card,
+  Badge,
+  PageContainer,
+  SectionHeader,
+  Price,
+  StarRating,
+  Divider,
+} from "../index";
 
 describe("Button", () => {
   it("renders children", () => {
@@ -32,7 +46,22 @@ describe("Button", () => {
   it("applies the size sm class for small buttons", () => {
     render(<Button size="sm">Small</Button>);
     const btn = screen.getByRole("button");
-    expect(btn.className).toContain("text-xs");
+    expect(btn.className).toContain("h-8");
+  });
+
+  it("defaults to type=button to avoid form submit", () => {
+    render(<Button>Safe</Button>);
+    expect(screen.getByRole("button")).toHaveAttribute("type", "button");
+  });
+
+  it("supports a submit type when needed", () => {
+    render(<Button type="submit">Submit</Button>);
+    expect(screen.getByRole("button")).toHaveAttribute("type", "submit");
+  });
+
+  it("renders the accent variant", () => {
+    render(<Button variant="accent">Accent</Button>);
+    expect(screen.getByRole("button").className).toContain("bg-primary");
   });
 });
 
@@ -53,6 +82,11 @@ describe("Input", () => {
   it("shows the error message when error is set", () => {
     render(<Input label="X" error="required" />);
     expect(screen.getByText("required")).toBeInTheDocument();
+  });
+
+  it("shows the hint when set and no error", () => {
+    render(<Input label="X" hint="some hint" />);
+    expect(screen.getByText("some hint")).toBeInTheDocument();
   });
 });
 
@@ -119,11 +153,64 @@ describe("Badge", () => {
   });
 
   it("renders each variant without throwing", () => {
-    const variants = ["default", "success", "warning", "danger", "info"] as const;
+    const variants = [
+      "default",
+      "primary",
+      "success",
+      "warning",
+      "danger",
+      "info",
+    ] as const;
     for (const v of variants) {
       const { unmount } = render(<Badge variant={v}>{v}</Badge>);
       expect(screen.getByText(v)).toBeInTheDocument();
       unmount();
     }
+  });
+});
+
+describe("PageContainer", () => {
+  it("renders children with default max width", () => {
+    render(<PageContainer>Hello</PageContainer>);
+    expect(screen.getByText("Hello")).toBeInTheDocument();
+  });
+});
+
+describe("SectionHeader", () => {
+  it("renders title and description", () => {
+    render(
+      <SectionHeader
+        title="Section"
+        description="Subtitle"
+        action={<button>Action</button>}
+      />,
+    );
+    expect(
+      screen.getByRole("heading", { name: /section/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Subtitle")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /action/i })).toBeInTheDocument();
+  });
+});
+
+describe("Price", () => {
+  it("formats with two decimals and a $ sign", () => {
+    render(<Price value={12.5} data-testid="p" />);
+    const el = screen.getByTestId("p");
+    expect(el.textContent).toBe("$12.50");
+  });
+});
+
+describe("StarRating", () => {
+  it("renders a label with the value", () => {
+    render(<StarRating value={4.5} />);
+    expect(screen.getByLabelText(/4\.5 out of 5 stars/i)).toBeInTheDocument();
+  });
+});
+
+describe("Divider", () => {
+  it("renders an hr", () => {
+    const { container } = render(<Divider />);
+    expect(container.querySelector("hr")).toBeInTheDocument();
   });
 });

@@ -48,7 +48,7 @@ describe("LoginPage", () => {
   it("renders the login form", () => {
     renderLogin();
     expect(
-      screen.getByRole("heading", { name: /log in/i }),
+      screen.getByRole("heading", { name: /welcome back/i }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
     expect(screen.getByLabelText("Password")).toBeInTheDocument();

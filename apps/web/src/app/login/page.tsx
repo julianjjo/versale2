@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { extractApiError } from "@/lib/api";
-import { Input, Button } from "@/components/ui";
+import { Input, Button, Card, PageContainer } from "@/components/ui";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,37 +31,49 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="mx-auto max-w-md px-4 py-12">
-      <h1 className="text-2xl font-semibold mb-6">Log in</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Input
-          type="email"
-          label="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          autoComplete="email"
-        />
-        <Input
-          type="password"
-          label="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={6}
-          autoComplete="current-password"
-        />
-        {error && <p className="text-sm text-red-500">{error}</p>}
-        <Button type="submit" disabled={isLoading} fullWidth>
-          {isLoading ? "Logging in…" : "Log in"}
-        </Button>
-      </form>
-      <p className="mt-4 text-sm text-zinc-500">
-        No account?{" "}
-        <Link href="/signup" className="underline">
-          Sign up
-        </Link>
-      </p>
-    </div>
+    <PageContainer size="narrow">
+      <Card>
+        <h1 className="heading-section text-text-primary">Welcome back</h1>
+        <p className="mt-1 text-sm text-text-muted">
+          Log in to browse, buy, and sell on Versale.
+        </p>
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <Input
+            type="email"
+            label="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
+          <Input
+            type="password"
+            label="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={6}
+            autoComplete="current-password"
+          />
+          {error && (
+            <p className="text-sm text-danger" role="alert">
+              {error}
+            </p>
+          )}
+          <Button type="submit" disabled={isLoading} fullWidth size="lg">
+            {isLoading ? "Logging in…" : "Log in"}
+          </Button>
+        </form>
+        <p className="mt-4 text-sm text-text-muted">
+          No account?{" "}
+          <Link
+            href="/signup"
+            className="font-medium text-text-primary underline-offset-4 hover:underline"
+          >
+            Sign up
+          </Link>
+        </p>
+      </Card>
+    </PageContainer>
   );
 }

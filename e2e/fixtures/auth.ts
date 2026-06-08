@@ -10,7 +10,11 @@ async function loginAs(page: Page, credentials: Credentials) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(credentials.email);
   await page.getByLabel("Password").fill(credentials.password);
-  await page.getByRole("button", { name: /^log in$/i }).click();
+  // Scope to the form's submit button to avoid matching the header "Login" button.
+  await page
+    .getByRole("main")
+    .getByRole("button", { name: /^log in$/i })
+    .click();
   await page.waitForURL(/\/products/, { timeout: 10_000 });
 }
 

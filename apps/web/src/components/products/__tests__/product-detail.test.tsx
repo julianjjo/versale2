@@ -92,7 +92,7 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
-    expect(screen.getByText("Levi's · Jackets")).toBeInTheDocument();
+    expect(screen.getByText("Levi's")).toBeInTheDocument();
     expect(screen.getByText("$45.00")).toBeInTheDocument();
     expect(screen.getByText("M")).toBeInTheDocument();
     expect(screen.getByText("Alice")).toBeInTheDocument();

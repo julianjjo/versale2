@@ -34,11 +34,11 @@ export default defineConfig({
   globalSetup: path.join(REPO_ROOT, "e2e", "utils", "global-setup.ts"),
   webServer: [
     {
-      command: `DATABASE_URL=file:${E2E_DB} PORT=${API_PORT} JWT_SECRET=e2e-test-secret NODE_ENV=test npx nest start`,
+      command: `rm -f tsconfig.build.tsbuildinfo && DATABASE_URL=file:${E2E_DB} PORT=${API_PORT} JWT_SECRET=e2e-test-secret NODE_ENV=test npx nest start`,
       cwd: API_DIR,
       port: API_PORT,
       reuseExistingServer: false,
-      timeout: 60_000,
+      timeout: 120_000,
       env: {
         DATABASE_URL: `file:${E2E_DB}`,
         PORT: String(API_PORT),

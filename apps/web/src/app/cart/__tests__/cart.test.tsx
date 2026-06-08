@@ -173,18 +173,17 @@ describe("CartPage", () => {
     });
   });
 
-  it("prompts the user to log in if not authenticated", () => {
+  it("prompts the user to log in if not authenticated", async () => {
     authState.user = null;
+    const user = userEvent.setup();
     render(
       <TestProviders>
         <CartPage />
       </TestProviders>,
     );
     expect(screen.getByText(/please log in/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /log in/i })).toHaveAttribute(
-      "href",
-      "/login",
-    );
+    await user.click(screen.getByRole("button", { name: /log in/i }));
+    expect(pushMock).toHaveBeenCalledWith("/login");
   });
 
   it("calls the api to remove an item when Remove is clicked", async () => {

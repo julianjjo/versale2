@@ -12,6 +12,10 @@ import {
   Card,
   EmptyState,
   Spinner,
+  PageContainer,
+  SectionHeader,
+  Price,
+  Divider,
 } from "@/components/ui";
 import type { Cart } from "@/lib/types";
 
@@ -84,36 +88,35 @@ export default function CartPage() {
 
   if (isAuthLoading) {
     return (
-      <div className="py-8 flex items-center justify-center gap-2 text-zinc-500">
-        <Spinner className="h-5 w-5" /> Loading…
-      </div>
+      <PageContainer>
+        <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
+          <Spinner className="h-5 w-5" /> Loading…
+        </div>
+      </PageContainer>
     );
   }
 
   if (!user) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-12">
+      <PageContainer size="narrow">
         <EmptyState
           title="Please log in"
           description="You need an account to view your cart."
           action={
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center rounded-md bg-zinc-900 dark:bg-zinc-50 text-zinc-50 dark:text-zinc-900 px-4 py-2 text-sm"
-            >
-              Log in
-            </Link>
+            <Button onClick={() => router.push("/login")}>Log in</Button>
           }
         />
-      </div>
+      </PageContainer>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="py-8 flex items-center justify-center gap-2 text-zinc-500">
-        <Spinner className="h-5 w-5" /> Loading…
-      </div>
+      <PageContainer>
+        <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
+          <Spinner className="h-5 w-5" /> Loading cart…
+        </div>
+      </PageContainer>
     );
   }
 
@@ -124,62 +127,63 @@ export default function CartPage() {
   );
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">Your cart</h1>
-        {items.length > 0 && (
-          <Button
-            variant="ghost"
-            onClick={() => clearCart.mutate()}
-            disabled={clearCart.isPending}
-          >
-            Clear cart
-          </Button>
-        )}
-      </div>
+    <PageContainer size="default">
+      <SectionHeader
+        title="Your cart"
+        description="Review your items before checkout."
+        action={
+          items.length > 0 ? (
+            <Button
+              variant="ghost"
+              onClick={() => clearCart.mutate()}
+              disabled={clearCart.isPending}
+            >
+              Clear cart
+            </Button>
+          ) : null
+        }
+      />
 
       {items.length === 0 ? (
         <EmptyState
           title="Your cart is empty"
           description="Browse the marketplace to find something you love."
           action={
-            <Link
-              href="/products"
-              className="inline-flex items-center justify-center rounded-md bg-zinc-900 dark:bg-zinc-50 text-zinc-50 dark:text-zinc-900 px-4 py-2 text-sm"
-            >
+            <Button onClick={() => router.push("/products")}>
               Browse products
-            </Link>
+            </Button>
           }
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-3">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="space-y-3 lg:col-span-2">
             {items.map((item) => (
               <Card key={item.id}>
                 <div className="flex items-start gap-4">
-                  <div className="w-20 h-20 bg-zinc-100 dark:bg-zinc-800 rounded-md flex items-center justify-center text-zinc-400 text-xs flex-shrink-0 overflow-hidden">
+                  <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
                     {item.product?.images?.[0] ? (
                       <img
                         src={item.product.images[0]}
                         alt={item.product.title}
-                        className="object-cover w-full h-full"
+                        className="h-full w-full object-cover"
                       />
                     ) : (
                       "—"
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <Link
                       href={`/products/${item.productId}`}
-                      className="font-medium hover:underline block truncate"
+                      className="block truncate font-medium text-text-primary hover:underline"
                     >
                       {item.product?.title ?? item.productId}
                     </Link>
-                    <p className="text-xs text-zinc-500 mt-1">
-                      ${item.priceAtAdd.toFixed(2)} each
-                    </p>
+                    <Price
+                      value={item.priceAtAdd}
+                      className="mt-1 text-xs text-text-muted"
+                    />
                     {item.product && (
-                      <p className="text-xs text-zinc-500 mt-1">
+                      <p className="mt-1 text-xs text-text-muted">
                         {item.product.condition} · Size {item.product.size}
                       </p>
                     )}
@@ -192,18 +196,16 @@ export default function CartPage() {
                       onBlur={(e) => {
                         const q = Math.max(1, Number(e.target.value));
                         if (q !== item.quantity) {
-                          updateQty.mutate({
-                            itemId: item.id,
-                            quantity: q,
-                          });
+                          updateQty.mutate({ itemId: item.id, quantity: q });
                         }
                       }}
                       className="w-20"
+                      aria-label="Quantity"
                     />
                     <button
                       onClick={() => removeItem.mutate(item.id)}
                       disabled={removeItem.isPending}
-                      className="text-xs text-red-600 hover:underline"
+                      className="text-xs font-medium text-danger transition-colors hover:text-danger/80"
                     >
                       Remove
                     </button>
@@ -213,10 +215,10 @@ export default function CartPage() {
             ))}
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
             <Card>
-              <h2 className="font-semibold mb-3">Shipping address</h2>
-              <div className="space-y-2">
+              <h2 className="heading-card mb-3">Shipping address</h2>
+              <div className="space-y-3">
                 <Input
                   placeholder="Street"
                   value={shippingAddress.street}
@@ -227,7 +229,7 @@ export default function CartPage() {
                     }))
                   }
                 />
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-3">
                   <Input
                     placeholder="City"
                     value={shippingAddress.city}
@@ -249,7 +251,7 @@ export default function CartPage() {
                     }
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-3">
                   <Input
                     placeholder="ZIP"
                     value={shippingAddress.zip}
@@ -275,34 +277,40 @@ export default function CartPage() {
             </Card>
 
             <Card>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-zinc-500">Subtotal</span>
-                <span className="font-medium">${total.toFixed(2)}</span>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-text-muted">Subtotal</span>
+                <Price value={total} />
               </div>
-              <div className="flex items-center justify-between text-sm text-zinc-500">
+              <div className="mt-1 flex items-center justify-between text-xs text-text-muted">
                 <span>Shipping</span>
                 <span>Calculated at delivery</span>
               </div>
-              <div className="border-t border-zinc-200 dark:border-zinc-800 my-3" />
-              <div className="flex items-center justify-between mb-4">
-                <span className="font-semibold">Total</span>
-                <span className="font-semibold text-lg">
-                  ${total.toFixed(2)}
-                </span>
+              <Divider className="my-3" />
+              <div className="mb-4 flex items-center justify-between">
+                <span className="font-semibold text-text-primary">Total</span>
+                <Price
+                  value={total}
+                  className="text-lg font-semibold text-text-primary"
+                />
               </div>
               <Button
                 onClick={() => checkout.mutate()}
                 disabled={checkout.isPending}
                 fullWidth
+                size="lg"
               >
                 {checkout.isPending ? "Placing order…" : "Checkout"}
               </Button>
             </Card>
 
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && (
+              <p className="text-sm text-danger" role="alert">
+                {error}
+              </p>
+            )}
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -9,3 +9,9 @@ node_modules
 # Backup files
 *.bak
 *.bak2
+
+# Prisma 7 build artifacts
+/prisma.config.js
+/prisma.config.d.ts
+/prisma.config.js.map
+/tsconfig.build.tsbuildinfo

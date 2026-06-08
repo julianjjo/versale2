@@ -5,7 +5,16 @@ import { api } from "@/lib/api";
 import type { PaginatedResponse, Product } from "@/lib/types";
 import { useState } from "react";
 import Link from "next/link";
-import { Spinner, EmptyState, Card, Badge } from "@/components/ui";
+import {
+  Spinner,
+  EmptyState,
+  Card,
+  Badge,
+  Button,
+  Price,
+  Input,
+  Select,
+} from "@/components/ui";
 
 export interface ProductFilters {
   search?: string;
@@ -25,6 +34,9 @@ interface ProductsBrowserProps {
   showFilters?: boolean;
   showPagination?: boolean;
 }
+
+const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
+const CONDITIONS = ["New", "Like New", "Good", "Fair"];
 
 export function ProductsBrowser({
   initialFilters,
@@ -58,7 +70,7 @@ export function ProductsBrowser({
     <div>
       {showFilters && (
         <form
-          className="grid grid-cols-1 sm:grid-cols-6 gap-3 mb-6"
+          className="mb-6 grid grid-cols-1 gap-3 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2 lg:grid-cols-6"
           onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
@@ -77,110 +89,132 @@ export function ProductsBrowser({
             }));
           }}
         >
-          <input
+          <Input
             name="search"
-            placeholder="Search..."
+            placeholder="Search items, brands…"
             defaultValue={filters.search ?? ""}
-            className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 sm:col-span-2"
+            className="sm:col-span-2 lg:col-span-2"
+            aria-label="Search products"
           />
-          <input
+          <Input
             name="minPrice"
             type="number"
             min={0}
             step="0.01"
             placeholder="Min price"
             defaultValue={filters.minPrice ?? ""}
-            className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2"
+            aria-label="Minimum price"
           />
-          <input
+          <Input
             name="maxPrice"
             type="number"
             min={0}
             step="0.01"
             placeholder="Max price"
             defaultValue={filters.maxPrice ?? ""}
-            className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2"
+            aria-label="Maximum price"
           />
-          <select
+          <Select
             name="size"
             defaultValue={filters.size ?? ""}
-            className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2"
+            aria-label="Filter by size"
           >
             <option value="">Any size</option>
-            {["XS", "S", "M", "L", "XL", "XXL"].map((s) => (
+            {SIZES.map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
             name="condition"
             defaultValue={filters.condition ?? ""}
-            className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2"
+            aria-label="Filter by condition"
           >
             <option value="">Any condition</option>
-            {["New", "Like New", "Good", "Fair"].map((c) => (
+            {CONDITIONS.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
             ))}
-          </select>
-          <button
-            type="submit"
-            className="rounded-md bg-zinc-900 dark:bg-zinc-50 text-zinc-50 dark:text-zinc-900 px-3 py-2 hover:opacity-90"
-          >
-            Apply
-          </button>
+          </Select>
+          <div className="sm:col-span-2 lg:col-span-6 lg:flex lg:justify-end">
+            <Button type="submit" className="w-full sm:w-auto">
+              Apply filters
+            </Button>
+          </div>
         </form>
       )}
 
       {isLoading && (
-        <div className="py-8 flex items-center justify-center gap-2 text-zinc-500">
-          <Spinner className="h-5 w-5" /> Loading…
+        <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
+          <Spinner className="h-5 w-5" /> Loading items…
         </div>
       )}
       {isError && (
-        <p className="text-red-500 py-4">Failed to load products.</p>
+        <div className="rounded-md border border-danger/30 bg-danger/5 p-4 text-sm text-danger">
+          Failed to load products. Please try again.
+        </div>
       )}
 
       {data && data.data.length === 0 && !isLoading && (
         <EmptyState
           title="No products found"
           description="Try adjusting your filters or browse all listings."
+          action={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setFilters({ page: 1, limit })}
+            >
+              Clear filters
+            </Button>
+          }
         />
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {data?.data.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
       </div>
 
       {showPagination && data && data.meta.pages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-8">
-          <button
+        <nav
+          className="mt-8 flex items-center justify-center gap-1"
+          aria-label="Pagination"
+        >
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() =>
-              setFilters((f) => ({ ...f, page: Math.max(1, (f.page ?? 1) - 1) }))
+              setFilters((f) => ({
+                ...f,
+                page: Math.max(1, (f.page ?? 1) - 1),
+              }))
             }
             disabled={(filters.page ?? 1) <= 1}
-            className="px-3 py-1 rounded border border-zinc-300 dark:border-zinc-700 disabled:opacity-50"
+            aria-label="Previous page"
           >
             ‹
-          </button>
+          </Button>
           {Array.from({ length: data.meta.pages }, (_, i) => i + 1).map((p) => (
             <button
               key={p}
               onClick={() => setFilters((f) => ({ ...f, page: p }))}
-              className={`px-3 py-1 rounded ${
+              aria-current={p === data.meta.page ? "page" : undefined}
+              className={`inline-flex h-8 min-w-8 items-center justify-center rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary ${
                 p === data.meta.page
-                  ? "bg-zinc-900 text-zinc-50 dark:bg-zinc-50 dark:text-zinc-900"
-                  : "border border-zinc-300 dark:border-zinc-700"
+                  ? "bg-secondary text-text-inverse"
+                  : "border border-border bg-surface text-text-primary hover:bg-surface-muted"
               }`}
             >
               {p}
             </button>
           ))}
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() =>
               setFilters((f) => ({
                 ...f,
@@ -188,11 +222,11 @@ export function ProductsBrowser({
               }))
             }
             disabled={(filters.page ?? 1) >= data.meta.pages}
-            className="px-3 py-1 rounded border border-zinc-300 dark:border-zinc-700 disabled:opacity-50"
+            aria-label="Next page"
           >
             ›
-          </button>
-        </div>
+          </Button>
+        </nav>
       )}
     </div>
   );
@@ -200,42 +234,58 @@ export function ProductsBrowser({
 
 export function ProductCard({ product }: { product: Product }) {
   return (
-    <Link href={`/products/${product.id}`} className="block group">
-      <Card className="p-0 overflow-hidden hover:shadow-md transition-shadow h-full">
-        <div className="aspect-square bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 relative">
+    <Link
+      href={`/products/${product.id}`}
+      className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface rounded-lg"
+    >
+      <Card
+        as="article"
+        className="flex h-full flex-col gap-3 overflow-hidden p-0 transition-shadow group-hover:shadow-md"
+      >
+        <div className="relative aspect-square bg-surface-muted">
           {product.images?.[0] ? (
             <img
               src={product.images[0]}
               alt={product.title}
-              className="object-cover w-full h-full group-hover:scale-105 transition-transform"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             />
           ) : (
-            <span className="text-xs">No image</span>
+            <div className="flex h-full w-full items-center justify-center text-xs text-text-muted">
+              No image
+            </div>
           )}
           {product._count?.reviews ? (
-            <span className="absolute top-2 right-2">
+            <span className="absolute right-2 top-2">
               <Badge variant="default">
                 {product._count.reviews} review
                 {product._count.reviews === 1 ? "" : "s"}
               </Badge>
             </span>
           ) : null}
+          {!product.isApproved && (
+            <span className="absolute left-2 top-2">
+              <Badge variant="warning">Pending</Badge>
+            </span>
+          )}
         </div>
-        <div className="p-3">
-          <h3 className="font-medium truncate text-sm">{product.title}</h3>
-          <p className="text-xs text-zinc-500 mt-1 line-clamp-2">
+        <div className="flex flex-1 flex-col gap-1 px-3 pb-3">
+          <h3 className="truncate text-sm font-semibold text-text-primary">
+            {product.title}
+          </h3>
+          {product.brand && (
+            <p className="truncate text-xs text-text-muted">{product.brand}</p>
+          )}
+          <p className="line-clamp-2 text-xs text-text-muted">
             {product.description}
           </p>
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-base font-semibold">
-              ${product.price.toFixed(2)}
-            </span>
-            <span className="text-xs text-zinc-500">
+          <div className="mt-2 flex items-center justify-between">
+            <Price value={product.price} className="text-base font-semibold" />
+            <span className="text-xs text-text-muted">
               {product.condition} · {product.size}
             </span>
           </div>
           {product.seller && (
-            <p className="text-xs text-zinc-500 mt-1">
+            <p className="text-xs text-text-muted">
               Sold by {product.seller.name}
             </p>
           )}

@@ -43,33 +43,32 @@ describe("Header", () => {
     authState.isLoading = false;
   });
 
-  it("shows the brand and the Browse link for all users", () => {
+  it("shows the brand on every viewport", () => {
     render(
       <TestProviders>
         <Header />
       </TestProviders>,
     );
     expect(screen.getByText("Versale")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /browse/i })).toHaveAttribute(
-      "href",
-      "/products",
-    );
   });
 
-  it("shows Login and Sign up when not authenticated", () => {
+  it("shows Login and Sign up buttons when not authenticated", async () => {
+    const user = userEvent.setup();
     render(
       <TestProviders>
         <Header />
       </TestProviders>,
     );
-    expect(screen.getByRole("link", { name: /^login$/i })).toHaveAttribute(
-      "href",
-      "/login",
-    );
-    expect(screen.getByRole("link", { name: /sign up/i })).toHaveAttribute(
-      "href",
-      "/signup",
-    );
+    const loginBtn = screen.getByRole("button", { name: /^login$/i });
+    const signupBtn = screen.getByRole("button", { name: /sign up/i });
+    expect(loginBtn).toBeInTheDocument();
+    expect(signupBtn).toBeInTheDocument();
+
+    await user.click(loginBtn);
+    expect(pushMock).toHaveBeenCalledWith("/login");
+
+    await user.click(signupBtn);
+    expect(pushMock).toHaveBeenCalledWith("/signup");
   });
 
   it("shows Cart, Orders, Sell, and the user name when authenticated", () => {
@@ -84,10 +83,11 @@ describe("Header", () => {
         <Header />
       </TestProviders>,
     );
-    expect(screen.getByRole("link", { name: /^cart$/i })).toHaveAttribute(
-      "href",
-      "/cart",
-    );
+    // Cart appears in the inline nav (sm+) and the mobile-icon button (<sm).
+    // Both point to /cart; assert that at least one Cart link/button exists.
+    const cartTargets = screen.getAllByRole("link", { name: /cart/i });
+    expect(cartTargets.length).toBeGreaterThan(0);
+    expect(cartTargets[0]).toHaveAttribute("href", "/cart");
     expect(screen.getByRole("link", { name: /^orders$/i })).toHaveAttribute(
       "href",
       "/orders",
@@ -147,5 +147,32 @@ describe("Header", () => {
     expect(authState.logout).toHaveBeenCalled();
     expect(pushMock).toHaveBeenCalledWith("/");
     expect(refreshMock).toHaveBeenCalled();
+  });
+
+  it("exposes a mobile menu trigger with proper aria attributes", () => {
+    render(
+      <TestProviders>
+        <Header />
+      </TestProviders>,
+    );
+    const trigger = screen.getByRole("button", { name: /open menu/i });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(trigger).toHaveAttribute("aria-controls", "mobile-menu");
+  });
+
+  it("toggles the mobile menu when the trigger is clicked", async () => {
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <Header />
+      </TestProviders>,
+    );
+    const trigger = screen.getByRole("button", { name: /open menu/i });
+    await user.click(trigger);
+    expect(
+      screen.getByRole("button", { name: /close menu/i }),
+    ).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: /mobile navigation/i });
+    expect(dialog).toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { api } from "@/lib/api";
@@ -10,13 +10,14 @@ import {
   Card,
   EmptyState,
   Badge,
+  PageContainer,
+  Price,
+  Divider,
+  type BadgeVariant,
 } from "@/components/ui";
 import type { Order, OrderStatus } from "@/lib/types";
 
-const STATUS_VARIANT: Record<
-  OrderStatus,
-  "default" | "success" | "warning" | "danger" | "info"
-> = {
+const STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
   PENDING: "warning",
   PAID: "info",
   SHIPPED: "info",
@@ -26,6 +27,7 @@ const STATUS_VARIANT: Record<
 
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const { user, isLoading: isAuthLoading } = useAuth();
 
   const { data, isLoading, isError } = useQuery<Order>({
@@ -39,121 +41,117 @@ export default function OrderDetailPage() {
 
   if (isAuthLoading || isLoading) {
     return (
-      <div className="py-8 flex items-center justify-center gap-2 text-zinc-500">
-        <Spinner className="h-5 w-5" /> Loading…
-      </div>
+      <PageContainer>
+        <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
+          <Spinner className="h-5 w-5" /> Loading order…
+        </div>
+      </PageContainer>
     );
   }
 
   if (!user) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-12">
+      <PageContainer size="narrow">
         <EmptyState
           title="Please log in"
           description="You need an account to view this order."
           action={
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center rounded-md bg-zinc-900 dark:bg-zinc-50 text-zinc-50 dark:text-zinc-900 px-4 py-2 text-sm"
-            >
-              Log in
-            </Link>
+            <button onClick={() => router.push("/login")}>Log in</button>
           }
         />
-      </div>
+      </PageContainer>
     );
   }
 
   if (isError || !data) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-8">
+      <PageContainer>
         <EmptyState
           title="Order not found"
           description="We couldn't find that order."
           action={
-            <Link
-              href="/orders"
-              className="inline-flex items-center justify-center rounded-md bg-zinc-900 dark:bg-zinc-50 text-zinc-50 dark:text-zinc-900 px-4 py-2 text-sm"
-            >
+            <button onClick={() => router.push("/orders")}>
               Back to orders
-            </Link>
+            </button>
           }
         />
-      </div>
+      </PageContainer>
     );
   }
 
   const shipping = data.shippingAddress as Record<string, string> | null;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
+    <PageContainer size="default">
       <Link
         href="/orders"
-        className="text-sm text-zinc-500 hover:underline mb-4 inline-block"
+        className="mb-4 inline-flex items-center text-sm font-medium text-text-muted transition-colors hover:text-text-primary"
       >
         ← Back to orders
       </Link>
 
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="heading-section font-mono text-text-primary">
           Order #{data.id.slice(0, 8)}
         </h1>
         <Badge variant={STATUS_VARIANT[data.status]}>{data.status}</Badge>
       </div>
 
       <Card>
-        <h2 className="font-semibold mb-3">Items</h2>
+        <h2 className="heading-card mb-3">Items</h2>
         <div className="space-y-3">
           {data.items.map((item) => (
             <div
               key={item.id}
-              className="flex items-start gap-3 border-b border-zinc-100 dark:border-zinc-800 last:border-0 pb-3 last:pb-0"
+              className="flex items-start gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
             >
-              <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-md flex items-center justify-center text-zinc-400 text-xs overflow-hidden flex-shrink-0">
+              <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
                 {item.product?.images?.[0] ? (
                   <img
                     src={item.product.images[0]}
                     alt={item.product.title}
-                    className="object-cover w-full h-full"
+                    className="h-full w-full object-cover"
                   />
                 ) : (
                   "—"
                 )}
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0 flex-1">
                 <Link
                   href={`/products/${item.productId}`}
-                  className="font-medium hover:underline block truncate"
+                  className="block truncate font-medium text-text-primary hover:underline"
                 >
                   {item.product?.title ?? item.productId}
                 </Link>
                 {item.product && (
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-text-muted">
                     {item.product.condition} · Size {item.product.size}
                   </p>
                 )}
-                <p className="text-sm text-zinc-500 mt-1">
-                  ${item.price.toFixed(2)} × {item.quantity}
+                <p className="mt-1 text-sm text-text-muted">
+                  <Price value={item.price} /> × {item.quantity}
                 </p>
               </div>
               <div className="font-semibold">
-                ${(item.price * item.quantity).toFixed(2)}
+                <Price value={item.price * item.quantity} />
               </div>
             </div>
           ))}
         </div>
-        <div className="border-t border-zinc-200 dark:border-zinc-800 mt-4 pt-4 flex items-center justify-between">
-          <span className="font-semibold">Total</span>
-          <span className="text-lg font-semibold">
-            ${data.totalAmount.toFixed(2)}
-          </span>
+        <Divider className="my-4" />
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-text-primary">Total</span>
+          <Price
+            value={data.totalAmount}
+            className="text-lg font-semibold text-text-primary"
+          />
         </div>
       </Card>
 
       {shipping && Object.keys(shipping).length > 0 && (
         <Card className="mt-4">
-          <h2 className="font-semibold mb-3">Shipping address</h2>
-          <div className="text-sm text-zinc-700 dark:text-zinc-300 space-y-1">
+          <h2 className="heading-card mb-3">Shipping address</h2>
+          <div className="space-y-1 text-sm text-text-primary">
             {shipping.street && <p>{shipping.street}</p>}
             {(shipping.city || shipping.state || shipping.zip) && (
               <p>
@@ -168,18 +166,22 @@ export default function OrderDetailPage() {
       )}
 
       <Card className="mt-4">
-        <h2 className="font-semibold mb-2">Order details</h2>
-        <dl className="text-sm space-y-1">
+        <h2 className="heading-card mb-2">Order details</h2>
+        <dl className="space-y-1 text-sm">
           <div className="flex justify-between">
-            <dt className="text-zinc-500">Placed on</dt>
-            <dd>{new Date(data.createdAt).toLocaleString()}</dd>
+            <dt className="text-text-muted">Placed on</dt>
+            <dd className="text-text-primary">
+              {new Date(data.createdAt).toLocaleString()}
+            </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-zinc-500">Last updated</dt>
-            <dd>{new Date(data.updatedAt).toLocaleString()}</dd>
+            <dt className="text-text-muted">Last updated</dt>
+            <dd className="text-text-primary">
+              {new Date(data.updatedAt).toLocaleString()}
+            </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-zinc-500">Status</dt>
+            <dt className="text-text-muted">Status</dt>
             <dd>
               <Badge variant={STATUS_VARIANT[data.status]}>
                 {data.status}
@@ -188,6 +190,6 @@ export default function OrderDetailPage() {
           </div>
         </dl>
       </Card>
-    </div>
+    </PageContainer>
   );
 }
