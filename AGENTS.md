@@ -42,3 +42,4 @@ The root keeps repo-wide workflow, DOX hierarchy rules, and the top-level child 
 - `apps/api/AGENTS.md` — NestJS backend, Prisma data layer, modules (`auth`, `users`, `products`, `cart`, `orders`, `reviews`).
 - `apps/web/AGENTS.md` — Next.js frontend, React Query, Vitest.
 - `e2e/AGENTS.md` — Playwright suites, fixtures, global setup, seed.
+- `design.md` — Visual design system (tokens, components, accessibility, anti-patterns) adapted from the static reference in `index.html`. Owns all palette, type, spacing, and component-level rules for the web app.
