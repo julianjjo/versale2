@@ -4,10 +4,18 @@ import { UsersModule } from './users/users.module';
 import { ProductsModule } from './products/products.module';
 import { CartModule } from './cart/cart.module';
 import { OrdersModule } from './orders/orders.module';
+import { UploadsModule } from './uploads/uploads.module';
 import { PrismaService } from './prisma/prisma.service';
 
 @Module({
-  imports: [AuthModule, UsersModule, ProductsModule, CartModule, OrdersModule],
+  imports: [
+    AuthModule,
+    UsersModule,
+    ProductsModule,
+    CartModule,
+    OrdersModule,
+    UploadsModule,
+  ],
   providers: [PrismaService],
 })
 export class AppModule {}

@@ -1,3 +1,9 @@
+import { config as loadEnv } from 'dotenv';
+import { resolve } from 'path';
+
+const envPath = resolve(__dirname, '..', '.env');
+loadEnv({ path: envPath });
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
