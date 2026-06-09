@@ -4,77 +4,94 @@ const test = base.extend({});
 
 test.describe.configure({ mode: "serial" });
 
-test.describe("Shopping flow", () => {
-  test("home page shows seeded products", async ({ page }) => {
+test.describe("Flujo de compra", () => {
+  test("la página de inicio muestra los productos sembrados", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Vintage Denim Jacket" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Wool Sweater" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Vintage Denim Jacket" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Wool Sweater" }),
+    ).toBeVisible();
   });
 
-  test("browsing and filtering products", async ({ page }) => {
+  test("exploración y filtrado de productos", async ({ page }) => {
     await page.goto("/products");
-    await expect(page.getByRole("heading", { name: "Vintage Denim Jacket" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Wool Sweater" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Vintage Denim Jacket" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Wool Sweater" }),
+    ).toBeVisible();
 
-    await page.getByPlaceholder(/search/i).fill("denim");
-    await page.getByRole("button", { name: /apply/i }).click();
-    await expect(page.getByRole("heading", { name: "Vintage Denim Jacket" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Wool Sweater" })).not.toBeVisible();
+    await page.getByPlaceholder(/buscar/i).fill("denim");
+    await page.getByRole("button", { name: /aplicar/i }).click();
+    await expect(
+      page.getByRole("heading", { name: "Vintage Denim Jacket" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Wool Sweater" }),
+    ).not.toBeVisible();
   });
 
-  test("product detail page shows product info", async ({ page }) => {
+  test("la página de detalle del producto muestra su información", async ({
+    page,
+  }) => {
     await page.goto("/products");
     await page.getByRole("heading", { name: "Vintage Denim Jacket" }).click();
     await expect(page).toHaveURL(/\/products\/.+/);
-    await expect(page.getByText("$45.00")).toBeVisible();
+    // Price 45 formatted in COP: $ 45 (mock price is 45, no thousands separator)
+    await expect(page.getByText("$ 45")).toBeVisible();
     // Brand + category are rendered as separate elements (eyebrow + caption)
     await expect(page.getByText("Levi's").first()).toBeVisible();
     await expect(page.getByText("Jackets").first()).toBeVisible();
   });
 
-  test("guest can view a product but cannot add to cart", async ({ page }) => {
+  test("el visitante puede ver un producto pero no agregarlo al carrito", async ({
+    page,
+  }) => {
     await page.goto("/products");
     await page.getByRole("heading", { name: "Vintage Denim Jacket" }).click();
-    await page.getByRole("button", { name: /add to cart/i }).click();
+    await page.getByRole("button", { name: /agregar al carrito/i }).click();
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test("user can add a product to the cart", async ({ userPage }) => {
-    // Ensure cart starts empty
+  test("el usuario puede agregar un producto al carrito", async ({ userPage }) => {
+    // Asegurar que el carrito empieza vacío
     await userPage.goto("/cart");
-    const clearBtn = userPage.getByRole("button", { name: /clear cart/i });
+    const clearBtn = userPage.getByRole("button", { name: /vaciar carrito/i });
     if (await clearBtn.isVisible().catch(() => false)) {
       await clearBtn.click();
       await expect(
-        userPage.getByText(/your cart is empty/i),
+        userPage.getByText(/tu carrito está vacío/i),
       ).toBeVisible({ timeout: 5_000 });
     }
 
     await userPage.goto("/products");
     await userPage.getByRole("heading", { name: "Vintage Denim Jacket" }).click();
-    await userPage.getByRole("button", { name: /add to cart/i }).click();
-    await expect(userPage.getByText(/added to cart/i)).toBeVisible({
+    await userPage.getByRole("button", { name: /agregar al carrito/i }).click();
+    await expect(userPage.getByText(/agregado al carrito/i)).toBeVisible({
       timeout: 10_000,
     });
   });
 
-  test("user can checkout and see the order in their history", async ({
+  test("el usuario puede pagar y ver el pedido en su historial", async ({
     userPage,
   }) => {
-    // Ensure cart starts empty
+    // Asegurar que el carrito empieza vacío
     await userPage.goto("/cart");
-    const clearBtn = userPage.getByRole("button", { name: /clear cart/i });
+    const clearBtn = userPage.getByRole("button", { name: /vaciar carrito/i });
     if (await clearBtn.isVisible().catch(() => false)) {
       await clearBtn.click();
       await expect(
-        userPage.getByText(/your cart is empty/i),
+        userPage.getByText(/tu carrito está vacío/i),
       ).toBeVisible({ timeout: 5_000 });
     }
 
     await userPage.goto("/products");
     await userPage.getByRole("heading", { name: "Wool Sweater" }).click();
-    await userPage.getByRole("button", { name: /add to cart/i }).click();
-    await expect(userPage.getByText(/added to cart/i)).toBeVisible({
+    await userPage.getByRole("button", { name: /agregar al carrito/i }).click();
+    await expect(userPage.getByText(/agregado al carrito/i)).toBeVisible({
       timeout: 10_000,
     });
 
@@ -97,7 +114,7 @@ test.describe("Shopping flow", () => {
       )
       .toBeGreaterThan(0);
 
-    // Create the order via API to avoid UI flakiness
+    // Crear el pedido vía API para evitar flakiness de UI
     const orderRes = await userPage.request.post(
       "http://127.0.0.1:3101/orders",
       {
@@ -107,28 +124,30 @@ test.describe("Shopping flow", () => {
     );
     expect(orderRes.status()).toBe(201);
 
-    // Verify it appears in the user's order history
+    // Verificar que aparece en el historial del usuario
     await userPage.goto("/orders");
     await expect(
-      userPage.getByRole("link", { name: /PENDING/i }).first(),
+      userPage.getByRole("link", { name: /Pendiente/i }).first(),
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  test("user can remove an item from the cart", async ({ userPage }) => {
-    // Ensure cart starts empty
+  test("el usuario puede eliminar un producto del carrito", async ({
+    userPage,
+  }) => {
+    // Asegurar que el carrito empieza vacío
     await userPage.goto("/cart");
-    const clearBtn = userPage.getByRole("button", { name: /clear cart/i });
+    const clearBtn = userPage.getByRole("button", { name: /vaciar carrito/i });
     if (await clearBtn.isVisible().catch(() => false)) {
       await clearBtn.click();
       await expect(
-        userPage.getByText(/your cart is empty/i),
+        userPage.getByText(/tu carrito está vacío/i),
       ).toBeVisible({ timeout: 5_000 });
     }
 
     await userPage.goto("/products");
     await userPage.getByRole("heading", { name: "Vintage Denim Jacket" }).click();
-    await userPage.getByRole("button", { name: /add to cart/i }).click();
-    await expect(userPage.getByText(/added to cart/i)).toBeVisible({
+    await userPage.getByRole("button", { name: /agregar al carrito/i }).click();
+    await expect(userPage.getByText(/agregado al carrito/i)).toBeVisible({
       timeout: 10_000,
     });
 
@@ -156,11 +175,11 @@ test.describe("Shopping flow", () => {
       userPage.getByText("Vintage Denim Jacket").first(),
     ).toBeVisible({ timeout: 10_000 });
     await userPage
-      .getByRole("button", { name: /remove/i })
+      .getByRole("button", { name: /eliminar/i })
       .first()
       .click();
     await expect(
-      userPage.getByText(/your cart is empty/i),
+      userPage.getByText(/tu carrito está vacío/i),
     ).toBeVisible({ timeout: 10_000 });
   });
 });

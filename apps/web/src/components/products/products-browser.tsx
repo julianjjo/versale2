@@ -36,7 +36,12 @@ interface ProductsBrowserProps {
 }
 
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
-const CONDITIONS = ["New", "Like New", "Good", "Fair"];
+const CONDITIONS: Array<{ value: string; label: string }> = [
+  { value: "New", label: "Nuevo" },
+  { value: "Like New", label: "Como nuevo" },
+  { value: "Good", label: "Buen estado" },
+  { value: "Fair", label: "Aceptable" },
+];
 
 export function ProductsBrowser({
   initialFilters,
@@ -91,35 +96,35 @@ export function ProductsBrowser({
         >
           <Input
             name="search"
-            placeholder="Search items, brands…"
+            placeholder="Buscar prendas, marcas…"
             defaultValue={filters.search ?? ""}
             className="sm:col-span-2 lg:col-span-2"
-            aria-label="Search products"
+            aria-label="Buscar productos"
           />
           <Input
             name="minPrice"
             type="number"
             min={0}
-            step="0.01"
-            placeholder="Min price"
+            step="1000"
+            placeholder="Precio mín."
             defaultValue={filters.minPrice ?? ""}
-            aria-label="Minimum price"
+            aria-label="Precio mínimo"
           />
           <Input
             name="maxPrice"
             type="number"
             min={0}
-            step="0.01"
-            placeholder="Max price"
+            step="1000"
+            placeholder="Precio máx."
             defaultValue={filters.maxPrice ?? ""}
-            aria-label="Maximum price"
+            aria-label="Precio máximo"
           />
           <Select
             name="size"
             defaultValue={filters.size ?? ""}
-            aria-label="Filter by size"
+            aria-label="Filtrar por talla"
           >
-            <option value="">Any size</option>
+            <option value="">Cualquier talla</option>
             {SIZES.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -129,18 +134,18 @@ export function ProductsBrowser({
           <Select
             name="condition"
             defaultValue={filters.condition ?? ""}
-            aria-label="Filter by condition"
+            aria-label="Filtrar por condición"
           >
-            <option value="">Any condition</option>
+            <option value="">Cualquier condición</option>
             {CONDITIONS.map((c) => (
-              <option key={c} value={c}>
-                {c}
+              <option key={c.value} value={c.value}>
+                {c.label}
               </option>
             ))}
           </Select>
           <div className="sm:col-span-2 lg:col-span-6 lg:flex lg:justify-end">
             <Button type="submit" className="w-full sm:w-auto">
-              Apply filters
+              Aplicar filtros
             </Button>
           </div>
         </form>
@@ -148,26 +153,26 @@ export function ProductsBrowser({
 
       {isLoading && (
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-          <Spinner className="h-5 w-5" /> Loading items…
+          <Spinner className="h-5 w-5" /> Cargando productos…
         </div>
       )}
       {isError && (
         <div className="rounded-md border border-danger/30 bg-danger/5 p-4 text-sm text-danger">
-          Failed to load products. Please try again.
+          No pudimos cargar los productos. Intenta de nuevo.
         </div>
       )}
 
       {data && data.data.length === 0 && !isLoading && (
         <EmptyState
-          title="No products found"
-          description="Try adjusting your filters or browse all listings."
+          title="No encontramos productos"
+          description="Ajusta los filtros o explora todas las publicaciones."
           action={
             <Button
               variant="secondary"
               size="sm"
               onClick={() => setFilters({ page: 1, limit })}
             >
-              Clear filters
+              Limpiar filtros
             </Button>
           }
         />
@@ -182,7 +187,7 @@ export function ProductsBrowser({
       {showPagination && data && data.meta.pages > 1 && (
         <nav
           className="mt-8 flex items-center justify-center gap-1"
-          aria-label="Pagination"
+          aria-label="Paginación"
         >
           <Button
             variant="secondary"
@@ -194,7 +199,7 @@ export function ProductsBrowser({
               }))
             }
             disabled={(filters.page ?? 1) <= 1}
-            aria-label="Previous page"
+            aria-label="Página anterior"
           >
             ‹
           </Button>
@@ -203,6 +208,7 @@ export function ProductsBrowser({
               key={p}
               onClick={() => setFilters((f) => ({ ...f, page: p }))}
               aria-current={p === data.meta.page ? "page" : undefined}
+              aria-label={`Página ${p}`}
               className={`inline-flex h-8 min-w-8 items-center justify-center rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary ${
                 p === data.meta.page
                   ? "bg-secondary text-text-inverse"
@@ -222,7 +228,7 @@ export function ProductsBrowser({
               }))
             }
             disabled={(filters.page ?? 1) >= data.meta.pages}
-            aria-label="Next page"
+            aria-label="Página siguiente"
           >
             ›
           </Button>
@@ -231,6 +237,13 @@ export function ProductsBrowser({
     </div>
   );
 }
+
+const CONDITION_LABELS: Record<string, string> = {
+  New: "Nuevo",
+  "Like New": "Como nuevo",
+  Good: "Buen estado",
+  Fair: "Aceptable",
+};
 
 export function ProductCard({ product }: { product: Product }) {
   return (
@@ -251,20 +264,20 @@ export function ProductCard({ product }: { product: Product }) {
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-xs text-text-muted">
-              No image
+              Sin imagen
             </div>
           )}
           {product._count?.reviews ? (
             <span className="absolute right-2 top-2">
               <Badge variant="default">
-                {product._count.reviews} review
+                {product._count.reviews} reseña
                 {product._count.reviews === 1 ? "" : "s"}
               </Badge>
             </span>
           ) : null}
           {!product.isApproved && (
             <span className="absolute left-2 top-2">
-              <Badge variant="warning">Pending</Badge>
+              <Badge variant="warning">Pendiente</Badge>
             </span>
           )}
         </div>
@@ -281,12 +294,12 @@ export function ProductCard({ product }: { product: Product }) {
           <div className="mt-2 flex items-center justify-between">
             <Price value={product.price} className="text-base font-semibold" />
             <span className="text-xs text-text-muted">
-              {product.condition} · {product.size}
+              {CONDITION_LABELS[product.condition] ?? product.condition} · {product.size}
             </span>
           </div>
           {product.seller && (
             <p className="text-xs text-text-muted">
-              Sold by {product.seller.name}
+              Vendido por {product.seller.name}
             </p>
           )}
         </div>

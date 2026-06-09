@@ -45,53 +45,53 @@ describe("SignupPage", () => {
     );
   }
 
-  it("renders the signup form", () => {
+  it("renderiza el formulario de registro", () => {
     renderSignup();
     expect(
-      screen.getByRole("heading", { name: /create an account/i }),
+      screen.getByRole("heading", { name: /crear cuenta/i }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Name")).toBeInTheDocument();
-    expect(screen.getByLabelText("Email")).toBeInTheDocument();
-    expect(screen.getByLabelText("Password")).toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre")).toBeInTheDocument();
+    expect(screen.getByLabelText("Correo electrónico")).toBeInTheDocument();
+    expect(screen.getByLabelText("Contraseña")).toBeInTheDocument();
   });
 
-  it("calls signup with name, email, and password", async () => {
+  it("llama a signup con nombre, correo y contraseña", async () => {
     const user = userEvent.setup();
     renderSignup();
 
-    await user.type(screen.getByLabelText("Name"), "Alice");
-    await user.type(screen.getByLabelText("Email"), "alice@example.com");
-    await user.type(screen.getByLabelText("Password"), "password123");
-    await user.click(screen.getByRole("button", { name: /sign up/i }));
+    await user.type(screen.getByLabelText("Nombre"), "Alice");
+    await user.type(screen.getByLabelText("Correo electrónico"), "alice@ejemplo.co");
+    await user.type(screen.getByLabelText("Contraseña"), "contraseña123");
+    await user.click(screen.getByRole("button", { name: /crear cuenta/i }));
 
     await waitFor(() => {
       expect(signupMock).toHaveBeenCalledWith(
-        "alice@example.com",
+        "alice@ejemplo.co",
         "Alice",
-        "password123",
+        "contraseña123",
       );
     });
   });
 
-  it("shows an error message when signup fails", async () => {
-    signupMock.mockRejectedValueOnce(new Error("Email taken"));
+  it("muestra un mensaje de error si el registro falla", async () => {
+    signupMock.mockRejectedValueOnce(new Error("El correo ya está en uso"));
     const user = userEvent.setup();
     renderSignup();
 
-    await user.type(screen.getByLabelText("Name"), "Alice");
-    await user.type(screen.getByLabelText("Email"), "alice@example.com");
-    await user.type(screen.getByLabelText("Password"), "password123");
-    await user.click(screen.getByRole("button", { name: /sign up/i }));
+    await user.type(screen.getByLabelText("Nombre"), "Alice");
+    await user.type(screen.getByLabelText("Correo electrónico"), "alice@ejemplo.co");
+    await user.type(screen.getByLabelText("Contraseña"), "contraseña123");
+    await user.click(screen.getByRole("button", { name: /crear cuenta/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("Email taken")).toBeInTheDocument();
+      expect(screen.getByText("El correo ya está en uso")).toBeInTheDocument();
     });
   });
 
-  it("links to the login page", () => {
+  it("enlaza a la página de inicio de sesión", () => {
     renderSignup();
     expect(
-      screen.getByRole("link", { name: /log in/i }),
+      screen.getByRole("link", { name: /iniciar sesión/i }),
     ).toHaveAttribute("href", "/login");
   });
 });

@@ -23,9 +23,8 @@ export default function SignupPage() {
     try {
       await signup(email, name, password);
       router.push("/products");
-      router.refresh();
     } catch (err) {
-      setError(extractApiError(err, "Signup failed"));
+      setError(extractApiError(err, "No pudimos crear tu cuenta"));
     } finally {
       setIsLoading(false);
     }
@@ -34,13 +33,13 @@ export default function SignupPage() {
   return (
     <PageContainer size="narrow">
       <Card>
-        <h1 className="heading-section text-text-primary">Create an account</h1>
+        <h1 className="heading-section text-text-primary">Crear cuenta</h1>
         <p className="mt-1 text-sm text-text-muted">
-          Join Versale to buy and sell pre-owned fashion.
+          Únete a Versale para comprar y vender moda de segunda.
         </p>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <Input
-            label="Name"
+            label="Nombre"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -48,7 +47,7 @@ export default function SignupPage() {
             autoComplete="name"
           />
           <Input
-            label="Email"
+            label="Correo electrónico"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -56,14 +55,14 @@ export default function SignupPage() {
             autoComplete="email"
           />
           <Input
-            label="Password"
+            label="Contraseña"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={6}
             autoComplete="new-password"
-            hint="At least 6 characters."
+            hint="Mínimo 6 caracteres."
           />
           {error && (
             <p className="text-sm text-danger" role="alert">
@@ -71,16 +70,16 @@ export default function SignupPage() {
             </p>
           )}
           <Button type="submit" disabled={isLoading} fullWidth size="lg">
-            {isLoading ? "Creating account…" : "Sign up"}
+            {isLoading ? "Creando cuenta…" : "Crear cuenta"}
           </Button>
         </form>
         <p className="mt-4 text-sm text-text-muted">
-          Already have an account?{" "}
+          ¿Ya tienes cuenta?{" "}
           <Link
             href="/login"
             className="font-medium text-text-primary underline-offset-4 hover:underline"
           >
-            Log in
+            Iniciar sesión
           </Link>
         </p>
       </Card>

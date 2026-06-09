@@ -196,7 +196,7 @@ export function Spinner({ className = "" }: { className?: string }) {
     <span
       className={`inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent ${className}`}
       role="status"
-      aria-label="Loading"
+      aria-label="Cargando"
     />
   );
 }
@@ -334,6 +334,15 @@ export function SectionHeader({
   );
 }
 
+// Format a numeric value as Colombian pesos (COP):
+//   $ 1.234.567
+// Whole pesos only — the marketplace doesn't list items with decimals.
+const copFormatter = new Intl.NumberFormat("es-CO", {
+  style: "currency",
+  currency: "COP",
+  maximumFractionDigits: 0,
+});
+
 export function Price({
   value,
   className = "",
@@ -347,7 +356,7 @@ export function Price({
       className={`font-mono font-medium tabular-nums text-text-primary ${className}`}
       {...rest}
     >
-      ${value.toFixed(2)}
+      {copFormatter.format(value)}
     </span>
   );
 }
@@ -365,7 +374,7 @@ export function StarRating({
       className={`inline-flex items-center gap-0.5 text-warning ${
         size === "md" ? "text-base" : "text-sm"
       }`}
-      aria-label={`${value.toFixed(1)} out of 5 stars`}
+      aria-label={`${value.toFixed(1)} de 5 estrellas`}
     >
       {"★".repeat(rounded)}
       <span className="text-border">{"★".repeat(5 - rounded)}</span>

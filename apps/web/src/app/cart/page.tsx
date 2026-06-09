@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, extractApiError } from "@/lib/api";
@@ -17,7 +17,21 @@ import {
   Price,
   Divider,
 } from "@/components/ui";
-import type { Cart } from "@/lib/types";
+import type { Cart, CartItem } from "@/lib/types";
+
+const CONDITION_LABELS: Record<string, string> = {
+  New: "Nuevo",
+  "Like New": "Como nuevo",
+  Good: "Buen estado",
+  Fair: "Aceptable",
+};
+
+function parseQuantity(raw: string, fallback: number): number {
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  if (n > 99) return 99;
+  return n;
+}
 
 export default function CartPage() {
   const router = useRouter();
@@ -52,7 +66,8 @@ export default function CartPage() {
       await api.patch(`/cart/items/${itemId}`, { quantity });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cart"] }),
-    onError: (err) => setError(extractApiError(err, "Failed to update item")),
+    onError: (err) =>
+      setError(extractApiError(err, "No pudimos actualizar el producto")),
   });
 
   const removeItem = useMutation({
@@ -60,7 +75,8 @@ export default function CartPage() {
       await api.delete(`/cart/items/${itemId}`);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cart"] }),
-    onError: (err) => setError(extractApiError(err, "Failed to remove item")),
+    onError: (err) =>
+      setError(extractApiError(err, "No pudimos eliminar el producto")),
   });
 
   const clearCart = useMutation({
@@ -68,7 +84,8 @@ export default function CartPage() {
       await api.delete("/cart");
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cart"] }),
-    onError: (err) => setError(extractApiError(err, "Failed to clear cart")),
+    onError: (err) =>
+      setError(extractApiError(err, "No pudimos vaciar el carrito")),
   });
 
   const checkout = useMutation({
@@ -83,14 +100,14 @@ export default function CartPage() {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       router.push("/orders");
     },
-    onError: (err) => setError(extractApiError(err, "Checkout failed")),
+    onError: (err) => setError(extractApiError(err, "No pudimos procesar el pago")),
   });
 
   if (isAuthLoading) {
     return (
       <PageContainer>
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-          <Spinner className="h-5 w-5" /> Loading…
+          <Spinner className="h-5 w-5" /> Cargando…
         </div>
       </PageContainer>
     );
@@ -100,10 +117,10 @@ export default function CartPage() {
     return (
       <PageContainer size="narrow">
         <EmptyState
-          title="Please log in"
-          description="You need an account to view your cart."
+          title="Inicia sesión"
+          description="Necesitas una cuenta para ver tu carrito."
           action={
-            <Button onClick={() => router.push("/login")}>Log in</Button>
+            <Button onClick={() => router.push("/login")}>Iniciar sesión</Button>
           }
         />
       </PageContainer>
@@ -114,7 +131,7 @@ export default function CartPage() {
     return (
       <PageContainer>
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-          <Spinner className="h-5 w-5" /> Loading cart…
+          <Spinner className="h-5 w-5" /> Cargando tu carrito…
         </div>
       </PageContainer>
     );
@@ -129,8 +146,8 @@ export default function CartPage() {
   return (
     <PageContainer size="default">
       <SectionHeader
-        title="Your cart"
-        description="Review your items before checkout."
+        title="Tu carrito"
+        description="Revisa tus productos antes de pagar."
         action={
           items.length > 0 ? (
             <Button
@@ -138,7 +155,7 @@ export default function CartPage() {
               onClick={() => clearCart.mutate()}
               disabled={clearCart.isPending}
             >
-              Clear cart
+              Vaciar carrito
             </Button>
           ) : null
         }
@@ -146,11 +163,11 @@ export default function CartPage() {
 
       {items.length === 0 ? (
         <EmptyState
-          title="Your cart is empty"
-          description="Browse the marketplace to find something you love."
+          title="Tu carrito está vacío"
+          description="Explora el marketplace y encuentra algo que te encante."
           action={
             <Button onClick={() => router.push("/products")}>
-              Browse products
+              Explorar productos
             </Button>
           }
         />
@@ -158,69 +175,25 @@ export default function CartPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-3 lg:col-span-2">
             {items.map((item) => (
-              <Card key={item.id}>
-                <div className="flex items-start gap-4">
-                  <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
-                    {item.product?.images?.[0] ? (
-                      <img
-                        src={item.product.images[0]}
-                        alt={item.product.title}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      "—"
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      href={`/products/${item.productId}`}
-                      className="block truncate font-medium text-text-primary hover:underline"
-                    >
-                      {item.product?.title ?? item.productId}
-                    </Link>
-                    <Price
-                      value={item.priceAtAdd}
-                      className="mt-1 text-xs text-text-muted"
-                    />
-                    {item.product && (
-                      <p className="mt-1 text-xs text-text-muted">
-                        {item.product.condition} · Size {item.product.size}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <Input
-                      type="number"
-                      min={1}
-                      defaultValue={item.quantity}
-                      onBlur={(e) => {
-                        const q = Math.max(1, Number(e.target.value));
-                        if (q !== item.quantity) {
-                          updateQty.mutate({ itemId: item.id, quantity: q });
-                        }
-                      }}
-                      className="w-20"
-                      aria-label="Quantity"
-                    />
-                    <button
-                      onClick={() => removeItem.mutate(item.id)}
-                      disabled={removeItem.isPending}
-                      className="text-xs font-medium text-danger transition-colors hover:text-danger/80"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              </Card>
+              <CartItemRow
+                key={item.id}
+                item={item}
+                isUpdating={updateQty.isPending}
+                onUpdateQuantity={(quantity) =>
+                  updateQty.mutate({ itemId: item.id, quantity })
+                }
+                onRemove={() => removeItem.mutate(item.id)}
+                isRemoving={removeItem.isPending}
+              />
             ))}
           </div>
 
           <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
             <Card>
-              <h2 className="heading-card mb-3">Shipping address</h2>
+              <h2 className="heading-card mb-3">Dirección de envío</h2>
               <div className="space-y-3">
                 <Input
-                  placeholder="Street"
+                  placeholder="Calle y número"
                   value={shippingAddress.street}
                   onChange={(e) =>
                     setShippingAddress((a) => ({
@@ -231,7 +204,7 @@ export default function CartPage() {
                 />
                 <div className="grid grid-cols-2 gap-3">
                   <Input
-                    placeholder="City"
+                    placeholder="Ciudad"
                     value={shippingAddress.city}
                     onChange={(e) =>
                       setShippingAddress((a) => ({
@@ -241,7 +214,7 @@ export default function CartPage() {
                     }
                   />
                   <Input
-                    placeholder="State"
+                    placeholder="Departamento"
                     value={shippingAddress.state}
                     onChange={(e) =>
                       setShippingAddress((a) => ({
@@ -253,7 +226,7 @@ export default function CartPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <Input
-                    placeholder="ZIP"
+                    placeholder="Código postal"
                     value={shippingAddress.zip}
                     onChange={(e) =>
                       setShippingAddress((a) => ({
@@ -263,7 +236,7 @@ export default function CartPage() {
                     }
                   />
                   <Input
-                    placeholder="Country"
+                    placeholder="País"
                     value={shippingAddress.country}
                     onChange={(e) =>
                       setShippingAddress((a) => ({
@@ -282,8 +255,8 @@ export default function CartPage() {
                 <Price value={total} />
               </div>
               <div className="mt-1 flex items-center justify-between text-xs text-text-muted">
-                <span>Shipping</span>
-                <span>Calculated at delivery</span>
+                <span>Envío</span>
+                <span>Se calcula al entregar</span>
               </div>
               <Divider className="my-3" />
               <div className="mb-4 flex items-center justify-between">
@@ -299,7 +272,7 @@ export default function CartPage() {
                 fullWidth
                 size="lg"
               >
-                {checkout.isPending ? "Placing order…" : "Checkout"}
+                {checkout.isPending ? "Procesando pedido…" : "Pagar"}
               </Button>
             </Card>
 
@@ -312,5 +285,101 @@ export default function CartPage() {
         </div>
       )}
     </PageContainer>
+  );
+}
+
+function CartItemRow({
+  item,
+  isUpdating,
+  onUpdateQuantity,
+  onRemove,
+  isRemoving,
+}: {
+  item: CartItem;
+  isUpdating: boolean;
+  onUpdateQuantity: (quantity: number) => void;
+  onRemove: () => void;
+  isRemoving: boolean;
+}) {
+  const [quantity, setQuantity] = useState(String(item.quantity));
+
+  // Keep the controlled input in sync when the underlying cart item changes
+  // (e.g. after a successful update or when the cart is refetched).
+  useEffect(() => {
+    setQuantity(String(item.quantity));
+  }, [item.quantity]);
+
+  const commit = () => {
+    const next = parseQuantity(quantity, item.quantity);
+    if (next !== item.quantity) {
+      onUpdateQuantity(next);
+    } else {
+      // Reset the input text to the canonical value (e.g. when the user
+      // typed "abc" and we fall back to the previous valid quantity).
+      setQuantity(String(item.quantity));
+    }
+  };
+
+  return (
+    <Card>
+      <div className="flex items-start gap-4">
+        <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
+          {item.product?.images?.[0] ? (
+            <img
+              src={item.product.images[0]}
+              alt={item.product.title}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            "—"
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <Link
+            href={`/products/${item.productId}`}
+            className="block truncate font-medium text-text-primary hover:underline"
+          >
+            {item.product?.title ?? item.productId}
+          </Link>
+          <Price
+            value={item.priceAtAdd}
+            className="mt-1 text-xs text-text-muted"
+          />
+          {item.product && (
+            <p className="mt-1 text-xs text-text-muted">
+              {CONDITION_LABELS[item.product.condition] ??
+                item.product.condition}{" "}
+              · Talla {item.product.size}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <Input
+            type="number"
+            min={1}
+            max={99}
+            value={quantity}
+            disabled={isUpdating}
+            onChange={(e) => setQuantity(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            className="w-20"
+            aria-label="Cantidad"
+          />
+          <button
+            onClick={onRemove}
+            disabled={isRemoving}
+            className="text-xs font-medium text-danger transition-colors hover:text-danger/80 disabled:opacity-50"
+          >
+            Eliminar
+          </button>
+        </div>
+      </div>
+    </Card>
   );
 }

@@ -20,13 +20,24 @@ import {
 } from "@/components/ui";
 import type { Product, Review } from "@/lib/types";
 
+const CONDITION_LABELS: Record<string, string> = {
+  New: "Nuevo",
+  "Like New": "Como nuevo",
+  Good: "Buen estado",
+  Fair: "Aceptable",
+};
+
 export function ProductDetail() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, isLoading: isAuthLoading } = useAuth();
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState("1");
+  const quantityNum = (() => {
+    const n = Number.parseInt(quantity, 10);
+    return Number.isFinite(n) && n > 0 ? n : 1;
+  })();
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -43,14 +54,15 @@ export function ProductDetail() {
 
   const addToCart = useMutation({
     mutationFn: async () => {
-      await api.post("/cart/items", { productId: id, quantity });
+      await api.post("/cart/items", { productId: id, quantity: quantityNum });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] });
-      setSuccess("Added to cart");
+      setSuccess("Agregado al carrito");
       setTimeout(() => setSuccess(null), 3000);
     },
-    onError: (err) => setError(extractApiError(err, "Failed to add to cart")),
+    onError: (err) =>
+      setError(extractApiError(err, "No pudimos agregarlo al carrito")),
   });
 
   const createReview = useMutation({
@@ -65,10 +77,11 @@ export function ProductDetail() {
       queryClient.invalidateQueries({ queryKey: ["product", id] });
       setComment("");
       setRating(5);
-      setSuccess("Review posted");
+      setSuccess("Reseña publicada");
       setTimeout(() => setSuccess(null), 3000);
     },
-    onError: (err) => setError(extractApiError(err, "Failed to post review")),
+    onError: (err) =>
+      setError(extractApiError(err, "No pudimos publicar la reseña")),
   });
 
   const handleAddToCart = () => {
@@ -94,7 +107,7 @@ export function ProductDetail() {
     return (
       <PageContainer>
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-          <Spinner className="h-5 w-5" /> Loading product…
+          <Spinner className="h-5 w-5" /> Cargando producto…
         </div>
       </PageContainer>
     );
@@ -103,14 +116,14 @@ export function ProductDetail() {
     return (
       <PageContainer>
         <EmptyState
-          title="Product not found"
-          description="This listing might have been removed or is not available."
+          title="Producto no encontrado"
+          description="Esta publicación pudo haber sido eliminada o ya no está disponible."
           action={
             <Button
               onClick={() => router.push("/products")}
               variant="secondary"
             >
-              Back to browse
+              Volver al marketplace
             </Button>
           }
         />
@@ -118,7 +131,7 @@ export function ProductDetail() {
     );
   }
 
-  const reviews = (data as Product & { reviews?: Review[] }).reviews ?? [];
+  const reviews = data.reviews ?? [];
   const averageRating =
     reviews.length > 0
       ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
@@ -137,7 +150,7 @@ export function ProductDetail() {
                 className="h-full w-full object-cover"
               />
             ) : (
-              <span className="text-sm text-text-muted">No image</span>
+              <span className="text-sm text-text-muted">Sin imagen</span>
             )}
           </div>
           {data.images && data.images.length > 1 && (
@@ -170,7 +183,7 @@ export function ProductDetail() {
               <div className="mt-2 flex items-center gap-2">
                 <StarRating value={averageRating} />
                 <span className="text-sm text-text-muted">
-                  {averageRating.toFixed(1)} ({reviews.length} review
+                  {averageRating.toFixed(1)} ({reviews.length} reseña
                   {reviews.length === 1 ? "" : "s"})
                 </span>
               </div>
@@ -179,7 +192,7 @@ export function ProductDetail() {
 
           <div className="flex items-baseline gap-2">
             <Price value={data.price} className="text-3xl font-semibold" />
-            <span className="text-xs text-text-muted">USD</span>
+            <span className="text-xs text-text-muted">COP</span>
           </div>
 
           <p className="whitespace-pre-line text-sm leading-relaxed text-text-primary">
@@ -189,15 +202,15 @@ export function ProductDetail() {
           <Divider />
 
           <dl className="grid grid-cols-2 gap-y-3 text-sm">
-            <dt className="text-text-muted">Size</dt>
+            <dt className="text-text-muted">Talla</dt>
             <dd className="font-medium text-text-primary">{data.size}</dd>
-            <dt className="text-text-muted">Condition</dt>
+            <dt className="text-text-muted">Condición</dt>
             <dd>
-              <Badge>{data.condition}</Badge>
+              <Badge>{CONDITION_LABELS[data.condition] ?? data.condition}</Badge>
             </dd>
-            <dt className="text-text-muted">Category</dt>
+            <dt className="text-text-muted">Categoría</dt>
             <dd className="font-medium text-text-primary">{data.category}</dd>
-            <dt className="text-text-muted">Seller</dt>
+            <dt className="text-text-muted">Vendedor</dt>
             <dd className="font-medium text-text-primary">
               {data.seller?.name ?? "—"}
             </dd>
@@ -208,25 +221,34 @@ export function ProductDetail() {
               <Input
                 type="number"
                 min={1}
+                max={99}
                 value={quantity}
-                onChange={(e) =>
-                  setQuantity(Math.max(1, Number(e.target.value)))
-                }
+                onChange={(e) => setQuantity(e.target.value)}
+                onBlur={() => {
+                  // Clamp on blur: empty / non-numeric falls back to "1";
+                  // over-large values are capped to 99 to keep cart sane.
+                  const n = Number.parseInt(quantity, 10);
+                  if (!Number.isFinite(n) || n < 1) {
+                    setQuantity("1");
+                  } else if (n > 99) {
+                    setQuantity("99");
+                  }
+                }}
                 className="w-24"
-                aria-label="Quantity"
+                aria-label="Cantidad"
               />
               <Button
                 onClick={handleAddToCart}
                 disabled={addToCart.isPending}
                 size="lg"
               >
-                {addToCart.isPending ? "Adding…" : "Add to cart"}
+                {addToCart.isPending ? "Agregando…" : "Agregar al carrito"}
               </Button>
             </div>
           ) : isOwn ? (
-            <Badge variant="info">This is your listing</Badge>
+            <Badge variant="info">Esta es tu publicación</Badge>
           ) : (
-            <Badge variant="warning">Not yet available</Badge>
+            <Badge variant="warning">Aún no disponible</Badge>
           )}
 
           {error && (
@@ -243,16 +265,16 @@ export function ProductDetail() {
       </div>
 
       <section className="mt-12">
-        <h2 className="heading-section mb-4 text-text-primary">Reviews</h2>
+        <h2 className="heading-section mb-4 text-text-primary">Reseñas</h2>
         {reviews.length === 0 ? (
-          <p className="text-sm text-text-muted">No reviews yet.</p>
+          <p className="text-sm text-text-muted">Aún no hay reseñas.</p>
         ) : (
           <div className="space-y-3">
             {reviews.map((review) => (
               <Card key={review.id}>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-text-primary">
-                    {review.user?.name ?? "Anonymous"}
+                    {review.user?.name ?? "Anónimo"}
                   </span>
                   <StarRating value={review.rating} />
                 </div>
@@ -262,7 +284,7 @@ export function ProductDetail() {
                   </p>
                 )}
                 <p className="mt-2 text-xs text-text-muted">
-                  {new Date(review.createdAt).toLocaleDateString()}
+                  {new Date(review.createdAt).toLocaleDateString("es-CO")}
                 </p>
               </Card>
             ))}
@@ -274,10 +296,10 @@ export function ProductDetail() {
             onSubmit={handleReviewSubmit}
             className="mt-6 max-w-md space-y-3 rounded-lg border border-border bg-surface p-4"
           >
-            <h3 className="heading-card">Write a review</h3>
+            <h3 className="heading-card">Escribe una reseña</h3>
             <div>
               <label className="text-sm font-medium text-text-primary">
-                Rating
+                Calificación
               </label>
               <div className="mt-1 flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((n) => (
@@ -290,7 +312,7 @@ export function ProductDetail() {
                         ? "text-warning"
                         : "text-border hover:text-text-muted"
                     }`}
-                    aria-label={`${n} star${n === 1 ? "" : "s"}`}
+                    aria-label={`${n} estrella${n === 1 ? "" : "s"}`}
                   >
                     ★
                   </button>
@@ -298,14 +320,14 @@ export function ProductDetail() {
               </div>
             </div>
             <Textarea
-              label="Comment (optional)"
+              label="Comentario (opcional)"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               rows={3}
-              placeholder="Share your experience with this item"
+              placeholder="Cuéntanos qué te pareció esta prenda"
             />
             <Button type="submit" disabled={createReview.isPending}>
-              {createReview.isPending ? "Posting…" : "Post review"}
+              {createReview.isPending ? "Publicando…" : "Publicar reseña"}
             </Button>
           </form>
         )}
@@ -317,9 +339,9 @@ export function ProductDetail() {
             href="/login"
             className="font-medium text-text-primary underline-offset-4 hover:underline"
           >
-            Log in
+            Inicia sesión
           </a>{" "}
-          to add this item to your cart or write a review.
+          para agregar este producto a tu carrito o escribir una reseña.
         </p>
       )}
     </PageContainer>

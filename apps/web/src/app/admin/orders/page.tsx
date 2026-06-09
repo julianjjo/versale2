@@ -9,27 +9,17 @@ import {
   Badge,
   Select,
   Price,
-  type BadgeVariant,
 } from "@/components/ui";
+import {
+  ORDER_STATUSES,
+  ORDER_STATUS_LABEL,
+  ORDER_STATUS_VARIANT,
+} from "@/lib/order-status";
 import type { Order, OrderStatus } from "@/lib/types";
 import { useState } from "react";
 import Link from "next/link";
 
-const STATUSES: OrderStatus[] = [
-  "PENDING",
-  "PAID",
-  "SHIPPED",
-  "DELIVERED",
-  "CANCELLED",
-];
-
-const STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
-  PENDING: "warning",
-  PAID: "info",
-  SHIPPED: "info",
-  DELIVERED: "success",
-  CANCELLED: "danger",
-};
+const STATUSES = ORDER_STATUSES;
 
 export default function AdminOrdersPage() {
   const queryClient = useQueryClient();
@@ -57,13 +47,13 @@ export default function AdminOrdersPage() {
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
     },
     onError: (err) =>
-      setError(extractApiError(err, "Failed to update status")),
+      setError(extractApiError(err, "No pudimos cambiar el estado")),
   });
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-        <Spinner className="h-5 w-5" /> Loading…
+        <Spinner className="h-5 w-5" /> Cargando…
       </div>
     );
   }
@@ -72,14 +62,16 @@ export default function AdminOrdersPage() {
 
   return (
     <div>
-      <h2 className="heading-section mb-4 text-text-primary">All orders</h2>
+      <h2 className="heading-section mb-4 text-text-primary">
+        Todos los pedidos
+      </h2>
       {error && (
         <p className="mb-3 text-sm text-danger" role="alert">
           {error}
         </p>
       )}
       {orders.length === 0 ? (
-        <EmptyState title="No orders yet" />
+        <EmptyState title="Aún no hay pedidos" />
       ) : (
         <div className="space-y-3">
           {orders.map((order) => (
@@ -90,13 +82,13 @@ export default function AdminOrdersPage() {
                     href={`/orders/${order.id}`}
                     className="font-mono font-medium text-text-primary hover:underline"
                   >
-                    Order #{order.id.slice(0, 8)}
+                    Pedido #{order.id.slice(0, 8)}
                   </Link>
                   <p className="mt-1 text-xs text-text-muted">
-                    {order.items.length} item
+                    {order.items.length} producto
                     {order.items.length === 1 ? "" : "s"} ·{" "}
                     <Price value={order.totalAmount} /> ·{" "}
-                    {new Date(order.createdAt).toLocaleDateString()}
+                    {new Date(order.createdAt).toLocaleDateString("es-CO")}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -109,17 +101,17 @@ export default function AdminOrdersPage() {
                       })
                     }
                     disabled={updateStatus.isPending}
-                    aria-label="Order status"
-                    className="h-9 w-32 text-sm"
+                    aria-label="Estado del pedido"
+                    className="h-9 w-40 text-sm"
                   >
                     {STATUSES.map((s) => (
                       <option key={s} value={s}>
-                        {s}
+                        {ORDER_STATUS_LABEL[s]}
                       </option>
                     ))}
                   </Select>
-                  <Badge variant={STATUS_VARIANT[order.status]}>
-                    {order.status}
+                  <Badge variant={ORDER_STATUS_VARIANT[order.status]}>
+                    {ORDER_STATUS_LABEL[order.status]}
                   </Badge>
                 </div>
               </div>

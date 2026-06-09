@@ -31,13 +31,14 @@ export default function AdminUsersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
-    onError: (err) => setError(extractApiError(err, "Failed to delete user")),
+    onError: (err) =>
+      setError(extractApiError(err, "No pudimos eliminar al usuario")),
   });
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-        <Spinner className="h-5 w-5" /> Loading…
+        <Spinner className="h-5 w-5" /> Cargando…
       </div>
     );
   }
@@ -46,14 +47,14 @@ export default function AdminUsersPage() {
 
   return (
     <div>
-      <h2 className="heading-section mb-4 text-text-primary">All users</h2>
+      <h2 className="heading-section mb-4 text-text-primary">Todos los usuarios</h2>
       {error && (
         <p className="mb-3 text-sm text-danger" role="alert">
           {error}
         </p>
       )}
       {users.length === 0 ? (
-        <EmptyState title="No users" />
+        <EmptyState title="No hay usuarios" />
       ) : (
         <div className="space-y-3">
           {users.map((u) => (
@@ -66,19 +67,19 @@ export default function AdminUsersPage() {
                   <p className="text-xs text-text-muted">{u.email}</p>
                 </div>
                 <Badge variant={u.role === "ADMIN" ? "info" : "default"}>
-                  {u.role}
+                  {u.role === "ADMIN" ? "Administrador" : "Usuario"}
                 </Badge>
                 <Button
                   size="sm"
                   variant="danger"
                   onClick={() => {
-                    if (confirm(`Delete user ${u.name}?`)) {
+                    if (confirm(`¿Eliminar al usuario ${u.name}?`)) {
                       remove.mutate(u.id);
                     }
                   }}
                   disabled={remove.isPending}
                 >
-                  Delete
+                  Eliminar
                 </Button>
               </div>
             </Card>

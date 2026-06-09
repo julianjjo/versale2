@@ -13,29 +13,29 @@ async function setViewport(page: import("@playwright/test").Page, name: Viewport
 }
 
 test.describe("Responsive — Home (anonymous)", () => {
-  test("home: hero scales and stays readable on mobile, tablet, and desktop", async ({
+  test("home: el hero escala y se mantiene legible en mobile, tablet y desktop", async ({
     page,
   }) => {
     for (const vp of [MOBILE, TABLET, DESKTOP] as const) {
       await setViewport(page, vp);
       await page.goto("/");
 
-      // Hero text always visible
+      // El texto del hero siempre debe estar visible
       await expect(
         page.getByRole("heading", {
-          name: /give fashion a second life/i,
+          name: /dale una segunda vida a tu moda/i,
         }),
       ).toBeVisible();
 
-      // Both CTAs present
+      // Ambos CTAs presentes
       await expect(
-        page.getByRole("link", { name: /browse marketplace/i }),
+        page.getByRole("link", { name: /explorar marketplace/i }),
       ).toBeVisible();
       await expect(
-        page.getByRole("link", { name: /start selling/i }),
+        page.getByRole("link", { name: /empieza a vender/i }),
       ).toBeVisible();
 
-      // No horizontal scroll on the body
+      // No debe haber scroll horizontal en el body
       const overflowing = await page.evaluate(() => {
         return (
           document.documentElement.scrollWidth >
@@ -44,12 +44,12 @@ test.describe("Responsive — Home (anonymous)", () => {
       });
       expect(
         overflowing,
-        `horizontal scroll on ${vp} (${VIEWPORTS[vp].width}px)`,
+        `scroll horizontal en ${vp} (${VIEWPORTS[vp].width}px)`,
       ).toBe(false);
     }
   });
 
-  test("home: products grid uses 2 columns on mobile, 3 on tablet, 4 on desktop", async ({
+  test("home: la cuadrícula de productos usa 2 columnas en mobile, 3 en tablet, 4 en desktop", async ({
     page,
   }) => {
     // 12 approved products seeded — but seed has 2 approved + 1 pending.
@@ -78,7 +78,7 @@ test.describe("Responsive — Home (anonymous)", () => {
       });
       expect(
         computedCols,
-        `viewport ${vp} expected ${expectedCols} columns, got ${computedCols}`,
+        `viewport ${vp} esperaba ${expectedCols} columnas, obtuvo ${computedCols}`,
       ).toBe(expectedCols);
     }
   });
@@ -99,18 +99,18 @@ test.describe("Responsive — Header navigation", () => {
     // Inline header nav hidden on mobile (scope to <header> to avoid matching the footer's Browse link).
     const header = page.locator("header").first();
     await expect(
-      header.getByRole("link", { name: /^browse$/i }),
+      header.getByRole("link", { name: /explorar/i }),
     ).toBeHidden();
 
     // Open the menu
     await trigger.click();
-    await expect(page.getByRole("dialog", { name: /mobile navigation/i }))
+    await expect(page.getByRole("dialog", { name: /navegación móvil/i }))
       .toBeVisible();
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
 
     // Drawer contains all primary links
-    const dialog = page.getByRole("dialog", { name: /mobile navigation/i });
-    for (const label of ["Browse", "Login", "Sign up"]) {
+    const dialog = page.getByRole("dialog", { name: /navegación móvil/i });
+    for (const label of ["Explorar", "Iniciar sesión", "Crear cuenta"]) {
       await expect(dialog.getByText(label, { exact: true })).toBeVisible();
     }
   });
@@ -121,20 +121,20 @@ test.describe("Responsive — Header navigation", () => {
     await setViewport(page, MOBILE);
     await page.goto("/");
     await page.getByTestId("mobile-menu-trigger").click();
-    await expect(page.getByRole("dialog", { name: /mobile navigation/i }))
+    await expect(page.getByRole("dialog", { name: /navegación móvil/i }))
       .toBeVisible();
 
     // Escape
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog", { name: /mobile navigation/i }))
+    await expect(page.getByRole("dialog", { name: /navegación móvil/i }))
       .toBeHidden();
 
     // Open again, then click the backdrop.
     await page.getByTestId("mobile-menu-trigger").click();
-    await expect(page.getByRole("dialog", { name: /mobile navigation/i }))
+    await expect(page.getByRole("dialog", { name: /navegación móvil/i }))
       .toBeVisible();
     await page.getByTestId("mobile-menu-backdrop").click({ force: true });
-    await expect(page.getByRole("dialog", { name: /mobile navigation/i }))
+    await expect(page.getByRole("dialog", { name: /navegación móvil/i }))
       .toBeHidden({ timeout: 3_000 });
   });
 
@@ -143,12 +143,12 @@ test.describe("Responsive — Header navigation", () => {
     await page.goto("/");
     await page.getByTestId("mobile-menu-trigger").click();
     await page
-      .getByRole("dialog", { name: /mobile navigation/i })
-      .getByRole("button", { name: /^login$/i })
+      .getByRole("dialog", { name: /navegación móvil/i })
+      .getByRole("button", { name: /iniciar sesión/i })
       .click();
     await page.waitForURL(/\/login/, { timeout: 5_000 });
     await expect(
-      page.getByRole("heading", { name: /welcome back/i }),
+      page.getByRole("heading", { name: /bienvenido de vuelta/i }),
     ).toBeVisible();
   });
 
@@ -156,14 +156,14 @@ test.describe("Responsive — Header navigation", () => {
     page,
   }) => {
     await page.goto("/login");
-    await page.getByLabel("Email").fill("user@e2e.test");
-    await page.getByLabel("Password").fill("user12345");
-    await page.getByRole("main").getByRole("button", { name: /^log in$/i }).click();
+    await page.getByLabel("Correo electrónico").fill("user@e2e.test");
+    await page.getByLabel("Contraseña").fill("user12345");
+    await page.getByRole("main").getByRole("button", { name: /iniciar sesión/i }).click();
     await page.waitForURL(/\/products/, { timeout: 10_000 });
 
     await setViewport(page, MOBILE);
     await page.goto("/");
-    const cartIcon = page.getByRole("link", { name: /^cart$/i });
+    const cartIcon = page.getByRole("link", { name: /carrito/i });
     await expect(cartIcon).toBeVisible();
     await cartIcon.click();
     await page.waitForURL(/\/cart/, { timeout: 5_000 });
@@ -174,20 +174,22 @@ test.describe("Responsive — Header navigation", () => {
     await page.goto("/");
     const header = page.locator("header").first();
     await expect(
-      header.getByRole("link", { name: /^browse$/i }),
+      header.getByRole("link", { name: /explorar/i }),
     ).toBeVisible();
     await expect(
       page.getByTestId("mobile-menu-trigger"),
     ).toBeHidden();
   });
 
-  test("desktop: full nav with profile chip and Logout", async ({ page }) => {
+  test("desktop: nav completo con chip de perfil y Cerrar sesión", async ({
+    page,
+  }) => {
     await page.goto("/login");
-    await page.getByLabel("Email").fill("user@e2e.test");
-    await page.getByLabel("Password").fill("user12345");
+    await page.getByLabel("Correo electrónico").fill("user@e2e.test");
+    await page.getByLabel("Contraseña").fill("user12345");
     await page
       .getByRole("main")
-      .getByRole("button", { name: /^log in$/i })
+      .getByRole("button", { name: /iniciar sesión/i })
       .click();
     await page.waitForURL(/\/products/, { timeout: 10_000 });
 
@@ -195,7 +197,7 @@ test.describe("Responsive — Header navigation", () => {
     await page.goto("/");
 
     const header = page.locator("header").first();
-    for (const label of ["Browse", "Cart", "Orders", "Sell"]) {
+    for (const label of ["Explorar", "Carrito", "Pedidos", "Vender"]) {
       await expect(
         header.getByRole("link", { name: new RegExp(`^${label}$`, "i") }),
       ).toBeVisible();
@@ -213,11 +215,11 @@ test.describe("Responsive — Product detail", () => {
   }) => {
     // Login so we can use the cart and authenticated navigation flows downstream
     await page.goto("/login");
-    await page.getByLabel("Email").fill("user@e2e.test");
-    await page.getByLabel("Password").fill("user12345");
+    await page.getByLabel("Correo electrónico").fill("user@e2e.test");
+    await page.getByLabel("Contraseña").fill("user12345");
     await page
       .getByRole("main")
-      .getByRole("button", { name: /^log in$/i })
+      .getByRole("button", { name: /iniciar sesión/i })
       .click();
     await page.waitForURL(/\/products/, { timeout: 10_000 });
     await page.goto("/products");
@@ -274,21 +276,21 @@ test.describe("Responsive — Cart & checkout", () => {
   }) => {
     // Login + add a product to cart
     await page.goto("/login");
-    await page.getByLabel("Email").fill("user@e2e.test");
-    await page.getByLabel("Password").fill("user12345");
-    await page.getByRole("main").getByRole("button", { name: /^log in$/i }).click();
+    await page.getByLabel("Correo electrónico").fill("user@e2e.test");
+    await page.getByLabel("Contraseña").fill("user12345");
+    await page.getByRole("main").getByRole("button", { name: /iniciar sesión/i }).click();
     await page.waitForURL(/\/products/, { timeout: 10_000 });
     await page.goto("/products");
     await page.getByRole("heading", { name: /vintage denim jacket/i }).click();
     await expect(page).toHaveURL(/\/products\/.+/);
-    await page.getByRole("button", { name: /add to cart/i }).click();
+    await page.getByRole("button", { name: /agregar al carrito/i }).click();
     await page.waitForTimeout(500);
     await page.goto("/cart");
 
     for (const vp of [MOBILE, DESKTOP] as const) {
       await setViewport(page, vp);
       await page.goto("/cart");
-      const heading = page.getByRole("heading", { name: /your cart/i });
+      const heading = page.getByRole("heading", { name: /tu carrito/i });
       await expect(heading).toBeVisible();
     }
 
@@ -314,18 +316,18 @@ test.describe("Responsive — Admin", () => {
     page,
   }) => {
     await page.goto("/login");
-    await page.getByLabel("Email").fill("admin@e2e.test");
-    await page.getByLabel("Password").fill("admin12345");
-    await page.getByRole("main").getByRole("button", { name: /^log in$/i }).click();
+    await page.getByLabel("Correo electrónico").fill("admin@e2e.test");
+    await page.getByLabel("Contraseña").fill("admin12345");
+    await page.getByRole("main").getByRole("button", { name: /iniciar sesión/i }).click();
     await page.waitForURL(/\/products/, { timeout: 10_000 });
 
     // Mobile: tab nav should still be reachable (scrollable container)
     await setViewport(page, MOBILE);
     await page.goto("/admin");
-    const tabs = page.getByRole("navigation", { name: /admin sections/i });
+    const tabs = page.getByRole("navigation", { name: /secciones de administración/i });
     await expect(tabs).toBeVisible();
     // Each tab is reachable by name
-    for (const label of ["Overview", "Products", "Orders", "Users"]) {
+    for (const label of ["Resumen", "Productos", "Pedidos", "Usuarios"]) {
       await expect(tabs.getByRole("link", { name: new RegExp(`^${label}$`, "i") }))
         .toBeAttached();
     }
@@ -335,9 +337,9 @@ test.describe("Responsive — Admin", () => {
     page,
   }) => {
     await page.goto("/login");
-    await page.getByLabel("Email").fill("admin@e2e.test");
-    await page.getByLabel("Password").fill("admin12345");
-    await page.getByRole("main").getByRole("button", { name: /^log in$/i }).click();
+    await page.getByLabel("Correo electrónico").fill("admin@e2e.test");
+    await page.getByLabel("Contraseña").fill("admin12345");
+    await page.getByRole("main").getByRole("button", { name: /iniciar sesión/i }).click();
     await page.waitForURL(/\/products/, { timeout: 10_000 });
 
     const expectations: Array<[ViewportName, number]> = [
@@ -374,9 +376,9 @@ test.describe("Responsive — Forms (sell)", () => {
     page,
   }) => {
     await page.goto("/login");
-    await page.getByLabel("Email").fill("user@e2e.test");
-    await page.getByLabel("Password").fill("user12345");
-    await page.getByRole("main").getByRole("button", { name: /^log in$/i }).click();
+    await page.getByLabel("Correo electrónico").fill("user@e2e.test");
+    await page.getByLabel("Contraseña").fill("user12345");
+    await page.getByRole("main").getByRole("button", { name: /iniciar sesión/i }).click();
     await page.waitForURL(/\/products/, { timeout: 10_000 });
 
     await setViewport(page, DESKTOP);
@@ -421,7 +423,7 @@ test.describe("Responsive — Footer", () => {
       await page.goto("/");
       const footer = page.locator("footer");
       await expect(footer).toBeVisible();
-      for (const label of ["Browse", "Sell", "Log in", "Sign up"]) {
+      for (const label of ["Explorar", "Vender", "Iniciar sesión", "Crear cuenta"]) {
         await expect(
           footer.getByRole("link", { name: new RegExp(`^${label}$`, "i") }),
         ).toBeVisible();

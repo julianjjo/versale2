@@ -6,10 +6,10 @@ import { useAuth } from "@/lib/auth";
 import { Spinner, EmptyState, Button, PageContainer } from "@/components/ui";
 
 const TABS = [
-  { href: "/admin", label: "Overview", exact: true },
-  { href: "/admin/products", label: "Products" },
-  { href: "/admin/orders", label: "Orders" },
-  { href: "/admin/users", label: "Users" },
+  { href: "/admin", label: "Resumen", exact: true },
+  { href: "/admin/products", label: "Productos" },
+  { href: "/admin/orders", label: "Pedidos" },
+  { href: "/admin/users", label: "Usuarios" },
 ];
 
 export default function AdminLayout({
@@ -25,7 +25,7 @@ export default function AdminLayout({
     return (
       <PageContainer>
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-          <Spinner className="h-5 w-5" /> Loading…
+          <Spinner className="h-5 w-5" /> Cargando…
         </div>
       </PageContainer>
     );
@@ -35,10 +35,10 @@ export default function AdminLayout({
     return (
       <PageContainer size="narrow">
         <EmptyState
-          title="Please log in"
-          description="Admin pages require an account."
+          title="Inicia sesión"
+          description="Las páginas de administración requieren una cuenta."
           action={
-            <Button onClick={() => router.push("/login")}>Log in</Button>
+            <Button onClick={() => router.push("/login")}>Iniciar sesión</Button>
           }
         />
       </PageContainer>
@@ -49,10 +49,10 @@ export default function AdminLayout({
     return (
       <PageContainer size="narrow">
         <EmptyState
-          title="Access denied"
-          description="You don't have permission to access this page."
+          title="Acceso denegado"
+          description="No tienes permisos para acceder a esta página."
           action={
-            <Button onClick={() => router.push("/")}>Go home</Button>
+            <Button onClick={() => router.push("/")}>Volver al inicio</Button>
           }
         />
       </PageContainer>
@@ -61,14 +61,14 @@ export default function AdminLayout({
 
   return (
     <PageContainer size="wide">
-      <h1 className="heading-section text-text-primary">Admin dashboard</h1>
+      <h1 className="heading-section text-text-primary">Panel de administración</h1>
       <p className="mt-1 text-sm text-text-muted">
-        Manage products, orders, and users.
+        Gestiona productos, pedidos y usuarios.
       </p>
       <div className="mt-6 mb-6 border-b border-border">
         <nav
           className="-mb-px flex gap-1 overflow-x-auto"
-          aria-label="Admin sections"
+          aria-label="Secciones de administración"
         >
           {TABS.map((tab) => {
             const active = tab.exact

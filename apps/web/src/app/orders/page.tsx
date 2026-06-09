@@ -12,17 +12,9 @@ import {
   PageContainer,
   SectionHeader,
   Price,
-  type BadgeVariant,
 } from "@/components/ui";
-import type { Order, OrderStatus } from "@/lib/types";
-
-const STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
-  PENDING: "warning",
-  PAID: "info",
-  SHIPPED: "info",
-  DELIVERED: "success",
-  CANCELLED: "danger",
-};
+import { ORDER_STATUS_LABEL, ORDER_STATUS_VARIANT } from "@/lib/order-status";
+import type { Order } from "@/lib/types";
 
 export default function OrdersPage() {
   const router = useRouter();
@@ -41,7 +33,7 @@ export default function OrdersPage() {
     return (
       <PageContainer>
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-          <Spinner className="h-5 w-5" /> Loading…
+          <Spinner className="h-5 w-5" /> Cargando…
         </div>
       </PageContainer>
     );
@@ -51,9 +43,11 @@ export default function OrdersPage() {
     return (
       <PageContainer size="narrow">
         <EmptyState
-          title="Please log in"
-          description="You need an account to view your orders."
-          action={<button onClick={() => router.push("/login")}>Log in</button>}
+          title="Inicia sesión"
+          description="Necesitas una cuenta para ver tus pedidos."
+          action={
+            <button onClick={() => router.push("/login")}>Iniciar sesión</button>
+          }
         />
       </PageContainer>
     );
@@ -63,7 +57,7 @@ export default function OrdersPage() {
     return (
       <PageContainer>
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-          <Spinner className="h-5 w-5" /> Loading orders…
+          <Spinner className="h-5 w-5" /> Cargando pedidos…
         </div>
       </PageContainer>
     );
@@ -72,16 +66,16 @@ export default function OrdersPage() {
   return (
     <PageContainer size="default">
       <SectionHeader
-        title="Order history"
-        description="Track and review your past purchases."
+        title="Historial de pedidos"
+        description="Consulta y sigue tus compras pasadas."
       />
       {data && data.length === 0 ? (
         <EmptyState
-          title="No orders yet"
-          description="Once you place an order, it will appear here."
+          title="Aún no tienes pedidos"
+          description="Cuando hagas un pedido, aparecerá aquí."
           action={
             <button onClick={() => router.push("/products")}>
-              Browse products
+              Explorar productos
             </button>
           }
         />
@@ -96,19 +90,20 @@ export default function OrdersPage() {
               <Card className="hover:shadow-md">
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-sm text-text-muted">
-                    Order #{order.id.slice(0, 8)}
+                    Pedido #{order.id.slice(0, 8)}
                   </span>
-                  <Badge variant={STATUS_VARIANT[order.status]}>
-                    {order.status}
+                  <Badge variant={ORDER_STATUS_VARIANT[order.status]}>
+                    {ORDER_STATUS_LABEL[order.status]}
                   </Badge>
                 </div>
                 <p className="mt-2 text-sm text-text-primary">
-                  {order.items.length} item
+                  {order.items.length} producto
                   {order.items.length === 1 ? "" : "s"} ·{" "}
                   <Price value={order.totalAmount} className="font-semibold" />
                 </p>
                 <p className="mt-1 text-xs text-text-muted">
-                  Placed on {new Date(order.createdAt).toLocaleDateString()}
+                  Realizado el{" "}
+                  {new Date(order.createdAt).toLocaleDateString("es-CO")}
                 </p>
               </Card>
             </a>

@@ -43,7 +43,7 @@ describe("Header", () => {
     authState.isLoading = false;
   });
 
-  it("shows the brand on every viewport", () => {
+  it("muestra la marca en todos los viewports", () => {
     render(
       <TestProviders>
         <Header />
@@ -52,15 +52,15 @@ describe("Header", () => {
     expect(screen.getByText("Versale")).toBeInTheDocument();
   });
 
-  it("shows Login and Sign up buttons when not authenticated", async () => {
+  it("muestra los botones Iniciar sesión y Crear cuenta cuando no hay sesión", async () => {
     const user = userEvent.setup();
     render(
       <TestProviders>
         <Header />
       </TestProviders>,
     );
-    const loginBtn = screen.getByRole("button", { name: /^login$/i });
-    const signupBtn = screen.getByRole("button", { name: /sign up/i });
+    const loginBtn = screen.getByRole("button", { name: /iniciar sesión/i });
+    const signupBtn = screen.getByRole("button", { name: /crear cuenta/i });
     expect(loginBtn).toBeInTheDocument();
     expect(signupBtn).toBeInTheDocument();
 
@@ -71,7 +71,7 @@ describe("Header", () => {
     expect(pushMock).toHaveBeenCalledWith("/signup");
   });
 
-  it("shows Cart, Orders, Sell, and the user name when authenticated", () => {
+  it("muestra Carrito, Pedidos, Vender y el nombre del usuario al iniciar sesión", () => {
     authState.user = {
       id: "u1",
       email: "a@b.c",
@@ -83,23 +83,22 @@ describe("Header", () => {
         <Header />
       </TestProviders>,
     );
-    // Cart appears in the inline nav (sm+) and the mobile-icon button (<sm).
-    // Both point to /cart; assert that at least one Cart link/button exists.
-    const cartTargets = screen.getAllByRole("link", { name: /cart/i });
+    // Cart aparece en el nav inline (sm+) y como ícono en mobile (<sm).
+    const cartTargets = screen.getAllByRole("link", { name: /carrito/i });
     expect(cartTargets.length).toBeGreaterThan(0);
     expect(cartTargets[0]).toHaveAttribute("href", "/cart");
-    expect(screen.getByRole("link", { name: /^orders$/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^pedidos$/i })).toHaveAttribute(
       "href",
       "/orders",
     );
-    expect(screen.getByRole("link", { name: /^sell$/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^vender$/i })).toHaveAttribute(
       "href",
       "/sell",
     );
     expect(screen.getByText("Alice")).toBeInTheDocument();
   });
 
-  it("shows the admin link only for ADMIN users", () => {
+  it("muestra el enlace Admin solo para usuarios ADMIN", () => {
     authState.user = {
       id: "admin1",
       email: "admin@b.c",
@@ -115,7 +114,7 @@ describe("Header", () => {
     expect(adminLink).toHaveAttribute("href", "/admin");
   });
 
-  it("does not show the admin link for non-admin users", () => {
+  it("no muestra el enlace Admin para usuarios no administradores", () => {
     authState.user = {
       id: "u1",
       email: "a@b.c",
@@ -130,7 +129,7 @@ describe("Header", () => {
     expect(screen.queryByRole("link", { name: /admin/i })).toBeNull();
   });
 
-  it("logs out and routes to home when Logout is clicked", async () => {
+  it("cierra sesión y navega al inicio al hacer click en Cerrar sesión", async () => {
     authState.user = {
       id: "u1",
       email: "a@b.c",
@@ -143,36 +142,36 @@ describe("Header", () => {
         <Header />
       </TestProviders>,
     );
-    await user.click(screen.getByRole("button", { name: /logout/i }));
+    await user.click(screen.getByRole("button", { name: /cerrar sesión/i }));
     expect(authState.logout).toHaveBeenCalled();
     expect(pushMock).toHaveBeenCalledWith("/");
     expect(refreshMock).toHaveBeenCalled();
   });
 
-  it("exposes a mobile menu trigger with proper aria attributes", () => {
+  it("expone un disparador de menú móvil con atributos aria correctos", () => {
     render(
       <TestProviders>
         <Header />
       </TestProviders>,
     );
-    const trigger = screen.getByRole("button", { name: /open menu/i });
+    const trigger = screen.getByRole("button", { name: /abrir menú/i });
     expect(trigger).toHaveAttribute("aria-expanded", "false");
     expect(trigger).toHaveAttribute("aria-controls", "mobile-menu");
   });
 
-  it("toggles the mobile menu when the trigger is clicked", async () => {
+  it("abre y cierra el menú móvil al hacer click en el disparador", async () => {
     const user = userEvent.setup();
     render(
       <TestProviders>
         <Header />
       </TestProviders>,
     );
-    const trigger = screen.getByRole("button", { name: /open menu/i });
+    const trigger = screen.getByRole("button", { name: /abrir menú/i });
     await user.click(trigger);
     expect(
-      screen.getByRole("button", { name: /close menu/i }),
+      screen.getByRole("button", { name: /cerrar menú/i }),
     ).toBeInTheDocument();
-    const dialog = screen.getByRole("dialog", { name: /mobile navigation/i });
+    const dialog = screen.getByRole("dialog", { name: /navegación móvil/i });
     expect(dialog).toBeInTheDocument();
   });
 });

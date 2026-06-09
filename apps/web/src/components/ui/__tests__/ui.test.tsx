@@ -194,17 +194,20 @@ describe("SectionHeader", () => {
 });
 
 describe("Price", () => {
-  it("formats with two decimals and a $ sign", () => {
-    render(<Price value={12.5} data-testid="p" />);
+  it("formats with COP currency", () => {
+    render(<Price value={45000} data-testid="p" />);
     const el = screen.getByTestId("p");
-    expect(el.textContent).toBe("$12.50");
+    // es-CO locale outputs "$ 45.000" (or "$45.000") — both are valid
+    expect(el.textContent).toMatch(/45[\s.]000/);
   });
 });
 
 describe("StarRating", () => {
   it("renders a label with the value", () => {
     render(<StarRating value={4.5} />);
-    expect(screen.getByLabelText(/4\.5 out of 5 stars/i)).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/4\.5 de 5 estrellas/i),
+    ).toBeInTheDocument();
   });
 });
 

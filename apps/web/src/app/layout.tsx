@@ -20,9 +20,10 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Versale — Pre-owned fashion marketplace",
+  title: "Versale — Marketplace de moda de segunda",
   description:
-    "Buy and sell pre-owned clothing on Versale. A sustainable, trusted marketplace for second-hand fashion.",
+    "Compra y vende ropa de segunda en Versale. Marketplace sostenible y confiable de moda usada en Colombia.",
+  lang: "es-CO",
 };
 
 export default function RootLayout({
@@ -31,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${poppins.variable} ${plexMono.variable}`}>
+    <html lang="es-CO" className={`${poppins.variable} ${plexMono.variable}`}>
       <body className="min-h-screen flex flex-col bg-surface text-text-primary antialiased">
         <Providers>
           <Header />

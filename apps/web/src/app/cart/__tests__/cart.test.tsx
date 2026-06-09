@@ -131,7 +131,7 @@ describe("CartPage", () => {
     authState.isLoading = false;
   });
 
-  it("renders the cart heading and items", async () => {
+  it("renderiza el encabezado y los productos del carrito", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockCart });
     render(
       <TestProviders>
@@ -140,13 +140,15 @@ describe("CartPage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /your cart/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: /tu carrito/i }),
+      ).toBeInTheDocument();
     });
     expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
     expect(screen.getByText("Wool sweater")).toBeInTheDocument();
   });
 
-  it("shows the correct total", async () => {
+  it("muestra el total correcto", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockCart });
     render(
       <TestProviders>
@@ -154,13 +156,13 @@ describe("CartPage", () => {
       </TestProviders>,
     );
 
-    // 2*25 + 1*50 = 100; both subtotal and total show this value
+    // 2*25 + 1*50 = 100; both subtotal and total show this value, formatted as $ 100
     await waitFor(() => {
-      expect(screen.getAllByText("$100.00").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("$ 100").length).toBeGreaterThan(0);
     });
   });
 
-  it("shows an empty state when the cart has no items", async () => {
+  it("muestra un estado vacío cuando el carrito no tiene productos", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: emptyCart });
     render(
       <TestProviders>
@@ -169,11 +171,11 @@ describe("CartPage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/your cart is empty/i)).toBeInTheDocument();
+      expect(screen.getByText(/tu carrito está vacío/i)).toBeInTheDocument();
     });
   });
 
-  it("prompts the user to log in if not authenticated", async () => {
+  it("pide al usuario iniciar sesión si no está autenticado", async () => {
     authState.user = null;
     const user = userEvent.setup();
     render(
@@ -181,12 +183,12 @@ describe("CartPage", () => {
         <CartPage />
       </TestProviders>,
     );
-    expect(screen.getByText(/please log in/i)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /log in/i }));
+    expect(screen.getByText(/inicia sesión/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /iniciar sesión/i }));
     expect(pushMock).toHaveBeenCalledWith("/login");
   });
 
-  it("calls the api to remove an item when Remove is clicked", async () => {
+  it("llama a la api para eliminar un producto al hacer click en Eliminar", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockCart });
     vi.mocked(api.delete).mockResolvedValue({ data: { success: true } });
     const user = userEvent.setup();
@@ -200,7 +202,7 @@ describe("CartPage", () => {
       expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
     });
 
-    const removeButtons = screen.getAllByRole("button", { name: /remove/i });
+    const removeButtons = screen.getAllByRole("button", { name: /eliminar/i });
     await user.click(removeButtons[0]!);
 
     await waitFor(() => {
@@ -208,7 +210,7 @@ describe("CartPage", () => {
     });
   });
 
-  it("places an order on checkout", async () => {
+  it("realiza el pedido al hacer click en Pagar", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockCart });
     vi.mocked(api.post).mockResolvedValue({ data: { id: "order1" } });
     const user = userEvent.setup();
@@ -222,7 +224,7 @@ describe("CartPage", () => {
       expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole("button", { name: /checkout/i }));
+    await user.click(screen.getByRole("button", { name: /pagar/i }));
 
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith("/orders", {});
@@ -230,9 +232,9 @@ describe("CartPage", () => {
     expect(pushMock).toHaveBeenCalledWith("/orders");
   });
 
-  it("shows an error when checkout fails", async () => {
+  it("muestra un error si el pago falla", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockCart });
-    vi.mocked(api.post).mockRejectedValue(new Error("Cart is empty"));
+    vi.mocked(api.post).mockRejectedValue(new Error("El carrito está vacío"));
     const user = userEvent.setup();
     render(
       <TestProviders>
@@ -244,10 +246,10 @@ describe("CartPage", () => {
       expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole("button", { name: /checkout/i }));
+    await user.click(screen.getByRole("button", { name: /pagar/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("Cart is empty")).toBeInTheDocument();
+      expect(screen.getByText("El carrito está vacío")).toBeInTheDocument();
     });
   });
 });

@@ -19,3 +19,23 @@ if (typeof window !== "undefined" && !window.matchMedia) {
     dispatchEvent: vi.fn(),
   }));
 }
+
+// next/navigation requires an app-router context that doesn't exist in
+// jsdom. Provide a permissive default mock so components (and their tests)
+// can render without setup ceremony. Individual tests can override via
+// `vi.mock("next/navigation", ...)` for finer control.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    refresh: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    prefetch: vi.fn(),
+  }),
+  useParams: () => ({}),
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
+  redirect: vi.fn(),
+  notFound: vi.fn(),
+}));

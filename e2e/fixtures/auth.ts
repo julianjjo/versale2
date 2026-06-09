@@ -8,12 +8,12 @@ export type AuthenticatedUser = "user" | "admin" | "seller";
 async function loginAs(page: Page, credentials: Credentials) {
   await page.context().clearCookies();
   await page.goto("/login");
-  await page.getByLabel("Email").fill(credentials.email);
-  await page.getByLabel("Password").fill(credentials.password);
-  // Scope to the form's submit button to avoid matching the header "Login" button.
+  await page.getByLabel("Correo electrónico").fill(credentials.email);
+  await page.getByLabel("Contraseña").fill(credentials.password);
+  // Scope to the form's submit button to avoid matching the header button.
   await page
     .getByRole("main")
-    .getByRole("button", { name: /^log in$/i })
+    .getByRole("button", { name: /iniciar sesión/i })
     .click();
   await page.waitForURL(/\/products/, { timeout: 10_000 });
 }

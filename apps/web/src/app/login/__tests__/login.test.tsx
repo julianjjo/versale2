@@ -45,46 +45,46 @@ describe("LoginPage", () => {
     );
   }
 
-  it("renders the login form", () => {
+  it("renderiza el formulario de inicio de sesión", () => {
     renderLogin();
     expect(
-      screen.getByRole("heading", { name: /welcome back/i }),
+      screen.getByRole("heading", { name: /bienvenido de vuelta/i }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Email")).toBeInTheDocument();
-    expect(screen.getByLabelText("Password")).toBeInTheDocument();
+    expect(screen.getByLabelText("Correo electrónico")).toBeInTheDocument();
+    expect(screen.getByLabelText("Contraseña")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /^log in$/i }),
+      screen.getByRole("button", { name: /iniciar sesión/i }),
     ).toBeInTheDocument();
   });
 
-  it("calls login with the entered email and password", async () => {
+  it("llama a login con el correo y la contraseña ingresados", async () => {
     const user = userEvent.setup();
     renderLogin();
 
-    await user.type(screen.getByLabelText("Email"), "alice@example.com");
-    await user.type(screen.getByLabelText("Password"), "secret123");
-    await user.click(screen.getByRole("button", { name: /^log in$/i }));
+    await user.type(screen.getByLabelText("Correo electrónico"), "alice@ejemplo.co");
+    await user.type(screen.getByLabelText("Contraseña"), "secreto123");
+    await user.click(screen.getByRole("button", { name: /iniciar sesión/i }));
 
     await waitFor(() => {
-      expect(loginMock).toHaveBeenCalledWith("alice@example.com", "secret123");
+      expect(loginMock).toHaveBeenCalledWith("alice@ejemplo.co", "secreto123");
     });
   });
 
-  it("shows an error message when login fails", async () => {
-    loginMock.mockRejectedValueOnce(new Error("Invalid credentials"));
+  it("muestra un mensaje de error si el inicio de sesión falla", async () => {
+    loginMock.mockRejectedValueOnce(new Error("Credenciales inválidas"));
     const user = userEvent.setup();
     renderLogin();
 
-    await user.type(screen.getByLabelText("Email"), "alice@example.com");
-    await user.type(screen.getByLabelText("Password"), "wrong");
-    await user.click(screen.getByRole("button", { name: /^log in$/i }));
+    await user.type(screen.getByLabelText("Correo electrónico"), "alice@ejemplo.co");
+    await user.type(screen.getByLabelText("Contraseña"), "incorrecta");
+    await user.click(screen.getByRole("button", { name: /iniciar sesión/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("Invalid credentials")).toBeInTheDocument();
+      expect(screen.getByText("Credenciales inválidas")).toBeInTheDocument();
     });
   });
 
-  it("disables the submit button while submitting", async () => {
+  it("deshabilita el botón mientras se envía el formulario", async () => {
     let resolveLogin: () => void = () => {};
     loginMock.mockImplementationOnce(
       () =>
@@ -96,21 +96,21 @@ describe("LoginPage", () => {
     const user = userEvent.setup();
     renderLogin();
 
-    await user.type(screen.getByLabelText("Email"), "a@b.c");
-    await user.type(screen.getByLabelText("Password"), "password");
-    await user.click(screen.getByRole("button", { name: /^log in$/i }));
+    await user.type(screen.getByLabelText("Correo electrónico"), "a@b.c");
+    await user.type(screen.getByLabelText("Contraseña"), "contraseña");
+    await user.click(screen.getByRole("button", { name: /iniciar sesión/i }));
 
     await waitFor(() => {
       expect(screen.getByRole("button")).toBeDisabled();
     });
-    expect(screen.getByRole("button").textContent).toMatch(/logging in/i);
+    expect(screen.getByRole("button").textContent).toMatch(/ingresando/i);
 
     resolveLogin();
   });
 
-  it("links to the signup page", () => {
+  it("enlaza a la página de registro", () => {
     renderLogin();
-    const link = screen.getByRole("link", { name: /sign up/i });
+    const link = screen.getByRole("link", { name: /crear cuenta/i });
     expect(link).toHaveAttribute("href", "/signup");
   });
 });

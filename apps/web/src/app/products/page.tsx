@@ -5,8 +5,8 @@ export default function ProductsPage() {
   return (
     <PageContainer size="wide">
       <SectionHeader
-        title="Browse marketplace"
-        description="Find pre-owned pieces from sellers in the community."
+        title="Explorar marketplace"
+        description="Encuentra prendas de segunda de vendedores de la comunidad."
       />
       <ProductsBrowser />
     </PageContainer>

@@ -1,5 +1,6 @@
 import axios, { type AxiosInstance, type AxiosError } from "axios";
 import { tokenStore } from "./token";
+import { notifyUnauthorized } from "./auth-events";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -19,13 +20,9 @@ api.interceptors.response.use(
   (error: AxiosError) => {
     if (error.response?.status === 401) {
       tokenStore.clear();
-      if (
-        typeof window !== "undefined" &&
-        !window.location.pathname.startsWith("/login") &&
-        !window.location.pathname.startsWith("/signup")
-      ) {
-        window.location.href = "/login";
-      }
+      // Notify subscribers (AuthProvider) so they can clear state and route
+      // to /login via Next router — avoids a full-page reload.
+      notifyUnauthorized();
     }
     return Promise.reject(error);
   },

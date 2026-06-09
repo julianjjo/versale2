@@ -14,6 +14,13 @@ import type { Product } from "@/lib/types";
 import { useState } from "react";
 import Link from "next/link";
 
+const CONDITION_LABELS: Record<string, string> = {
+  New: "Nuevo",
+  "Like New": "Como nuevo",
+  Good: "Buen estado",
+  Fair: "Aceptable",
+};
+
 export default function AdminProductsPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
@@ -37,7 +44,8 @@ export default function AdminProductsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-products"] });
     },
-    onError: (err) => setError(extractApiError(err, "Failed to approve")),
+    onError: (err) =>
+      setError(extractApiError(err, "No pudimos aprobar la publicación")),
   });
 
   const remove = useMutation({
@@ -47,13 +55,14 @@ export default function AdminProductsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-products"] });
     },
-    onError: (err) => setError(extractApiError(err, "Failed to delete")),
+    onError: (err) =>
+      setError(extractApiError(err, "No pudimos eliminar la publicación")),
   });
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-        <Spinner className="h-5 w-5" /> Loading…
+        <Spinner className="h-5 w-5" /> Cargando…
       </div>
     );
   }
@@ -63,14 +72,16 @@ export default function AdminProductsPage() {
 
   return (
     <div>
-      <h2 className="heading-section mb-4 text-text-primary">All products</h2>
+      <h2 className="heading-section mb-4 text-text-primary">
+        Todas las publicaciones
+      </h2>
       {error && (
         <p className="mb-3 text-sm text-danger" role="alert">
           {error}
         </p>
       )}
       {products.length === 0 ? (
-        <EmptyState title="No products yet" />
+        <EmptyState title="Aún no hay publicaciones" />
       ) : (
         <div className="space-y-3">
           {products.map((product) => (
@@ -95,18 +106,22 @@ export default function AdminProductsPage() {
                     {product.title}
                   </Link>
                   <p className="text-xs text-text-muted">
-                    {product.category} · Size {product.size} ·{" "}
+                    {product.category} · Talla {product.size} ·{" "}
                     <Price value={product.price} />
                   </p>
                   <p className="mt-1 text-xs text-text-muted">
-                    Seller: {product.seller?.name ?? "—"}
+                    Vendedor: {product.seller?.name ?? "—"}
+                  </p>
+                  <p className="mt-1 text-xs text-text-muted">
+                    Condición:{" "}
+                    {CONDITION_LABELS[product.condition] ?? product.condition}
                   </p>
                 </div>
                 <div className="flex flex-shrink-0 items-center gap-2">
                   {product.isApproved ? (
-                    <Badge variant="success">Approved</Badge>
+                    <Badge variant="success">Aprobado</Badge>
                   ) : (
-                    <Badge variant="warning">Pending</Badge>
+                    <Badge variant="warning">Pendiente</Badge>
                   )}
                   {!product.isApproved && (
                     <Button
@@ -114,20 +129,20 @@ export default function AdminProductsPage() {
                       onClick={() => approve.mutate(product.id)}
                       disabled={approve.isPending}
                     >
-                      Approve
+                      Aprobar
                     </Button>
                   )}
                   <Button
                     size="sm"
                     variant="danger"
                     onClick={() => {
-                      if (confirm(`Delete "${product.title}"?`)) {
+                      if (confirm(`¿Eliminar "${product.title}"?`)) {
                         remove.mutate(product.id);
                       }
                     }}
                     disabled={remove.isPending}
                   >
-                    Delete
+                    Eliminar
                   </Button>
                 </div>
               </div>
@@ -143,17 +158,17 @@ export default function AdminProductsPage() {
             disabled={meta.page <= 1}
             onClick={() => setPage((p) => p - 1)}
           >
-            ‹ Prev
+            ‹ Anterior
           </Button>
           <span className="text-sm text-text-muted">
-            Page {meta.page} of {meta.pages}
+            Página {meta.page} de {meta.pages}
           </span>
           <Button
             variant="secondary"
             disabled={meta.page >= meta.pages}
             onClick={() => setPage((p) => p + 1)}
           >
-            Next ›
+            Siguiente ›
           </Button>
         </div>
       )}

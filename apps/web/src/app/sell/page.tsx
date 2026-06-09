@@ -18,7 +18,12 @@ import {
 } from "@/components/ui";
 
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
-const CONDITIONS = ["New", "Like New", "Good", "Fair"];
+const CONDITIONS: Array<{ value: string; label: string }> = [
+  { value: "New", label: "Nuevo" },
+  { value: "Like New", label: "Como nuevo" },
+  { value: "Good", label: "Buen estado" },
+  { value: "Fair", label: "Aceptable" },
+];
 
 export default function SellPage() {
   const router = useRouter();
@@ -40,7 +45,7 @@ export default function SellPage() {
     return (
       <PageContainer>
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-          <Spinner className="h-5 w-5" /> Loading…
+          <Spinner className="h-5 w-5" /> Cargando…
         </div>
       </PageContainer>
     );
@@ -50,9 +55,9 @@ export default function SellPage() {
     return (
       <PageContainer size="narrow">
         <EmptyState
-          title="Please log in"
-          description="You need an account to list items for sale."
-          action={<Link href="/login">Log in</Link>}
+          title="Inicia sesión"
+          description="Necesitas una cuenta para publicar productos."
+          action={<Link href="/login">Iniciar sesión</Link>}
         />
       </PageContainer>
     );
@@ -83,7 +88,7 @@ export default function SellPage() {
       });
       router.push("/products");
     } catch (err) {
-      setError(extractApiError(err, "Failed to create listing"));
+      setError(extractApiError(err, "No pudimos crear la publicación"));
     } finally {
       setIsSubmitting(false);
     }
@@ -92,50 +97,50 @@ export default function SellPage() {
   return (
     <PageContainer size="narrow">
       <SectionHeader
-        title="List an item for sale"
-        description="Share a piece from your wardrobe with the community."
+        title="Publicar un producto"
+        description="Comparte una prenda de tu armario con la comunidad."
       />
 
       <Card>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Title"
+            label="Título"
             value={form.title}
             onChange={(e) => update("title", e.target.value)}
-            placeholder="e.g. Vintage Levi's denim jacket"
+            placeholder="Ej. Chaqueta de jean vintage Levi's"
             required
           />
           <Textarea
-            label="Description"
+            label="Descripción"
             value={form.description}
             onChange={(e) => update("description", e.target.value)}
             rows={4}
-            placeholder="Describe the item, fit, condition details, etc."
+            placeholder="Describe la prenda, el talle, detalles del estado, etc."
             required
           />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Input
-              label="Category"
+              label="Categoría"
               value={form.category}
               onChange={(e) => update("category", e.target.value)}
-              placeholder="e.g. Jackets, Tops, Pants"
+              placeholder="Ej. Chaquetas, Camisetas, Pantalones"
               required
             />
             <Input
-              label="Brand (optional)"
+              label="Marca (opcional)"
               value={form.brand}
               onChange={(e) => update("brand", e.target.value)}
-              placeholder="e.g. Levi's"
+              placeholder="Ej. Levi's"
             />
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Select
-              label="Size"
+              label="Talla"
               value={form.size}
               onChange={(e) => update("size", e.target.value)}
               required
             >
-              <option value="">Select a size</option>
+              <option value="">Selecciona una talla</option>
               {SIZES.map((s) => (
                 <option key={s} value={s}>
                   {s}
@@ -143,39 +148,40 @@ export default function SellPage() {
               ))}
             </Select>
             <Select
-              label="Condition"
+              label="Condición"
               value={form.condition}
               onChange={(e) => update("condition", e.target.value)}
               required
             >
               {CONDITIONS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
+                <option key={c.value} value={c.value}>
+                  {c.label}
                 </option>
               ))}
             </Select>
           </div>
           <Input
-            label="Price (USD)"
+            label="Precio (COP)"
             type="number"
-            min="0.01"
-            step="0.01"
+            min="1000"
+            step="1000"
             value={form.price}
             onChange={(e) => update("price", e.target.value)}
-            placeholder="0.00"
+            placeholder="0"
             required
+            hint="Precio en pesos colombianos, sin decimales."
           />
           <Textarea
-            label="Image URLs (optional)"
+            label="URLs de imágenes (opcional)"
             value={form.images}
             onChange={(e) => update("images", e.target.value)}
             rows={2}
-            placeholder="One image URL per line or comma-separated"
-            hint="Paste direct image links, one per line."
+            placeholder="Una URL por línea o separadas por comas"
+            hint="Pega enlaces directos a las imágenes, una por línea."
           />
           <p className="text-xs text-text-muted">
-            Your listing will be reviewed by an admin before appearing on the
-            marketplace.
+            Un administrador revisará tu publicación antes de que aparezca en
+            el marketplace.
           </p>
           {error && (
             <p className="text-sm text-danger" role="alert">
@@ -184,14 +190,14 @@ export default function SellPage() {
           )}
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Submitting…" : "Submit listing"}
+              {isSubmitting ? "Enviando…" : "Publicar producto"}
             </Button>
             <Button
               type="button"
               variant="secondary"
               onClick={() => router.back()}
             >
-              Cancel
+              Cancelar
             </Button>
           </div>
         </form>

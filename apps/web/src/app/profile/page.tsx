@@ -13,7 +13,6 @@ import {
   Badge,
   PageContainer,
   SectionHeader,
-  type BadgeVariant,
 } from "@/components/ui";
 import type { User } from "@/lib/types";
 
@@ -24,7 +23,7 @@ export default function ProfilePage() {
     return (
       <PageContainer>
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-          <Spinner className="h-5 w-5" /> Loading…
+          <Spinner className="h-5 w-5" /> Cargando…
         </div>
       </PageContainer>
     );
@@ -34,9 +33,9 @@ export default function ProfilePage() {
     return (
       <PageContainer size="narrow">
         <EmptyState
-          title="Please log in"
-          description="You need an account to view your profile."
-          action={<Link href="/login">Log in</Link>}
+          title="Inicia sesión"
+          description="Necesitas una cuenta para ver tu perfil."
+          action={<Link href="/login">Iniciar sesión</Link>}
         />
       </PageContainer>
     );
@@ -72,17 +71,17 @@ function ProfileForm({
       if (email && email !== user.email) body.email = email;
       if (password) body.password = password;
       if (Object.keys(body).length === 0) {
-        setSuccess("Nothing to update");
+        setSuccess("Nada que actualizar");
         setIsSaving(false);
         return;
       }
       await api.patch<User>("/users/me", body);
       await refresh();
       setPassword("");
-      setSuccess("Profile updated");
+      setSuccess("Perfil actualizado");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError(extractApiError(err, "Update failed"));
+      setError(extractApiError(err, "No pudimos actualizar tu perfil"));
     } finally {
       setIsSaving(false);
     }
@@ -90,51 +89,54 @@ function ProfileForm({
 
   return (
     <PageContainer size="narrow">
-      <SectionHeader title="Your profile" description="Manage your account information." />
+      <SectionHeader
+        title="Tu perfil"
+        description="Administra la información de tu cuenta."
+      />
 
       <Card>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-eyebrow">Logged in as</p>
+            <p className="text-eyebrow">Conectado como</p>
             <p className="mt-1 font-medium text-text-primary">{user.name}</p>
             <p className="text-sm text-text-muted">{user.email}</p>
           </div>
           <Badge variant={user.role === "ADMIN" ? "info" : "default"}>
-            {user.role}
+            {user.role === "ADMIN" ? "Administrador" : "Usuario"}
           </Badge>
         </div>
         <button
           onClick={logout}
           className="mt-3 text-sm font-medium text-danger transition-colors hover:text-danger/80"
         >
-          Log out
+          Cerrar sesión
         </button>
       </Card>
 
       <Card className="mt-4">
-        <h2 className="heading-card mb-4">Update profile</h2>
+        <h2 className="heading-card mb-4">Actualizar perfil</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Name"
+            label="Nombre"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
           />
           <Input
-            label="Email"
+            label="Correo electrónico"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
           <Input
-            label="New password"
+            label="Nueva contraseña"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Leave blank to keep current password"
+            placeholder="Déjala en blanco para conservar la actual"
             minLength={6}
-            hint="At least 6 characters."
+            hint="Mínimo 6 caracteres."
           />
           {error && (
             <p className="text-sm text-danger" role="alert">
@@ -147,7 +149,7 @@ function ProfileForm({
             </p>
           )}
           <Button type="submit" disabled={isSaving}>
-            {isSaving ? "Saving…" : "Save changes"}
+            {isSaving ? "Guardando…" : "Guardar cambios"}
           </Button>
         </form>
       </Card>

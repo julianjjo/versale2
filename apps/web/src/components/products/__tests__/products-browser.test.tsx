@@ -69,19 +69,19 @@ describe("ProductsBrowser", () => {
     vi.clearAllMocks();
   });
 
-  it("renders the filter form", async () => {
+  it("renderiza el formulario de filtros", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: emptyProducts });
     render(
       <TestProviders>
         <ProductsBrowser showPagination={false} />
       </TestProviders>,
     );
-    expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/min price/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/max price/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/buscar/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/precio mín/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/precio máx/i)).toBeInTheDocument();
   });
 
-  it("renders a list of products when data is available", async () => {
+  it("renderiza la lista de productos cuando hay datos", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockProducts });
     render(
       <TestProviders>
@@ -93,11 +93,12 @@ describe("ProductsBrowser", () => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
     expect(screen.getByText("Wool sweater")).toBeInTheDocument();
-    expect(screen.getByText("$45.00")).toBeInTheDocument();
-    expect(screen.getByText(/sold by alice/i)).toBeInTheDocument();
+    // Price 45 formatted in COP
+    expect(screen.getByText("$ 45")).toBeInTheDocument();
+    expect(screen.getByText(/vendido por alice/i)).toBeInTheDocument();
   });
 
-  it("renders an empty state when no products are returned", async () => {
+  it("renderiza un estado vacío cuando no hay productos", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: emptyProducts });
     render(
       <TestProviders>
@@ -106,12 +107,12 @@ describe("ProductsBrowser", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/no products found/i)).toBeInTheDocument();
+      expect(screen.getByText(/no encontramos productos/i)).toBeInTheDocument();
     });
   });
 
-  it("shows an error message when fetching products fails", async () => {
-    vi.mocked(api.get).mockRejectedValue(new Error("Network error"));
+  it("muestra un error cuando falla la carga de productos", async () => {
+    vi.mocked(api.get).mockRejectedValue(new Error("Error de red"));
     render(
       <TestProviders>
         <ProductsBrowser showPagination={false} />
@@ -119,11 +120,11 @@ describe("ProductsBrowser", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/failed to load products/i)).toBeInTheDocument();
+      expect(screen.getByText(/no pudimos cargar/i)).toBeInTheDocument();
     });
   });
 
-  it("links each product to its detail page", async () => {
+  it("enlaza cada producto a su página de detalle", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockProducts });
     render(
       <TestProviders>
@@ -138,7 +139,7 @@ describe("ProductsBrowser", () => {
     expect(link).toHaveAttribute("href", "/products/p1");
   });
 
-  it("submits filter values on apply", async () => {
+  it("envía los valores del filtro al hacer click en Aplicar", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: emptyProducts });
     const user = userEvent.setup();
     render(
@@ -147,20 +148,20 @@ describe("ProductsBrowser", () => {
       </TestProviders>,
     );
 
-    await user.type(screen.getByPlaceholderText(/search/i), "jacket");
-    await user.click(screen.getByRole("button", { name: /apply/i }));
+    await user.type(screen.getByPlaceholderText(/buscar/i), "chaqueta");
+    await user.click(screen.getByRole("button", { name: /aplicar/i }));
 
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(
         "/products",
         expect.objectContaining({
-          params: expect.objectContaining({ search: "jacket", page: 1 }),
+          params: expect.objectContaining({ search: "chaqueta", page: 1 }),
         }),
       );
     });
   });
 
-  it("renders a placeholder when the product has no image", async () => {
+  it("renderiza un placeholder cuando el producto no tiene imagen", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockProducts });
     render(
       <TestProviders>
@@ -171,10 +172,10 @@ describe("ProductsBrowser", () => {
     await waitFor(() => {
       expect(screen.getByText("Wool sweater")).toBeInTheDocument();
     });
-    expect(screen.getAllByText("No image").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Sin imagen").length).toBeGreaterThan(0);
   });
 
-  it("renders pagination controls when there are multiple pages", async () => {
+  it("renderiza los controles de paginación cuando hay varias páginas", async () => {
     vi.mocked(api.get).mockResolvedValue({
       data: {
         data: [],
@@ -188,9 +189,15 @@ describe("ProductsBrowser", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "1" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /página 1/i }),
+      ).toBeInTheDocument();
     });
-    expect(screen.getByRole("button", { name: "2" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "3" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /página 2/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /página 3/i }),
+    ).toBeInTheDocument();
   });
 });

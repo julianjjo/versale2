@@ -21,6 +21,7 @@ export interface Product {
   images?: string[] | null;
   seller?: { id: string; name: string };
   _count?: { reviews: number };
+  reviews?: Review[];
 }
 
 export interface PaginatedResponse<T> {

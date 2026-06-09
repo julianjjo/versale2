@@ -12,6 +12,7 @@ vi.mock("../token", () => ({
 
 import { tokenStore } from "../token";
 import { api } from "../api";
+import { onUnauthorized } from "../auth-events";
 
 const mockedTokenStore = tokenStore as unknown as {
   get: ReturnType<typeof vi.fn>;
@@ -60,13 +61,9 @@ describe("api client", () => {
     expect(response.config.headers.get("Authorization")).toBeUndefined();
   });
 
-  it("clears the token and redirects to /login on 401 (not on /login or /signup)", async () => {
-    const originalHref = window.location.href;
-    Object.defineProperty(window, "location", {
-      value: { ...window.location, pathname: "/products", href: originalHref },
-      writable: true,
-      configurable: true,
-    });
+  it("clears the token and notifies unauthorized subscribers on 401", async () => {
+    const handler = vi.fn();
+    const off = onUnauthorized(handler);
 
     mockedTokenStore.get.mockReturnValue("stale");
     await expect(
@@ -85,16 +82,15 @@ describe("api client", () => {
     ).rejects.toBeDefined();
 
     expect(mockedTokenStore.clear).toHaveBeenCalled();
-    expect(window.location.href).toBe("/login");
+    expect(handler).toHaveBeenCalledTimes(1);
+    off();
   });
 
-  it("does not redirect when 401 happens on /login", async () => {
-    Object.defineProperty(window, "location", {
-      value: { ...window.location, pathname: "/login" },
-      writable: true,
-      configurable: true,
-    });
-    const hrefBefore = window.location.href;
+  it("notifies unauthorized subscribers even on /login and /signup", async () => {
+    // The api client is path-agnostic: it always notifies on 401 so the
+    // AuthProvider can decide whether to redirect. This keeps api.ts simple.
+    const handler = vi.fn();
+    const off = onUnauthorized(handler);
 
     await expect(
       api.get("/auth/login", {
@@ -111,7 +107,31 @@ describe("api client", () => {
       }),
     ).rejects.toBeDefined();
 
-    expect(window.location.href).toBe(hrefBefore);
+    expect(handler).toHaveBeenCalledTimes(1);
+    off();
+  });
+
+  it("does not call subscribers on non-401 errors", async () => {
+    const handler = vi.fn();
+    const off = onUnauthorized(handler);
+
+    await expect(
+      api.get("/products", {
+        adapter: async () => {
+          throw {
+            isAxiosError: true,
+            response: { status: 500, data: { message: "Boom" } },
+            config: { url: "/products" },
+            toJSON: () => ({}),
+            name: "AxiosError",
+            message: "Request failed",
+          };
+        },
+      }),
+    ).rejects.toBeDefined();
+
+    expect(handler).not.toHaveBeenCalled();
+    off();
   });
 });
 

@@ -45,7 +45,7 @@ export function Header() {
         <Link
           href="/"
           className="flex items-center gap-2 text-text-primary"
-          aria-label="Versale home"
+          aria-label="Inicio de Versale"
         >
           <span
             aria-hidden
@@ -57,21 +57,21 @@ export function Header() {
         </Link>
 
         <nav
-          aria-label="Primary"
+          aria-label="Navegación principal"
           className="hidden items-center gap-1 sm:flex sm:gap-2"
         >
           <Link
             href="/products"
             className="rounded-md px-3 py-2 text-sm text-text-muted transition-colors hover:bg-surface-muted hover:text-text-primary"
           >
-            Browse
+            Explorar
           </Link>
           {user && (
             <Link
               href="/cart"
               className="rounded-md px-3 py-2 text-sm text-text-muted transition-colors hover:bg-surface-muted hover:text-text-primary"
             >
-              Cart
+              Carrito
             </Link>
           )}
           {user && (
@@ -79,7 +79,7 @@ export function Header() {
               href="/orders"
               className="rounded-md px-3 py-2 text-sm text-text-muted transition-colors hover:bg-surface-muted hover:text-text-primary"
             >
-              Orders
+              Pedidos
             </Link>
           )}
           {user && (
@@ -87,7 +87,7 @@ export function Header() {
               href="/sell"
               className="rounded-md px-3 py-2 text-sm text-text-muted transition-colors hover:bg-surface-muted hover:text-text-primary"
             >
-              Sell
+              Vender
             </Link>
           )}
           {user?.role === "ADMIN" && (
@@ -113,7 +113,7 @@ export function Header() {
                   variant="secondary"
                   onClick={handleLogout}
                 >
-                  Logout
+                  Cerrar sesión
                 </Button>
               </div>
             ) : (
@@ -123,14 +123,14 @@ export function Header() {
                   variant="ghost"
                   onClick={() => router.push("/login")}
                 >
-                  Login
+                  Iniciar sesión
                 </Button>
                 <Button
                   size="sm"
                   variant="primary"
                   onClick={() => router.push("/signup")}
                 >
-                  Sign up
+                  Crear cuenta
                 </Button>
               </div>
             ))}
@@ -140,7 +140,7 @@ export function Header() {
           {user && (
             <Link
               href="/cart"
-              aria-label="Cart"
+              aria-label="Carrito"
               className="rounded-md p-2 text-text-muted transition-colors hover:bg-surface-muted hover:text-text-primary"
             >
               <CartIcon />
@@ -149,7 +149,7 @@ export function Header() {
           <button
             type="button"
             onClick={() => setIsMenuOpen((v) => !v)}
-            aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+            aria-label={isMenuOpen ? "Cerrar menú" : "Abrir menú"}
             data-testid="mobile-menu-trigger"
             aria-expanded={isMenuOpen}
             aria-controls="mobile-menu"
@@ -173,34 +173,34 @@ export function Header() {
             id="mobile-menu"
             role="dialog"
             aria-modal="true"
-            aria-label="Mobile navigation"
+            aria-label="Navegación móvil"
             className="fixed inset-x-0 top-16 z-40 border-b border-border bg-surface shadow-lg sm:hidden"
           >
             <nav
-              aria-label="Mobile"
+              aria-label="Navegación móvil"
               className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-4"
             >
               <MobileLink href="/products" onClick={closeMenu}>
-                Browse
+                Explorar
               </MobileLink>
               {user && (
                 <MobileLink href="/cart" onClick={closeMenu}>
-                  Cart
+                  Carrito
                 </MobileLink>
               )}
               {user && (
                 <MobileLink href="/orders" onClick={closeMenu}>
-                  Orders
+                  Pedidos
                 </MobileLink>
               )}
               {user && (
                 <MobileLink href="/sell" onClick={closeMenu}>
-                  Sell
+                  Vender
                 </MobileLink>
               )}
               {user && (
                 <MobileLink href="/profile" onClick={closeMenu}>
-                  Profile ({user.name})
+                  Mi perfil ({user.name})
                 </MobileLink>
               )}
               {user?.role === "ADMIN" && (
@@ -218,7 +218,7 @@ export function Header() {
                     onClick={handleLogout}
                     fullWidth
                   >
-                    Logout
+                    Cerrar sesión
                   </Button>
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
@@ -230,7 +230,7 @@ export function Header() {
                       }}
                       fullWidth
                     >
-                      Login
+                      Iniciar sesión
                     </Button>
                     <Button
                       variant="primary"
@@ -240,7 +240,7 @@ export function Header() {
                       }}
                       fullWidth
                     >
-                      Sign up
+                      Crear cuenta
                     </Button>
                   </div>
                 ))}

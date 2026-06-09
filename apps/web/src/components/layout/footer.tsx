@@ -13,40 +13,40 @@ export function Footer() {
           </span>
           <span className="text-sm font-semibold">Versale</span>
           <span className="hidden text-xs text-text-muted sm:inline">
-            · Pre-owned fashion marketplace
+            · Marketplace de moda de segunda
           </span>
         </div>
         <nav
-          aria-label="Footer"
+          aria-label="Pie de página"
           className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-text-muted"
         >
           <Link
             href="/products"
             className="transition-colors hover:text-text-primary"
           >
-            Browse
+            Explorar
           </Link>
           <Link
             href="/sell"
             className="transition-colors hover:text-text-primary"
           >
-            Sell
+            Vender
           </Link>
           <Link
             href="/login"
             className="transition-colors hover:text-text-primary"
           >
-            Log in
+            Iniciar sesión
           </Link>
           <Link
             href="/signup"
             className="transition-colors hover:text-text-primary"
           >
-            Sign up
+            Crear cuenta
           </Link>
         </nav>
         <p className="w-full text-center text-xs text-text-muted sm:w-auto sm:text-right">
-          © {new Date().getFullYear()} Versale. Reused, loved, repeated.
+          © {new Date().getFullYear()} Versale. Reusa, ama, repite.
         </p>
       </div>
     </footer>

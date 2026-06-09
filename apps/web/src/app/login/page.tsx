@@ -22,9 +22,8 @@ export default function LoginPage() {
     try {
       await login(email, password);
       router.push("/products");
-      router.refresh();
     } catch (err) {
-      setError(extractApiError(err, "Login failed"));
+      setError(extractApiError(err, "No pudimos iniciar sesión"));
     } finally {
       setIsLoading(false);
     }
@@ -33,14 +32,14 @@ export default function LoginPage() {
   return (
     <PageContainer size="narrow">
       <Card>
-        <h1 className="heading-section text-text-primary">Welcome back</h1>
+        <h1 className="heading-section text-text-primary">Bienvenido de vuelta</h1>
         <p className="mt-1 text-sm text-text-muted">
-          Log in to browse, buy, and sell on Versale.
+          Inicia sesión para comprar y vender en Versale.
         </p>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <Input
             type="email"
-            label="Email"
+            label="Correo electrónico"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -48,7 +47,7 @@ export default function LoginPage() {
           />
           <Input
             type="password"
-            label="Password"
+            label="Contraseña"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -61,16 +60,16 @@ export default function LoginPage() {
             </p>
           )}
           <Button type="submit" disabled={isLoading} fullWidth size="lg">
-            {isLoading ? "Logging in…" : "Log in"}
+            {isLoading ? "Ingresando…" : "Iniciar sesión"}
           </Button>
         </form>
         <p className="mt-4 text-sm text-text-muted">
-          No account?{" "}
+          ¿No tienes cuenta?{" "}
           <Link
             href="/signup"
             className="font-medium text-text-primary underline-offset-4 hover:underline"
           >
-            Sign up
+            Crear cuenta
           </Link>
         </p>
       </Card>

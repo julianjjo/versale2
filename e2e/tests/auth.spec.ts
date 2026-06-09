@@ -10,72 +10,95 @@ const test = base.extend<{ cleanup: void }>({
   ],
 });
 
-test.describe("Authentication", () => {
-  test("shows the login page when not authenticated", async ({ page }) => {
+test.describe("Autenticación", () => {
+  test("muestra los botones de inicio de sesión y registro cuando no hay sesión", async ({
+    page,
+  }) => {
     await page.goto("/");
-    await expect(page.getByRole("button", { name: /^login$/i })).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /sign up/i }),
+      page.getByRole("button", { name: /iniciar sesión/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /crear cuenta/i }),
     ).toBeVisible();
   });
 
-  test("signup form creates a new account and logs in", async ({ page }) => {
+  test("el registro crea una cuenta e inicia sesión", async ({ page }) => {
     const email = `signup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@e2e.test`;
     await page.goto("/signup");
 
-    await page.getByLabel("Name").fill("Signup Test");
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill("password123");
-    // Scope to the form's submit button (avoids matching the header "Sign up" link).
-    await page.getByRole("main").getByRole("button", { name: /sign up/i }).click();
+    await page.getByLabel("Nombre").fill("Signup Test");
+    await page.getByLabel("Correo electrónico").fill(email);
+    await page.getByLabel("Contraseña").fill("password123");
+    // Scope to the form's submit button (avoids matching the header "Crear cuenta" button).
+    await page
+      .getByRole("main")
+      .getByRole("button", { name: /crear cuenta/i })
+      .click();
 
     await page.waitForURL(/\/products/, { timeout: 10_000 });
     await expect(page.getByText("Signup Test")).toBeVisible();
   });
 
-  test("signup form shows an alert for an existing email", async ({ page }) => {
+  test("el registro muestra un error si el correo ya existe", async ({ page }) => {
     await page.goto("/signup");
-    await page.getByLabel("Name").fill("Existing");
-    await page.getByLabel("Email").fill("user@e2e.test");
-    await page.getByLabel("Password").fill("password123");
-    await page.getByRole("main").getByRole("button", { name: /sign up/i }).click();
+    await page.getByLabel("Nombre").fill("Existing");
+    await page.getByLabel("Correo electrónico").fill("user@e2e.test");
+    await page.getByLabel("Contraseña").fill("password123");
+    await page
+      .getByRole("main")
+      .getByRole("button", { name: /crear cuenta/i })
+      .click();
 
     await expect(
-      page.getByText(/already exists|signup failed|user already/i),
+      page.getByText(/ya existe|ya está en uso|no pudimos crear/i),
     ).toBeVisible({ timeout: 5_000 });
   });
 
-  test("login form authenticates a user", async ({ page }) => {
+  test("el inicio de sesión autentica al usuario", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("Email").fill("user@e2e.test");
-    await page.getByLabel("Password").fill("user12345");
-    await page.getByRole("main").getByRole("button", { name: /^log in$/i }).click();
+    await page.getByLabel("Correo electrónico").fill("user@e2e.test");
+    await page.getByLabel("Contraseña").fill("user12345");
+    await page
+      .getByRole("main")
+      .getByRole("button", { name: /iniciar sesión/i })
+      .click();
 
     await page.waitForURL(/\/products/, { timeout: 10_000 });
     await expect(page.getByText("E2E User")).toBeVisible();
   });
 
-  test("login shows an error for wrong credentials", async ({ page }) => {
+  test("el inicio de sesión muestra un error con credenciales inválidas", async ({
+    page,
+  }) => {
     await page.goto("/login");
-    await page.getByLabel("Email").fill("user@e2e.test");
-    await page.getByLabel("Password").fill("wrongpassword");
-    await page.getByRole("main").getByRole("button", { name: /^log in$/i }).click();
+    await page.getByLabel("Correo electrónico").fill("user@e2e.test");
+    await page.getByLabel("Contraseña").fill("wrongpassword");
+    await page
+      .getByRole("main")
+      .getByRole("button", { name: /iniciar sesión/i })
+      .click();
 
     await expect(
-      page.getByText(/invalid credentials|login failed/i),
+      page.getByText(/credenciales inválidas|no pudimos iniciar sesión/i),
     ).toBeVisible({ timeout: 5_000 });
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test("logout clears the session and returns to home", async ({ page }) => {
+  test("cerrar sesión limpia la sesión y vuelve al inicio", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("Email").fill("user@e2e.test");
-    await page.getByLabel("Password").fill("user12345");
-    await page.getByRole("main").getByRole("button", { name: /^log in$/i }).click();
+    await page.getByLabel("Correo electrónico").fill("user@e2e.test");
+    await page.getByLabel("Contraseña").fill("user12345");
+    await page
+      .getByRole("main")
+      .getByRole("button", { name: /iniciar sesión/i })
+      .click();
     await page.waitForURL(/\/products/, { timeout: 10_000 });
 
-    await page.getByRole("button", { name: /logout/i }).click();
+    await page.getByRole("button", { name: /cerrar sesión/i }).click();
     await page.waitForURL("/", { timeout: 5_000 });
-    await expect(page.getByRole("button", { name: /^login$/i })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /iniciar sesión/i }),
+    ).toBeVisible();
   });
 });

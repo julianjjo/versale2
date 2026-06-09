@@ -7,7 +7,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "./api";
+import { onUnauthorized } from "./auth-events";
 import { tokenStore } from "./token";
 import type { AuthResponse, User } from "./types";
 
@@ -22,6 +24,8 @@ export interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
+const PUBLIC_AUTH_PATHS = ["/login", "/signup"];
+
 export async function fetchProfile(): Promise<User | null> {
   if (!tokenStore.get()) return null;
   try {
@@ -34,6 +38,7 @@ export async function fetchProfile(): Promise<User | null> {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -50,6 +55,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
     };
   }, []);
+
+  // Subscribe to global 401 events. We avoid a full-page reload so the
+  // client-side state (React Query cache, current route) is preserved when
+  // possible — we just clear the user and route to /login.
+  useEffect(() => {
+    return onUnauthorized(() => {
+      setUser(null);
+      const path =
+        typeof window !== "undefined" ? window.location.pathname : "/";
+      const isPublic = PUBLIC_AUTH_PATHS.some(
+        (p) => path === p || path.startsWith(`${p}/`),
+      );
+      if (!isPublic) {
+        router.push("/login");
+      }
+    });
+  }, [router]);
 
   const login = async (email: string, password: string) => {
     const res = await api.post<AuthResponse>("/auth/login", {

@@ -105,7 +105,7 @@ describe('AuthService', () => {
       });
 
       await expect(service.signup(email, password, name)).rejects.toThrow(
-        'User already exists',
+        'Ya existe una cuenta con ese correo',
       );
     });
   });

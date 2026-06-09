@@ -13,17 +13,9 @@ import {
   PageContainer,
   Price,
   Divider,
-  type BadgeVariant,
 } from "@/components/ui";
-import type { Order, OrderStatus } from "@/lib/types";
-
-const STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
-  PENDING: "warning",
-  PAID: "info",
-  SHIPPED: "info",
-  DELIVERED: "success",
-  CANCELLED: "danger",
-};
+import { ORDER_STATUS_LABEL, ORDER_STATUS_VARIANT } from "@/lib/order-status";
+import type { Order } from "@/lib/types";
 
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
@@ -43,7 +35,7 @@ export default function OrderDetailPage() {
     return (
       <PageContainer>
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-          <Spinner className="h-5 w-5" /> Loading order…
+          <Spinner className="h-5 w-5" /> Cargando pedido…
         </div>
       </PageContainer>
     );
@@ -53,10 +45,10 @@ export default function OrderDetailPage() {
     return (
       <PageContainer size="narrow">
         <EmptyState
-          title="Please log in"
-          description="You need an account to view this order."
+          title="Inicia sesión"
+          description="Necesitas una cuenta para ver este pedido."
           action={
-            <button onClick={() => router.push("/login")}>Log in</button>
+            <button onClick={() => router.push("/login")}>Iniciar sesión</button>
           }
         />
       </PageContainer>
@@ -67,11 +59,11 @@ export default function OrderDetailPage() {
     return (
       <PageContainer>
         <EmptyState
-          title="Order not found"
-          description="We couldn't find that order."
+          title="Pedido no encontrado"
+          description="No pudimos encontrar ese pedido."
           action={
             <button onClick={() => router.push("/orders")}>
-              Back to orders
+              Volver a mis pedidos
             </button>
           }
         />
@@ -87,18 +79,20 @@ export default function OrderDetailPage() {
         href="/orders"
         className="mb-4 inline-flex items-center text-sm font-medium text-text-muted transition-colors hover:text-text-primary"
       >
-        ← Back to orders
+        ← Volver a mis pedidos
       </Link>
 
       <div className="mb-6 flex items-center justify-between">
         <h1 className="heading-section font-mono text-text-primary">
-          Order #{data.id.slice(0, 8)}
+          Pedido #{data.id.slice(0, 8)}
         </h1>
-        <Badge variant={STATUS_VARIANT[data.status]}>{data.status}</Badge>
+        <Badge variant={ORDER_STATUS_VARIANT[data.status]}>
+          {ORDER_STATUS_LABEL[data.status]}
+        </Badge>
       </div>
 
       <Card>
-        <h2 className="heading-card mb-3">Items</h2>
+        <h2 className="heading-card mb-3">Productos</h2>
         <div className="space-y-3">
           {data.items.map((item) => (
             <div
@@ -125,7 +119,7 @@ export default function OrderDetailPage() {
                 </Link>
                 {item.product && (
                   <p className="text-xs text-text-muted">
-                    {item.product.condition} · Size {item.product.size}
+                    {item.product.condition} · Talla {item.product.size}
                   </p>
                 )}
                 <p className="mt-1 text-sm text-text-muted">
@@ -150,7 +144,7 @@ export default function OrderDetailPage() {
 
       {shipping && Object.keys(shipping).length > 0 && (
         <Card className="mt-4">
-          <h2 className="heading-card mb-3">Shipping address</h2>
+          <h2 className="heading-card mb-3">Dirección de envío</h2>
           <div className="space-y-1 text-sm text-text-primary">
             {shipping.street && <p>{shipping.street}</p>}
             {(shipping.city || shipping.state || shipping.zip) && (
@@ -166,25 +160,25 @@ export default function OrderDetailPage() {
       )}
 
       <Card className="mt-4">
-        <h2 className="heading-card mb-2">Order details</h2>
+        <h2 className="heading-card mb-2">Detalles del pedido</h2>
         <dl className="space-y-1 text-sm">
           <div className="flex justify-between">
-            <dt className="text-text-muted">Placed on</dt>
+            <dt className="text-text-muted">Realizado el</dt>
             <dd className="text-text-primary">
-              {new Date(data.createdAt).toLocaleString()}
+              {new Date(data.createdAt).toLocaleString("es-CO")}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-text-muted">Last updated</dt>
+            <dt className="text-text-muted">Última actualización</dt>
             <dd className="text-text-primary">
-              {new Date(data.updatedAt).toLocaleString()}
+              {new Date(data.updatedAt).toLocaleString("es-CO")}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-text-muted">Status</dt>
+            <dt className="text-text-muted">Estado</dt>
             <dd>
-              <Badge variant={STATUS_VARIANT[data.status]}>
-                {data.status}
+              <Badge variant={ORDER_STATUS_VARIANT[data.status]}>
+                {ORDER_STATUS_LABEL[data.status]}
               </Badge>
             </dd>
           </div>

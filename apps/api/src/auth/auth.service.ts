@@ -23,7 +23,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException('User already exists');
+      throw new ConflictException('Ya existe una cuenta con ese correo');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -38,12 +38,12 @@ export class AuthService {
     const user = await this.prisma.client.user.findUnique({ where: { email } });
 
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Credenciales inválidas');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Credenciales inválidas');
     }
 
     return this.generateToken(user);

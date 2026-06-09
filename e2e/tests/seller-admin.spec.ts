@@ -3,60 +3,74 @@ import { test, expect } from "../fixtures/auth";
 test.describe.configure({ mode: "serial" });
 import { E2E_USERS } from "../utils/seed";
 
-test.describe("Seller and admin flows", () => {
-  test("admin sees the admin link in the header", async ({ adminPage }) => {
-    await expect(adminPage.getByRole("link", { name: /^admin$/i })).toBeVisible();
+test.describe("Flujos de vendedor y administrador", () => {
+  test("el administrador ve el enlace Admin en el header", async ({
+    adminPage,
+  }) => {
+    await expect(
+      adminPage.getByRole("link", { name: /^admin$/i }),
+    ).toBeVisible();
   });
 
-  test("regular user does not see the admin link", async ({ userPage }) => {
-    await expect(userPage.getByRole("link", { name: /^cart$/i })).toBeVisible();
+  test("el usuario regular no ve el enlace Admin", async ({ userPage }) => {
+    await expect(
+      userPage.getByRole("link", { name: /^carrito$/i }),
+    ).toBeVisible();
     const adminLinkCount = await userPage
       .getByRole("link", { name: /^admin$/i })
       .count();
     expect(adminLinkCount).toBe(0);
   });
 
-  test("admin can approve a pending product", async ({ adminPage }) => {
+  test("el administrador puede aprobar un producto pendiente", async ({
+    adminPage,
+  }) => {
     await adminPage.goto("/products");
     await expect(
       adminPage.getByText("Cotton T-Shirt"),
     ).not.toBeVisible();
 
     await adminPage.goto("/admin");
-    await expect(adminPage.getByText(/total orders/i)).toBeVisible();
+    await expect(
+      adminPage.getByText(/pedidos totales/i),
+    ).toBeVisible();
 
     await adminPage.goto("/admin/products");
     await expect(adminPage.getByText("Cotton T-Shirt")).toBeVisible();
     await expect(
-      adminPage.locator("text=Pending").first(),
+      adminPage.locator("text=Pendiente").first(),
     ).toBeVisible();
 
-    const approveButtons = adminPage.getByRole("button", { name: /approve/i });
+    const approveButtons = adminPage.getByRole("button", { name: /aprobar/i });
     const initialCount = await approveButtons.count();
     if (initialCount > 0) {
       await approveButtons.first().click();
       await expect(
-        adminPage.getByRole("button", { name: /approve/i }),
+        adminPage.getByRole("button", { name: /aprobar/i }),
       ).toHaveCount(initialCount - 1, { timeout: 5_000 });
     }
   });
 
-  test("seller can list a new product", async ({ sellerPage }) => {
+  test("el vendedor puede publicar un producto nuevo", async ({ sellerPage }) => {
     await sellerPage.goto("/sell");
-    await sellerPage.getByLabel("Title").fill("Test Listing E2E");
+    await sellerPage.getByLabel("Título").fill("Test Listing E2E");
     await sellerPage
-      .getByLabel("Description")
+      .getByLabel("Descripción")
       .fill("This is a test listing created by an E2E test.");
-    await sellerPage.getByLabel("Category").fill("Test");
-    await sellerPage.getByLabel("Size").selectOption("M");
-    await sellerPage.getByLabel("Condition").selectOption("Good");
-    await sellerPage.getByLabel(/price/i).fill("19.99");
+    await sellerPage.getByLabel("Categoría").fill("Test");
+    await sellerPage.getByLabel("Talla").selectOption("M");
+    await sellerPage.getByLabel("Condición").selectOption("Good");
+    await sellerPage.getByLabel(/precio/i).fill("19990");
 
-    await sellerPage.getByRole("button", { name: /submit listing/i }).click();
+    await sellerPage
+      .getByRole("button", { name: /publicar producto/i })
+      .click();
     await expect(sellerPage).toHaveURL(/\/products/);
   });
 
-  test("user can post a review on a product", async ({ userPage }) => {
+  test("el usuario puede dejar una reseña en un producto", async ({
+    userPage,
+  }) => {
     await userPage.goto("/products");
     await userPage
       .getByRole("heading", { name: "Vintage Denim Jacket" })
@@ -65,31 +79,38 @@ test.describe("Seller and admin flows", () => {
       userPage.getByRole("heading", { name: "Vintage Denim Jacket" }),
     ).toBeVisible();
 
-    const commentField = userPage.getByLabel(/comment/i);
+    const commentField = userPage.getByLabel(/comentario/i);
     await expect(commentField).toBeVisible({ timeout: 5_000 });
     await commentField.fill("Excellent jacket, fits perfectly!");
-    await userPage.getByRole("button", { name: /post review/i }).click();
+    await userPage
+      .getByRole("button", { name: /publicar reseña/i })
+      .click();
 
     await expect(
       userPage.getByText("Excellent jacket, fits perfectly!"),
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  test("admin can change an order status", async ({ adminPage, userPage }) => {
-    // Ensure user cart starts empty
+  test("el administrador puede cambiar el estado de un pedido", async ({
+    adminPage,
+    userPage,
+  }) => {
+    // Asegurar que el carrito del usuario empieza vacío
     await userPage.goto("/cart");
-    const clearBtn = userPage.getByRole("button", { name: /clear cart/i });
+    const clearBtn = userPage.getByRole("button", { name: /vaciar carrito/i });
     if (await clearBtn.isVisible().catch(() => false)) {
       await clearBtn.click();
       await expect(
-        userPage.getByText(/your cart is empty/i),
+        userPage.getByText(/tu carrito está vacío/i),
       ).toBeVisible({ timeout: 5_000 });
     }
 
     await userPage.goto("/products");
-    await userPage.getByRole("heading", { name: "Vintage Denim Jacket" }).click();
-    await userPage.getByRole("button", { name: /add to cart/i }).click();
-    await expect(userPage.getByText(/added to cart/i)).toBeVisible({
+    await userPage
+      .getByRole("heading", { name: "Vintage Denim Jacket" })
+      .click();
+    await userPage.getByRole("button", { name: /agregar al carrito/i }).click();
+    await expect(userPage.getByText(/agregado al carrito/i)).toBeVisible({
       timeout: 10_000,
     });
 
@@ -112,7 +133,7 @@ test.describe("Seller and admin flows", () => {
       )
       .toBeGreaterThan(0);
 
-    // Create the order via API directly to avoid UI flakiness
+    // Crear el pedido vía API directamente para evitar flakiness de UI
     const orderRes = await userPage.request.post(
       "http://127.0.0.1:3101/orders",
       {
@@ -124,7 +145,7 @@ test.describe("Seller and admin flows", () => {
 
     await adminPage.goto("/admin/orders");
     const orderRow = adminPage
-      .locator("a", { hasText: "Order #" })
+      .locator("a", { hasText: "Pedido #" })
       .first()
       .locator("..")
       .locator("..");

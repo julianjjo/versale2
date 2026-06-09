@@ -81,7 +81,7 @@ describe("ProductDetail", () => {
     vi.spyOn(window, "alert").mockImplementation(() => {});
   });
 
-  it("renders product info on success", async () => {
+  it("renderiza la información del producto", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
     render(
       <TestProviders>
@@ -93,12 +93,13 @@ describe("ProductDetail", () => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
     expect(screen.getByText("Levi's")).toBeInTheDocument();
-    expect(screen.getByText("$45.00")).toBeInTheDocument();
+    // Price 45 formatted in COP without thousands separator
+    expect(screen.getByText("$ 45")).toBeInTheDocument();
     expect(screen.getByText("M")).toBeInTheDocument();
     expect(screen.getByText("Alice")).toBeInTheDocument();
   });
 
-  it("renders reviews", async () => {
+  it("renderiza las reseñas", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
     render(
       <TestProviders>
@@ -112,7 +113,7 @@ describe("ProductDetail", () => {
     expect(screen.getByText("Bob")).toBeInTheDocument();
   });
 
-  it("shows the not-found state when the product is missing", async () => {
+  it("muestra el estado no encontrado cuando el producto no existe", async () => {
     vi.mocked(api.get).mockRejectedValue(new Error("Not found"));
     render(
       <TestProviders>
@@ -121,11 +122,11 @@ describe("ProductDetail", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/product not found/i)).toBeInTheDocument();
+      expect(screen.getByText(/producto no encontrado/i)).toBeInTheDocument();
     });
   });
 
-  it("prompts login when adding to cart as an unauthenticated user", async () => {
+  it("pide inicio de sesión al agregar al carrito sin sesión", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
     const user = userEvent.setup();
     render(
@@ -137,11 +138,11 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
-    await user.click(screen.getByRole("button", { name: /add to cart/i }));
+    await user.click(screen.getByRole("button", { name: /agregar al carrito/i }));
     expect(pushMock).toHaveBeenCalledWith("/login");
   });
 
-  it("adds to cart when authenticated", async () => {
+  it("agrega al carrito cuando el usuario está autenticado", async () => {
     authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
     vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
     vi.mocked(api.post).mockResolvedValue({ data: { id: "ci1" } });
@@ -155,7 +156,7 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
-    await user.click(screen.getByRole("button", { name: /add to cart/i }));
+    await user.click(screen.getByRole("button", { name: /agregar al carrito/i }));
 
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith("/cart/items", {
@@ -165,7 +166,7 @@ describe("ProductDetail", () => {
     });
   });
 
-  it("hides the add-to-cart button for the product's seller", async () => {
+  it("oculta el botón de agregar al carrito para el vendedor del producto", async () => {
     authState.user = {
       id: "s1",
       email: "seller@b.c",
@@ -182,11 +183,11 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
-    expect(screen.queryByRole("button", { name: /add to cart/i })).toBeNull();
-    expect(screen.getByText(/this is your listing/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /agregar al carrito/i })).toBeNull();
+    expect(screen.getByText(/esta es tu publicación/i)).toBeInTheDocument();
   });
 
-  it("posts a review from the form", async () => {
+  it("publica una reseña desde el formulario", async () => {
     authState.user = { id: "u2", email: "u2@b.c", name: "Charlie", role: "USER" };
     vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
     vi.mocked(api.post).mockResolvedValue({ data: { id: "r2" } });
@@ -200,14 +201,14 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
-    await user.type(screen.getByLabelText(/comment/i), "Great item!");
-    await user.click(screen.getByRole("button", { name: /post review/i }));
+    await user.type(screen.getByLabelText(/comentario/i), "¡Buenísimo!");
+    await user.click(screen.getByRole("button", { name: /publicar reseña/i }));
 
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith("/reviews", {
         productId: "p1",
         rating: 5,
-        comment: "Great item!",
+        comment: "¡Buenísimo!",
       });
     });
   });
