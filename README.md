@@ -1,156 +1,236 @@
-# Versale - Used Clothing Marketplace
+# Versale — Used Clothing Marketplace
 
-A full-stack application for buying and selling used clothing.
+A full-stack editorial marketplace for buying and selling pre-owned clothing. Versale pairs a NestJS + Prisma backend with a Next.js 15 storefront and a Playwright end-to-end suite, all running from a single npm workspace.
+
+The visual system (typography, color tokens, button, card, and section patterns) is documented in [`design.md`](./design.md) and is the source of truth for every UI change.
 
 ## Stack
 
-- **Backend**: NestJS (Node.js) with Prisma ORM (SQLite for development, easy migration to Supabase/PostgreSQL)
-- **Frontend**: Next.js (React) with TypeScript, Tailwind CSS, and React Query
-- **Database**: SQLite (local) - designed for easy migration to PostgreSQL/Supabase
+- **Backend** — NestJS 10, Prisma ORM, SQLite (local), JWT auth
+- **Frontend** — Next.js 15 (App Router) + React 19, Tailwind CSS v4, React Query, Vitest
+- **E2E** — Playwright with its own API + Web on ports 3101 / 3100 and a dedicated SQLite file
+- **Package manager** — npm workspaces (`apps/*`)
+
+## Repository layout
+
+```
+versale/
+├─ apps/
+│  ├─ api/                  # NestJS + Prisma backend
+│  │  ├─ prisma/            # schema.prisma + migrations
+│  │  ├─ src/               # modules: auth, users, products, cart, orders, reviews
+│  │  └─ AGENTS.md          # backend-specific contract
+│  └─ web/                  # Next.js storefront
+│     ├─ src/app/           # routes (App Router)
+│     ├─ src/components/    # layout/, marketing/, products/, ui/
+│     └─ AGENTS.md          # frontend-specific contract
+├─ e2e/                     # Playwright suites, fixtures, seed
+│  └─ AGENTS.md             # e2e-specific contract
+├─ design.md                # Visual system (tokens, components, anti-patterns)
+└─ AGENTS.md                # Repo-wide contract (start here)
+```
+
+`AGENTS.md` (root) is the entry point — it links to the per-area contracts that own the actual rules for the API, the web app, and the e2e harness. **Read it first.**
 
 ## Features
 
-- User Authentication (Signup, Login, JWT)
-- Product CRUD with search and filtering (size, brand, condition, price)
-- Shopping Cart (persisted in database)
-- Order Management (create orders, view history)
-- User Profiles (edit profile, view orders)
-- Product Reviews and Ratings
-- Basic Admin Dashboard (user and product management)
-- Responsive Design (mobile-first)
+- Email + password authentication (JWT) with three roles: `USER`, `SELLER`, `ADMIN`
+- Product catalog with search and filtering (size, brand, condition, category, price)
+- Persistent shopping cart, order checkout, and order history
+- Product reviews and star ratings
+- Admin dashboard: user management, product approval, order status
+- Editorial design system: Fraunces (display) + Inter (body) + terracotta accent, pill CTAs, dark footer
+- Fully responsive (mobile drawer, `xl`/`lg`/`sm` breakpoints)
+- Spanish copy across the storefront, dashboard, and forms
 
-## Getting Started
+## Prerequisites
 
-### Prerequisites
+- **Node.js 18+** (Node 20 LTS recommended)
+- **npm 9+** (workspaces are first-class)
+- A C toolchain only if Playwright needs to install browsers from scratch (`npx playwright install --with-deps chromium`)
 
-- Node.js (v18+)
-- npm or yarn
+## Getting started
 
-### Installation
-
-1. Clone the repository
-2. Install dependencies:
+### 1. Install dependencies
 
 ```bash
 npm install
 ```
 
-### Environment Variables
+This installs the root devDeps (Playwright, ESLint, Prettier, concurrently) and both workspaces.
 
-Create a `.env` file in the root of the `apps/api` directory:
+### 2. Configure environment
 
-```
+Create `apps/api/.env` with the local development values:
+
+```env
 DATABASE_URL="file:./dev.db"
-JWT_SECRET="your_secret_key_here"
+JWT_SECRET="change-me-to-a-long-random-string"
 PORT=3001
 ```
 
-### Development
+> `apps/web` reads `NEXT_PUBLIC_API_URL` at build time. It defaults to `http://localhost:3001` in development. The e2e harness injects a different value when it boots.
 
-To start both the API and the frontend in development mode:
+### 3. Initialize the database
+
+```bash
+cd apps/api
+npx prisma migrate deploy      # apply existing migrations
+npx prisma generate            # regenerate the client
+```
+
+For a clean reset during development:
+
+```bash
+cd apps/api
+npx prisma migrate reset       # drops, recreates, re-seeds dev.db
+```
+
+### 4. Start development servers
 
 ```bash
 npm run dev
 ```
 
-This will start:
-- API: http://localhost:3001
-- Frontend: http://localhost:3000
+This runs the API and the web app concurrently:
 
-API documentation will be available at: http://localhost:3001/api
+| Service | URL                       | Notes                              |
+| ------- | ------------------------- | ---------------------------------- |
+| API     | http://localhost:3001     | NestJS, auto-reload via `nest start --watch` |
+| Web     | http://localhost:3000     | Next.js dev server                  |
 
-### Database
+You can also run them individually:
 
-We use Prisma ORM with SQLite for development.
+```bash
+npm run dev:api      # API only
+npm run dev:web      # Web only
+```
 
-To reset the database and run migrations:
+## Available scripts
+
+All commands are run from the repository root unless noted.
+
+### Development
+
+| Command            | What it does                                              |
+| ------------------ | --------------------------------------------------------- |
+| `npm run dev`      | API + Web in parallel (concurrently)                      |
+| `npm run dev:api`  | API on port 3001 with file-watch reload                   |
+| `npm run dev:web`  | Next.js dev server on port 3000                           |
+
+### Build & start
+
+| Command          | What it does                                              |
+| ---------------- | --------------------------------------------------------- |
+| `npm run build`  | Builds both workspaces (NestJS + Next.js)                 |
+| `npm start`      | Runs both production servers in parallel                  |
+| `npm run start:api` | API from `dist/main`                                   |
+| `npm run start:web` | `next start` on the production build                    |
+
+### Lint & format
+
+| Command          | What it does                                              |
+| ---------------- | --------------------------------------------------------- |
+| `npm run lint`   | ESLint over `.ts` and `.tsx` across the monorepo          |
+| `npm run format` | Prettier write across the whole tree                     |
+
+### Tests
+
+| Command             | Framework | What it covers                                |
+| ------------------- | --------- | --------------------------------------------- |
+| `npm test`          | Jest + Vitest | API unit/integration + Web unit tests      |
+| `npm run test:api`  | Jest      | API unit + integration tests (Supertest)      |
+| `npm run test:web`  | Vitest    | Web unit + component tests                    |
+| `npm run e2e`       | Playwright | Full-stack end-to-end flows                  |
+| `npm run e2e:ui`    | Playwright | Same suites in the interactive UI runner    |
+| `npm run e2e:report`| —         | Opens the last Playwright HTML report         |
+
+#### e2e specifics
+
+The Playwright harness is self-contained: it boots its **own** API and Web instances on ports **3101** (API) and **3100** (Web), backed by a dedicated SQLite file at `apps/api/e2e.db`. The API `webServer` command in `playwright.config.ts` runs `prisma db push` against that file before starting Nest, and `e2e/utils/global-setup.ts` only seeds users and products.
+
+That means you do not need the dev servers running to execute e2e — `npm run e2e` brings everything up and tears it down for you.
+
+> Schema bootstrap lives in the API `webServer` (not in `globalSetup`) because the API process opens its SQLite connection before global setup runs. Moving the bootstrap anywhere else triggers `SQLITE_READONLY_DBMOVED`.
+
+## Seeded users (e2e only)
+
+`e2e/utils/seed.ts` provisions three users every time the e2e suite runs:
+
+| Role  | Email              | Password     | Name        |
+| ----- | ------------------ | ------------ | ----------- |
+| USER  | `user@e2e.test`    | `user12345`  | E2E User    |
+| ADMIN | `admin@e2e.test`   | `admin12345` | E2E Admin   |
+| USER  | `seller@e2e.test`  | `seller12345`| E2E Seller  |
+
+There is **no auto-bootstrapped admin in development**. To create an admin against `apps/api/dev.db`, sign up normally, then promote the row in SQLite:
 
 ```bash
 cd apps/api
-npx prisma migrate reset
+sqlite3 dev.db "UPDATE User SET role = 'ADMIN' WHERE email = 'you@example.com';"
 ```
 
-### Building for Production
+## API reference
 
-```bash
-npm run build
-```
+All endpoints are mounted under `http://localhost:3001`. Most write endpoints require an `Authorization: Bearer <jwt>` header obtained from `/auth/login` or `/auth/signup`.
 
-To start the production servers:
-
-```bash
-npm start
-```
-
-## Project Structure
-
-```
-versale/
-├─ apps/
-│  ├─ api          # NestJS backend
-│  └─ web          # Next.js frontend
-├─ packages/
-│  ├─ ui           # Shared UI components (optional)
-│  ├─ types        # Shared TypeScript types
-│  └─ config       # Shared configurations (ESLint, Tailwind, etc.)
-└─ ...config files
-```
-
-## API Endpoints
-
-### Authentication
-- `POST /auth/signup` - Register a new user
-- `POST /auth/login` - Login and receive JWT token
+### Auth
+- `POST /auth/signup` — register a new user
+- `POST /auth/login` — exchange credentials for a JWT
 
 ### Users
-- `GET /users/me` - Get current user's profile (authenticated)
-- `PATCH /users/me` - Update current user's profile (authenticated)
-- `GET /users` - Get all users (admin only)
-- `GET /users/:id` - Get user by ID (authenticated)
-- `PATCH /users/:id` - Update any user (admin only)
-- `DELETE /users/:id` - Delete a user (admin only)
+- `GET    /users/me`            — current user profile
+- `PATCH  /users/me`            — update current user profile
+- `GET    /users`               — list all users (**admin**)
+- `GET    /users/:id`           — fetch user by id
+- `PATCH  /users/:id`           — update any user (**admin**)
+- `DELETE /users/:id`           — delete a user (**admin**)
 
 ### Products
-- `GET /products` - Get all products with filtering
-- `GET /products/:id` - Get product by ID
-- `POST /products` - Create a new product (authenticated)
-- `PATCH /products/:id` - Update a product (authenticated, owner only)
-- `DELETE /products/:id` - Delete a product (authenticated, owner only)
+- `GET    /products`                       — public catalog with filters
+- `GET    /products/:id`                   — single product
+- `POST   /products`                       — create (auth)
+- `PATCH  /products/:id`                   — update (owner)
+- `DELETE /products/:id`                   — delete (owner)
+- `GET    /products/admin/all`             — all products incl. pending (**admin**)
+- `PATCH  /products/admin/:id/approve`     — approve a product (**admin**)
 
 ### Cart
-- `GET /cart` - Get current user's cart (authenticated)
-- `POST /cart/items` - Add item to cart (authenticated)
-- `PATCH /cart/items/:itemId` - Update cart item quantity (authenticated)
-- `DELETE /cart/items/:itemId` - Remove item from cart (authenticated)
-- `DELETE /cart` - Clear current user's cart (authenticated)
+- `GET    /cart`
+- `POST   /cart/items`
+- `PATCH  /cart/items/:itemId`
+- `DELETE /cart/items/:itemId`
+- `DELETE /cart`
 
 ### Orders
-- `POST /orders` - Create order from cart (authenticated)
-- `GET /orders` - Get user's order history (authenticated)
-- `GET /orders/:id` - Get order by ID (authenticated, owner only)
-- `GET /orders/admin/all` - Get all orders (admin only)
-- `PATCH /orders/admin/:id/status` - Update order status (admin only)
+- `POST   /orders`                          — checkout from cart
+- `GET    /orders`                          — current user history
+- `GET    /orders/:id`                      — single order (owner)
+- `GET    /orders/admin/all`                — all orders (**admin**)
+- `PATCH  /orders/admin/:id/status`         — update status (**admin**)
+
+Status values are localized in the UI: `Pendiente`, `Pagado`, `Enviado`, `Entregado`, `Cancelado`.
 
 ### Reviews
-- `GET /reviews/product/:productId` - Get reviews for a product
-- `POST /reviews` - Create a review for a product (authenticated)
-- `PATCH /reviews/:id` - Update a review (authenticated, owner only)
-- `DELETE /reviews/:id` - Delete a review (authenticated, owner only)
+- `GET    /reviews/product/:productId`
+- `POST   /reviews`                         — create (auth)
+- `PATCH  /reviews/:id`                     — update (owner)
+- `DELETE /reviews/:id`                     — delete (owner)
 
-### Admin
-- `GET /products/admin/all` - Get all products (including pending approval)
-- `PATCH /products/admin/:id/approve` - Approve a product
-- `GET /orders/admin/all` - Get all orders
-- `PATCH /orders/admin/:id/status` - Update order status
+## Project conventions
 
-## Testing
+- **Spanish copy.** Frontend strings, error messages, and admin labels are in Spanish. Tests select by Spanish text — change the UI to match, not the other way around.
+- **Design tokens live in `design.md`.** Do not introduce ad-hoc colors, type scales, or radii. New components should reuse `.btn-pill*`, `.heading-*`, `.text-eyebrow`, and the ink/paper/terracotta tokens from `apps/web/src/app/globals.css`.
+- **The `Button` `pill` prop is opt-in.** In-app buttons default to `rounded-md`; only marketing CTAs (hero, newsletter, footer) pass `pill`.
+- **Per-area contracts.** `apps/api/AGENTS.md`, `apps/web/AGENTS.md`, and `e2e/AGENTS.md` extend the root contract for their respective workspaces. If this README conflicts with one of them, the area-level document wins for that area.
 
-Run unit and integration tests:
+## Troubleshooting
 
-```bash
-npm test
-```
+- **`SQLITE_READONLY_DBMOVED` during e2e** — the API process started before `prisma db push` finished. The fix lives in `playwright.config.ts`; do not move the schema push into `e2e/utils/global-setup.ts`.
+- **Playwright browser missing** — run `npx playwright install --with-deps chromium` (the suite only needs Chromium).
+- **Stale Prisma client** — after editing `apps/api/prisma/schema.prisma`, run `npx prisma generate` and restart the dev server.
+- **Fonts look like the system fallback** — check that `next/font` can reach Google Fonts in your environment; the dev server prints a warning if the fetch fails.
 
 ## License
 
-This project is licensed under the MIT License.
+MIT.
