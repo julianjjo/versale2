@@ -6,8 +6,8 @@ The visual system (typography, color tokens, button, card, and section patterns)
 
 ## Stack
 
-- **Backend** — NestJS 10, Prisma ORM, SQLite (local), JWT auth
-- **Frontend** — Next.js 15 (App Router) + React 19, Tailwind CSS v4, React Query, Vitest
+- **Backend** — NestJS 11, Prisma ORM, SQLite (local), JWT auth, AWS S3 SDK for Cloudflare R2 image storage
+- **Frontend** — Next.js (App Router) + React 19, Tailwind CSS v4, React Query, Vitest
 - **E2E** — Playwright with its own API + Web on ports 3101 / 3100 and a dedicated SQLite file
 - **Package manager** — npm workspaces (`apps/*`)
 
@@ -77,6 +77,7 @@ PORT=3001
 cd apps/api
 npx prisma migrate deploy      # apply existing migrations
 npx prisma generate            # regenerate the client
+npm run seed                   # creates admin@versale.local + demo users
 ```
 
 For a clean reset during development:
@@ -84,7 +85,10 @@ For a clean reset during development:
 ```bash
 cd apps/api
 npx prisma migrate reset       # drops, recreates, re-seeds dev.db
+npm run seed                   # re-add the admin + demo users
 ```
+
+See [Seeded users](#seeded-users) for credentials and the production admin flow.
 
 ### 4. Start development servers
 
@@ -153,7 +157,11 @@ That means you do not need the dev servers running to execute e2e — `npm run e
 
 > Schema bootstrap lives in the API `webServer` (not in `globalSetup`) because the API process opens its SQLite connection before global setup runs. Moving the bootstrap anywhere else triggers `SQLITE_READONLY_DBMOVED`.
 
-## Seeded users (e2e only)
+## Seeded users
+
+The signup endpoint always creates a `USER`. The admin role has to be granted explicitly through the seed script.
+
+### e2e (Playwright)
 
 `e2e/utils/seed.ts` provisions three users every time the e2e suite runs:
 
@@ -163,12 +171,45 @@ That means you do not need the dev servers running to execute e2e — `npm run e
 | ADMIN | `admin@e2e.test`   | `admin12345` | E2E Admin   |
 | USER  | `seller@e2e.test`  | `seller12345`| E2E Seller  |
 
-There is **no auto-bootstrapped admin in development**. To create an admin against `apps/api/dev.db`, sign up normally, then promote the row in SQLite:
+These live in `apps/api/e2e.db` and are wiped on every `npm run e2e` run. They are **not** available against `apps/api/dev.db`.
+
+### Local development (`apps/api/dev.db`)
+
+Run the seed script to bootstrap an admin plus two demo users against your dev database:
 
 ```bash
 cd apps/api
-sqlite3 dev.db "UPDATE User SET role = 'ADMIN' WHERE email = 'you@example.com';"
+npm run seed
 ```
+
+Defaults (overridable via env vars):
+
+| Role  | Email                  | Password     | Name           |
+| ----- | ---------------------- | ------------ | -------------- |
+| ADMIN | `admin@versale.local`  | `admin12345` | Versale Admin  |
+| USER  | `user@versale.local`   | `user12345`  | Demo User      |
+| USER  | `seller@versale.local` | `seller12345` | Demo Seller    |
+
+The script is **idempotent**: re-running it does not duplicate users; if the admin already exists with role `ADMIN` it is left alone, and if the email exists with role `USER` it is promoted to `ADMIN` and rotated. To use a custom admin, override the defaults:
+
+```bash
+cd apps/api
+ADMIN_EMAIL=you@example.com ADMIN_PASSWORD=your-strong-password npm run seed
+```
+
+### Production
+
+In production the seed script **refuses to run** without explicit `ADMIN_EMAIL` and `ADMIN_PASSWORD`, never logs the password, and skips the demo users. Generate a strong password with `openssl`:
+
+```bash
+cd apps/api
+NODE_ENV=production \
+  ADMIN_EMAIL=admin@yourdomain.com \
+  ADMIN_PASSWORD="$(openssl rand -base64 32)" \
+  npm run seed
+```
+
+Save the generated password in your password manager — it will not be printed again. The admin can change it after the first login through the profile endpoint.
 
 ## API reference
 
