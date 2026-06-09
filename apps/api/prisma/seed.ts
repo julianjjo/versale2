@@ -41,12 +41,6 @@ const DEMO_USERS = IS_PRODUCTION
         name: 'Demo User',
         role: Role.USER,
       },
-      {
-        email: 'seller@versale.local',
-        password: 'seller12345',
-        name: 'Demo Seller',
-        role: Role.USER,
-      },
     ];
 
 export async function seed() {

@@ -17,10 +17,10 @@ export const E2E_USERS = {
     password: "admin12345",
     name: "E2E Admin",
   },
-  seller: {
-    email: "seller@e2e.test",
-    password: "seller12345",
-    name: "E2E Seller",
+  author: {
+    email: "author@e2e.test",
+    password: "author12345",
+    name: "E2E Author",
   },
 };
 
@@ -68,7 +68,7 @@ export async function seedDatabase() {
 
   const userHash = await bcrypt.hash(E2E_USERS.user.password, 4);
   const adminHash = await bcrypt.hash(E2E_USERS.admin.password, 4);
-  const sellerHash = await bcrypt.hash(E2E_USERS.seller.password, 4);
+  const authorHash = await bcrypt.hash(E2E_USERS.author.password, 4);
 
   const user = await prisma.user.create({
     data: {
@@ -88,11 +88,11 @@ export async function seedDatabase() {
     },
   });
 
-  const seller = await prisma.user.create({
+  const author = await prisma.user.create({
     data: {
-      email: E2E_USERS.seller.email,
-      password: sellerHash,
-      name: E2E_USERS.seller.name,
+      email: E2E_USERS.author.email,
+      password: authorHash,
+      name: E2E_USERS.author.name,
       role: Role.USER,
     },
   });
@@ -101,12 +101,12 @@ export async function seedDatabase() {
     await prisma.product.create({
       data: {
         ...product,
-        sellerId: seller.id,
+        sellerId: author.id,
       },
     });
   }
 
-  return { user, seller };
+  return { user, author };
 }
 
 if (require.main === module) {

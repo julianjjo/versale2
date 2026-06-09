@@ -9,7 +9,7 @@ Playwright end-to-end test suite for Versale. Exercises the full stack: web UI, 
 - **Local contract**: this file.
 - Layout:
   - `e2e/tests/` — Playwright spec files (one per area: `auth`, `shopping`, `seller-admin`, `responsive`).
-  - `e2e/fixtures/` — shared fixtures, e.g. `auth.ts` (logged-in `userPage`, `adminPage`, `sellerPage`).
+  - `e2e/fixtures/` — shared fixtures, e.g. `auth.ts` (logged-in `userPage`, `adminPage`, `authorPage`). `authorPage` is a regular `USER` whose account owns the seeded products — there is no separate `SELLER` role in the product model.
   - `e2e/utils/` — `global-setup.ts`, `seed.ts`, `viewport.ts`.
 
 ## Local Contracts

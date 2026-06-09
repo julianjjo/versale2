@@ -34,7 +34,7 @@ versale/
 
 ## Features
 
-- Email + password authentication (JWT) with three roles: `USER`, `SELLER`, `ADMIN`
+- Email + password authentication (JWT) with two roles: `USER` and `ADMIN`. Any registered user can both buy and sell — there is no separate `SELLER` role. A user becomes a "seller" simply by publishing a product on `/sell`; the row's `sellerId` is the user who created it. Admins moderate the catalog (approve products, manage users, update order status).
 - Product catalog with search and filtering (size, brand, condition, category, price)
 - Persistent shopping cart, order checkout, and order history
 - Product reviews and star ratings
@@ -165,13 +165,15 @@ The signup endpoint always creates a `USER`. The admin role has to be granted ex
 
 `e2e/utils/seed.ts` provisions three users every time the e2e suite runs:
 
-| Role  | Email              | Password     | Name        |
-| ----- | ------------------ | ------------ | ----------- |
-| USER  | `user@e2e.test`    | `user12345`  | E2E User    |
-| ADMIN | `admin@e2e.test`   | `admin12345` | E2E Admin   |
-| USER  | `seller@e2e.test`  | `seller12345`| E2E Seller  |
+| Role  | Email              | Password     | Name        | Purpose |
+| ----- | ------------------ | ------------ | ----------- | ------- |
+| USER  | `user@e2e.test`    | `user12345`  | E2E User    | Buys products, leaves reviews |
+| ADMIN | `admin@e2e.test`   | `admin12345` | E2E Admin   | Moderates catalog, manages orders |
+| USER  | `author@e2e.test`  | `author12345`| E2E Author  | Owns the seeded `Product` rows (`sellerId` FK) |
 
-These live in `apps/api/e2e.db` and are wiped on every `npm run e2e` run. They are **not** available against `apps/api/dev.db`.
+The "author" is a regular `USER` — there is no `SELLER` role. Any user that publishes on `/sell` becomes an author of their own products.
+
+These accounts live in `apps/api/e2e.db` and are wiped on every `npm run e2e` run. They are **not** available against `apps/api/dev.db`.
 
 ### Local development (`apps/api/dev.db`)
 
@@ -188,7 +190,8 @@ Defaults (overridable via env vars):
 | ----- | ---------------------- | ------------ | -------------- |
 | ADMIN | `admin@versale.local`  | `admin12345` | Versale Admin  |
 | USER  | `user@versale.local`   | `user12345`  | Demo User      |
-| USER  | `seller@versale.local` | `seller12345` | Demo Seller    |
+
+The demo `USER` can both buy and publish products — log in with it to exercise the full flow.
 
 The script is **idempotent**: re-running it does not duplicate users; if the admin already exists with role `ADMIN` it is left alone, and if the email exists with role `USER` it is promoted to `ADMIN` and rotated. To use a custom admin, override the defaults:
 

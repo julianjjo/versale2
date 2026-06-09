@@ -3,7 +3,7 @@ import { E2E_USERS } from "../utils/seed";
 
 type Credentials = (typeof E2E_USERS)[keyof typeof E2E_USERS];
 
-export type AuthenticatedUser = "user" | "admin" | "seller";
+export type AuthenticatedUser = "user" | "admin" | "author";
 
 async function loginAs(page: Page, credentials: Credentials) {
   await page.context().clearCookies();
@@ -21,7 +21,7 @@ async function loginAs(page: Page, credentials: Credentials) {
 export const test = base.extend<{
   userPage: Page;
   adminPage: Page;
-  sellerPage: Page;
+  authorPage: Page;
 }>({
   userPage: async ({ browser }, use) => {
     const ctx = await browser.newContext();
@@ -37,10 +37,10 @@ export const test = base.extend<{
     await use(page);
     await ctx.close();
   },
-  sellerPage: async ({ browser }, use) => {
+  authorPage: async ({ browser }, use) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
-    await loginAs(page, E2E_USERS.seller);
+    await loginAs(page, E2E_USERS.author);
     await use(page);
     await ctx.close();
   },

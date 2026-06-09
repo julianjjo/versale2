@@ -3,7 +3,7 @@ import { test, expect } from "../fixtures/auth";
 test.describe.configure({ mode: "serial" });
 import { E2E_USERS } from "../utils/seed";
 
-test.describe("Flujos de vendedor y administrador", () => {
+test.describe("Publicación de productos y administración", () => {
   test("el administrador ve el enlace Admin en el header", async ({
     adminPage,
   }) => {
@@ -51,21 +51,23 @@ test.describe("Flujos de vendedor y administrador", () => {
     }
   });
 
-  test("el vendedor puede publicar un producto nuevo", async ({ sellerPage }) => {
-    await sellerPage.goto("/sell");
-    await sellerPage.getByLabel("Título").fill("Test Listing E2E");
-    await sellerPage
+  test("cualquier usuario puede publicar un producto nuevo", async ({
+    authorPage,
+  }) => {
+    await authorPage.goto("/sell");
+    await authorPage.getByLabel("Título").fill("Test Listing E2E");
+    await authorPage
       .getByLabel("Descripción")
       .fill("This is a test listing created by an E2E test.");
-    await sellerPage.getByLabel("Categoría").fill("Test");
-    await sellerPage.getByLabel("Talla").selectOption("M");
-    await sellerPage.getByLabel("Condición").selectOption("Good");
-    await sellerPage.getByLabel(/precio/i).fill("19990");
+    await authorPage.getByLabel("Categoría").fill("Test");
+    await authorPage.getByLabel("Talla").selectOption("M");
+    await authorPage.getByLabel("Condición").selectOption("Good");
+    await authorPage.getByLabel(/precio/i).fill("19990");
 
-    await sellerPage
+    await authorPage
       .getByRole("button", { name: /publicar producto/i })
       .click();
-    await expect(sellerPage).toHaveURL(/\/products/);
+    await expect(authorPage).toHaveURL(/\/products/);
   });
 
   test("el usuario puede dejar una reseña en un producto", async ({
