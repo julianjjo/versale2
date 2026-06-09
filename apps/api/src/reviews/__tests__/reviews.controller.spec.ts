@@ -5,7 +5,6 @@ import { AuthRequest } from '../../../src/types/request.types';
 
 describe('ReviewsController', () => {
   let controller: ReviewsController;
-  let reviewsService: ReviewsService;
 
   const mockReviewsService = {
     findAllByProduct: jest.fn(),
@@ -22,7 +21,6 @@ describe('ReviewsController', () => {
     }).compile();
 
     controller = module.get<ReviewsController>(ReviewsController);
-    reviewsService = module.get<ReviewsService>(ReviewsService);
   });
 
   afterEach(() => {
@@ -30,7 +28,7 @@ describe('ReviewsController', () => {
   });
 
   describe('getReviewsByProduct', () => {
-    it('should call reviewsService.findAllByProduct with productId', async () => {
+    it('should call mockReviewsService.findAllByProduct with productId', async () => {
       const productId = 'product1';
       const mockResult = [
         {
@@ -44,13 +42,15 @@ describe('ReviewsController', () => {
 
       const result = await controller.getReviewsByProduct(productId);
 
-      expect(reviewsService.findAllByProduct).toHaveBeenCalledWith(productId);
+      expect(mockReviewsService.findAllByProduct).toHaveBeenCalledWith(
+        productId,
+      );
       expect(result).toEqual(mockResult);
     });
   });
 
   describe('createReview', () => {
-    it('should call reviewsService.create with body, userId and productId', async () => {
+    it('should call mockReviewsService.create with body, userId and productId', async () => {
       const userId = 'user1';
       const body = {
         productId: 'product1',
@@ -71,7 +71,7 @@ describe('ReviewsController', () => {
 
       const result = await controller.createReview(mockReq, body);
 
-      expect(reviewsService.create).toHaveBeenCalledWith(
+      expect(mockReviewsService.create).toHaveBeenCalledWith(
         body,
         userId,
         body.productId,
@@ -81,7 +81,7 @@ describe('ReviewsController', () => {
   });
 
   describe('updateReview', () => {
-    it('should call reviewsService.update with id, body and userId', async () => {
+    it('should call mockReviewsService.update with id, body and userId', async () => {
       const userId = 'user1';
       const reviewId = 'review1';
       const body = {
@@ -101,7 +101,7 @@ describe('ReviewsController', () => {
 
       const result = await controller.updateReview(mockReq, reviewId, body);
 
-      expect(reviewsService.update).toHaveBeenCalledWith(
+      expect(mockReviewsService.update).toHaveBeenCalledWith(
         reviewId,
         body,
         userId,
@@ -111,7 +111,7 @@ describe('ReviewsController', () => {
   });
 
   describe('deleteReview', () => {
-    it('should call reviewsService.remove with id and userId', async () => {
+    it('should call mockReviewsService.remove with id and userId', async () => {
       const userId = 'user1';
       const reviewId = 'review1';
       const mockReq = {
@@ -126,13 +126,13 @@ describe('ReviewsController', () => {
 
       const result = await controller.deleteReview(mockReq, reviewId);
 
-      expect(reviewsService.remove).toHaveBeenCalledWith(reviewId, userId);
+      expect(mockReviewsService.remove).toHaveBeenCalledWith(reviewId, userId);
       expect(result).toEqual(mockResult);
     });
   });
 
   describe('getAllReviews', () => {
-    it('should call reviewsService.getAllReviews with query', async () => {
+    it('should call mockReviewsService.getAllReviews with query', async () => {
       const query = { page: '1', limit: '10' };
       const mockResult = {
         data: [],
@@ -143,7 +143,7 @@ describe('ReviewsController', () => {
 
       const result = await controller.getAllReviews(query);
 
-      expect(reviewsService.getAllReviews).toHaveBeenCalledWith(query);
+      expect(mockReviewsService.getAllReviews).toHaveBeenCalledWith(query);
       expect(result).toEqual(mockResult);
     });
   });

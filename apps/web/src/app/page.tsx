@@ -419,7 +419,7 @@ function EditorialSection() {
       <div className="mx-auto w-full max-w-[1320px] px-5 sm:px-8">
         <div className="grid grid-cols-1 items-center gap-10 overflow-hidden rounded-[24px] bg-paper-2 p-8 sm:p-12 lg:grid-cols-2 lg:gap-16 lg:p-16">
           <div>
-            <span className="text-eyebrow">Lookbook · Otoño '25</span>
+            <span className="text-eyebrow">Lookbook · Otoño &apos;25</span>
             <h2 className="mt-4 mb-6 font-display text-[44px] leading-[1.05] tracking-[-0.03em] text-ink lg:text-[54px]">
               7 looks con <em>menos de 7 piezas</em>.
             </h2>

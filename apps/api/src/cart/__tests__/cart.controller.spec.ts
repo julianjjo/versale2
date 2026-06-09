@@ -5,7 +5,6 @@ import { AuthRequest } from '../../../src/types/request.types';
 
 describe('CartController', () => {
   let controller: CartController;
-  let cartService: CartService;
 
   const mockCartService = {
     getCart: jest.fn(),
@@ -22,7 +21,6 @@ describe('CartController', () => {
     }).compile();
 
     controller = module.get<CartController>(CartController);
-    cartService = module.get<CartService>(CartService);
   });
 
   afterEach(() => {
@@ -30,7 +28,7 @@ describe('CartController', () => {
   });
 
   describe('getCart', () => {
-    it('should call cartService.getCart with userId from request', async () => {
+    it('should call mockCartService.getCart with userId from request', async () => {
       const userId = 'user1';
       const mockReq = {
         user: { id: userId, email: 'test@example.com', role: 'USER' },
@@ -46,13 +44,13 @@ describe('CartController', () => {
 
       const result = await controller.getCart(mockReq);
 
-      expect(cartService.getCart).toHaveBeenCalledWith(userId);
+      expect(mockCartService.getCart).toHaveBeenCalledWith(userId);
       expect(result).toEqual(mockCart);
     });
   });
 
   describe('addItem', () => {
-    it('should call cartService.addItem with userId, productId and quantity', async () => {
+    it('should call mockCartService.addItem with userId, productId and quantity', async () => {
       const userId = 'user1';
       const productId = 'product1';
       const quantity = 2;
@@ -73,7 +71,7 @@ describe('CartController', () => {
 
       const result = await controller.addItem(mockReq, body);
 
-      expect(cartService.addItem).toHaveBeenCalledWith(
+      expect(mockCartService.addItem).toHaveBeenCalledWith(
         userId,
         productId,
         quantity,
@@ -83,7 +81,7 @@ describe('CartController', () => {
   });
 
   describe('updateItem', () => {
-    it('should call cartService.updateItem with itemId, quantity and userId', async () => {
+    it('should call mockCartService.updateItem with itemId, quantity and userId', async () => {
       const userId = 'user1';
       const itemId = 'item1';
       const quantity = 5;
@@ -101,7 +99,7 @@ describe('CartController', () => {
 
       const result = await controller.updateItem(mockReq, itemId, body);
 
-      expect(cartService.updateItem).toHaveBeenCalledWith(
+      expect(mockCartService.updateItem).toHaveBeenCalledWith(
         itemId,
         quantity,
         userId,
@@ -111,7 +109,7 @@ describe('CartController', () => {
   });
 
   describe('removeItem', () => {
-    it('should call cartService.removeItem with itemId and userId', async () => {
+    it('should call mockCartService.removeItem with itemId and userId', async () => {
       const userId = 'user1';
       const itemId = 'item1';
       const mockReq = {
@@ -126,13 +124,13 @@ describe('CartController', () => {
 
       const result = await controller.removeItem(mockReq, itemId);
 
-      expect(cartService.removeItem).toHaveBeenCalledWith(itemId, userId);
+      expect(mockCartService.removeItem).toHaveBeenCalledWith(itemId, userId);
       expect(result).toEqual(mockResult);
     });
   });
 
   describe('clearCart', () => {
-    it('should call cartService.clearCart with userId', async () => {
+    it('should call mockCartService.clearCart with userId', async () => {
       const userId = 'user1';
       const mockReq = {
         user: { id: userId, email: 'test@example.com', role: 'USER' },
@@ -144,7 +142,7 @@ describe('CartController', () => {
 
       const result = await controller.clearCart(mockReq);
 
-      expect(cartService.clearCart).toHaveBeenCalledWith(userId);
+      expect(mockCartService.clearCart).toHaveBeenCalledWith(userId);
       expect(result).toEqual(mockResult);
     });
   });

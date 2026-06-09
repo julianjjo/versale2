@@ -11,8 +11,6 @@ import { OrderStatus } from '../order-status.enum';
 
 describe('OrdersService', () => {
   let service: OrdersService;
-  let prismaService: PrismaService;
-  let cartService: CartService;
 
   const mockTx = {
     order: {
@@ -56,8 +54,6 @@ describe('OrdersService', () => {
     }).compile();
 
     service = module.get<OrdersService>(OrdersService);
-    prismaService = module.get<PrismaService>(PrismaService);
-    cartService = module.get<CartService>(CartService);
   });
 
   afterEach(() => {

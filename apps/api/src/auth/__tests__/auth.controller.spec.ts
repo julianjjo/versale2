@@ -47,6 +47,7 @@ describe('AuthController', () => {
 
       const result = await controller.signup(signupDto);
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(authService.signup).toHaveBeenCalledWith(
         signupDto.email,
         signupDto.password,
@@ -77,10 +78,9 @@ describe('AuthController', () => {
 
       const result = await controller.login(loginDto);
 
-      expect(authService.login).toHaveBeenCalledWith(
-        loginDto.email,
-        loginDto.password,
-      );
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const loginFn = authService.login;
+      expect(loginFn).toHaveBeenCalledWith(loginDto.email, loginDto.password);
       expect(result).toEqual(mockResult);
     });
   });

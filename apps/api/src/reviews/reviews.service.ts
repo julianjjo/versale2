@@ -6,11 +6,25 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+interface CreateReviewInput {
+  rating: number;
+  comment?: string;
+}
+
+interface UpdateReviewInput {
+  rating?: number;
+  comment?: string;
+}
+
 @Injectable()
 export class ReviewsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createReviewDto: any, userId: string, productId: string) {
+  async create(
+    createReviewDto: CreateReviewInput,
+    userId: string,
+    productId: string,
+  ) {
     const product = await this.prisma.client.product.findUnique({
       where: { id: productId },
     });
@@ -59,7 +73,7 @@ export class ReviewsService {
     });
   }
 
-  async update(id: string, updateReviewDto: any, userId: string) {
+  async update(id: string, updateReviewDto: UpdateReviewInput, userId: string) {
     const review = await this.prisma.client.review.findUnique({
       where: { id },
     });
@@ -94,7 +108,7 @@ export class ReviewsService {
     return this.prisma.client.review.delete({ where: { id } });
   }
 
-  async getAllReviews(query: any) {
+  async getAllReviews(query: Record<string, unknown>) {
     const { page = 1, limit = 10 } = query;
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 10;

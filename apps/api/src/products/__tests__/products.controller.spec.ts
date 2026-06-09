@@ -7,9 +7,16 @@ import { AuthRequest } from '../../../src/types/request.types';
 
 describe('ProductsController', () => {
   let controller: ProductsController;
-  let productsService: ProductsService;
 
-  const mockProductsService = {
+  const mockProductsService: {
+    findAll: jest.Mock;
+    findOne: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+    remove: jest.Mock;
+    findAllForAdmin: jest.Mock;
+    approveProduct: jest.Mock;
+  } = {
     findAll: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
@@ -26,7 +33,6 @@ describe('ProductsController', () => {
     }).compile();
 
     controller = module.get<ProductsController>(ProductsController);
-    productsService = module.get<ProductsService>(ProductsService);
   });
 
   afterEach(() => {
@@ -45,7 +51,7 @@ describe('ProductsController', () => {
 
       const result = await controller.findAll(query);
 
-      expect(productsService.findAll).toHaveBeenCalledWith(query);
+      expect(mockProductsService.findAll).toHaveBeenCalledWith(query);
       expect(result).toEqual(mockResult);
     });
   });
@@ -64,7 +70,7 @@ describe('ProductsController', () => {
 
       const result = await controller.findOne(productId);
 
-      expect(productsService.findOne).toHaveBeenCalledWith(productId);
+      expect(mockProductsService.findOne).toHaveBeenCalledWith(productId);
       expect(result).toEqual(mockProduct);
     });
   });
@@ -95,7 +101,7 @@ describe('ProductsController', () => {
 
       const result = await controller.create(createProductDto, mockReq);
 
-      expect(productsService.create).toHaveBeenCalledWith(
+      expect(mockProductsService.create).toHaveBeenCalledWith(
         createProductDto,
         userId,
       );
@@ -129,7 +135,7 @@ describe('ProductsController', () => {
         mockReq,
       );
 
-      expect(productsService.update).toHaveBeenCalledWith(
+      expect(mockProductsService.update).toHaveBeenCalledWith(
         productId,
         updateProductDto,
         userId,
@@ -154,7 +160,10 @@ describe('ProductsController', () => {
 
       const result = await controller.remove(productId, mockReq);
 
-      expect(productsService.remove).toHaveBeenCalledWith(productId, userId);
+      expect(mockProductsService.remove).toHaveBeenCalledWith(
+        productId,
+        userId,
+      );
       expect(result).toEqual(mockResult);
     });
   });
@@ -171,7 +180,7 @@ describe('ProductsController', () => {
 
       const result = await controller.findAllForAdmin(query);
 
-      expect(productsService.findAllForAdmin).toHaveBeenCalledWith(query);
+      expect(mockProductsService.findAllForAdmin).toHaveBeenCalledWith(query);
       expect(result).toEqual(mockResult);
     });
   });
@@ -188,7 +197,9 @@ describe('ProductsController', () => {
 
       const result = await controller.approveProduct(productId);
 
-      expect(productsService.approveProduct).toHaveBeenCalledWith(productId);
+      expect(mockProductsService.approveProduct).toHaveBeenCalledWith(
+        productId,
+      );
       expect(result).toEqual(mockResult);
     });
   });

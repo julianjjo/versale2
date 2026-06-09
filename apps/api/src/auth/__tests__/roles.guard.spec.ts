@@ -6,9 +6,8 @@ import { Role } from '../../users/role.enum';
 
 describe('RolesGuard', () => {
   let guard: RolesGuard;
-  let reflector: Reflector;
 
-  const mockReflector = {
+  const mockReflector: { getAllAndOverride: jest.Mock } = {
     getAllAndOverride: jest.fn(),
   };
 
@@ -18,14 +17,15 @@ describe('RolesGuard', () => {
     }).compile();
 
     guard = module.get<RolesGuard>(RolesGuard);
-    reflector = module.get<Reflector>(Reflector);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  const createMockExecutionContext = (user: any): ExecutionContext => {
+  const createMockExecutionContext = (
+    user: { role: Role } | null,
+  ): ExecutionContext => {
     const mockContext = {
       getHandler: jest.fn(),
       getClass: jest.fn(),
@@ -37,7 +37,7 @@ describe('RolesGuard', () => {
   };
 
   it('should return true if no roles are required', () => {
-    const context = createMockExecutionContext({ role: 'USER' });
+    const context = createMockExecutionContext({ role: Role.USER });
     mockReflector.getAllAndOverride.mockReturnValue(undefined);
 
     const result = guard.canActivate(context);

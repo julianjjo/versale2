@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -22,7 +23,7 @@ export class ProductsService {
     });
   }
 
-  async findAll(query: any) {
+  async findAll(query: Record<string, unknown>) {
     const {
       search,
       minPrice,
@@ -37,10 +38,11 @@ export class ProductsService {
     const limitNum = Number(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = { isApproved: true };
+    const where: Prisma.ProductWhereInput = { isApproved: true };
+    const priceFilter: { gte?: number; lte?: number } = {};
 
-    if (search) {
-      const term = String(search);
+    if (typeof search === 'string') {
+      const term = search;
       where.OR = [
         { title: { contains: term } },
         { description: { contains: term } },
@@ -50,18 +52,21 @@ export class ProductsService {
     }
 
     if (minPrice !== undefined) {
-      where.price = { ...where.price, gte: Number(minPrice) };
+      priceFilter.gte = Number(minPrice);
     }
     if (maxPrice !== undefined) {
-      where.price = { ...where.price, lte: Number(maxPrice) };
+      priceFilter.lte = Number(maxPrice);
     }
-    if (size) {
+    if (Object.keys(priceFilter).length > 0) {
+      where.price = priceFilter;
+    }
+    if (typeof size === 'string') {
       where.size = size;
     }
-    if (brand) {
-      where.brand = { contains: String(brand) };
+    if (typeof brand === 'string') {
+      where.brand = { contains: brand };
     }
-    if (condition) {
+    if (typeof condition === 'string') {
       where.condition = condition;
     }
 
@@ -85,7 +90,7 @@ export class ProductsService {
         total,
         page: Number(page),
         limit: Number(limit),
-        pages: Math.ceil(total / limit),
+        pages: Math.ceil(total / limitNum),
       },
     };
   }
@@ -152,7 +157,7 @@ export class ProductsService {
     return this.prisma.client.product.delete({ where: { id } });
   }
 
-  async findAllForAdmin(query: any) {
+  async findAllForAdmin(query: Record<string, unknown>) {
     const { page = 1, limit = 10 } = query;
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 10;

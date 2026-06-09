@@ -43,6 +43,7 @@ describe('UploadsController', () => {
 
     const result = await controller.uploadImages(files);
 
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(service.uploadImages).toHaveBeenCalledWith(files);
     expect(result).toEqual({ images: serviceResult });
   });

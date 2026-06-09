@@ -7,7 +7,6 @@ import { UpdateProductDto } from '../dto/update-product.dto';
 
 describe('ProductsService', () => {
   let service: ProductsService;
-  let prismaService: PrismaService;
 
   const mockPrismaService = {
     client: {
@@ -31,7 +30,6 @@ describe('ProductsService', () => {
     }).compile();
 
     service = module.get<ProductsService>(ProductsService);
-    prismaService = module.get<PrismaService>(PrismaService);
   });
 
   afterEach(() => {

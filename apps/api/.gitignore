@@ -15,6 +15,7 @@ node_modules
 /prisma.config.d.ts
 /prisma.config.js.map
 /tsconfig.build.tsbuildinfo
+/tsconfig.tsbuildinfo
 
 # tsx-emitted artifacts for one-off scripts
 /prisma/seed.js

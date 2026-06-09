@@ -4,37 +4,35 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { UnauthorizedException } from '@nestjs/common';
+import { createMockPrismaClient } from '../../test-utils/mock-prisma';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let prismaService: PrismaService;
-  let jwtService: JwtService;
 
-  const mockPrismaService = {
-    client: {
-      user: {
-        findUnique: jest.fn(),
-        create: jest.fn(),
-      },
+  const mockPrismaClient = createMockPrismaClient({
+    user: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
     },
-  };
+  });
 
-  const mockJwtService = {
-    sign: jest.fn(),
+  const mockJwtService: { sign: jest.Mock<string, [unknown]> } = {
+    sign: jest.fn<string, [unknown]>(),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
-        { provide: PrismaService, useValue: mockPrismaService },
+        {
+          provide: PrismaService,
+          useValue: { client: mockPrismaClient },
+        },
         { provide: JwtService, useValue: mockJwtService },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    prismaService = module.get<PrismaService>(PrismaService);
-    jwtService = module.get<JwtService>(JwtService);
   });
 
   afterEach(() => {
@@ -50,9 +48,10 @@ describe('AuthService', () => {
 
       jest
         .spyOn(bcrypt, 'hash')
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
         .mockImplementation(() => Promise.resolve(hashedPassword));
-      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
-      mockPrismaService.client.user.create.mockResolvedValue({
+      mockPrismaClient.user.findUnique.mockResolvedValue(null);
+      mockPrismaClient.user.create.mockResolvedValue({
         id: '1',
         email,
         password: hashedPassword,
@@ -65,10 +64,10 @@ describe('AuthService', () => {
       const result = await service.signup(email, password, name);
 
       expect(bcrypt.hash).toHaveBeenCalledWith(password, 10);
-      expect(mockPrismaService.client.user.findUnique).toHaveBeenCalledWith({
+      expect(mockPrismaClient.user.findUnique).toHaveBeenCalledWith({
         where: { email },
       });
-      expect(mockPrismaService.client.user.create).toHaveBeenCalledWith({
+      expect(mockPrismaClient.user.create).toHaveBeenCalledWith({
         data: {
           email,
           password: hashedPassword,
@@ -96,7 +95,7 @@ describe('AuthService', () => {
       const password = 'password123';
       const name = 'Test User';
 
-      mockPrismaService.client.user.findUnique.mockResolvedValue({
+      mockPrismaClient.user.findUnique.mockResolvedValue({
         id: '1',
         email,
         password: 'hashed',
@@ -124,15 +123,16 @@ describe('AuthService', () => {
         role: 'USER',
       };
 
-      mockPrismaService.client.user.findUnique.mockResolvedValue(user);
+      mockPrismaClient.user.findUnique.mockResolvedValue(user);
       jest
         .spyOn(bcrypt, 'compare')
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
         .mockImplementation(() => Promise.resolve(true));
       mockJwtService.sign.mockReturnValue('fake-jwt-token');
 
       const result = await service.login(email, password);
 
-      expect(mockPrismaService.client.user.findUnique).toHaveBeenCalledWith({
+      expect(mockPrismaClient.user.findUnique).toHaveBeenCalledWith({
         where: { email },
       });
       expect(bcrypt.compare).toHaveBeenCalledWith(password, hashedPassword);
@@ -156,7 +156,7 @@ describe('AuthService', () => {
       const email = 'test@example.com';
       const password = 'password123';
 
-      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
+      mockPrismaClient.user.findUnique.mockResolvedValue(null);
 
       await expect(service.login(email, password)).rejects.toThrow(
         UnauthorizedException,
@@ -175,9 +175,10 @@ describe('AuthService', () => {
         role: 'USER',
       };
 
-      mockPrismaService.client.user.findUnique.mockResolvedValue(user);
+      mockPrismaClient.user.findUnique.mockResolvedValue(user);
       jest
         .spyOn(bcrypt, 'compare')
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
         .mockImplementation(() => Promise.resolve(false));
 
       await expect(service.login(email, password)).rejects.toThrow(
@@ -200,9 +201,10 @@ describe('AuthService', () => {
         role: 'USER',
       };
 
-      mockPrismaService.client.user.findUnique.mockResolvedValue(user);
+      mockPrismaClient.user.findUnique.mockResolvedValue(user);
       jest
         .spyOn(bcrypt, 'compare')
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
         .mockImplementation(() => Promise.resolve(true));
 
       const result = await service.validateUser(email, password);
@@ -216,7 +218,7 @@ describe('AuthService', () => {
     });
 
     it('should return null if user not found', async () => {
-      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
+      mockPrismaClient.user.findUnique.mockResolvedValue(null);
 
       const result = await service.validateUser('test@example.com', 'password');
 
@@ -235,9 +237,10 @@ describe('AuthService', () => {
         role: 'USER',
       };
 
-      mockPrismaService.client.user.findUnique.mockResolvedValue(user);
+      mockPrismaClient.user.findUnique.mockResolvedValue(user);
       jest
         .spyOn(bcrypt, 'compare')
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
         .mockImplementation(() => Promise.resolve(false));
 
       const result = await service.validateUser(email, password);

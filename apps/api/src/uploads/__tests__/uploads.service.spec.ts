@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { InternalServerErrorException } from '@nestjs/common';
 import { UploadsService } from '../uploads.service';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
 
 jest.mock('@aws-sdk/client-s3', () => {
   const sendMock = jest.fn();
@@ -12,9 +12,9 @@ jest.mock('@aws-sdk/client-s3', () => {
   };
 });
 
-const { __sendMock: sendMock } = jest.requireMock('@aws-sdk/client-s3') as {
+const { __sendMock: sendMock } = jest.requireMock<{
   __sendMock: jest.Mock;
-};
+}>('@aws-sdk/client-s3');
 
 const makeFile = (
   name: string,

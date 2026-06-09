@@ -6,7 +6,6 @@ import { OrderStatus } from '../order-status.enum';
 
 describe('OrdersController', () => {
   let controller: OrdersController;
-  let ordersService: OrdersService;
 
   const mockOrdersService = {
     createOrder: jest.fn(),
@@ -23,7 +22,6 @@ describe('OrdersController', () => {
     }).compile();
 
     controller = module.get<OrdersController>(OrdersController);
-    ordersService = module.get<OrdersService>(OrdersService);
   });
 
   afterEach(() => {
@@ -31,7 +29,7 @@ describe('OrdersController', () => {
   });
 
   describe('createOrder', () => {
-    it('should call ordersService.createOrder with userId from request', async () => {
+    it('should call mockOrdersService.createOrder with userId from request', async () => {
       const userId = 'user1';
       const mockReq = {
         user: { id: userId, email: 'test@example.com', role: 'USER' },
@@ -47,13 +45,13 @@ describe('OrdersController', () => {
 
       const result = await controller.createOrder(mockReq, {});
 
-      expect(ordersService.createOrder).toHaveBeenCalledWith(userId, {});
+      expect(mockOrdersService.createOrder).toHaveBeenCalledWith(userId, {});
       expect(result).toEqual(mockResult);
     });
   });
 
   describe('getUserOrders', () => {
-    it('should call ordersService.getUserOrders with userId from request', async () => {
+    it('should call mockOrdersService.getUserOrders with userId from request', async () => {
       const userId = 'user1';
       const mockReq = {
         user: { id: userId, email: 'test@example.com', role: 'USER' },
@@ -71,13 +69,13 @@ describe('OrdersController', () => {
 
       const result = await controller.getUserOrders(mockReq);
 
-      expect(ordersService.getUserOrders).toHaveBeenCalledWith(userId);
+      expect(mockOrdersService.getUserOrders).toHaveBeenCalledWith(userId);
       expect(result).toEqual(mockResult);
     });
   });
 
   describe('getOrderById', () => {
-    it('should call ordersService.getOrderById with id and userId from request', async () => {
+    it('should call mockOrdersService.getOrderById with id and userId from request', async () => {
       const userId = 'user1';
       const orderId = 'order1';
       const mockReq = {
@@ -94,13 +92,16 @@ describe('OrdersController', () => {
 
       const result = await controller.getOrderById(mockReq, orderId);
 
-      expect(ordersService.getOrderById).toHaveBeenCalledWith(orderId, userId);
+      expect(mockOrdersService.getOrderById).toHaveBeenCalledWith(
+        orderId,
+        userId,
+      );
       expect(result).toEqual(mockResult);
     });
   });
 
   describe('getAllOrders', () => {
-    it('should call ordersService.getAllOrders', async () => {
+    it('should call mockOrdersService.getAllOrders', async () => {
       const mockResult = [
         {
           id: 'order1',
@@ -113,13 +114,13 @@ describe('OrdersController', () => {
 
       const result = await controller.getAllOrders();
 
-      expect(ordersService.getAllOrders).toHaveBeenCalledWith();
+      expect(mockOrdersService.getAllOrders).toHaveBeenCalledWith();
       expect(result).toEqual(mockResult);
     });
   });
 
   describe('updateOrderStatus', () => {
-    it('should call ordersService.updateOrderStatus with id and status', async () => {
+    it('should call mockOrdersService.updateOrderStatus with id and status', async () => {
       const orderId = 'order1';
       const body: { status: OrderStatus } = { status: OrderStatus.PAID };
       const mockResult = {
@@ -131,7 +132,7 @@ describe('OrdersController', () => {
 
       const result = await controller.updateOrderStatus(orderId, body);
 
-      expect(ordersService.updateOrderStatus).toHaveBeenCalledWith(
+      expect(mockOrdersService.updateOrderStatus).toHaveBeenCalledWith(
         orderId,
         OrderStatus.PAID,
       );

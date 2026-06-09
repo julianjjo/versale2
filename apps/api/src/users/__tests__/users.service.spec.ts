@@ -3,33 +3,30 @@ import { UsersService } from '../users.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
+import { createMockPrismaClient } from '../../test-utils/mock-prisma';
 
 describe('UsersService', () => {
   let service: UsersService;
-  let prismaService: PrismaService;
 
-  const mockPrismaService = {
-    client: {
-      user: {
-        create: jest.fn(),
-        findMany: jest.fn(),
-        findUnique: jest.fn(),
-        update: jest.fn(),
-        delete: jest.fn(),
-      },
+  const mockPrismaClient = createMockPrismaClient({
+    user: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
     },
-  };
+  });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
-        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: PrismaService, useValue: { client: mockPrismaClient } },
       ],
     }).compile();
 
     service = module.get<UsersService>(UsersService);
-    prismaService = module.get<PrismaService>(PrismaService);
   });
 
   afterEach(() => {
@@ -47,6 +44,7 @@ describe('UsersService', () => {
       const hashedPassword = 'hashed_password_123';
       jest
         .spyOn(bcrypt, 'hash')
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
         .mockImplementation(() => Promise.resolve(hashedPassword));
 
       const mockUser = {
@@ -55,12 +53,12 @@ describe('UsersService', () => {
         name: createUserDto.name,
       };
 
-      mockPrismaService.client.user.create.mockResolvedValue(mockUser);
+      mockPrismaClient.user.create.mockResolvedValue(mockUser);
 
       const result = await service.create(createUserDto);
 
       expect(bcrypt.hash).toHaveBeenCalledWith(createUserDto.password, 10);
-      expect(mockPrismaService.client.user.create).toHaveBeenCalledWith({
+      expect(mockPrismaClient.user.create).toHaveBeenCalledWith({
         data: {
           email: createUserDto.email,
           name: createUserDto.name,
@@ -85,11 +83,11 @@ describe('UsersService', () => {
         },
       ];
 
-      mockPrismaService.client.user.findMany.mockResolvedValue(mockUsers);
+      mockPrismaClient.user.findMany.mockResolvedValue(mockUsers);
 
       const result = await service.findAll();
 
-      expect(mockPrismaService.client.user.findMany).toHaveBeenCalledWith({
+      expect(mockPrismaClient.user.findMany).toHaveBeenCalledWith({
         select: {
           id: true,
           email: true,
@@ -117,11 +115,11 @@ describe('UsersService', () => {
         updatedAt: new Date(),
       };
 
-      mockPrismaService.client.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaClient.user.findUnique.mockResolvedValue(mockUser);
 
       const result = await service.findOne(userId);
 
-      expect(mockPrismaService.client.user.findUnique).toHaveBeenCalledWith({
+      expect(mockPrismaClient.user.findUnique).toHaveBeenCalledWith({
         where: { id: userId },
         select: {
           id: true,
@@ -138,7 +136,7 @@ describe('UsersService', () => {
 
     it('should throw NotFoundException if user not found', async () => {
       const userId = 'nonexistent';
-      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
+      mockPrismaClient.user.findUnique.mockResolvedValue(null);
 
       await expect(service.findOne(userId)).rejects.toThrow(NotFoundException);
     });
@@ -161,11 +159,11 @@ describe('UsersService', () => {
         updatedAt: new Date(),
       };
 
-      mockPrismaService.client.user.update.mockResolvedValue(mockUpdatedUser);
+      mockPrismaClient.user.update.mockResolvedValue(mockUpdatedUser);
 
       const result = await service.update(userId, updateUserDto);
 
-      expect(mockPrismaService.client.user.update).toHaveBeenCalledWith({
+      expect(mockPrismaClient.user.update).toHaveBeenCalledWith({
         where: { id: userId },
         data: updateUserDto,
         select: {
@@ -190,6 +188,7 @@ describe('UsersService', () => {
       const hashedPassword = 'new_hashed_password';
       jest
         .spyOn(bcrypt, 'hash')
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
         .mockImplementation(() => Promise.resolve(hashedPassword));
 
       const mockUpdatedUser = {
@@ -202,12 +201,12 @@ describe('UsersService', () => {
         updatedAt: new Date(),
       };
 
-      mockPrismaService.client.user.update.mockResolvedValue(mockUpdatedUser);
+      mockPrismaClient.user.update.mockResolvedValue(mockUpdatedUser);
 
       const result = await service.update(userId, updateUserDto);
 
       expect(bcrypt.hash).toHaveBeenCalledWith('newpassword123', 10);
-      expect(mockPrismaService.client.user.update).toHaveBeenCalledWith({
+      expect(mockPrismaClient.user.update).toHaveBeenCalledWith({
         where: { id: userId },
         data: { password: hashedPassword },
         select: {
@@ -233,11 +232,11 @@ describe('UsersService', () => {
         name: 'User 1',
       };
 
-      mockPrismaService.client.user.delete.mockResolvedValue(mockDeletedUser);
+      mockPrismaClient.user.delete.mockResolvedValue(mockDeletedUser);
 
       const result = await service.remove(userId);
 
-      expect(mockPrismaService.client.user.delete).toHaveBeenCalledWith({
+      expect(mockPrismaClient.user.delete).toHaveBeenCalledWith({
         where: { id: userId },
       });
       expect(result).toEqual(mockDeletedUser);
