@@ -9,7 +9,7 @@ Next.js (App Router) frontend for Versale. Renders the public catalog, user auth
 - **Local contract**: this file.
 - Source under `src/`:
   - `src/app/` — Next.js routes (App Router): `(public)`, `admin/`, `cart/`, `login/`, `orders/`, `products/`, `profile/`, `sell/`, `signup/`.
-  - `src/components/` — shared UI components grouped by domain (`ui/`, `layout/`, `products/`).
+  - `src/components/` — shared UI components grouped by domain (`ui/`, `layout/`, `products/`, `marketing/`).
   - `src/lib/` — client utilities: `api`, `auth`, `token`, `types`, `order-status`, plus `__tests__/`.
   - `src/test-utils/` — test providers and helpers used by Vitest.
 
@@ -27,6 +27,8 @@ Next.js (App Router) frontend for Versale. Renders the public catalog, user auth
 - After creating a product via `/sell`, the app pushes the user to `/products` (the product is `isApproved: false` until an admin approves it).
 - Money is rendered through the `Price` UI component which formats `Float` amounts as COP currency.
 - Order status display goes through `ORDER_STATUS_LABEL` in `src/lib/order-status.ts`. Keep these labels in Spanish.
+- The marketing surface (home page, topbar, header, footer) follows the design tokens documented in `design.md` at the repo root. Marketing-only primitives live in `src/components/marketing/` (e.g. `newsletter-cta.tsx`, `newsletter-form.tsx`); the home page (`src/app/page.tsx`) is composed from those primitives plus `ProductsBrowser`.
+- The `Button` component (`src/components/ui/index.tsx`) accepts a `pill` boolean. In-app CTAs default to the rounded square; marketing CTAs (header auth, hero, editorial, newsletter) set `pill`.
 - HTML5 form validation must not block legitimate input. The sell form price field uses `step="1"` (any positive integer) to match backend DTO constraints.
 
 ## Verification

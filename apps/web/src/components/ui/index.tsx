@@ -15,6 +15,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   fullWidth?: boolean;
   size?: ButtonSize;
+  pill?: boolean;
 }
 
 const buttonClasses: Record<ButtonVariant, string> = {
@@ -40,17 +41,19 @@ export function Button({
   variant = "primary",
   fullWidth,
   size = "md",
+  pill = false,
   className = "",
   children,
   type = "button",
   ...props
 }: ButtonProps) {
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-md font-medium tracking-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50 disabled:cursor-not-allowed select-none";
+    "inline-flex items-center justify-center gap-2 font-medium tracking-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50 disabled:cursor-not-allowed select-none";
+  const radius = pill ? "rounded-full" : "rounded-md";
   return (
     <button
       type={type}
-      className={`${base} ${sizeClasses[size]} ${buttonClasses[variant]} ${fullWidth ? "w-full" : ""} ${className}`}
+      className={`${base} ${radius} ${sizeClasses[size]} ${buttonClasses[variant]} ${fullWidth ? "w-full" : ""} ${className}`}
       {...props}
     >
       {children}
@@ -244,7 +247,7 @@ export function Card({
 } & HTMLAttributes<HTMLDivElement>) {
   return (
     <Tag
-      className={`rounded-lg border border-border bg-surface p-4 shadow-sm transition-shadow ${className}`}
+      className={`rounded-2xl border border-border bg-surface p-4 shadow-sm transition-shadow ${className}`}
       {...rest}
     >
       {children}

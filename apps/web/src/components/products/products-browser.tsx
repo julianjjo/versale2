@@ -8,8 +8,6 @@ import Link from "next/link";
 import {
   Spinner,
   EmptyState,
-  Card,
-  Badge,
   Button,
   Price,
   Input,
@@ -178,7 +176,7 @@ export function ProductsBrowser({
         />
       )}
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="products-grid grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
         {data?.data.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
@@ -249,61 +247,70 @@ export function ProductCard({ product }: { product: Product }) {
   return (
     <Link
       href={`/products/${product.id}`}
-      className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface rounded-lg"
+      className="group block rounded-[14px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
     >
-      <Card
-        as="article"
-        className="flex h-full flex-col gap-3 overflow-hidden p-0 transition-shadow group-hover:shadow-md"
-      >
-        <div className="relative aspect-square bg-surface-muted">
+      <article className="flex h-full flex-col gap-3.5 transition-transform duration-300 group-hover:-translate-y-1">
+        <div className="relative aspect-[3/4] overflow-hidden rounded-[14px] bg-paper-3">
           {product.images?.[0] ? (
             <img
               src={product.images[0]}
               alt={product.title}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-xs text-text-muted">
+            <div className="flex h-full w-full items-center justify-center text-xs text-muted">
               Sin imagen
             </div>
           )}
-          {product._count?.reviews ? (
-            <span className="absolute right-2 top-2">
-              <Badge variant="default">
-                {product._count.reviews} reseña
-                {product._count.reviews === 1 ? "" : "s"}
-              </Badge>
-            </span>
-          ) : null}
           {!product.isApproved && (
-            <span className="absolute left-2 top-2">
-              <Badge variant="warning">Pendiente</Badge>
+            <span className="absolute left-3 top-3 z-10 rounded-md bg-paper px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-ink">
+              Pendiente
             </span>
           )}
+          <button
+            type="button"
+            aria-label="Agregar a favoritos"
+            className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-paper/95 transition-all hover:scale-110 hover:bg-paper"
+            onClick={(e) => e.preventDefault()}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden
+            >
+              <path d="M19 14c1.5-1.4 3-3.3 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.2 1.5 4.1 3 5.5l7 7Z" />
+            </svg>
+          </button>
         </div>
-        <div className="flex flex-1 flex-col gap-1 px-3 pb-3">
-          <h3 className="truncate text-sm font-semibold text-text-primary">
+        <div className="flex flex-1 flex-col gap-1">
+          <h3 className="truncate font-sans text-sm font-medium leading-tight text-ink">
             {product.title}
           </h3>
           {product.brand && (
-            <p className="truncate text-xs text-text-muted">{product.brand}</p>
+            <p className="truncate text-[11px] uppercase tracking-[0.08em] text-muted">
+              {product.brand}
+            </p>
           )}
-          <p className="line-clamp-2 text-xs text-text-muted">
-            {product.description}
-          </p>
-          <div className="mt-2 flex items-center justify-between">
-            <Price value={product.price} className="text-base font-semibold" />
-            <span className="text-xs text-text-muted">
-              {CONDITION_LABELS[product.condition] ?? product.condition} · {product.size}
+          <div className="mt-1.5 flex items-center justify-between gap-2">
+            <Price
+              value={product.price}
+              className="font-display text-[16px] font-medium tabular-nums text-ink sm:text-[18px]"
+            />
+            <span className="text-[11px] text-muted">
+              Talla {product.size} · {CONDITION_LABELS[product.condition] ?? product.condition}
             </span>
           </div>
           {product.seller && (
-            <p className="text-xs text-text-muted">
+            <p className="mt-1 text-[11px] text-muted">
               Vendido por {product.seller.name}
             </p>
           )}
         </div>
-      </Card>
+      </article>
     </Link>
   );
 }

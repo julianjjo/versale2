@@ -40,71 +40,55 @@ export function Header() {
   }, [isMenuOpen]);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/80">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-2 px-4 sm:px-6">
+    <header
+      className="sticky top-0 z-40 border-b border-line bg-surface/90 backdrop-blur supports-[backdrop-filter]:bg-surface/75"
+    >
+      <div className="mx-auto flex h-16 w-full max-w-[1320px] items-center justify-between gap-2 px-5 sm:px-8">
         <Link
           href="/"
-          className="flex items-center gap-2 text-text-primary"
+          className="flex items-baseline text-text-primary"
           aria-label="Inicio de Versale"
         >
           <span
-            aria-hidden
-            className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground font-mono text-sm font-bold"
+            className="font-display text-[28px] font-medium tracking-[-0.03em]"
+            style={{ letterSpacing: "-0.03em" }}
           >
-            V
+            Versale
           </span>
-          <span className="text-lg font-semibold tracking-tight">Versale</span>
         </Link>
 
         <nav
           aria-label="Navegación principal"
-          className="hidden items-center gap-1 sm:flex sm:gap-2"
+          className="hidden items-center gap-9 sm:flex"
         >
-          <Link
-            href="/products"
-            className="rounded-md px-3 py-2 text-sm text-text-muted transition-colors hover:bg-surface-muted hover:text-text-primary"
-          >
-            Explorar
-          </Link>
-          {user && (
-            <Link
-              href="/cart"
-              className="rounded-md px-3 py-2 text-sm text-text-muted transition-colors hover:bg-surface-muted hover:text-text-primary"
-            >
-              Carrito
-            </Link>
-          )}
-          {user && (
-            <Link
-              href="/orders"
-              className="rounded-md px-3 py-2 text-sm text-text-muted transition-colors hover:bg-surface-muted hover:text-text-primary"
-            >
-              Pedidos
-            </Link>
-          )}
-          {user && (
-            <Link
-              href="/sell"
-              className="rounded-md px-3 py-2 text-sm text-text-muted transition-colors hover:bg-surface-muted hover:text-text-primary"
-            >
-              Vender
-            </Link>
-          )}
+          <NavLink href="/products">Explorar</NavLink>
+          {user && <NavLink href="/cart">Carrito</NavLink>}
+          {user && <NavLink href="/orders">Pedidos</NavLink>}
+          {user && <NavLink href="/sell">Vender</NavLink>}
           {user?.role === "ADMIN" && (
             <Link
               href="/admin"
-              className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/20"
+              className="rounded-full border border-terracotta/40 bg-terracotta/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-terracotta transition-colors hover:bg-terracotta/20"
             >
               Admin
             </Link>
           )}
+        </nav>
+
+        <div className="hidden items-center gap-2 sm:flex">
+          <IconButton ariaLabel="Buscar">
+            <SearchIcon />
+          </IconButton>
+          <IconButton ariaLabel="Favoritos">
+            <HeartIcon />
+          </IconButton>
 
           {!isLoading &&
             (user ? (
-              <div className="ml-2 flex items-center gap-2">
+              <>
                 <Link
                   href="/profile"
-                  className="rounded-md border border-border px-3 py-2 text-sm text-text-primary transition-colors hover:bg-surface-muted"
+                  className="rounded-full border border-border px-4 py-1.5 text-sm font-medium text-text-primary transition-colors hover:bg-surface-muted"
                 >
                   {user.name}
                 </Link>
@@ -112,16 +96,18 @@ export function Header() {
                   size="sm"
                   variant="secondary"
                   onClick={handleLogout}
+                  pill
                 >
                   Cerrar sesión
                 </Button>
-              </div>
+              </>
             ) : (
-              <div className="ml-2 flex items-center gap-2">
+              <div className="ml-1 flex items-center gap-2">
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={() => router.push("/login")}
+                  pill
                 >
                   Iniciar sesión
                 </Button>
@@ -129,19 +115,20 @@ export function Header() {
                   size="sm"
                   variant="primary"
                   onClick={() => router.push("/signup")}
+                  pill
                 >
                   Crear cuenta
                 </Button>
               </div>
             ))}
-        </nav>
+        </div>
 
         <div className="flex items-center gap-1 sm:hidden">
           {user && (
             <Link
               href="/cart"
               aria-label="Carrito"
-              className="rounded-md p-2 text-text-muted transition-colors hover:bg-surface-muted hover:text-text-primary"
+              className="rounded-full p-2 text-text-primary transition-colors hover:bg-surface-muted"
             >
               <CartIcon />
             </Link>
@@ -153,7 +140,7 @@ export function Header() {
             data-testid="mobile-menu-trigger"
             aria-expanded={isMenuOpen}
             aria-controls="mobile-menu"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-border text-text-primary transition-colors hover:bg-surface-muted"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border text-text-primary transition-colors hover:bg-surface-muted"
           >
             {isMenuOpen ? <CloseIcon /> : <MenuIcon />}
           </button>
@@ -167,7 +154,7 @@ export function Header() {
             aria-hidden="true"
             data-testid="mobile-menu-backdrop"
             onClick={closeMenu}
-            className="fixed inset-0 z-30 bg-secondary/30 backdrop-blur-sm sm:hidden"
+            className="fixed inset-0 z-30 bg-ink/30 backdrop-blur-sm sm:hidden"
           />
           <div
             id="mobile-menu"
@@ -178,7 +165,7 @@ export function Header() {
           >
             <nav
               aria-label="Navegación móvil"
-              className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-4"
+              className="mx-auto flex max-w-[1320px] flex-col gap-1 px-4 py-4"
             >
               <MobileLink href="/products" onClick={closeMenu}>
                 Explorar
@@ -217,6 +204,7 @@ export function Header() {
                     variant="secondary"
                     onClick={handleLogout}
                     fullWidth
+                    pill
                   >
                     Cerrar sesión
                   </Button>
@@ -229,6 +217,7 @@ export function Header() {
                         router.push("/login");
                       }}
                       fullWidth
+                      pill
                     >
                       Iniciar sesión
                     </Button>
@@ -239,6 +228,7 @@ export function Header() {
                         router.push("/signup");
                       }}
                       fullWidth
+                      pill
                     >
                       Crear cuenta
                     </Button>
@@ -249,6 +239,39 @@ export function Header() {
         </>
       )}
     </header>
+  );
+}
+
+function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="group relative px-1 py-1 text-sm font-medium text-text-primary transition-opacity hover:opacity-60"
+    >
+      {children}
+      <span
+        aria-hidden
+        className="absolute bottom-0 left-0 h-px w-0 bg-text-primary transition-all duration-300 group-hover:w-full"
+      />
+    </Link>
+  );
+}
+
+function IconButton({
+  ariaLabel,
+  children,
+}: {
+  ariaLabel: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      className="inline-flex h-10 w-10 items-center justify-center rounded-full text-text-primary transition-colors hover:bg-surface-muted"
+    >
+      {children}
+    </button>
   );
 }
 
@@ -327,6 +350,43 @@ function CartIcon() {
       <circle cx="9" cy="21" r="1" />
       <circle cx="20" cy="21" r="1" />
       <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  );
+}
+
+function HeartIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M19 14c1.5-1.4 3-3.3 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.2 1.5 4.1 3 5.5l7 7Z" />
     </svg>
   );
 }

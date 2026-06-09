@@ -1,27 +1,61 @@
 @import "tailwindcss";
 
 :root {
-  --color-primary: #FECE14;
-  --color-primary-foreground: #111827;
-  --color-secondary: #000000;
-  --color-secondary-foreground: #FFFFFF;
-  --color-surface: #FFFFFF;
-  --color-surface-muted: #F9FAFB;
-  --color-text-primary: #111827;
-  --color-text-muted: #6B7280;
-  --color-text-inverse: #FFFFFF;
-  --color-success: #16A34A;
-  --color-warning: #D97706;
-  --color-danger: #DC2626;
-  --color-info: #2563EB;
-  --color-border: #E5E7EB;
-  --color-border-strong: #D1D5DB;
+  /* Editorial palette inspired by the static design reference.
+     Ink is the primary surface, terracotta is the single brand accent. */
+  --color-ink: #1a1a1a;
+  --color-ink-2: #3a3a3a;
+  --color-paper: #f6f3ee;
+  --color-paper-2: #efe9dc;
+  --color-paper-3: #e8e0d2;
+  --color-muted: #7a6a55;
+  --color-muted-2: #5a5045;
+  --color-muted-3: #a09a90;
+  --color-terracotta: #c8623a;
+  --color-terracotta-deep: #a04d2c;
+  --color-line: rgba(26, 26, 26, 0.1);
+  --color-line-2: rgba(26, 26, 26, 0.15);
+  --color-line-3: rgba(246, 243, 238, 0.1);
+  --color-line-4: rgba(246, 243, 238, 0.15);
+  --color-success: #4a8a4a;
+  --color-danger: #dc2626;
+  --color-warning: #d97706;
+  --color-info: #2563eb;
 
-  --background: var(--color-surface);
-  --foreground: var(--color-text-primary);
+  /* Backwards-compatible aliases that the rest of the app already uses. */
+  --color-primary: var(--color-terracotta);
+  --color-primary-foreground: var(--color-ink);
+  --color-secondary: var(--color-ink);
+  --color-secondary-foreground: var(--color-paper);
+  --color-surface: var(--color-paper);
+  --color-surface-muted: var(--color-paper-2);
+  --color-text-primary: var(--color-ink);
+  --color-text-muted: var(--color-muted-2);
+  --color-text-inverse: var(--color-paper);
+  --color-border: var(--color-line);
+  --color-border-strong: var(--color-line-2);
+
+  --background: var(--color-paper);
+  --foreground: var(--color-ink);
+  --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 @theme inline {
+  --color-ink: var(--color-ink);
+  --color-ink-2: var(--color-ink-2);
+  --color-paper: var(--color-paper);
+  --color-paper-2: var(--color-paper-2);
+  --color-paper-3: var(--color-paper-3);
+  --color-muted: var(--color-muted);
+  --color-muted-2: var(--color-muted-2);
+  --color-muted-3: var(--color-muted-3);
+  --color-terracotta: var(--color-terracotta);
+  --color-terracotta-deep: var(--color-terracotta-deep);
+  --color-line: var(--color-line);
+  --color-line-2: var(--color-line-2);
+  --color-line-3: var(--color-line-3);
+  --color-line-4: var(--color-line-4);
+
   --color-primary: var(--color-primary);
   --color-primary-foreground: var(--color-primary-foreground);
   --color-secondary: var(--color-secondary);
@@ -41,9 +75,11 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
-  --font-sans: var(--font-poppins), system-ui, sans-serif;
-  --font-display: var(--font-poppins), system-ui, sans-serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-fraunces), "Fraunces", serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  --ease-out: var(--ease-out);
 }
 
 html,
@@ -68,10 +104,18 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: var(--font-sans);
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 500;
   letter-spacing: -0.02em;
-  color: var(--color-text-primary);
+  color: var(--color-ink);
+}
+
+h1 em,
+h2 em,
+h3 em,
+.display-em {
+  font-style: italic;
+  color: var(--color-terracotta);
 }
 
 .font-mono,
@@ -81,37 +125,185 @@ h6 {
 
 @layer components {
   .heading-hero {
-    font-size: 2.25rem;
-    line-height: 1.1;
-    font-weight: 600;
-    letter-spacing: -0.025em;
-  }
-  @media (min-width: 640px) {
-    .heading-hero {
-      font-size: 3rem;
-    }
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(56px, 9vw, 148px);
+    line-height: 0.92;
+    letter-spacing: -0.04em;
   }
 
   .heading-section {
-    font-size: 1.5rem;
-    line-height: 1.2;
-    font-weight: 600;
-    letter-spacing: -0.02em;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(38px, 5vw, 72px);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+  }
+
+  .heading-section-sm {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(36px, 4.5vw, 60px);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
   }
 
   .heading-card {
+    font-family: var(--font-sans);
     font-size: 1rem;
     line-height: 1.4;
     font-weight: 600;
   }
 
   .text-eyebrow {
-    font-size: 0.75rem;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 500;
     line-height: 1;
-    font-weight: 600;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--color-text-muted);
+    color: var(--color-muted);
+  }
+
+  .text-eyebrow-paper {
+    color: var(--color-paper);
+    opacity: 0.7;
+  }
+
+  .text-eyebrow-terracotta {
+    color: var(--color-terracotta);
+  }
+
+  .strike {
+    position: relative;
+    display: inline-block;
+    color: var(--color-muted-3);
+  }
+  .strike::after {
+    content: "";
+    position: absolute;
+    left: -4%;
+    right: -4%;
+    top: 52%;
+    height: 6px;
+    background: var(--color-terracotta);
+    border-radius: 3px;
+    transform: rotate(-3deg);
+  }
+
+  .topbar {
+    background: var(--color-ink);
+    color: var(--color-paper);
+    text-align: center;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    padding: 10px 16px;
+    text-transform: uppercase;
+  }
+  .topbar span + span::before {
+    content: " · ";
+    opacity: 0.6;
+  }
+
+  .btn-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 28px;
+    border-radius: 9999px;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    transition: transform 0.25s var(--ease-out), background-color 0.25s var(--ease-out),
+      color 0.25s var(--ease-out);
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .btn-pill .arrow {
+    transition: transform 0.3s var(--ease-out);
+  }
+  .btn-pill:hover .arrow {
+    transform: translateX(4px);
+  }
+  .btn-pill-primary {
+    background: var(--color-ink);
+    color: var(--color-paper);
+  }
+  .btn-pill-primary:hover {
+    background: var(--color-ink-2);
+    transform: translateY(-2px);
+  }
+  .btn-pill-ghost {
+    background: transparent;
+    border-color: var(--color-ink);
+    color: var(--color-ink);
+  }
+  .btn-pill-ghost:hover {
+    background: var(--color-ink);
+    color: var(--color-paper);
+  }
+  .btn-pill-on-ink {
+    background: var(--color-ink);
+    color: var(--color-paper);
+  }
+  .btn-pill-on-ink:hover {
+    background: var(--color-ink-2);
+    transform: translateY(-1px);
+  }
+
+  .filter-pill {
+    padding: 10px 20px;
+    border-radius: 9999px;
+    background: transparent;
+    border: 1px solid var(--color-line-2);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-ink);
+    transition: background-color 0.2s var(--ease-out), color 0.2s var(--ease-out),
+      border-color 0.2s var(--ease-out);
+  }
+  .filter-pill:hover,
+  .filter-pill.is-active {
+    background: var(--color-ink);
+    color: var(--color-paper);
+    border-color: var(--color-ink);
+  }
+
+  .marquee {
+    background: var(--color-ink);
+    color: var(--color-paper);
+    padding: 18px 0;
+    overflow: hidden;
+    border-top: 1px solid var(--color-line-3);
+    border-bottom: 1px solid var(--color-line-3);
+  }
+  .marquee-track {
+    display: flex;
+    gap: 60px;
+    white-space: nowrap;
+    animation: marquee 30s linear infinite;
+  }
+  .marquee-track span {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    gap: 60px;
+  }
+  .marquee-track span::after {
+    content: "✦";
+    font-style: normal;
+    color: var(--color-terracotta);
+    font-size: 18px;
+  }
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
   }
 
   .focus-ring {
