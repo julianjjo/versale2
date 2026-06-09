@@ -164,7 +164,7 @@ export default function SellPage() {
             label="Precio (COP)"
             type="number"
             min="1000"
-            step="1000"
+            step="1"
             value={form.price}
             onChange={(e) => update("price", e.target.value)}
             placeholder="0"

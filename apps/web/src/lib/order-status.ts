@@ -10,11 +10,11 @@ export const ORDER_STATUSES: OrderStatus[] = [
 ];
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
-  PENDING: "Pending",
-  PAID: "Paid",
-  SHIPPED: "Shipped",
-  DELIVERED: "Delivered",
-  CANCELLED: "Cancelled",
+  PENDING: "Pendiente",
+  PAID: "Pagado",
+  SHIPPED: "Enviado",
+  DELIVERED: "Entregado",
+  CANCELLED: "Cancelado",
 };
 
 export const ORDER_STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {

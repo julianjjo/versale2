@@ -383,8 +383,8 @@ test.describe("Responsive — Forms (sell)", () => {
 
     await setViewport(page, DESKTOP);
     await page.goto("/sell");
-    const title = page.getByLabel("Title");
-    const category = page.getByLabel("Category");
+    const title = page.getByLabel("Título");
+    const category = page.getByLabel("Categoría");
     const titleBox = await title.boundingBox();
     const categoryBox = await category.boundingBox();
     expect(titleBox, "title box").toBeTruthy();
@@ -401,8 +401,8 @@ test.describe("Responsive — Forms (sell)", () => {
     // On mobile, fields are stacked — title and category share similar x
     await setViewport(page, MOBILE);
     await page.goto("/sell");
-    const titleBoxM = await page.getByLabel("Title").boundingBox();
-    const categoryBoxM = await page.getByLabel("Category").boundingBox();
+    const titleBoxM = await page.getByLabel("Título").boundingBox();
+    const categoryBoxM = await page.getByLabel("Categoría").boundingBox();
     expect(
       Math.abs(titleBoxM!.x - categoryBoxM!.x),
       `mobile: title and category should be aligned left within ~30px`,
