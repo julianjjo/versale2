@@ -48,34 +48,24 @@ export class CartService {
 
   async addItem(userId: string, productId: string, quantity: number) {
     if (!Number.isInteger(quantity) || quantity <= 0) {
-      throw new BadRequestException('Quantity must be a positive integer');
+      throw new BadRequestException(
+        'La cantidad debe ser un número entero positivo',
+      );
     }
 
     const cart = await this.getCart(userId);
 
     const product = await this.productsService.findOne(productId);
     if (!product.isApproved) {
-      throw new BadRequestException('Product is not approved for sale');
+      throw new BadRequestException(
+        'El producto no está aprobado para la venta',
+      );
     }
 
-    const existingItem = cart.items.find(
-      (item) => item.productId === productId,
-    );
-
-    if (existingItem) {
-      return this.prisma.client.cartItem.update({
-        where: { id: existingItem.id },
-        data: { quantity: existingItem.quantity + quantity },
-        include: {
-          product: {
-            include: { seller: { select: { id: true, name: true } } },
-          },
-        },
-      });
-    }
-
-    return this.prisma.client.cartItem.create({
-      data: {
+    return this.prisma.client.cartItem.upsert({
+      where: { cartId_productId: { cartId: cart.id, productId } },
+      update: { quantity: { increment: quantity } },
+      create: {
         cartId: cart.id,
         productId,
         quantity,
@@ -91,7 +81,9 @@ export class CartService {
 
   async updateItem(cartItemId: string, quantity: number, userId: string) {
     if (!Number.isInteger(quantity) || quantity <= 0) {
-      throw new BadRequestException('Quantity must be a positive integer');
+      throw new BadRequestException(
+        'La cantidad debe ser un número entero positivo',
+      );
     }
 
     const cartItem = await this.prisma.client.cartItem.findUnique({
@@ -100,12 +92,16 @@ export class CartService {
     });
 
     if (!cartItem) {
-      throw new NotFoundException(`Cart item with ID ${cartItemId} not found`);
+      throw new NotFoundException(
+        `No se encontró el producto del carrito con ID ${cartItemId}`,
+      );
     }
 
     const cart = await this.getCart(userId);
     if (cartItem.cartId !== cart.id) {
-      throw new ForbiddenException('Not authorized to update this cart item');
+      throw new ForbiddenException(
+        'No tienes autorización para actualizar este producto del carrito',
+      );
     }
 
     return this.prisma.client.cartItem.update({
@@ -126,12 +122,16 @@ export class CartService {
     });
 
     if (!cartItem) {
-      throw new NotFoundException(`Cart item with ID ${cartItemId} not found`);
+      throw new NotFoundException(
+        `No se encontró el producto del carrito con ID ${cartItemId}`,
+      );
     }
 
     const cart = await this.getCart(userId);
     if (cartItem.cartId !== cart.id) {
-      throw new ForbiddenException('Not authorized to remove this cart item');
+      throw new ForbiddenException(
+        'No tienes autorización para eliminar este producto del carrito',
+      );
     }
 
     return this.prisma.client.cartItem.delete({ where: { id: cartItemId } });

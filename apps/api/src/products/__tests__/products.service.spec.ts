@@ -1,9 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { validate } from 'class-validator';
 import { ProductsService } from '../products.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotFoundException } from '@nestjs/common';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
+import { Role } from '../../users/role.enum';
 
 describe('ProductsService', () => {
   let service: ProductsService;
@@ -73,7 +75,7 @@ describe('ProductsService', () => {
   });
 
   describe('findOne', () => {
-    it('should return a product if found', async () => {
+    it('should return an approved product if found (no requester)', async () => {
       const productId = 'product1';
       const mockProduct = {
         id: productId,
@@ -124,6 +126,81 @@ describe('ProductsService', () => {
         NotFoundException,
       );
     });
+
+    it('should return an unapproved product to the seller who owns it', async () => {
+      const productId = 'product1';
+      const sellerId = 'seller1';
+      const mockProduct = {
+        id: productId,
+        sellerId,
+        isApproved: false,
+      };
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+
+      const result = await service.findOne(productId, {
+        id: sellerId,
+        role: Role.USER,
+      });
+
+      expect(result).toEqual(mockProduct);
+    });
+
+    it('should return an unapproved product to an admin who is not the seller', async () => {
+      const productId = 'product1';
+      const mockProduct = {
+        id: productId,
+        sellerId: 'seller1',
+        isApproved: false,
+      };
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+
+      const result = await service.findOne(productId, {
+        id: 'admin1',
+        role: Role.ADMIN,
+      });
+
+      expect(result).toEqual(mockProduct);
+    });
+
+    it('should throw NotFoundException for an unapproved product when requester is anonymous', async () => {
+      const productId = 'product1';
+      const mockProduct = {
+        id: productId,
+        sellerId: 'seller1',
+        isApproved: false,
+      };
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+
+      await expect(service.findOne(productId, null)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw NotFoundException for an unapproved product when requester is a different user', async () => {
+      const productId = 'product1';
+      const mockProduct = {
+        id: productId,
+        sellerId: 'seller1',
+        isApproved: false,
+      };
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+
+      await expect(
+        service.findOne(productId, { id: 'someoneElse', role: Role.USER }),
+      ).rejects.toThrow(NotFoundException);
+    });
   });
 
   describe('update', () => {
@@ -158,7 +235,12 @@ describe('ProductsService', () => {
       );
       mockPrismaService.client.product.update.mockResolvedValue(updatedProduct);
 
-      const result = await service.update(productId, updateProductDto, userId);
+      const result = await service.update(
+        productId,
+        updateProductDto,
+        userId,
+        Role.USER,
+      );
 
       expect(mockPrismaService.client.product.findUnique).toHaveBeenCalledWith({
         where: { id: productId },
@@ -181,11 +263,11 @@ describe('ProductsService', () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.update(productId, updateProductDto, userId),
+        service.update(productId, updateProductDto, userId, Role.USER),
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw error if user is not the seller', async () => {
+    it('should throw error if user is not the seller and not an admin', async () => {
       const productId = 'product1';
       const userId = 'seller1';
       const wrongUserId = 'seller2';
@@ -201,8 +283,43 @@ describe('ProductsService', () => {
       );
 
       await expect(
-        service.update(productId, updateProductDto, wrongUserId),
-      ).rejects.toThrow('Not authorized to update this product');
+        service.update(productId, updateProductDto, wrongUserId, Role.USER),
+      ).rejects.toThrow('No tienes autorización para actualizar este producto');
+    });
+
+    it('should allow an admin to update a product they do not own', async () => {
+      const productId = 'product1';
+      const sellerId = 'seller1';
+      const adminId = 'admin1';
+      const updateProductDto: UpdateProductDto = { title: 'New Title' };
+
+      const existingProduct = {
+        id: productId,
+        sellerId, // different from adminId
+      };
+
+      const updatedProduct = { ...existingProduct, ...updateProductDto };
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        existingProduct,
+      );
+      mockPrismaService.client.product.update.mockResolvedValue(updatedProduct);
+
+      const result = await service.update(
+        productId,
+        updateProductDto,
+        adminId,
+        Role.ADMIN,
+      );
+
+      expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
+        where: { id: productId },
+        data: updateProductDto,
+        include: {
+          seller: { select: { id: true, name: true } },
+        },
+      });
+      expect(result).toEqual(updatedProduct);
     });
   });
 
@@ -223,7 +340,7 @@ describe('ProductsService', () => {
         existingProduct,
       );
 
-      const result = await service.remove(productId, userId);
+      const result = await service.remove(productId, userId, Role.USER);
 
       expect(mockPrismaService.client.product.findUnique).toHaveBeenCalledWith({
         where: { id: productId },
@@ -240,12 +357,12 @@ describe('ProductsService', () => {
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(null);
 
-      await expect(service.remove(productId, userId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.remove(productId, userId, Role.USER),
+      ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw error if user is not the seller', async () => {
+    it('should throw error if user is not the seller and not an admin', async () => {
       const productId = 'product1';
       const userId = 'seller1';
       const wrongUserId = 'seller2';
@@ -259,9 +376,80 @@ describe('ProductsService', () => {
         existingProduct,
       );
 
-      await expect(service.remove(productId, wrongUserId)).rejects.toThrow(
-        'Not authorized to delete this product',
+      await expect(
+        service.remove(productId, wrongUserId, Role.USER),
+      ).rejects.toThrow('No tienes autorización para eliminar este producto');
+    });
+
+    it('should allow an admin to remove a product they do not own', async () => {
+      const productId = 'product1';
+      const sellerId = 'seller1';
+      const adminId = 'admin1';
+
+      const existingProduct = {
+        id: productId,
+        sellerId, // different from adminId
+      };
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        existingProduct,
       );
+      mockPrismaService.client.product.delete.mockResolvedValue(
+        existingProduct,
+      );
+
+      const result = await service.remove(productId, adminId, Role.ADMIN);
+
+      expect(mockPrismaService.client.product.delete).toHaveBeenCalledWith({
+        where: { id: productId },
+      });
+      expect(result).toEqual(existingProduct);
+    });
+  });
+
+  describe('images validation', () => {
+    it('rejects a non-array images value on CreateProductDto', async () => {
+      const dto = new CreateProductDto();
+      dto.title = 'Test Product';
+      dto.description = 'A test product';
+      dto.category = 'Test';
+      dto.size = 'M';
+      dto.condition = 'New';
+      dto.price = 10.0;
+      (dto as unknown as { images: unknown }).images = 'not-an-array';
+
+      const errors = await validate(dto);
+      const imagesError = errors.find((error) => error.property === 'images');
+
+      expect(imagesError).toBeDefined();
+      expect(imagesError?.constraints).toHaveProperty('isArray');
+    });
+
+    it('rejects a non-array images value on UpdateProductDto', async () => {
+      const dto = new UpdateProductDto();
+      (dto as unknown as { images: unknown }).images = { not: 'an array' };
+
+      const errors = await validate(dto);
+      const imagesError = errors.find((error) => error.property === 'images');
+
+      expect(imagesError).toBeDefined();
+      expect(imagesError?.constraints).toHaveProperty('isArray');
+    });
+
+    it('accepts a valid array of strings for images on CreateProductDto', async () => {
+      const dto = new CreateProductDto();
+      dto.title = 'Test Product';
+      dto.description = 'A test product';
+      dto.category = 'Test';
+      dto.size = 'M';
+      dto.condition = 'New';
+      dto.price = 10.0;
+      dto.images = ['image1.jpg', 'image2.jpg'];
+
+      const errors = await validate(dto);
+      const imagesError = errors.find((error) => error.property === 'images');
+
+      expect(imagesError).toBeUndefined();
     });
   });
 

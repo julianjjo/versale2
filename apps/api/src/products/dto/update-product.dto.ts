@@ -4,6 +4,7 @@ import {
   IsIn,
   IsNumber,
   IsPositive,
+  IsArray,
 } from 'class-validator';
 
 export class UpdateProductDto {
@@ -37,6 +38,8 @@ export class UpdateProductDto {
   @IsPositive()
   price?: number;
 
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
   images?: string[];
 }

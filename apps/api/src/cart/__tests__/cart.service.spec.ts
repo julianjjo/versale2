@@ -18,6 +18,7 @@ describe('CartService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
         create: jest.fn(),
+        upsert: jest.fn(),
         deleteMany: jest.fn(),
         delete: jest.fn(),
       },
@@ -112,7 +113,7 @@ describe('CartService', () => {
   });
 
   describe('addItem', () => {
-    it('should add a new item to cart', async () => {
+    it('should upsert a new item into the cart', async () => {
       const userId = 'user1';
       const productId = 'product1';
       const quantity = 2;
@@ -139,7 +140,7 @@ describe('CartService', () => {
         .spyOn(service, 'getCart')
         .mockResolvedValue(mockCart as any);
       mockProductsService.findOne.mockResolvedValue(mockProduct);
-      mockPrismaService.client.cartItem.create.mockResolvedValue({
+      mockPrismaService.client.cartItem.upsert.mockResolvedValue({
         id: 'item1',
         cartId: 'cart1',
         productId,
@@ -151,8 +152,10 @@ describe('CartService', () => {
 
       expect(getCartSpy).toHaveBeenCalledWith(userId);
       expect(mockProductsService.findOne).toHaveBeenCalledWith(productId);
-      expect(mockPrismaService.client.cartItem.create).toHaveBeenCalledWith({
-        data: {
+      expect(mockPrismaService.client.cartItem.upsert).toHaveBeenCalledWith({
+        where: { cartId_productId: { cartId: 'cart1', productId } },
+        update: { quantity: { increment: 2 } },
+        create: {
           cartId: 'cart1',
           productId,
           quantity: 2,
@@ -165,6 +168,13 @@ describe('CartService', () => {
             },
           },
         },
+      });
+      expect(result).toEqual({
+        id: 'item1',
+        cartId: 'cart1',
+        productId,
+        quantity: 2,
+        priceAtAdd: 10.0,
       });
     });
 
@@ -198,24 +208,18 @@ describe('CartService', () => {
 
       await expect(
         service.addItem(userId, productId, quantity),
-      ).rejects.toThrow('Product is not approved for sale');
+      ).rejects.toThrow('El producto no está aprobado para la venta');
     });
 
-    it('should update quantity if item already exists', async () => {
+    it('should increment quantity via upsert when item already exists', async () => {
       const userId = 'user1';
       const productId = 'product1';
       const quantity = 2;
 
-      const existingItem = {
-        id: 'item1',
-        productId,
-        quantity: 1,
-      };
-
       const mockCart = {
         id: 'cart1',
         userId,
-        items: [existingItem],
+        items: [{ id: 'item1', productId, quantity: 1 }],
       };
 
       const mockProduct = {
@@ -234,18 +238,27 @@ describe('CartService', () => {
         .spyOn(service, 'getCart')
         .mockResolvedValue(mockCart as any);
       mockProductsService.findOne.mockResolvedValue(mockProduct);
-      mockPrismaService.client.cartItem.update.mockResolvedValue({
+      mockPrismaService.client.cartItem.upsert.mockResolvedValue({
         id: 'item1',
+        cartId: 'cart1',
+        productId,
         quantity: 3, // 1 + 2
+        priceAtAdd: 10.0,
       });
 
       const result = await service.addItem(userId, productId, quantity);
 
       expect(getCartSpy).toHaveBeenCalledWith(userId);
       expect(mockProductsService.findOne).toHaveBeenCalledWith(productId);
-      expect(mockPrismaService.client.cartItem.update).toHaveBeenCalledWith({
-        where: { id: 'item1' },
-        data: { quantity: 3 },
+      expect(mockPrismaService.client.cartItem.upsert).toHaveBeenCalledWith({
+        where: { cartId_productId: { cartId: 'cart1', productId } },
+        update: { quantity: { increment: 2 } },
+        create: {
+          cartId: 'cart1',
+          productId,
+          quantity: 2,
+          priceAtAdd: 10.0,
+        },
         include: {
           product: {
             include: {
@@ -254,6 +267,88 @@ describe('CartService', () => {
           },
         },
       });
+      expect(result.quantity).toBe(3);
+    });
+
+    it('should throw the Spanish message for an invalid quantity', async () => {
+      await expect(
+        service.addItem('user1', 'product1', 0),
+      ).rejects.toThrow('La cantidad debe ser un número entero positivo');
+    });
+
+    it('should resolve concurrent add-to-cart calls for the same product to a single summed row (no duplicate line item)', async () => {
+      const userId = 'user1';
+      const productId = 'product1';
+
+      const mockCart = {
+        id: 'cart1',
+        userId,
+        items: [],
+      };
+
+      const mockProduct = {
+        id: productId,
+        title: 'Test Product',
+        description: 'A test product',
+        category: 'Test',
+        size: 'M',
+        condition: 'New',
+        price: 10.0,
+        sellerId: 'seller1',
+        isApproved: true,
+      };
+
+      jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
+      mockProductsService.findOne.mockResolvedValue(mockProduct);
+
+      // Simulate the DB-level behavior of two concurrent upserts racing on
+      // the (cartId, productId) unique constraint: the first call creates
+      // the row, the second increments it instead of creating a duplicate.
+      let stored: { id: string; quantity: number } | null = null;
+      mockPrismaService.client.cartItem.upsert.mockImplementation(
+        ({ update, create }) => {
+          if (!stored) {
+            stored = { id: 'item1', quantity: create.quantity };
+          } else {
+            stored.quantity += update.quantity.increment;
+          }
+          return Promise.resolve({
+            id: stored.id,
+            cartId: 'cart1',
+            productId,
+            quantity: stored.quantity,
+            priceAtAdd: 10.0,
+          });
+        },
+      );
+
+      const [first, second] = await Promise.all([
+        service.addItem(userId, productId, 1),
+        service.addItem(userId, productId, 1),
+      ]);
+
+      expect(mockPrismaService.client.cartItem.upsert).toHaveBeenCalledTimes(
+        2,
+      );
+      expect(mockPrismaService.client.cartItem.upsert).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          where: { cartId_productId: { cartId: 'cart1', productId } },
+          update: { quantity: { increment: 1 } },
+        }),
+      );
+      expect(mockPrismaService.client.cartItem.upsert).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          where: { cartId_productId: { cartId: 'cart1', productId } },
+          update: { quantity: { increment: 1 } },
+        }),
+      );
+      // Both calls resolve to the same underlying row, with the quantity
+      // summed rather than a second row being created.
+      expect(first.id).toBe('item1');
+      expect(second.id).toBe('item1');
+      expect(second.quantity).toBe(2);
     });
   });
 
@@ -306,7 +401,7 @@ describe('CartService', () => {
 
       await expect(
         service.updateItem(cartItemId, quantity, userId),
-      ).rejects.toThrow(/Cart item with ID .* not found/);
+      ).rejects.toThrow(/No se encontró el producto del carrito con ID .*/);
     });
 
     it('should throw error if cart item belongs to another user', async () => {
@@ -330,7 +425,9 @@ describe('CartService', () => {
 
       await expect(
         service.updateItem(cartItemId, quantity, userId),
-      ).rejects.toThrow('Not authorized to update this cart item');
+      ).rejects.toThrow(
+        'No tienes autorización para actualizar este producto del carrito',
+      );
     });
   });
 
@@ -376,7 +473,7 @@ describe('CartService', () => {
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue(null);
 
       await expect(service.removeItem(cartItemId, userId)).rejects.toThrow(
-        /Cart item with ID .* not found/,
+        /No se encontró el producto del carrito con ID .*/,
       );
     });
 
@@ -399,7 +496,7 @@ describe('CartService', () => {
       });
 
       await expect(service.removeItem(cartItemId, userId)).rejects.toThrow(
-        'Not authorized to remove this cart item',
+        'No tienes autorización para eliminar este producto del carrito',
       );
     });
   });

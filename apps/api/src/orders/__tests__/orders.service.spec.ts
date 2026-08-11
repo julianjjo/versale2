@@ -8,6 +8,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { OrderStatus } from '../order-status.enum';
+import { Role } from '../../users/role.enum';
 
 describe('OrdersService', () => {
   let service: OrdersService;
@@ -71,8 +72,8 @@ describe('OrdersService', () => {
         id: 'cart1',
         userId,
         items: [
-          { id: 'item1', productId: 'product1', quantity: 2 },
-          { id: 'item2', productId: 'product2', quantity: 1 },
+          { id: 'item1', productId: 'product1', quantity: 2, priceAtAdd: 10.0 },
+          { id: 'item2', productId: 'product2', quantity: 1, priceAtAdd: 20.0 },
         ],
       };
 
@@ -135,6 +136,59 @@ describe('OrdersService', () => {
       });
       expect(mockTx.cartItem.deleteMany).toHaveBeenCalledWith({
         where: { cartId: 'cart1' },
+      });
+      expect(result).toEqual(mockOrder);
+    });
+
+    it('should use the cart item priceAtAdd snapshot, not the live product price, for line price and total', async () => {
+      const userId = 'user1';
+      const mockCart = {
+        id: 'cart1',
+        userId,
+        items: [
+          { id: 'item1', productId: 'product1', quantity: 2, priceAtAdd: 15.0 },
+        ],
+      };
+
+      // Seller raised the price after the buyer added it to their cart.
+      const mockProduct = {
+        id: 'product1',
+        title: 'Product 1',
+        isApproved: true,
+        price: 999.0,
+        sellerId: 'sellerA',
+      };
+
+      const mockOrder = {
+        id: 'order1',
+        userId,
+        totalAmount: 30.0,
+        status: 'PENDING',
+        items: [{ id: 'oi1', productId: 'product1', quantity: 2, price: 15.0 }],
+      };
+
+      mockCartService.getCart.mockResolvedValue(mockCart);
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+      mockTx.order.create.mockResolvedValue(mockOrder);
+      mockTx.cartItem.deleteMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.createOrder(userId);
+
+      expect(mockTx.order.create).toHaveBeenCalledWith({
+        data: {
+          userId,
+          totalAmount: 30.0,
+          status: OrderStatus.PENDING,
+          shippingAddress: {},
+          items: {
+            create: [{ productId: 'product1', quantity: 2, price: 15.0 }],
+          },
+        },
+        include: {
+          items: { include: { product: true } },
+        },
       });
       expect(result).toEqual(mockOrder);
     });
@@ -254,7 +308,7 @@ describe('OrdersService', () => {
 
       mockPrismaService.client.order.findUnique.mockResolvedValue(mockOrder);
 
-      const result = await service.getOrderById(orderId, userId);
+      const result = await service.getOrderById(orderId, userId, Role.USER);
 
       expect(mockPrismaService.client.order.findUnique).toHaveBeenCalledWith({
         where: { id: orderId },
@@ -267,19 +321,38 @@ describe('OrdersService', () => {
       mockPrismaService.client.order.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.getOrderById('nonexistent', 'user1'),
+        service.getOrderById('nonexistent', 'user1', Role.USER),
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ForbiddenException if order does not belong to user', async () => {
+    it('should throw ForbiddenException if order does not belong to user and requester is not an admin', async () => {
       mockPrismaService.client.order.findUnique.mockResolvedValue({
         id: 'order1',
         userId: 'user2',
       });
 
-      await expect(service.getOrderById('order1', 'user1')).rejects.toThrow(
-        ForbiddenException,
+      await expect(
+        service.getOrderById('order1', 'user1', Role.USER),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should allow an admin to access an order that does not belong to them', async () => {
+      const mockOrder = {
+        id: 'order1',
+        userId: 'user2',
+        totalAmount: 100.0,
+        status: 'PENDING',
+      };
+
+      mockPrismaService.client.order.findUnique.mockResolvedValue(mockOrder);
+
+      const result = await service.getOrderById(
+        'order1',
+        'admin1',
+        Role.ADMIN,
       );
+
+      expect(result).toEqual(mockOrder);
     });
   });
 

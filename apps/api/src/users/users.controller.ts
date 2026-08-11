@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../users/role.enum';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -27,7 +28,10 @@ export class UsersController {
   }
 
   @Patch('me')
-  async updateProfile(@Req() req: AuthRequest, @Body() updateUserDto: any) {
+  async updateProfile(
+    @Req() req: AuthRequest,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
     const userId = req.user.id;
     return this.usersService.update(userId, updateUserDto);
   }
@@ -39,6 +43,8 @@ export class UsersController {
     return this.usersService.findAll();
   }
 
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
@@ -47,7 +53,7 @@ export class UsersController {
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() updateUserDto: any) {
+  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     return this.usersService.update(id, updateUserDto);
   }
 

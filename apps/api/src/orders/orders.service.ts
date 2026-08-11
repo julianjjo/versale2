@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client';
 import { CartService } from '../cart/cart.service';
 import { OrderStatus } from './order-status.enum';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { Role } from '../users/role.enum';
 
 @Injectable()
 export class OrdersService {
@@ -51,13 +52,13 @@ export class OrdersService {
         );
       }
 
-      const itemTotal = product.price * item.quantity;
+      const itemTotal = item.priceAtAdd * item.quantity;
       totalAmount += itemTotal;
 
       orderItems.push({
         productId: product.id,
         quantity: item.quantity,
-        price: product.price,
+        price: item.priceAtAdd,
       });
     }
 
@@ -95,7 +96,7 @@ export class OrdersService {
     });
   }
 
-  async getOrderById(id: string, userId: string) {
+  async getOrderById(id: string, userId: string, role: Role) {
     const order = await this.prisma.client.order.findUnique({
       where: { id },
       include: {
@@ -109,8 +110,10 @@ export class OrdersService {
       throw new NotFoundException(`Order with ID ${id} not found`);
     }
 
-    if (order.userId !== userId) {
-      throw new ForbiddenException('Not authorized to access this order');
+    if (order.userId !== userId && role !== Role.ADMIN) {
+      throw new ForbiddenException(
+        'No tienes autorización para acceder a este pedido',
+      );
     }
 
     return order;

@@ -77,7 +77,7 @@ describe('OrdersController', () => {
   });
 
   describe('getOrderById', () => {
-    it('should call ordersService.getOrderById with id and userId from request', async () => {
+    it('should call ordersService.getOrderById with id, userId, and role from request', async () => {
       const userId = 'user1';
       const orderId = 'order1';
       const mockReq = {
@@ -94,7 +94,35 @@ describe('OrdersController', () => {
 
       const result = await controller.getOrderById(mockReq, orderId);
 
-      expect(ordersService.getOrderById).toHaveBeenCalledWith(orderId, userId);
+      expect(ordersService.getOrderById).toHaveBeenCalledWith(
+        orderId,
+        userId,
+        'USER',
+      );
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should pass the admin role through so an admin can open another user\'s order', async () => {
+      const orderId = 'order1';
+      const mockReq = {
+        user: { id: 'admin1', email: 'admin@example.com', role: 'ADMIN' },
+      } as AuthRequest;
+
+      const mockResult = {
+        id: orderId,
+        userId: 'someoneElse',
+        totalAmount: 100.0,
+      };
+
+      mockOrdersService.getOrderById.mockResolvedValue(mockResult);
+
+      const result = await controller.getOrderById(mockReq, orderId);
+
+      expect(ordersService.getOrderById).toHaveBeenCalledWith(
+        orderId,
+        'admin1',
+        'ADMIN',
+      );
       expect(result).toEqual(mockResult);
     });
   });
