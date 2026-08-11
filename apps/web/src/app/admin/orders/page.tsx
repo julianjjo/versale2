@@ -37,13 +37,10 @@ export default function AdminOrdersPage() {
     const timer = setTimeout(() => {
       setSearch(searchInput.trim());
       setPage(1);
+      setSelected(new Set());
     }, 300);
     return () => clearTimeout(timer);
   }, [searchInput]);
-
-  useEffect(() => {
-    setSelected(new Set());
-  }, [search, page]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-orders", search, page],
@@ -233,7 +230,10 @@ export default function AdminOrdersPage() {
           <Button
             variant="secondary"
             disabled={meta.page <= 1}
-            onClick={() => setPage((p) => p - 1)}
+            onClick={() => {
+              setPage((p) => p - 1);
+              setSelected(new Set());
+            }}
           >
             ‹ Anterior
           </Button>
@@ -243,7 +243,10 @@ export default function AdminOrdersPage() {
           <Button
             variant="secondary"
             disabled={meta.page >= meta.pages}
-            onClick={() => setPage((p) => p + 1)}
+            onClick={() => {
+              setPage((p) => p + 1);
+              setSelected(new Set());
+            }}
           >
             Siguiente ›
           </Button>
