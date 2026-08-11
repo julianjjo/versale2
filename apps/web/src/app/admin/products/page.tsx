@@ -128,6 +128,7 @@ export default function AdminProductsPage() {
                   {!product.isApproved && (
                     <Button
                       size="sm"
+                      variant="accent"
                       onClick={() => approve.mutate(product.id)}
                       disabled={approve.isPending}
                     >

@@ -149,7 +149,7 @@ function ProfileForm({
               {success}
             </p>
           )}
-          <Button type="submit" disabled={isSaving}>
+          <Button type="submit" variant="accent" disabled={isSaving}>
             {isSaving ? "Guardando…" : "Guardar cambios"}
           </Button>
         </form>

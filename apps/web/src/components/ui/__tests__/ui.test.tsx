@@ -61,7 +61,7 @@ describe("Button", () => {
 
   it("renders the accent variant", () => {
     render(<Button variant="accent">Accent</Button>);
-    expect(screen.getByRole("button").className).toContain("bg-primary");
+    expect(screen.getByRole("button").className).toContain("bg-terracotta-deep");
   });
 });
 

@@ -300,10 +300,7 @@ export function ProductCard({ product }: { product: Product }) {
             </p>
           )}
           <div className="mt-1.5 flex items-center justify-between gap-2">
-            <Price
-              value={product.price}
-              className="font-display text-[16px] font-medium tabular-nums text-ink sm:text-[18px]"
-            />
+            <Price value={product.price} className="text-[16px] sm:text-[18px]" />
             <span className="text-[11px] text-muted">
               Talla {product.size} · {CONDITION_LABELS[product.condition] ?? product.condition}
             </span>

@@ -285,12 +285,10 @@ export default function CartPage() {
               <Divider className="my-3" />
               <div className="mb-4 flex items-center justify-between">
                 <span className="font-semibold text-text-primary">Total</span>
-                <Price
-                  value={total}
-                  className="text-lg font-semibold text-text-primary"
-                />
+                <Price value={total} className="text-lg text-text-primary" />
               </div>
               <Button
+                variant="accent"
                 onClick={() => checkout.mutate()}
                 disabled={checkout.isPending}
                 fullWidth

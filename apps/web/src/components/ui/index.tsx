@@ -21,8 +21,12 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const buttonClasses: Record<ButtonVariant, string> = {
   primary:
     "bg-secondary text-text-inverse hover:bg-secondary/90 active:bg-secondary/95",
+  // Solid terracotta (--color-terracotta) under paper or ink text falls short
+  // of 4.5:1 at button text sizes — terracotta-deep + paper text clears it
+  // (~5.3:1) while staying recognizably the brand accent. Hover/active darken
+  // via brightness (not opacity toward the page bg) so contrast only grows.
   accent:
-    "bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/95",
+    "bg-terracotta-deep text-paper hover:brightness-95 active:brightness-90",
   secondary:
     "bg-surface text-text-primary border border-border hover:bg-surface-muted active:bg-surface-muted/80",
   danger:
@@ -48,7 +52,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   const base =
-    "inline-flex items-center justify-center gap-2 font-medium tracking-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50 disabled:cursor-not-allowed select-none";
+    "inline-flex items-center justify-center gap-2 font-medium tracking-tight transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50 disabled:cursor-not-allowed select-none";
   const radius = pill ? "rounded-full" : "rounded-md";
   return (
     <button
@@ -394,7 +398,7 @@ export function Price({
 } & HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
-      className={`font-mono font-medium tabular-nums text-text-primary ${className}`}
+      className={`font-display font-medium tabular-nums text-text-primary ${className}`}
       {...rest}
     >
       {copFormatter.format(value)}

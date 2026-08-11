@@ -100,7 +100,7 @@ export default function OrdersPage() {
                 <p className="mt-2 text-sm text-text-primary">
                   {order.items.length} producto
                   {order.items.length === 1 ? "" : "s"} ·{" "}
-                  <Price value={order.totalAmount} className="font-semibold" />
+                  <Price value={order.totalAmount} />
                 </p>
                 <p className="mt-1 text-xs text-text-muted">
                   Realizado el{" "}
