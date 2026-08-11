@@ -92,6 +92,19 @@ export default function OrderDetailPage() {
         </Badge>
       </div>
 
+      {data.status === "DELIVERED" && (
+        <p
+          role="status"
+          className="mb-4 rounded-md border border-success/30 bg-success/10 px-4 py-3 text-sm text-text-primary"
+        >
+          <span className="font-semibold text-success">
+            Pedido entregado.
+          </span>{" "}
+          Cuéntanos qué te pareció cada prenda: busca &ldquo;Escribir
+          reseña&rdquo; junto al producto.
+        </p>
+      )}
+
       <Card>
         <h2 className="heading-card mb-3">Productos</h2>
         <div className="space-y-3">
@@ -128,6 +141,14 @@ export default function OrderDetailPage() {
                 <p className="mt-1 text-sm text-text-muted">
                   <Price value={item.price} /> × {item.quantity}
                 </p>
+                {data.status === "DELIVERED" && (
+                  <Link
+                    href={`/products/${item.productId}#resenas`}
+                    className="mt-1 inline-block text-xs font-medium text-text-primary underline-offset-4 hover:underline"
+                  >
+                    Escribir reseña
+                  </Link>
+                )}
               </div>
               <div className="font-semibold">
                 <Price value={item.price * item.quantity} />
@@ -137,7 +158,9 @@ export default function OrderDetailPage() {
         </div>
         <Divider className="my-4" />
         <div className="flex items-center justify-between">
-          <span className="font-semibold text-text-primary">Total</span>
+          <span className="font-semibold text-text-primary">
+            Total sin envío
+          </span>
           <Price
             value={data.totalAmount}
             className="text-lg font-semibold text-text-primary"
