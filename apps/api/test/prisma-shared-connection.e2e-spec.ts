@@ -121,6 +121,19 @@ describe('Shared PrismaService connection across feature modules (e2e)', () => {
         cartService.addItem(buyer.id, productB.id, 1),
       ]);
 
+      // Either operation can legitimately fail for other reasons in this
+      // loop, but never with an unhandled DB-level error like SQLITE_BUSY or
+      // a unique-constraint violation - check every rejection, not just
+      // createOrder's, and regardless of whether the other one also failed.
+      for (const result of [orderResult, addResult]) {
+        if (result.status === 'rejected') {
+          const reason = String(
+            (result.reason as Error)?.message ?? result.reason,
+          );
+          expect(reason).not.toMatch(/SQLITE_BUSY|UNIQUE constraint/i);
+        }
+      }
+
       if (orderResult.status === 'fulfilled' && addResult.status === 'fulfilled') {
         const order = orderResult.value;
         const cartAfter = await cartService.getCart(buyer.id);
@@ -134,14 +147,6 @@ describe('Shared PrismaService connection across feature modules (e2e)', () => {
         // read) OR survive in a fresh cart (added after checkout's clear) -
         // it must never silently disappear from both.
         expect(productBInOrder || productBInCart).toBe(true);
-      } else if (orderResult.status === 'rejected') {
-        // Checkout can legitimately fail for other reasons in this loop
-        // (e.g. an empty cart), but never with an unhandled DB-level error
-        // like SQLITE_BUSY or a unique-constraint violation.
-        const reason = String(
-          (orderResult.reason as Error)?.message ?? orderResult.reason,
-        );
-        expect(reason).not.toMatch(/SQLITE_BUSY|UNIQUE constraint/i);
       }
 
       // Clean up this trial's cart items before the next iteration reuses
