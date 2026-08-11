@@ -83,9 +83,9 @@ export default function OrderDetailPage() {
         ← Volver a mis pedidos
       </Link>
 
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="heading-section text-text-primary">
-          Pedido #<span className="font-mono">{data.id.slice(0, 8)}</span>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <h1 className="text-2xl text-text-primary sm:text-[28px]">
+          Pedido <span className="tabular-nums">#{data.id.slice(0, 8)}</span>
         </h1>
         <Badge variant={ORDER_STATUS_VARIANT[data.status]}>
           {ORDER_STATUS_LABEL[data.status]}

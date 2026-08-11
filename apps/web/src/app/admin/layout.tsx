@@ -12,28 +12,69 @@ const TABS = [
   { href: "/admin/users", label: "Usuarios" },
 ];
 
+function AdminBrand() {
+  return (
+    <Link
+      href="/admin"
+      className="flex items-baseline gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+    >
+      <span className="font-display text-lg font-medium tracking-[-0.02em] text-text-primary">
+        Versale
+      </span>
+      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+        Admin
+      </span>
+    </Link>
+  );
+}
+
+function AdminChrome({
+  children,
+  containerSize = "default",
+}: {
+  children: React.ReactNode;
+  containerSize?: "narrow" | "default" | "wide";
+}) {
+  return (
+    <div className="flex min-h-screen flex-col bg-surface">
+      <header className="border-b border-border px-4 py-4 sm:px-6">
+        <AdminBrand />
+      </header>
+      <PageContainer size={containerSize} className="flex-1">
+        {children}
+      </PageContainer>
+    </div>
+  );
+}
+
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
 
+  const handleLogout = () => {
+    logout();
+    router.push("/");
+    router.refresh();
+  };
+
   if (isLoading) {
     return (
-      <PageContainer>
+      <AdminChrome>
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
           <Spinner className="h-5 w-5" /> Cargando…
         </div>
-      </PageContainer>
+      </AdminChrome>
     );
   }
 
   if (!user) {
     return (
-      <PageContainer size="narrow">
+      <AdminChrome containerSize="narrow">
         <EmptyState
           title="Inicia sesión"
           description="Las páginas de administración requieren una cuenta."
@@ -41,13 +82,13 @@ export default function AdminLayout({
             <Button onClick={() => router.push("/login")}>Iniciar sesión</Button>
           }
         />
-      </PageContainer>
+      </AdminChrome>
     );
   }
 
   if (user.role !== "ADMIN") {
     return (
-      <PageContainer size="narrow">
+      <AdminChrome containerSize="narrow">
         <EmptyState
           title="Acceso denegado"
           description="No tienes permisos para acceder a esta página."
@@ -55,19 +96,32 @@ export default function AdminLayout({
             <Button onClick={() => router.push("/")}>Volver al inicio</Button>
           }
         />
-      </PageContainer>
+      </AdminChrome>
     );
   }
 
   return (
-    <PageContainer size="wide">
-      <h1 className="heading-section text-text-primary">Panel de administración</h1>
-      <p className="mt-1 text-sm text-text-muted">
-        Gestiona productos, pedidos y usuarios.
-      </p>
-      <div className="mt-6 mb-6 border-b border-border">
+    <div className="flex min-h-screen flex-col bg-surface">
+      <header className="sticky top-0 z-40 border-b border-border bg-surface">
+        <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+          <AdminBrand />
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="hidden text-sm font-medium text-text-muted transition-colors hover:text-text-primary sm:inline"
+            >
+              Ver tienda
+            </Link>
+            <span className="hidden text-sm text-text-muted sm:inline">
+              {user.name}
+            </span>
+            <Button size="sm" variant="secondary" pill onClick={handleLogout}>
+              Cerrar sesión
+            </Button>
+          </div>
+        </div>
         <nav
-          className="-mb-px flex gap-1 overflow-x-auto"
+          className="mx-auto flex w-full max-w-6xl gap-1 overflow-x-auto px-4 sm:px-6"
           aria-label="Secciones de administración"
         >
           {TABS.map((tab) => {
@@ -79,7 +133,7 @@ export default function AdminLayout({
                 key={tab.href}
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
-                className={`inline-flex h-10 items-center border-b-2 px-4 text-sm font-medium transition-colors ${
+                className={`inline-flex h-11 flex-shrink-0 items-center border-b-2 px-3 text-sm font-medium transition-colors ${
                   active
                     ? "border-text-primary text-text-primary"
                     : "border-transparent text-text-muted hover:border-border hover:text-text-primary"
@@ -90,8 +144,11 @@ export default function AdminLayout({
             );
           })}
         </nav>
-      </div>
-      {children}
-    </PageContainer>
+      </header>
+
+      <PageContainer size="wide" className="flex-1">
+        {children}
+      </PageContainer>
+    </div>
   );
 }
