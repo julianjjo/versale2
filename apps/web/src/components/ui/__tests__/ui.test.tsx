@@ -60,8 +60,12 @@ describe("Button", () => {
   });
 
   it("renders the accent variant", () => {
-    render(<Button variant="accent">Accent</Button>);
-    expect(screen.getByRole("button").className).toContain("bg-primary");
+    render(<Button variant="accent">Acento</Button>);
+    const button = screen.getByRole("button", { name: "Acento" });
+    expect(button.className).toContain("bg-terracotta-deep");
+    expect(button.className).toContain("text-paper");
+    expect(button.className).toContain("hover:brightness-95");
+    expect(button.className).toContain("active:brightness-90");
   });
 });
 
@@ -199,6 +203,14 @@ describe("Price", () => {
     const el = screen.getByTestId("p");
     // es-CO locale outputs "$ 45.000" (or "$45.000") — both are valid
     expect(el.textContent).toMatch(/45[\s.]000/);
+  });
+
+  it("renders in the display font with tabular numerals, not mono", () => {
+    render(<Price value={45000} data-testid="p" />);
+    const el = screen.getByTestId("p");
+    expect(el.className).toContain("font-display");
+    expect(el.className).toContain("tabular-nums");
+    expect(el.className).not.toContain("font-mono");
   });
 });
 

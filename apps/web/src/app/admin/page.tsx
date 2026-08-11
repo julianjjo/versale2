@@ -95,10 +95,7 @@ export default function AdminOverview() {
                 <Badge variant={ORDER_STATUS_VARIANT[order.status]}>
                   {ORDER_STATUS_LABEL[order.status]}
                 </Badge>
-                <Price
-                  value={order.totalAmount}
-                  className="font-semibold"
-                />
+                <Price value={order.totalAmount} />
               </div>
             ))}
           </div>

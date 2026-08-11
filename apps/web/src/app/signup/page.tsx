@@ -69,7 +69,13 @@ export default function SignupPage() {
               {error}
             </p>
           )}
-          <Button type="submit" disabled={isLoading} fullWidth size="lg">
+          <Button
+            type="submit"
+            variant="accent"
+            disabled={isLoading}
+            fullWidth
+            size="lg"
+          >
             {isLoading ? "Creando cuenta…" : "Crear cuenta"}
           </Button>
         </form>
