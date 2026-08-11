@@ -9,7 +9,7 @@ import {
   ORDER_STATUS_VARIANT,
 } from "@/lib/order-status";
 import { Badge } from "@/components/ui";
-import type { Order, Product, User } from "@/lib/types";
+import type { Order, Product } from "@/lib/types";
 
 export default function AdminOverview() {
   const { data: products, isLoading: productsLoading } = useQuery({
@@ -18,32 +18,37 @@ export default function AdminOverview() {
       const res = await api.get<{
         data: Product[];
         meta: { total: number };
-      }>("/products/admin/all?isApproved=false&limit=1");
+      }>("/products/admin/all?status=pending&limit=1");
       return res.data;
     },
   });
 
-  const { data: orders, isLoading: ordersLoading } = useQuery<Order[]>({
+  const { data: orders, isLoading: ordersLoading } = useQuery({
     queryKey: ["admin-orders"],
     queryFn: async () => {
-      const res = await api.get<Order[]>("/orders/admin/all");
+      const res = await api.get<{
+        data: Order[];
+        meta: { total: number };
+      }>("/orders/admin/all?limit=1000");
       return res.data;
     },
   });
 
-  const { data: users, isLoading: usersLoading } = useQuery<User[]>({
+  const { data: usersOverview, isLoading: usersLoading } = useQuery({
     queryKey: ["admin-users"],
     queryFn: async () => {
-      const res = await api.get<User[]>("/users");
+      const res = await api.get<{ meta: { total: number } }>(
+        "/users?limit=1",
+      );
       return res.data;
     },
   });
 
   const pendingProducts = products?.meta.total ?? 0;
-  const totalOrders = orders?.length ?? 0;
-  const totalUsers = users?.length ?? 0;
-  const totalRevenue = orders
-    ?.filter((o) => o.status !== "CANCELLED")
+  const totalOrders = orders?.meta.total ?? 0;
+  const totalUsers = usersOverview?.meta.total ?? 0;
+  const totalRevenue = orders?.data
+    .filter((o) => o.status !== "CANCELLED")
     .reduce((sum, o) => sum + o.totalAmount, 0) ?? 0;
 
   const loading = productsLoading || ordersLoading || usersLoading;
@@ -80,11 +85,11 @@ export default function AdminOverview() {
         />
       </div>
 
-      {orders && orders.length > 0 && (
+      {orders && orders.data.length > 0 && (
         <Card>
           <h2 className="heading-card mb-3">Pedidos recientes</h2>
           <div className="divide-y divide-border">
-            {orders.slice(0, 5).map((order) => (
+            {orders.data.slice(0, 5).map((order) => (
               <div
                 key={order.id}
                 className="flex items-center justify-between py-2 text-sm first:pt-0 last:pb-0"

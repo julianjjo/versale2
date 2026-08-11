@@ -211,14 +211,20 @@ export class ProductsService {
   }
 
   async findAllForAdmin(query: any) {
-    const { page = 1, limit = 10, isApproved } = query;
+    const { status, page = 1, limit = 10 } = query;
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
 
     const where: any = {};
-    if (isApproved !== undefined) {
-      where.isApproved = isApproved === 'true' || isApproved === true;
+    if (status === 'pending') {
+      where.isApproved = false;
+      where.rejectedAt = null;
+    } else if (status === 'approved') {
+      where.isApproved = true;
+    } else if (status === 'rejected') {
+      where.isApproved = false;
+      where.rejectedAt = { not: null };
     }
 
     const [products, total] = await Promise.all([
@@ -249,7 +255,18 @@ export class ProductsService {
   async approveProduct(id: string) {
     return this.prisma.client.product.update({
       where: { id },
-      data: { isApproved: true },
+      data: { isApproved: true, rejectedAt: null, rejectionReason: null },
+    });
+  }
+
+  async rejectProduct(id: string, reason?: string) {
+    return this.prisma.client.product.update({
+      where: { id },
+      data: {
+        isApproved: false,
+        rejectedAt: new Date(),
+        rejectionReason: reason ?? null,
+      },
     });
   }
 }

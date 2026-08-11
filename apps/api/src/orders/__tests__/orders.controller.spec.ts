@@ -128,20 +128,18 @@ describe('OrdersController', () => {
   });
 
   describe('getAllOrders', () => {
-    it('should call ordersService.getAllOrders', async () => {
-      const mockResult = [
-        {
-          id: 'order1',
-          userId: 'user1',
-          totalAmount: 100.0,
-        },
-      ];
+    it('should call ordersService.getAllOrders with query', async () => {
+      const query = { search: 'ana', page: '1', limit: '10' };
+      const mockResult = {
+        data: [{ id: 'order1', userId: 'user1', totalAmount: 100.0 }],
+        meta: { total: 1, page: 1, limit: 10, pages: 1 },
+      };
 
       mockOrdersService.getAllOrders.mockResolvedValue(mockResult);
 
-      const result = await controller.getAllOrders();
+      const result = await controller.getAllOrders(query);
 
-      expect(ordersService.getAllOrders).toHaveBeenCalledWith();
+      expect(ordersService.getAllOrders).toHaveBeenCalledWith(query);
       expect(result).toEqual(mockResult);
     });
   });

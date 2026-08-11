@@ -32,20 +32,18 @@ describe('UsersController', () => {
   });
 
   describe('findAll', () => {
-    it('should call usersService.findAll', async () => {
-      const mockResult = [
-        {
-          id: 'user1',
-          email: 'user1@example.com',
-          name: 'User 1',
-        },
-      ];
+    it('should call usersService.findAll with query', async () => {
+      const query = { search: 'ana', role: 'ADMIN', page: '1', limit: '10' };
+      const mockResult = {
+        data: [{ id: 'user1', email: 'user1@example.com', name: 'User 1' }],
+        meta: { total: 1, page: 1, limit: 10, pages: 1 },
+      };
 
       mockUsersService.findAll.mockResolvedValue(mockResult);
 
-      const result = await controller.findAll();
+      const result = await controller.findAll(query);
 
-      expect(usersService.findAll).toHaveBeenCalledWith();
+      expect(usersService.findAll).toHaveBeenCalledWith(query);
       expect(result).toEqual(mockResult);
     });
   });
