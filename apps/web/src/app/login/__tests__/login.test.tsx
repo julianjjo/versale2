@@ -10,9 +10,11 @@ const loginMock = vi.fn();
 const signupMock = vi.fn();
 const logoutMock = vi.fn();
 const refreshAuthMock = vi.fn();
+let mockSearchParams = new URLSearchParams();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock, refresh: refreshMock }),
+  useSearchParams: () => mockSearchParams,
 }));
 
 vi.mock("@/lib/auth", async () => {
@@ -35,6 +37,7 @@ describe("LoginPage", () => {
     vi.clearAllMocks();
     loginMock.mockReset();
     loginMock.mockResolvedValue(undefined);
+    mockSearchParams = new URLSearchParams();
   });
 
   function renderLogin() {
@@ -112,5 +115,35 @@ describe("LoginPage", () => {
     renderLogin();
     const link = screen.getByRole("link", { name: /crear cuenta/i });
     expect(link).toHaveAttribute("href", "/signup");
+  });
+
+  it("explica por qué llegó aquí cuando viene de agregar al carrito", () => {
+    mockSearchParams = new URLSearchParams("reason=cart");
+    renderLogin();
+    expect(
+      screen.getByText(/inicia sesión para agregar este producto a tu carrito/i),
+    ).toBeInTheDocument();
+  });
+
+  it("explica por qué llegó aquí cuando viene de escribir una reseña", () => {
+    mockSearchParams = new URLSearchParams("reason=review");
+    renderLogin();
+    expect(
+      screen.getByText(/inicia sesión para escribir tu reseña/i),
+    ).toBeInTheDocument();
+  });
+
+  it("vuelve a la página de origen tras iniciar sesión cuando se especifica next", async () => {
+    mockSearchParams = new URLSearchParams("next=/products/p1&reason=cart");
+    const user = userEvent.setup();
+    renderLogin();
+
+    await user.type(screen.getByLabelText("Correo electrónico"), "alice@ejemplo.co");
+    await user.type(screen.getByLabelText("Contraseña"), "secreto123");
+    await user.click(screen.getByRole("button", { name: /iniciar sesión/i }));
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/products/p1");
+    });
   });
 });

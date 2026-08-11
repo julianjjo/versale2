@@ -284,7 +284,9 @@ export default function CartPage() {
               </div>
               <Divider className="my-3" />
               <div className="mb-4 flex items-center justify-between">
-                <span className="font-semibold text-text-primary">Total</span>
+                <span className="font-semibold text-text-primary">
+                  Total sin envío
+                </span>
                 <Price
                   value={total}
                   className="text-lg font-semibold text-text-primary"
