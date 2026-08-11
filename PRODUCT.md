@@ -37,8 +37,9 @@ Vinted/Depop copy):
   appears in the public catalog (`isApproved: false` until an admin acts).
   Curation is the trust mechanism, not just optional moderation.
 - **Frictionless selling.** There is no seller role, application, or
-  onboarding gate. Any registered `USER` starts selling the moment they
-  publish on `/sell`.
+  onboarding gate. Any registered `USER` can start the selling workflow by
+  publishing on `/sell`; the listing becomes sellable once an admin approves
+  it.
 - **Sustainability / circular-fashion framing.** The product is positioned
   around reducing textile waste and extending a garment's life, not purely as
   "cheap secondhand shopping."
