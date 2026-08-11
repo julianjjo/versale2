@@ -102,7 +102,7 @@ describe('OrdersController', () => {
       expect(result).toEqual(mockResult);
     });
 
-    it('should pass the admin role through so an admin can open another user\'s order', async () => {
+    it("should pass the admin role through so an admin can open another user's order", async () => {
       const orderId = 'order1';
       const mockReq = {
         user: { id: 'admin1', email: 'admin@example.com', role: 'ADMIN' },

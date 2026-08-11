@@ -67,7 +67,7 @@ describe('UsersController', () => {
       expect(result).toEqual(mockResult);
     });
 
-    it('is restricted to admins only, so a regular user cannot harvest another user\'s email', () => {
+    it("is restricted to admins only, so a regular user cannot harvest another user's email", () => {
       // GET /users/:id returns PUBLIC_USER_SELECT (which includes email) for an
       // arbitrary user id. The frontend never calls this per-id endpoint, so the
       // fix is to lock it down to ADMIN via RolesGuard/@Roles, same as GET /users.

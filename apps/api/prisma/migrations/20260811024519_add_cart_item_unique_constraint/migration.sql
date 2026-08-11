@@ -29,5 +29,27 @@ ALTER TABLE "new_Product" RENAME TO "Product";
 PRAGMA foreign_keys=ON;
 PRAGMA defer_foreign_keys=OFF;
 
+-- Reconcile any pre-existing duplicate (cartId, productId) CartItem rows
+-- before enforcing uniqueness: merge quantities into the earliest row.
+UPDATE "CartItem"
+SET "quantity" = (
+    SELECT SUM("dup"."quantity")
+    FROM "CartItem" AS "dup"
+    WHERE "dup"."cartId" = "CartItem"."cartId"
+      AND "dup"."productId" = "CartItem"."productId"
+)
+WHERE "id" IN (
+    SELECT MIN("id")
+    FROM "CartItem"
+    GROUP BY "cartId", "productId"
+);
+
+DELETE FROM "CartItem"
+WHERE "id" NOT IN (
+    SELECT MIN("id")
+    FROM "CartItem"
+    GROUP BY "cartId", "productId"
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "CartItem_cartId_productId_key" ON "CartItem"("cartId", "productId");

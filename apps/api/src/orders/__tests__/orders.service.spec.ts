@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrdersService } from '../orders.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CartService } from '../../cart/cart.service';
 import {
   NotFoundException,
   BadRequestException,
@@ -13,9 +12,11 @@ import { Role } from '../../users/role.enum';
 describe('OrdersService', () => {
   let service: OrdersService;
   let prismaService: PrismaService;
-  let cartService: CartService;
 
   const mockTx = {
+    cart: {
+      findUnique: jest.fn(),
+    },
     order: {
       create: jest.fn(),
     },
@@ -42,23 +43,16 @@ describe('OrdersService', () => {
     },
   };
 
-  const mockCartService = {
-    getCart: jest.fn(),
-    clearCart: jest.fn(),
-  };
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrdersService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: CartService, useValue: mockCartService },
       ],
     }).compile();
 
     service = module.get<OrdersService>(OrdersService);
     prismaService = module.get<PrismaService>(PrismaService);
-    cartService = module.get<CartService>(CartService);
   });
 
   afterEach(() => {
@@ -66,31 +60,39 @@ describe('OrdersService', () => {
   });
 
   describe('createOrder', () => {
-    it('should create an order from cart', async () => {
+    it('should create an order from cart, doing the entire read-validate-write inside a single transaction', async () => {
       const userId = 'user1';
       const mockCart = {
         id: 'cart1',
         userId,
         items: [
-          { id: 'item1', productId: 'product1', quantity: 2, priceAtAdd: 10.0 },
-          { id: 'item2', productId: 'product2', quantity: 1, priceAtAdd: 20.0 },
+          {
+            id: 'item1',
+            productId: 'product1',
+            quantity: 2,
+            priceAtAdd: 10.0,
+            product: {
+              id: 'product1',
+              title: 'Product 1',
+              isApproved: true,
+              price: 10.0,
+              sellerId: 'sellerA',
+            },
+          },
+          {
+            id: 'item2',
+            productId: 'product2',
+            quantity: 1,
+            priceAtAdd: 20.0,
+            product: {
+              id: 'product2',
+              title: 'Product 2',
+              isApproved: true,
+              price: 20.0,
+              sellerId: 'sellerB',
+            },
+          },
         ],
-      };
-
-      const mockProduct1 = {
-        id: 'product1',
-        title: 'Product 1',
-        isApproved: true,
-        price: 10.0,
-        sellerId: 'sellerA',
-      };
-
-      const mockProduct2 = {
-        id: 'product2',
-        title: 'Product 2',
-        isApproved: true,
-        price: 20.0,
-        sellerId: 'sellerB',
       };
 
       const mockOrder = {
@@ -104,19 +106,24 @@ describe('OrdersService', () => {
         ],
       };
 
-      mockCartService.getCart.mockResolvedValue(mockCart);
-      mockPrismaService.client.product.findUnique
-        .mockResolvedValueOnce(mockProduct1)
-        .mockResolvedValueOnce(mockProduct2);
+      mockTx.cart.findUnique.mockResolvedValue(mockCart);
       mockTx.order.create.mockResolvedValue(mockOrder);
       mockTx.cartItem.deleteMany.mockResolvedValue({ count: 2 });
 
       const result = await service.createOrder(userId);
 
-      expect(mockCartService.getCart).toHaveBeenCalledWith(userId);
-      expect(mockPrismaService.client.product.findUnique).toHaveBeenCalledTimes(
-        2,
-      );
+      // The whole read-validate-write sequence must happen inside one transaction,
+      // reading the cart via tx (not via CartService or a separate prisma call),
+      // and must not fall back to per-item product lookups (no N+1).
+      expect(mockPrismaService.client.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockTx.cart.findUnique).toHaveBeenCalledWith({
+        where: { userId },
+        include: { items: { include: { product: true } } },
+      });
+      expect(
+        mockPrismaService.client.product.findUnique,
+      ).not.toHaveBeenCalled();
+
       expect(mockTx.order.create).toHaveBeenCalledWith({
         data: {
           userId,
@@ -146,17 +153,21 @@ describe('OrdersService', () => {
         id: 'cart1',
         userId,
         items: [
-          { id: 'item1', productId: 'product1', quantity: 2, priceAtAdd: 15.0 },
+          {
+            id: 'item1',
+            productId: 'product1',
+            quantity: 2,
+            priceAtAdd: 15.0,
+            product: {
+              id: 'product1',
+              title: 'Product 1',
+              isApproved: true,
+              // Seller raised the price after the buyer added it to their cart.
+              price: 999.0,
+              sellerId: 'sellerA',
+            },
+          },
         ],
-      };
-
-      // Seller raised the price after the buyer added it to their cart.
-      const mockProduct = {
-        id: 'product1',
-        title: 'Product 1',
-        isApproved: true,
-        price: 999.0,
-        sellerId: 'sellerA',
       };
 
       const mockOrder = {
@@ -167,10 +178,7 @@ describe('OrdersService', () => {
         items: [{ id: 'oi1', productId: 'product1', quantity: 2, price: 15.0 }],
       };
 
-      mockCartService.getCart.mockResolvedValue(mockCart);
-      mockPrismaService.client.product.findUnique.mockResolvedValue(
-        mockProduct,
-      );
+      mockTx.cart.findUnique.mockResolvedValue(mockCart);
       mockTx.order.create.mockResolvedValue(mockOrder);
       mockTx.cartItem.deleteMany.mockResolvedValue({ count: 1 });
 
@@ -193,9 +201,9 @@ describe('OrdersService', () => {
       expect(result).toEqual(mockOrder);
     });
 
-    it('should throw BadRequestException if cart is empty', async () => {
+    it('should throw BadRequestException if cart has no items, inside the transaction', async () => {
       const userId = 'user1';
-      mockCartService.getCart.mockResolvedValue({
+      mockTx.cart.findUnique.mockResolvedValue({
         id: 'cart1',
         userId,
         items: [],
@@ -204,18 +212,37 @@ describe('OrdersService', () => {
       await expect(service.createOrder(userId)).rejects.toThrow(
         BadRequestException,
       );
+      expect(mockPrismaService.client.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockTx.order.create).not.toHaveBeenCalled();
+      expect(mockTx.cartItem.deleteMany).not.toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException if product no longer available', async () => {
+    it('should throw BadRequestException if the user has no cart at all', async () => {
+      const userId = 'user1';
+      mockTx.cart.findUnique.mockResolvedValue(null);
+
+      await expect(service.createOrder(userId)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException if the product on a cart item is missing', async () => {
       const userId = 'user1';
       const mockCart = {
         id: 'cart1',
         userId,
-        items: [{ id: 'item1', productId: 'product1', quantity: 1 }],
+        items: [
+          {
+            id: 'item1',
+            productId: 'product1',
+            quantity: 1,
+            priceAtAdd: 10.0,
+            product: null,
+          },
+        ],
       };
 
-      mockCartService.getCart.mockResolvedValue(mockCart);
-      mockPrismaService.client.product.findUnique.mockResolvedValue(null);
+      mockTx.cart.findUnique.mockResolvedValue(mockCart);
 
       await expect(service.createOrder(userId)).rejects.toThrow(
         BadRequestException,
@@ -227,21 +254,24 @@ describe('OrdersService', () => {
       const mockCart = {
         id: 'cart1',
         userId,
-        items: [{ id: 'item1', productId: 'product1', quantity: 1 }],
+        items: [
+          {
+            id: 'item1',
+            productId: 'product1',
+            quantity: 1,
+            priceAtAdd: 10.0,
+            product: {
+              id: 'product1',
+              title: 'Product 1',
+              isApproved: false,
+              price: 10.0,
+              sellerId: 'sellerA',
+            },
+          },
+        ],
       };
 
-      const mockProduct = {
-        id: 'product1',
-        title: 'Product 1',
-        isApproved: false,
-        price: 10.0,
-        sellerId: 'sellerA',
-      };
-
-      mockCartService.getCart.mockResolvedValue(mockCart);
-      mockPrismaService.client.product.findUnique.mockResolvedValue(
-        mockProduct,
-      );
+      mockTx.cart.findUnique.mockResolvedValue(mockCart);
 
       await expect(service.createOrder(userId)).rejects.toThrow(
         BadRequestException,
@@ -253,21 +283,53 @@ describe('OrdersService', () => {
       const mockCart = {
         id: 'cart1',
         userId,
-        items: [{ id: 'item1', productId: 'product1', quantity: 1 }],
+        items: [
+          {
+            id: 'item1',
+            productId: 'product1',
+            quantity: 1,
+            priceAtAdd: 10.0,
+            product: {
+              id: 'product1',
+              title: 'Product 1',
+              isApproved: true,
+              price: 10.0,
+              sellerId: userId,
+            },
+          },
+        ],
       };
 
-      const mockProduct = {
-        id: 'product1',
-        title: 'Product 1',
-        isApproved: true,
-        price: 10.0,
-        sellerId: userId,
-      };
+      mockTx.cart.findUnique.mockResolvedValue(mockCart);
 
-      mockCartService.getCart.mockResolvedValue(mockCart);
-      mockPrismaService.client.product.findUnique.mockResolvedValue(
-        mockProduct,
+      await expect(service.createOrder(userId)).rejects.toThrow(
+        BadRequestException,
       );
+    });
+
+    it('should throw BadRequestException for an invalid (non-positive) quantity', async () => {
+      const userId = 'user1';
+      const mockCart = {
+        id: 'cart1',
+        userId,
+        items: [
+          {
+            id: 'item1',
+            productId: 'product1',
+            quantity: 0,
+            priceAtAdd: 10.0,
+            product: {
+              id: 'product1',
+              title: 'Product 1',
+              isApproved: true,
+              price: 10.0,
+              sellerId: 'sellerA',
+            },
+          },
+        ],
+      };
+
+      mockTx.cart.findUnique.mockResolvedValue(mockCart);
 
       await expect(service.createOrder(userId)).rejects.toThrow(
         BadRequestException,
@@ -346,11 +408,7 @@ describe('OrdersService', () => {
 
       mockPrismaService.client.order.findUnique.mockResolvedValue(mockOrder);
 
-      const result = await service.getOrderById(
-        'order1',
-        'admin1',
-        Role.ADMIN,
-      );
+      const result = await service.getOrderById('order1', 'admin1', Role.ADMIN);
 
       expect(result).toEqual(mockOrder);
     });

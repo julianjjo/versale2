@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { CartService } from '../cart.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProductsService } from '../../products/products.service';
@@ -11,8 +12,7 @@ describe('CartService', () => {
   const mockPrismaService = {
     client: {
       cart: {
-        findUnique: jest.fn(),
-        create: jest.fn(),
+        upsert: jest.fn(),
       },
       cartItem: {
         findUnique: jest.fn(),
@@ -27,6 +27,7 @@ describe('CartService', () => {
 
   const mockProductsService = {
     findOne: jest.fn(),
+    findRaw: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -48,7 +49,7 @@ describe('CartService', () => {
   });
 
   describe('getCart', () => {
-    it('should return existing cart if found', async () => {
+    it('should return existing cart via a single atomic upsert', async () => {
       const userId = 'user1';
       const mockCart = {
         id: 'cart1',
@@ -58,12 +59,14 @@ describe('CartService', () => {
         updatedAt: new Date(),
       };
 
-      mockPrismaService.client.cart.findUnique.mockResolvedValue(mockCart);
+      mockPrismaService.client.cart.upsert.mockResolvedValue(mockCart);
 
       const result = await service.getCart(userId);
 
-      expect(mockPrismaService.client.cart.findUnique).toHaveBeenCalledWith({
+      expect(mockPrismaService.client.cart.upsert).toHaveBeenCalledWith({
         where: { userId },
+        update: {},
+        create: { userId },
         include: {
           items: {
             include: {
@@ -79,7 +82,7 @@ describe('CartService', () => {
       expect(result).toEqual(mockCart);
     });
 
-    it('should create a new cart if none exists', async () => {
+    it('should create a new cart via upsert if none exists', async () => {
       const userId = 'user1';
       const mockCart = {
         id: 'cart1',
@@ -89,13 +92,14 @@ describe('CartService', () => {
         updatedAt: new Date(),
       };
 
-      mockPrismaService.client.cart.findUnique.mockResolvedValue(null);
-      mockPrismaService.client.cart.create.mockResolvedValue(mockCart);
+      mockPrismaService.client.cart.upsert.mockResolvedValue(mockCart);
 
       const result = await service.getCart(userId);
 
-      expect(mockPrismaService.client.cart.create).toHaveBeenCalledWith({
-        data: { userId },
+      expect(mockPrismaService.client.cart.upsert).toHaveBeenCalledWith({
+        where: { userId },
+        update: {},
+        create: { userId },
         include: {
           items: {
             include: {
@@ -109,6 +113,30 @@ describe('CartService', () => {
         },
       });
       expect(result).toEqual(mockCart);
+    });
+
+    it('should resolve concurrent first-time getCart calls to a single cart with no unhandled unique-constraint error', async () => {
+      const userId = 'user1';
+      const mockCart = {
+        id: 'cart1',
+        userId,
+        items: [],
+      };
+
+      // Simulate the DB-level behavior of an atomic upsert: regardless of
+      // how many times it races against another call for the same userId,
+      // it always resolves to the same single row instead of throwing on
+      // Cart.userId's @unique constraint.
+      mockPrismaService.client.cart.upsert.mockResolvedValue(mockCart);
+
+      const [first, second] = await Promise.all([
+        service.getCart(userId),
+        service.getCart(userId),
+      ]);
+
+      expect(mockPrismaService.client.cart.upsert).toHaveBeenCalledTimes(2);
+      expect(first).toEqual(mockCart);
+      expect(second).toEqual(mockCart);
     });
   });
 
@@ -139,7 +167,7 @@ describe('CartService', () => {
       const getCartSpy = jest
         .spyOn(service, 'getCart')
         .mockResolvedValue(mockCart as any);
-      mockProductsService.findOne.mockResolvedValue(mockProduct);
+      mockProductsService.findRaw.mockResolvedValue(mockProduct);
       mockPrismaService.client.cartItem.upsert.mockResolvedValue({
         id: 'item1',
         cartId: 'cart1',
@@ -151,7 +179,7 @@ describe('CartService', () => {
       const result = await service.addItem(userId, productId, quantity);
 
       expect(getCartSpy).toHaveBeenCalledWith(userId);
-      expect(mockProductsService.findOne).toHaveBeenCalledWith(productId);
+      expect(mockProductsService.findRaw).toHaveBeenCalledWith(productId);
       expect(mockPrismaService.client.cartItem.upsert).toHaveBeenCalledWith({
         where: { cartId_productId: { cartId: 'cart1', productId } },
         update: { quantity: { increment: 2 } },
@@ -178,7 +206,7 @@ describe('CartService', () => {
       });
     });
 
-    it('should throw error if product not approved', async () => {
+    it('should throw BadRequestException (not NotFoundException) with the Spanish "not approved" message when the product is unapproved', async () => {
       const userId = 'user1';
       const productId = 'product1';
       const quantity = 2;
@@ -204,11 +232,20 @@ describe('CartService', () => {
       const getCartSpy = jest
         .spyOn(service, 'getCart')
         .mockResolvedValue(mockCart as any);
-      mockProductsService.findOne.mockResolvedValue(mockProduct);
+      mockProductsService.findRaw.mockResolvedValue(mockProduct);
 
       await expect(
         service.addItem(userId, productId, quantity),
       ).rejects.toThrow('El producto no está aprobado para la venta');
+      await expect(
+        service.addItem(userId, productId, quantity),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.addItem(userId, productId, quantity),
+      ).rejects.not.toThrow(NotFoundException);
+      expect(getCartSpy).toHaveBeenCalledWith(userId);
+      expect(mockProductsService.findRaw).toHaveBeenCalledWith(productId);
+      expect(mockProductsService.findOne).not.toHaveBeenCalled();
     });
 
     it('should increment quantity via upsert when item already exists', async () => {
@@ -237,7 +274,7 @@ describe('CartService', () => {
       const getCartSpy = jest
         .spyOn(service, 'getCart')
         .mockResolvedValue(mockCart as any);
-      mockProductsService.findOne.mockResolvedValue(mockProduct);
+      mockProductsService.findRaw.mockResolvedValue(mockProduct);
       mockPrismaService.client.cartItem.upsert.mockResolvedValue({
         id: 'item1',
         cartId: 'cart1',
@@ -249,7 +286,7 @@ describe('CartService', () => {
       const result = await service.addItem(userId, productId, quantity);
 
       expect(getCartSpy).toHaveBeenCalledWith(userId);
-      expect(mockProductsService.findOne).toHaveBeenCalledWith(productId);
+      expect(mockProductsService.findRaw).toHaveBeenCalledWith(productId);
       expect(mockPrismaService.client.cartItem.upsert).toHaveBeenCalledWith({
         where: { cartId_productId: { cartId: 'cart1', productId } },
         update: { quantity: { increment: 2 } },
@@ -271,9 +308,9 @@ describe('CartService', () => {
     });
 
     it('should throw the Spanish message for an invalid quantity', async () => {
-      await expect(
-        service.addItem('user1', 'product1', 0),
-      ).rejects.toThrow('La cantidad debe ser un número entero positivo');
+      await expect(service.addItem('user1', 'product1', 0)).rejects.toThrow(
+        'La cantidad debe ser un número entero positivo',
+      );
     });
 
     it('should resolve concurrent add-to-cart calls for the same product to a single summed row (no duplicate line item)', async () => {
@@ -299,7 +336,7 @@ describe('CartService', () => {
       };
 
       jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
-      mockProductsService.findOne.mockResolvedValue(mockProduct);
+      mockProductsService.findRaw.mockResolvedValue(mockProduct);
 
       // Simulate the DB-level behavior of two concurrent upserts racing on
       // the (cartId, productId) unique constraint: the first call creates
@@ -327,9 +364,7 @@ describe('CartService', () => {
         service.addItem(userId, productId, 1),
       ]);
 
-      expect(mockPrismaService.client.cartItem.upsert).toHaveBeenCalledTimes(
-        2,
-      );
+      expect(mockPrismaService.client.cartItem.upsert).toHaveBeenCalledTimes(2);
       expect(mockPrismaService.client.cartItem.upsert).toHaveBeenNthCalledWith(
         1,
         expect.objectContaining({

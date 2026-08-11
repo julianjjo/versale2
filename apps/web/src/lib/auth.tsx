@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useState,
@@ -58,13 +59,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Clears the in-memory user and the React Query cache (so no other
+  // user's cached data lingers). Shared by logout() and the 401 handler
+  // below; logout() additionally clears the stored token.
+  const clearAuthState = useCallback(() => {
+    setUser(null);
+    queryClient.clear();
+  }, [queryClient]);
+
   // Subscribe to global 401 events. We avoid a full-page reload — instead we
   // clear the user and the React Query cache (so no other user's cached
   // data lingers) and route to /login.
   useEffect(() => {
     return onUnauthorized(() => {
-      setUser(null);
-      queryClient.clear();
+      clearAuthState();
       const path =
         typeof window !== "undefined" ? window.location.pathname : "/";
       const isPublic = PUBLIC_AUTH_PATHS.some(
@@ -74,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         router.push("/login");
       }
     });
-  }, [router, queryClient]);
+  }, [router, clearAuthState]);
 
   const login = async (email: string, password: string) => {
     const res = await api.post<AuthResponse>("/auth/login", {
@@ -97,8 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     tokenStore.clear();
-    setUser(null);
-    queryClient.clear();
+    clearAuthState();
   };
 
   const refresh = async () => {

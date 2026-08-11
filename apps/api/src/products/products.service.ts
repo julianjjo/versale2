@@ -91,10 +91,7 @@ export class ProductsService {
     };
   }
 
-  async findOne(
-    id: string,
-    requester?: { id: string; role: Role } | null,
-  ) {
+  async findOne(id: string, requester?: { id: string; role: Role } | null) {
     const product = await this.prisma.client.product.findUnique({
       where: { id },
       include: {
@@ -125,6 +122,18 @@ export class ProductsService {
       if (!canView) {
         throw new NotFoundException(`Producto con ID ${id} no encontrado`);
       }
+    }
+
+    return product;
+  }
+
+  async findRaw(id: string) {
+    const product = await this.prisma.client.product.findUnique({
+      where: { id },
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Producto con ID ${id} no encontrado`);
     }
 
     return product;

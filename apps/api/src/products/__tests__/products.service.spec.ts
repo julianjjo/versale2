@@ -203,6 +203,54 @@ describe('ProductsService', () => {
     });
   });
 
+  describe('findRaw', () => {
+    it('should throw NotFoundException for a missing id', async () => {
+      const productId = 'nonexistent';
+      mockPrismaService.client.product.findUnique.mockResolvedValue(null);
+
+      await expect(service.findRaw(productId)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should return the raw row for an approved product with no visibility filtering', async () => {
+      const productId = 'product1';
+      const mockProduct = {
+        id: productId,
+        sellerId: 'seller1',
+        isApproved: true,
+      };
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+
+      const result = await service.findRaw(productId);
+
+      expect(mockPrismaService.client.product.findUnique).toHaveBeenCalledWith({
+        where: { id: productId },
+      });
+      expect(result).toEqual(mockProduct);
+    });
+
+    it('should return the raw row for an unapproved product with no visibility filtering', async () => {
+      const productId = 'product1';
+      const mockProduct = {
+        id: productId,
+        sellerId: 'seller1',
+        isApproved: false,
+      };
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+
+      const result = await service.findRaw(productId);
+
+      expect(result).toEqual(mockProduct);
+    });
+  });
+
   describe('update', () => {
     it('should update a product if user is the seller', async () => {
       const productId = 'product1';

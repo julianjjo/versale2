@@ -183,6 +183,39 @@ describe("CartPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("recupera la vista del carrito al reintentar después de un error de carga", async () => {
+    vi.mocked(api.get)
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockResolvedValueOnce({ data: mockCart });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/no pudimos cargar tu carrito/i),
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /reintentar/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Wool sweater")).toBeInTheDocument();
+    expect(
+      screen.queryByText(/no pudimos cargar tu carrito/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/tu carrito está vacío/i),
+    ).not.toBeInTheDocument();
+    // 2*25 + 1*50 = 100; both subtotal and total show this value, formatted as $ 100
+    expect(screen.getAllByText("$ 100").length).toBeGreaterThan(0);
+  });
+
   it("muestra un estado vacío cuando el carrito no tiene productos", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: emptyCart });
     render(

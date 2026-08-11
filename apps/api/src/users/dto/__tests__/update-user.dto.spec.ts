@@ -1,4 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { UpdateUserDto } from '../update-user.dto';
 
 describe('UpdateUserDto with the global ValidationPipe', () => {
@@ -40,5 +42,58 @@ describe('UpdateUserDto with the global ValidationPipe', () => {
       email: 'new@example.com',
       password: 'longenough',
     });
+  });
+});
+
+describe('UpdateUserDto validation with explicit null vs omitted (undefined) fields', () => {
+  it('rejects an explicit null name with a validation error', async () => {
+    const dto = plainToInstance(UpdateUserDto, { name: null });
+
+    const errors = await validate(dto);
+
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some((error) => error.property === 'name')).toBe(true);
+  });
+
+  it('allows an omitted (undefined) name with no validation errors', async () => {
+    const dto = plainToInstance(UpdateUserDto, {});
+
+    const errors = await validate(dto);
+
+    expect(errors).toEqual([]);
+  });
+
+  it('rejects an explicit null email with a validation error', async () => {
+    const dto = plainToInstance(UpdateUserDto, { email: null });
+
+    const errors = await validate(dto);
+
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some((error) => error.property === 'email')).toBe(true);
+  });
+
+  it('allows an omitted (undefined) email with no validation errors', async () => {
+    const dto = plainToInstance(UpdateUserDto, {});
+
+    const errors = await validate(dto);
+
+    expect(errors).toEqual([]);
+  });
+
+  it('rejects an explicit null password with a validation error', async () => {
+    const dto = plainToInstance(UpdateUserDto, { password: null });
+
+    const errors = await validate(dto);
+
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some((error) => error.property === 'password')).toBe(true);
+  });
+
+  it('allows an omitted (undefined) password with no validation errors', async () => {
+    const dto = plainToInstance(UpdateUserDto, {});
+
+    const errors = await validate(dto);
+
+    expect(errors).toEqual([]);
   });
 });

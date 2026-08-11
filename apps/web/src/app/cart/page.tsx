@@ -46,7 +46,7 @@ export default function CartPage() {
     country: "",
   });
 
-  const { data, isLoading, isError, refetch } = useQuery<Cart>({
+  const { data, isLoading, isLoadingError, isRefetchError, refetch } = useQuery<Cart>({
     queryKey: ["cart"],
     queryFn: async () => {
       const response = await api.get<Cart>("/cart");
@@ -137,7 +137,7 @@ export default function CartPage() {
     );
   }
 
-  if (isError) {
+  if (isLoadingError) {
     return (
       <PageContainer size="narrow">
         <EmptyState
@@ -157,6 +157,18 @@ export default function CartPage() {
 
   return (
     <PageContainer size="default">
+      {isRefetchError && (
+        <p
+          role="alert"
+          className="mb-4 flex items-center justify-between gap-3 rounded-md border border-danger/30 bg-danger/10 px-4 py-2 text-sm text-danger"
+        >
+          <span>No pudimos actualizar tu carrito.</span>
+          <Button variant="ghost" onClick={() => refetch()}>
+            Reintentar
+          </Button>
+        </p>
+      )}
+
       <SectionHeader
         title="Tu carrito"
         description="Revisa tus productos antes de pagar."

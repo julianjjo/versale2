@@ -15,8 +15,10 @@ export class CartService {
   ) {}
 
   async getCart(userId: string) {
-    let cart = await this.prisma.client.cart.findUnique({
+    return this.prisma.client.cart.upsert({
       where: { userId },
+      update: {},
+      create: { userId },
       include: {
         items: {
           include: {
@@ -27,23 +29,6 @@ export class CartService {
         },
       },
     });
-
-    if (!cart) {
-      cart = await this.prisma.client.cart.create({
-        data: { userId },
-        include: {
-          items: {
-            include: {
-              product: {
-                include: { seller: { select: { id: true, name: true } } },
-              },
-            },
-          },
-        },
-      });
-    }
-
-    return cart;
   }
 
   async addItem(userId: string, productId: string, quantity: number) {
@@ -55,7 +40,7 @@ export class CartService {
 
     const cart = await this.getCart(userId);
 
-    const product = await this.productsService.findOne(productId);
+    const product = await this.productsService.findRaw(productId);
     if (!product.isApproved) {
       throw new BadRequestException(
         'El producto no está aprobado para la venta',
