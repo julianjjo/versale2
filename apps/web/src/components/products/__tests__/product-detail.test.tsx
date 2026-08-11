@@ -212,4 +212,38 @@ describe("ProductDetail", () => {
       });
     });
   });
+
+  it("navega la calificación con el teclado (roving tabindex)", async () => {
+    authState.user = { id: "u2", email: "u2@b.c", name: "Charlie", role: "USER" };
+    vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    });
+
+    const stars = screen.getAllByRole("radio");
+    expect(stars).toHaveLength(5);
+    // Default rating is 5: only the last star is a tab stop, the rest are not.
+    expect(stars[4]).toHaveAttribute("tabindex", "0");
+    expect(stars[0]).toHaveAttribute("tabindex", "-1");
+
+    stars[4].focus();
+    await user.keyboard("{ArrowLeft}");
+    expect(stars[3]).toHaveFocus();
+    expect(stars[3]).toHaveAttribute("aria-checked", "true");
+
+    await user.keyboard("{Home}");
+    expect(stars[0]).toHaveFocus();
+    expect(stars[0]).toHaveAttribute("aria-checked", "true");
+
+    await user.keyboard("{End}");
+    expect(stars[4]).toHaveFocus();
+    expect(stars[4]).toHaveAttribute("aria-checked", "true");
+  });
 });

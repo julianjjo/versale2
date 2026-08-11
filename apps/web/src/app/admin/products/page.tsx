@@ -84,14 +84,16 @@ export default function AdminProductsPage() {
         <EmptyState title="Aún no hay publicaciones" />
       ) : (
         <div className="space-y-3">
-          {products.map((product) => (
+          {products.map((product, index) => (
             <Card key={product.id}>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-4">
                 <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
                   {product.images?.[0] ? (
                     <img
                       src={product.images[0]}
                       alt={product.title}
+                      loading={index === 0 ? undefined : "lazy"}
+                      decoding="async"
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -117,7 +119,7 @@ export default function AdminProductsPage() {
                     {CONDITION_LABELS[product.condition] ?? product.condition}
                   </p>
                 </div>
-                <div className="flex flex-shrink-0 items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {product.isApproved ? (
                     <Badge variant="success">Aprobado</Badge>
                   ) : (

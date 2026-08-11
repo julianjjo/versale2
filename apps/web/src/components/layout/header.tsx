@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui";
 
@@ -10,8 +10,13 @@ export function Header() {
   const router = useRouter();
   const { user, isLoading, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const menuPanelRef = useRef<HTMLDivElement>(null);
 
-  const closeMenu = () => setIsMenuOpen(false);
+  const closeMenu = () => {
+    setIsMenuOpen(false);
+    menuTriggerRef.current?.focus();
+  };
   const handleLogout = () => {
     closeMenu();
     logout();
@@ -37,6 +42,33 @@ export function Header() {
     return () => {
       document.body.style.overflow = "";
     };
+  }, [isMenuOpen]);
+
+  // Move focus into the panel on open and trap Tab within it, so a
+  // keyboard user can't Tab past the open dialog into the obscured page.
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const panel = menuPanelRef.current;
+    if (!panel) return;
+    const focusable = panel.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled])',
+    );
+    focusable[0]?.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab" || focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    panel.addEventListener("keydown", onKeyDown);
+    return () => panel.removeEventListener("keydown", onKeyDown);
   }, [isMenuOpen]);
 
   return (
@@ -68,7 +100,7 @@ export function Header() {
           {user?.role === "ADMIN" && (
             <Link
               href="/admin"
-              className="rounded-full border border-terracotta/40 bg-terracotta/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-terracotta transition-colors hover:bg-terracotta/20"
+              className="rounded-full border border-terracotta/40 bg-terracotta/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-terracotta-deep transition-colors hover:bg-terracotta/20"
             >
               Admin
             </Link>
@@ -128,19 +160,20 @@ export function Header() {
             <Link
               href="/cart"
               aria-label="Carrito"
-              className="rounded-full p-2 text-text-primary transition-colors hover:bg-surface-muted"
+              className="rounded-full p-3 text-text-primary transition-colors hover:bg-surface-muted"
             >
               <CartIcon />
             </Link>
           )}
           <button
+            ref={menuTriggerRef}
             type="button"
             onClick={() => setIsMenuOpen((v) => !v)}
             aria-label={isMenuOpen ? "Cerrar menú" : "Abrir menú"}
             data-testid="mobile-menu-trigger"
             aria-expanded={isMenuOpen}
             aria-controls="mobile-menu"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border text-text-primary transition-colors hover:bg-surface-muted"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border text-text-primary transition-colors hover:bg-surface-muted"
           >
             {isMenuOpen ? <CloseIcon /> : <MenuIcon />}
           </button>
@@ -157,6 +190,7 @@ export function Header() {
             className="fixed inset-0 z-30 bg-ink/30 backdrop-blur-sm sm:hidden"
           />
           <div
+            ref={menuPanelRef}
             id="mobile-menu"
             role="dialog"
             aria-modal="true"
@@ -246,12 +280,12 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
   return (
     <Link
       href={href}
-      className="group relative px-1 py-1 text-sm font-medium text-text-primary transition-opacity hover:opacity-60"
+      className="group relative px-1 py-1 text-sm font-medium text-text-primary transition-opacity hover:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
     >
       {children}
       <span
         aria-hidden
-        className="absolute bottom-0 left-0 h-px w-0 bg-text-primary transition-all duration-300 group-hover:w-full"
+        className="absolute bottom-0 left-0 h-px w-full origin-left scale-x-0 bg-text-primary transition-transform duration-300 group-hover:scale-x-100"
       />
     </Link>
   );
@@ -268,7 +302,7 @@ function IconButton({
     <button
       type="button"
       aria-label={ariaLabel}
-      className="inline-flex h-10 w-10 items-center justify-center rounded-full text-text-primary transition-colors hover:bg-surface-muted"
+      className="inline-flex h-10 w-10 items-center justify-center rounded-full text-text-primary transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
     >
       {children}
     </button>
@@ -288,7 +322,7 @@ function MobileLink({
     <Link
       href={href}
       onClick={onClick}
-      className="rounded-md px-3 py-3 text-base font-medium text-text-primary transition-colors hover:bg-surface-muted"
+      className="rounded-md px-3 py-3 text-base font-medium text-text-primary transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
     >
       {children}
     </Link>

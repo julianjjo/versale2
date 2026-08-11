@@ -10,16 +10,19 @@
   --color-paper-3: #e8e0d2;
   --color-muted: #7a6a55;
   --color-muted-2: #5a5045;
-  --color-muted-3: #a09a90;
+  --color-muted-3: #8f887c;
   --color-terracotta: #c8623a;
   --color-terracotta-deep: #a04d2c;
+  --color-terracotta-light: #d67348;
   --color-line: rgba(26, 26, 26, 0.1);
   --color-line-2: rgba(26, 26, 26, 0.15);
   --color-line-3: rgba(246, 243, 238, 0.1);
   --color-line-4: rgba(246, 243, 238, 0.15);
-  --color-success: #4a8a4a;
-  --color-danger: #dc2626;
-  --color-warning: #d97706;
+  /* Darkened from the reference palette (#4a8a4a/#dc2626/#d97706) so status
+     text clears 4.5:1 on --color-paper; backgrounds keep the same hue. */
+  --color-success: #166534;
+  --color-danger: #b91c1c;
+  --color-warning: #9a3412;
   --color-info: #2563eb;
 
   /* Backwards-compatible aliases that the rest of the app already uses. */
@@ -51,6 +54,7 @@
   --color-muted-3: var(--color-muted-3);
   --color-terracotta: var(--color-terracotta);
   --color-terracotta-deep: var(--color-terracotta-deep);
+  --color-terracotta-light: var(--color-terracotta-light);
   --color-line: var(--color-line);
   --color-line-2: var(--color-line-2);
   --color-line-3: var(--color-line-3);
@@ -149,10 +153,10 @@ h3 em,
   }
 
   .heading-card {
-    font-family: var(--font-sans);
+    font-family: var(--font-display);
     font-size: 1rem;
     line-height: 1.4;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   .text-eyebrow {
@@ -171,7 +175,9 @@ h3 em,
   }
 
   .text-eyebrow-terracotta {
-    color: var(--color-terracotta);
+    /* Lighter than the base accent: this class only ever sits on the dark
+       ink surface (StorySection), where plain terracotta fails 4.5:1. */
+    color: var(--color-terracotta-light);
   }
 
   .strike {
@@ -306,10 +312,26 @@ h3 em,
     }
   }
 
-  .focus-ring {
-    outline: 2px solid transparent;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-text-primary);
+  .pulse-dot {
+    animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+  @keyframes ping {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    75%,
+    100% {
+      transform: scale(1.8);
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-track,
+    .pulse-dot {
+      animation: none;
+    }
   }
 }
 

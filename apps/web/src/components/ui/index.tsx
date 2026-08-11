@@ -65,6 +65,9 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   hint?: string;
+  /** Classes for the outer wrapper (e.g. grid/flex placement like col-span-2).
+   *  `className` stays scoped to the control itself (width, height, etc). */
+  wrapperClassName?: string;
 }
 
 export function Input({
@@ -73,12 +76,19 @@ export function Input({
   hint,
   id,
   className = "",
+  wrapperClassName = "",
+  "aria-describedby": ariaDescribedBy,
   ...props
 }: InputProps) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
+  const hintId = hint ? `${fieldId}-hint` : undefined;
+  const errorId = error ? `${fieldId}-error` : undefined;
+  const describedBy =
+    [ariaDescribedBy, error ? errorId : hintId].filter(Boolean).join(" ") ||
+    undefined;
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={`flex flex-col gap-1.5 ${wrapperClassName}`}>
       {label && (
         <label
           htmlFor={fieldId}
@@ -89,14 +99,18 @@ export function Input({
       )}
       <input
         id={fieldId}
+        aria-describedby={describedBy}
+        aria-invalid={error ? true : undefined}
         className={`h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:border-text-primary focus:outline-none focus:ring-2 focus:ring-text-primary/20 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:opacity-60 ${className}`}
         {...props}
       />
       {hint && !error && (
-        <p className="text-xs text-text-muted">{hint}</p>
+        <p id={hintId} className="text-xs text-text-muted">
+          {hint}
+        </p>
       )}
       {error && (
-        <p className="text-xs font-medium text-danger" role="alert">
+        <p id={errorId} className="text-xs font-medium text-danger" role="alert">
           {error}
         </p>
       )}
@@ -108,6 +122,7 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
   error?: string;
   hint?: string;
+  wrapperClassName?: string;
 }
 
 export function Textarea({
@@ -116,12 +131,19 @@ export function Textarea({
   hint,
   id,
   className = "",
+  wrapperClassName = "",
+  "aria-describedby": ariaDescribedBy,
   ...props
 }: TextareaProps) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
+  const hintId = hint ? `${fieldId}-hint` : undefined;
+  const errorId = error ? `${fieldId}-error` : undefined;
+  const describedBy =
+    [ariaDescribedBy, error ? errorId : hintId].filter(Boolean).join(" ") ||
+    undefined;
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={`flex flex-col gap-1.5 ${wrapperClassName}`}>
       {label && (
         <label
           htmlFor={fieldId}
@@ -132,14 +154,18 @@ export function Textarea({
       )}
       <textarea
         id={fieldId}
+        aria-describedby={describedBy}
+        aria-invalid={error ? true : undefined}
         className={`min-h-20 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:border-text-primary focus:outline-none focus:ring-2 focus:ring-text-primary/20 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:opacity-60 ${className}`}
         {...props}
       />
       {hint && !error && (
-        <p className="text-xs text-text-muted">{hint}</p>
+        <p id={hintId} className="text-xs text-text-muted">
+          {hint}
+        </p>
       )}
       {error && (
-        <p className="text-xs font-medium text-danger" role="alert">
+        <p id={errorId} className="text-xs font-medium text-danger" role="alert">
           {error}
         </p>
       )}
@@ -151,6 +177,7 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
   hint?: string;
+  wrapperClassName?: string;
   children: ReactNode;
 }
 
@@ -160,13 +187,20 @@ export function Select({
   hint,
   id,
   className = "",
+  wrapperClassName = "",
+  "aria-describedby": ariaDescribedBy,
   children,
   ...props
 }: SelectProps) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
+  const hintId = hint ? `${fieldId}-hint` : undefined;
+  const errorId = error ? `${fieldId}-error` : undefined;
+  const describedBy =
+    [ariaDescribedBy, error ? errorId : hintId].filter(Boolean).join(" ") ||
+    undefined;
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={`flex flex-col gap-1.5 ${wrapperClassName}`}>
       {label && (
         <label
           htmlFor={fieldId}
@@ -177,16 +211,20 @@ export function Select({
       )}
       <select
         id={fieldId}
+        aria-describedby={describedBy}
+        aria-invalid={error ? true : undefined}
         className={`h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-text-primary transition-colors focus:border-text-primary focus:outline-none focus:ring-2 focus:ring-text-primary/20 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:opacity-60 ${className}`}
         {...props}
       >
         {children}
       </select>
       {hint && !error && (
-        <p className="text-xs text-text-muted">{hint}</p>
+        <p id={hintId} className="text-xs text-text-muted">
+          {hint}
+        </p>
       )}
       {error && (
-        <p className="text-xs font-medium text-danger" role="alert">
+        <p id={errorId} className="text-xs font-medium text-danger" role="alert">
           {error}
         </p>
       )}
@@ -367,20 +405,25 @@ export function Price({
 export function StarRating({
   value,
   size = "sm",
+  className = "text-warning",
 }: {
   value: number;
   size?: "sm" | "md";
+  className?: string;
 }) {
   const rounded = Math.round(value);
   return (
     <span
-      className={`inline-flex items-center gap-0.5 text-warning ${
+      role="img"
+      aria-label={`${value.toFixed(1)} de 5 estrellas`}
+      className={`inline-flex items-center gap-0.5 ${className} ${
         size === "md" ? "text-base" : "text-sm"
       }`}
-      aria-label={`${value.toFixed(1)} de 5 estrellas`}
     >
-      {"★".repeat(rounded)}
-      <span className="text-border">{"★".repeat(5 - rounded)}</span>
+      <span aria-hidden="true">{"★".repeat(rounded)}</span>
+      <span aria-hidden="true" className="text-border">
+        {"★".repeat(5 - rounded)}
+      </span>
     </span>
   );
 }
