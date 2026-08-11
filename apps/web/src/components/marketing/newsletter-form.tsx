@@ -1,14 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function NewsletterForm() {
   const [submitted, setSubmitted] = useState(false);
+  const confirmationRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    if (submitted) {
+      confirmationRef.current?.focus();
+    }
+  }, [submitted]);
 
   return (
     <div aria-live="polite">
       {submitted ? (
-        <p className="mx-auto max-w-[480px] rounded-full bg-paper/[0.15] px-6 py-3.5 text-center text-sm font-medium text-paper">
+        <p
+          ref={confirmationRef}
+          tabIndex={-1}
+          className="mx-auto max-w-[480px] rounded-full bg-paper/[0.15] px-6 py-3.5 text-center text-sm font-medium text-paper focus:outline-none"
+        >
           ¡Gracias por suscribirte! Revisa tu correo para confirmar. 🎉
         </p>
       ) : (

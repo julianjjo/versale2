@@ -95,7 +95,7 @@ export default function OrderDetailPage() {
       <Card>
         <h2 className="heading-card mb-3">Productos</h2>
         <div className="space-y-3">
-          {data.items.map((item) => (
+          {data.items.map((item, index) => (
             <div
               key={item.id}
               className="flex items-start gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
@@ -105,7 +105,7 @@ export default function OrderDetailPage() {
                   <img
                     src={item.product.images[0]}
                     alt={item.product.title}
-                    loading="lazy"
+                    loading={index === 0 ? undefined : "lazy"}
                     decoding="async"
                     className="h-full w-full object-cover"
                   />

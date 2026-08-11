@@ -414,13 +414,16 @@ export function StarRating({
   const rounded = Math.round(value);
   return (
     <span
+      role="img"
+      aria-label={`${value.toFixed(1)} de 5 estrellas`}
       className={`inline-flex items-center gap-0.5 ${className} ${
         size === "md" ? "text-base" : "text-sm"
       }`}
-      aria-label={`${value.toFixed(1)} de 5 estrellas`}
     >
-      {"★".repeat(rounded)}
-      <span className="text-border">{"★".repeat(5 - rounded)}</span>
+      <span aria-hidden="true">{"★".repeat(rounded)}</span>
+      <span aria-hidden="true" className="text-border">
+        {"★".repeat(5 - rounded)}
+      </span>
     </span>
   );
 }

@@ -406,7 +406,11 @@ function StepCard({
       </p>
       <span
         className={`mt-5 inline-block text-[11px] font-semibold uppercase tracking-[0.12em] ${
-          ink ? "text-terracotta-light" : "text-terracotta-deep"
+          tone === "ink"
+            ? "text-terracotta-light"
+            : tone === "paper-3"
+              ? "text-ink"
+              : "text-terracotta-deep"
         }`}
       >
         {tag}
