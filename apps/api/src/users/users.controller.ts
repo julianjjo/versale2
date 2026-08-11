@@ -5,6 +5,7 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
   UseGuards,
   Req,
 } from '@nestjs/common';
@@ -39,8 +40,8 @@ export class UsersController {
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Get()
-  async findAll() {
-    return this.usersService.findAll();
+  async findAll(@Query() query: any) {
+    return this.usersService.findAll(query);
   }
 
   @UseGuards(RolesGuard)

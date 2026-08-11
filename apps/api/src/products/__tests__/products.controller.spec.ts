@@ -19,6 +19,7 @@ describe('ProductsController', () => {
     remove: jest.fn(),
     findAllForAdmin: jest.fn(),
     approveProduct: jest.fn(),
+    rejectProduct: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -290,6 +291,44 @@ describe('ProductsController', () => {
       const result = await controller.approveProduct(productId);
 
       expect(productsService.approveProduct).toHaveBeenCalledWith(productId);
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('rejectProduct', () => {
+    it('should call productsService.rejectProduct with id and reason', async () => {
+      const productId = 'product1';
+      const mockResult = {
+        id: productId,
+        isApproved: false,
+        rejectionReason: 'Descripción incompleta',
+      };
+
+      mockProductsService.rejectProduct.mockResolvedValue(mockResult);
+
+      const result = await controller.rejectProduct(productId, {
+        reason: 'Descripción incompleta',
+      });
+
+      expect(productsService.rejectProduct).toHaveBeenCalledWith(
+        productId,
+        'Descripción incompleta',
+      );
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should call productsService.rejectProduct with undefined reason when none is given', async () => {
+      const productId = 'product1';
+      const mockResult = { id: productId, isApproved: false };
+
+      mockProductsService.rejectProduct.mockResolvedValue(mockResult);
+
+      const result = await controller.rejectProduct(productId, {});
+
+      expect(productsService.rejectProduct).toHaveBeenCalledWith(
+        productId,
+        undefined,
+      );
       expect(result).toEqual(mockResult);
     });
   });

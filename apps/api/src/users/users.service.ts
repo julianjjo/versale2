@@ -32,8 +32,41 @@ export class UsersService {
     });
   }
 
-  findAll() {
-    return this.prisma.client.user.findMany({ select: PUBLIC_USER_SELECT });
+  async findAll(query: any = {}) {
+    const { search, role, page = 1, limit = 10 } = query;
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: any = {};
+    if (search) {
+      const term = String(search);
+      where.OR = [{ name: { contains: term } }, { email: { contains: term } }];
+    }
+    if (role) {
+      where.role = role;
+    }
+
+    const [users, total] = await Promise.all([
+      this.prisma.client.user.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { createdAt: 'desc' },
+        select: PUBLIC_USER_SELECT,
+      }),
+      this.prisma.client.user.count({ where }),
+    ]);
+
+    return {
+      data: users,
+      meta: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum),
+      },
+    };
   }
 
   async findOne(id: string) {

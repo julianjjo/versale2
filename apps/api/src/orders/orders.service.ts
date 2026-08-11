@@ -119,14 +119,45 @@ export class OrdersService {
     return order;
   }
 
-  async getAllOrders() {
-    return this.prisma.client.order.findMany({
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-        items: { include: { product: true } },
+  async getAllOrders(query: any = {}) {
+    const { search, page = 1, limit = 10 } = query;
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: any = {};
+    if (search) {
+      const term = String(search);
+      where.OR = [
+        { id: { contains: term } },
+        { user: { is: { name: { contains: term } } } },
+        { user: { is: { email: { contains: term } } } },
+      ];
+    }
+
+    const [orders, total] = await Promise.all([
+      this.prisma.client.order.findMany({
+        where,
+        skip,
+        take: limitNum,
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+          items: { include: { product: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.client.order.count({ where }),
+    ]);
+
+    return {
+      data: orders,
+      meta: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum),
       },
-      orderBy: { createdAt: 'desc' },
-    });
+    };
   }
 
   async updateOrderStatus(id: string, status: OrderStatus) {

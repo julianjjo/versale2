@@ -16,6 +16,7 @@ describe('UsersService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+        count: jest.fn(),
       },
     },
   };
@@ -72,7 +73,7 @@ describe('UsersService', () => {
   });
 
   describe('findAll', () => {
-    it('should return all users with selected fields', async () => {
+    it('should return paginated users with no filters', async () => {
       const mockUsers = [
         {
           id: 'user1',
@@ -86,10 +87,15 @@ describe('UsersService', () => {
       ];
 
       mockPrismaService.client.user.findMany.mockResolvedValue(mockUsers);
+      mockPrismaService.client.user.count.mockResolvedValue(1);
 
       const result = await service.findAll();
 
       expect(mockPrismaService.client.user.findMany).toHaveBeenCalledWith({
+        where: {},
+        skip: 0,
+        take: 10,
+        orderBy: { createdAt: 'desc' },
         select: {
           id: true,
           email: true,
@@ -100,7 +106,49 @@ describe('UsersService', () => {
           updatedAt: true,
         },
       });
-      expect(result).toEqual(mockUsers);
+      expect(mockPrismaService.client.user.count).toHaveBeenCalledWith({
+        where: {},
+      });
+      expect(result).toEqual({
+        data: mockUsers,
+        meta: { total: 1, page: 1, limit: 10, pages: 1 },
+      });
+    });
+
+    it('should filter by search term across name and email', async () => {
+      mockPrismaService.client.user.findMany.mockResolvedValue([]);
+      mockPrismaService.client.user.count.mockResolvedValue(0);
+
+      await service.findAll({ search: 'ana', page: '2', limit: '5' });
+
+      expect(mockPrismaService.client.user.findMany).toHaveBeenCalledWith({
+        where: {
+          OR: [{ name: { contains: 'ana' } }, { email: { contains: 'ana' } }],
+        },
+        skip: 5,
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          isVerified: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+    });
+
+    it('should filter by role', async () => {
+      mockPrismaService.client.user.findMany.mockResolvedValue([]);
+      mockPrismaService.client.user.count.mockResolvedValue(0);
+
+      await service.findAll({ role: 'ADMIN' });
+
+      expect(mockPrismaService.client.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { role: 'ADMIN' } }),
+      );
     });
   });
 

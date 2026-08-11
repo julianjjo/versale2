@@ -651,7 +651,7 @@ describe('ProductsService', () => {
   });
 
   describe('findAllForAdmin', () => {
-    it('should return paginated products for admin (including not approved)', async () => {
+    it('should return paginated products for admin (including not approved) with no status filter', async () => {
       const query = {
         page: '2',
         limit: '5',
@@ -682,6 +682,7 @@ describe('ProductsService', () => {
       const result = await service.findAllForAdmin(query);
 
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith({
+        where: {},
         skip: 5,
         take: 5,
         orderBy: { createdAt: 'desc' },
@@ -690,7 +691,9 @@ describe('ProductsService', () => {
           _count: { select: { reviews: true } },
         },
       });
-      expect(mockPrismaService.client.product.count).toHaveBeenCalledWith();
+      expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
+        where: {},
+      });
       expect(result).toEqual({
         data: mockProducts,
         meta: {
@@ -701,10 +704,50 @@ describe('ProductsService', () => {
         },
       });
     });
+
+    it('should filter to pending products (not approved, not rejected)', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAllForAdmin({ status: 'pending' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { isApproved: false, rejectedAt: null },
+        }),
+      );
+      expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
+        where: { isApproved: false, rejectedAt: null },
+      });
+    });
+
+    it('should filter to approved products', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAllForAdmin({ status: 'approved' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { isApproved: true } }),
+      );
+    });
+
+    it('should filter to rejected products (not approved, rejectedAt set)', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAllForAdmin({ status: 'rejected' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { isApproved: false, rejectedAt: { not: null } },
+        }),
+      );
+    });
   });
 
   describe('approveProduct', () => {
-    it('should approve a product', async () => {
+    it('should approve a product and clear any prior rejection', async () => {
       const productId = 'product1';
       const mockProduct = {
         id: productId,
@@ -717,9 +760,52 @@ describe('ProductsService', () => {
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
         where: { id: productId },
-        data: { isApproved: true },
+        data: { isApproved: true, rejectedAt: null, rejectionReason: null },
       });
       expect(result).toEqual(mockProduct);
+    });
+  });
+
+  describe('rejectProduct', () => {
+    it('should reject a product with a reason', async () => {
+      const productId = 'product1';
+      const mockProduct = {
+        id: productId,
+        isApproved: false,
+        rejectionReason: 'Fotos borrosas',
+      };
+
+      mockPrismaService.client.product.update.mockResolvedValue(mockProduct);
+
+      const result = await service.rejectProduct(productId, 'Fotos borrosas');
+
+      expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
+        where: { id: productId },
+        data: {
+          isApproved: false,
+          rejectedAt: expect.any(Date),
+          rejectionReason: 'Fotos borrosas',
+        },
+      });
+      expect(result).toEqual(mockProduct);
+    });
+
+    it('should reject a product without a reason', async () => {
+      const productId = 'product1';
+      mockPrismaService.client.product.update.mockResolvedValue({
+        id: productId,
+      });
+
+      await service.rejectProduct(productId);
+
+      expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
+        where: { id: productId },
+        data: {
+          isApproved: false,
+          rejectedAt: expect.any(Date),
+          rejectionReason: null,
+        },
+      });
     });
   });
 });

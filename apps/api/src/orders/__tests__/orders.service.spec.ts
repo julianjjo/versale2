@@ -36,6 +36,7 @@ describe('OrdersService', () => {
         findMany: jest.fn(),
         findUnique: jest.fn(),
         update: jest.fn(),
+        count: jest.fn(),
       },
       cartItem: {
         deleteMany: jest.fn(),
@@ -415,24 +416,58 @@ describe('OrdersService', () => {
   });
 
   describe('getAllOrders', () => {
-    it('should return all orders for admin', async () => {
+    it('should return paginated orders for admin with no search filter', async () => {
       const mockOrders = [
         { id: 'order1', userId: 'user1', totalAmount: 100.0 },
         { id: 'order2', userId: 'user2', totalAmount: 200.0 },
       ];
 
       mockPrismaService.client.order.findMany.mockResolvedValue(mockOrders);
+      mockPrismaService.client.order.count.mockResolvedValue(2);
 
       const result = await service.getAllOrders();
 
       expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
+        where: {},
+        skip: 0,
+        take: 10,
         include: {
           user: { select: { id: true, name: true, email: true } },
           items: { include: { product: true } },
         },
         orderBy: { createdAt: 'desc' },
       });
-      expect(result).toEqual(mockOrders);
+      expect(mockPrismaService.client.order.count).toHaveBeenCalledWith({
+        where: {},
+      });
+      expect(result).toEqual({
+        data: mockOrders,
+        meta: { total: 2, page: 1, limit: 10, pages: 1 },
+      });
+    });
+
+    it('should filter by buyer name, buyer email, or order id when search is provided', async () => {
+      mockPrismaService.client.order.findMany.mockResolvedValue([]);
+      mockPrismaService.client.order.count.mockResolvedValue(0);
+
+      await service.getAllOrders({ search: 'ana@example.com', page: '2', limit: '5' });
+
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
+        where: {
+          OR: [
+            { id: { contains: 'ana@example.com' } },
+            { user: { is: { name: { contains: 'ana@example.com' } } } },
+            { user: { is: { email: { contains: 'ana@example.com' } } } },
+          ],
+        },
+        skip: 5,
+        take: 5,
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+          items: { include: { product: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
     });
   });
 
