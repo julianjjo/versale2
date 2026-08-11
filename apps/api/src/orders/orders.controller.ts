@@ -37,7 +37,7 @@ export class OrdersController {
   @Get(':id')
   async getOrderById(@Req() req: AuthRequest, @Param('id') id: string) {
     const userId = req.user.id;
-    return this.ordersService.getOrderById(id, userId);
+    return this.ordersService.getOrderById(id, userId, req.user.role as Role);
   }
 
   @UseGuards(RolesGuard)

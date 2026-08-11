@@ -70,6 +70,8 @@ model CartItem {
   quantity      Int
   // denormalized fields for price snapshot (optional)
   priceAtAdd    Float
+
+  @@unique([cartId, productId])
 }
 
 model Order {

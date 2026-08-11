@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import type { Request } from 'express';
 import { ProductsController } from '../products.controller';
 import { ProductsService } from '../products.service';
 import { CreateProductDto } from '../dto/create-product.dto';
@@ -51,7 +52,7 @@ describe('ProductsController', () => {
   });
 
   describe('findOne', () => {
-    it('should call productsService.findOne with id', async () => {
+    it('should call productsService.findOne with id and requester from request user', async () => {
       const productId = 'product1';
       const mockProduct = {
         id: productId,
@@ -60,11 +61,37 @@ describe('ProductsController', () => {
         price: 10.0,
       };
 
+      const mockReq = {
+        user: { id: 'user1', role: 'USER' },
+      } as unknown as Request;
+
       mockProductsService.findOne.mockResolvedValue(mockProduct);
 
-      const result = await controller.findOne(productId);
+      const result = await controller.findOne(productId, mockReq);
 
-      expect(productsService.findOne).toHaveBeenCalledWith(productId);
+      expect(productsService.findOne).toHaveBeenCalledWith(productId, {
+        id: 'user1',
+        role: 'USER',
+      });
+      expect(result).toEqual(mockProduct);
+    });
+
+    it('should call productsService.findOne with null requester when no user on request', async () => {
+      const productId = 'product1';
+      const mockProduct = {
+        id: productId,
+        title: 'Test Product',
+        description: 'A test product',
+        price: 10.0,
+      };
+
+      const mockReq = {} as unknown as Request;
+
+      mockProductsService.findOne.mockResolvedValue(mockProduct);
+
+      const result = await controller.findOne(productId, mockReq);
+
+      expect(productsService.findOne).toHaveBeenCalledWith(productId, null);
       expect(result).toEqual(mockProduct);
     });
   });
@@ -104,7 +131,7 @@ describe('ProductsController', () => {
   });
 
   describe('update', () => {
-    it('should call productsService.update with id, updateProductDto and userId from request', async () => {
+    it('should call productsService.update with id, updateProductDto, userId and role from request', async () => {
       const userId = 'user1';
       const productId = 'product1';
       const updateProductDto: UpdateProductDto = {
@@ -133,13 +160,47 @@ describe('ProductsController', () => {
         productId,
         updateProductDto,
         userId,
+        'USER',
+      );
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should call productsService.update with the ADMIN role when an admin makes the request', async () => {
+      const userId = 'admin1';
+      const productId = 'product1';
+      const updateProductDto: UpdateProductDto = {
+        title: 'Updated Product',
+      };
+
+      const mockReq = {
+        user: { id: userId, email: 'admin@example.com', role: 'ADMIN' },
+      } as AuthRequest;
+
+      const mockResult = {
+        id: productId,
+        ...updateProductDto,
+      };
+
+      mockProductsService.update.mockResolvedValue(mockResult);
+
+      const result = await controller.update(
+        productId,
+        updateProductDto,
+        mockReq,
+      );
+
+      expect(productsService.update).toHaveBeenCalledWith(
+        productId,
+        updateProductDto,
+        userId,
+        'ADMIN',
       );
       expect(result).toEqual(mockResult);
     });
   });
 
   describe('remove', () => {
-    it('should call productsService.remove with id and userId from request', async () => {
+    it('should call productsService.remove with id, userId and role from request', async () => {
       const userId = 'user1';
       const productId = 'product1';
       const mockReq = {
@@ -154,7 +215,34 @@ describe('ProductsController', () => {
 
       const result = await controller.remove(productId, mockReq);
 
-      expect(productsService.remove).toHaveBeenCalledWith(productId, userId);
+      expect(productsService.remove).toHaveBeenCalledWith(
+        productId,
+        userId,
+        'USER',
+      );
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should call productsService.remove with the ADMIN role when an admin makes the request', async () => {
+      const userId = 'admin1';
+      const productId = 'product1';
+      const mockReq = {
+        user: { id: userId, email: 'admin@example.com', role: 'ADMIN' },
+      } as AuthRequest;
+
+      const mockResult = {
+        id: productId,
+      };
+
+      mockProductsService.remove.mockResolvedValue(mockResult);
+
+      const result = await controller.remove(productId, mockReq);
+
+      expect(productsService.remove).toHaveBeenCalledWith(
+        productId,
+        userId,
+        'ADMIN',
+      );
       expect(result).toEqual(mockResult);
     });
   });
