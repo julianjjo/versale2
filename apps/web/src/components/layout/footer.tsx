@@ -61,16 +61,28 @@ export function Footer() {
         <div className="flex flex-col items-start justify-between gap-4 border-t border-line-3 pt-8 text-xs opacity-60 sm:flex-row sm:items-center">
           <div>© {new Date().getFullYear()} Versale · Moda circular con ❤️</div>
           <div className="flex flex-wrap gap-x-4 gap-y-1">
-            <Link href="/login" className="transition-opacity hover:opacity-100">
+            <Link
+              href="/login"
+              className="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
+            >
               Privacidad
             </Link>
-            <Link href="/login" className="transition-opacity hover:opacity-100">
+            <Link
+              href="/login"
+              className="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
+            >
               Cookies
             </Link>
-            <Link href="/login" className="transition-opacity hover:opacity-100">
+            <Link
+              href="/login"
+              className="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
+            >
               Términos
             </Link>
-            <Link href="/login" className="transition-opacity hover:opacity-100">
+            <Link
+              href="/login"
+              className="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
+            >
               Envíos
             </Link>
           </div>
@@ -97,7 +109,7 @@ function FooterColumn({
           <li key={l.label}>
             <Link
               href={l.href}
-              className="text-sm text-paper/85 transition-colors hover:text-terracotta"
+              className="rounded-sm text-sm text-paper/85 transition-colors hover:text-terracotta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
             >
               {l.label}
             </Link>
@@ -119,7 +131,7 @@ function SocialLink({
     <a
       href="#"
       aria-label={label}
-      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-paper/20 text-paper transition-colors hover:border-terracotta hover:bg-terracotta"
+      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-paper/20 text-paper transition-colors hover:border-terracotta hover:bg-terracotta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
     >
       {children}
     </a>
@@ -135,6 +147,7 @@ function InstagramIcon() {
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
+      aria-hidden
     >
       <rect x="2" y="2" width="20" height="20" rx="5" />
       <circle cx="12" cy="12" r="4" />
@@ -145,7 +158,7 @@ function InstagramIcon() {
 
 function TikTokIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M19.5 6.5a5.5 5.5 0 0 1-3.5-1.3V16a5 5 0 1 1-5-5v3a2 2 0 1 0 2 2V2h3a5 5 0 0 0 3.5 4.5z" />
     </svg>
   );
@@ -153,7 +166,7 @@ function TikTokIcon() {
 
 function PinterestIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M12 2a10 10 0 0 0-3.6 19.3c-.1-.8-.2-2 0-2.9l1.3-5.5s-.3-.7-.3-1.6c0-1.5.9-2.6 2-2.6.9 0 1.4.7 1.4 1.5 0 .9-.6 2.3-.9 3.6-.3 1.1.5 2 1.6 2 1.9 0 3.4-2 3.4-5 0-2.6-1.9-4.4-4.5-4.4-3.1 0-4.9 2.3-4.9 4.7 0 .9.4 1.9.8 2.5.1.1.1.2.1.3l-.3 1.2c-.1.2-.2.3-.4.2-1.5-.7-2.4-2.8-2.4-4.5 0-3.7 2.7-7.1 7.7-7.1 4.1 0 7.2 2.9 7.2 6.8 0 4-2.6 7.3-6.1 7.3-1.2 0-2.3-.6-2.7-1.4l-.7 2.8c-.3 1-1 2.3-1.5 3.1A10 10 0 1 0 12 2z" />
     </svg>
   );
@@ -168,6 +181,7 @@ function MailIcon() {
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
+      aria-hidden
     >
       <rect x="2" y="4" width="20" height="16" rx="2" />
       <path d="m22 7-10 7L2 7" />

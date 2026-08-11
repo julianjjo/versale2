@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ProductsBrowser } from "@/components/products/products-browser";
 import { NewsletterCTA } from "@/components/marketing/newsletter-cta";
+import { StarRating } from "@/components/ui";
 
 const CATEGORIES: { title: string; count: string; span: string }[] = [
   { title: "Vintage 90s", count: "1.2k piezas", span: "lg:col-span-5" },
@@ -37,7 +38,7 @@ const STEPS = [
 
 const TESTIMONIALS = [
   {
-    stars: "★★★★★",
+    stars: 5,
     quote:
       "Vendí en una semana 4 chaquetas que tenía muertas en el armario. Y me pagaron lo justo. Volveré a subir todo lo que no uso.",
     name: "Lucía M.",
@@ -45,7 +46,7 @@ const TESTIMONIALS = [
     avatar: "https://i.pravatar.cc/100?img=47",
   },
   {
-    stars: "★★★★★",
+    stars: 5,
     quote:
       "Encontré una chaqueta de los 90 que llevaba meses buscando. Estaba nueva, llegó en 3 días y me ahorré 80€ vs. vintage online.",
     name: "Andrea P.",
@@ -53,7 +54,7 @@ const TESTIMONIALS = [
     avatar: "https://i.pravatar.cc/100?img=12",
   },
   {
-    stars: "★★★★★",
+    stars: 5,
     quote:
       "El filtro por estado de prenda y la descripción detallada me dan mucha confianza. Ya he hecho 6 pedidos y todos perfectos.",
     name: "Marta R.",
@@ -176,8 +177,7 @@ function Hero() {
             <span className="relative h-2 w-2 rounded-full bg-success">
               <span
                 aria-hidden
-                className="absolute -inset-1 rounded-full border border-success"
-                style={{ animation: "ping 2s ease-out infinite" }}
+                className="pulse-dot absolute -inset-1 rounded-full border border-success"
               />
             </span>
             2.4k personas mirando ahora
@@ -405,7 +405,9 @@ function StepCard({
         {body}
       </p>
       <span
-        className={`mt-5 inline-block text-[11px] font-semibold uppercase tracking-[0.12em] text-terracotta`}
+        className={`mt-5 inline-block text-[11px] font-semibold uppercase tracking-[0.12em] ${
+          ink ? "text-terracotta-light" : "text-terracotta-deep"
+        }`}
       >
         {tag}
       </span>
@@ -465,8 +467,8 @@ function TestimonialsSection() {
               className="flex min-h-[340px] flex-col justify-between rounded-[18px] bg-paper-2 p-8"
             >
               <div>
-                <div className="mb-5 text-[14px] tracking-[2px] text-terracotta">
-                  {t.stars}
+                <div className="mb-5">
+                  <StarRating value={t.stars} className="text-terracotta" />
                 </div>
                 <p className="font-display text-[22px] leading-[1.35] tracking-[-0.01em] text-ink">
                   “{t.quote}”
@@ -478,6 +480,8 @@ function TestimonialsSection() {
                   <img
                     src={t.avatar}
                     alt=""
+                    loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover"
                   />
                 </div>

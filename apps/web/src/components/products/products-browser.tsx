@@ -12,6 +12,7 @@ import {
   Price,
   Input,
   Select,
+  Badge,
 } from "@/components/ui";
 
 export interface ProductFilters {
@@ -96,7 +97,7 @@ export function ProductsBrowser({
             name="search"
             placeholder="Buscar prendas, marcas…"
             defaultValue={filters.search ?? ""}
-            className="sm:col-span-2 lg:col-span-2"
+            wrapperClassName="sm:col-span-2 lg:col-span-2"
             aria-label="Buscar productos"
           />
           <Input
@@ -189,7 +190,6 @@ export function ProductsBrowser({
         >
           <Button
             variant="secondary"
-            size="sm"
             onClick={() =>
               setFilters((f) => ({
                 ...f,
@@ -207,7 +207,7 @@ export function ProductsBrowser({
               onClick={() => setFilters((f) => ({ ...f, page: p }))}
               aria-current={p === data.meta.page ? "page" : undefined}
               aria-label={`Página ${p}`}
-              className={`inline-flex h-8 min-w-8 items-center justify-center rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary ${
+              className={`inline-flex h-11 min-w-11 items-center justify-center rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary ${
                 p === data.meta.page
                   ? "bg-secondary text-text-inverse"
                   : "border border-border bg-surface text-text-primary hover:bg-surface-muted"
@@ -218,7 +218,6 @@ export function ProductsBrowser({
           ))}
           <Button
             variant="secondary"
-            size="sm"
             onClick={() =>
               setFilters((f) => ({
                 ...f,
@@ -255,6 +254,8 @@ export function ProductCard({ product }: { product: Product }) {
             <img
               src={product.images[0]}
               alt={product.title}
+              loading="lazy"
+              decoding="async"
               className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
           ) : (
@@ -263,9 +264,12 @@ export function ProductCard({ product }: { product: Product }) {
             </div>
           )}
           {!product.isApproved && (
-            <span className="absolute left-3 top-3 z-10 rounded-md bg-paper px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-ink">
+            <Badge
+              variant="warning"
+              className="absolute left-3 top-3 z-10 uppercase tracking-[0.1em]"
+            >
               Pendiente
-            </span>
+            </Badge>
           )}
           <button
             type="button"

@@ -163,6 +163,8 @@ export function ProductDetail() {
                   <img
                     src={img}
                     alt={`${data.title} ${idx + 2}`}
+                    loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover"
                   />
                 </div>
@@ -298,14 +300,23 @@ export function ProductDetail() {
           >
             <h3 className="heading-card">Escribe una reseña</h3>
             <div>
-              <label className="text-sm font-medium text-text-primary">
+              <span
+                id="review-rating-label"
+                className="text-sm font-medium text-text-primary"
+              >
                 Calificación
-              </label>
-              <div className="mt-1 flex items-center gap-1">
+              </span>
+              <div
+                role="radiogroup"
+                aria-labelledby="review-rating-label"
+                className="mt-1 flex items-center gap-1"
+              >
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button
                     key={n}
                     type="button"
+                    role="radio"
+                    aria-checked={n === rating}
                     onClick={() => setRating(n)}
                     className={`text-2xl transition-colors ${
                       n <= rating

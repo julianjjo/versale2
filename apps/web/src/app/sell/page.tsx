@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { api, extractApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
@@ -71,7 +70,7 @@ export default function SellPage() {
         <EmptyState
           title="Inicia sesión"
           description="Necesitas una cuenta para publicar productos."
-          action={<Link href="/login">Iniciar sesión</Link>}
+          action={<Button onClick={() => router.push("/login")}>Iniciar sesión</Button>}
         />
       </PageContainer>
     );
@@ -288,16 +287,20 @@ export default function SellPage() {
           />
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-text">
+            <label
+              htmlFor="sell-images"
+              className="block text-sm font-medium text-text-primary"
+            >
               Imágenes (opcional)
             </label>
             <input
+              id="sell-images"
               ref={fileInputRef}
               type="file"
               accept={ACCEPTED_EXTENSIONS}
               multiple
               onChange={(e) => handleFiles(e.target.files)}
-              className="block w-full text-sm text-text file:mr-3 file:rounded-md file:border file:border-border file:bg-surface file:px-3 file:py-2 file:text-sm file:font-medium file:text-text hover:file:bg-surface-muted"
+              className="block w-full text-sm text-text-primary file:mr-3 file:rounded-md file:border file:border-border file:bg-surface file:px-3 file:py-2 file:text-sm file:font-medium file:text-text-primary hover:file:bg-surface-muted"
             />
             <p className="text-xs text-text-muted">
               Hasta {MAX_FILES} imágenes, máximo {MAX_FILE_SIZE_MB}MB cada una.
@@ -305,7 +308,7 @@ export default function SellPage() {
             </p>
             {images.length > 0 && (
               <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {images.map((img) => (
+                {images.map((img, index) => (
                   <li
                     key={img.id}
                     className="relative overflow-hidden rounded-md border border-border"
@@ -313,23 +316,23 @@ export default function SellPage() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={img.url}
-                      alt={img.name}
+                      alt={`Vista previa de la imagen ${index + 1}`}
                       className="aspect-square w-full object-cover"
                     />
                     {img.uploading && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs text-white">
+                      <div className="absolute inset-0 flex items-center justify-center bg-ink/50 text-xs text-paper">
                         Subiendo…
                       </div>
                     )}
                     {img.error && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-red-900/70 px-2 text-center text-xs text-white">
+                      <div className="absolute inset-0 flex items-center justify-center bg-danger/90 px-2 text-center text-xs text-paper">
                         {img.error}
                       </div>
                     )}
                     <button
                       type="button"
                       onClick={() => removeImage(img.id)}
-                      className="absolute right-1 top-1 rounded-full bg-black/70 px-2 py-0.5 text-xs text-white hover:bg-black"
+                      className="absolute right-1 top-1 rounded-full bg-ink/70 px-2 py-0.5 text-xs text-paper hover:bg-ink"
                       aria-label={`Quitar ${img.name}`}
                     >
                       ×

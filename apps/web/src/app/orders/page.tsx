@@ -9,6 +9,7 @@ import {
   Card,
   EmptyState,
   Badge,
+  Button,
   PageContainer,
   SectionHeader,
   Price,
@@ -46,7 +47,7 @@ export default function OrdersPage() {
           title="Inicia sesión"
           description="Necesitas una cuenta para ver tus pedidos."
           action={
-            <button onClick={() => router.push("/login")}>Iniciar sesión</button>
+            <Button onClick={() => router.push("/login")}>Iniciar sesión</Button>
           }
         />
       </PageContainer>
@@ -74,9 +75,9 @@ export default function OrdersPage() {
           title="Aún no tienes pedidos"
           description="Cuando hagas un pedido, aparecerá aquí."
           action={
-            <button onClick={() => router.push("/products")}>
+            <Button onClick={() => router.push("/products")}>
               Explorar productos
-            </button>
+            </Button>
           }
         />
       ) : (
