@@ -25,6 +25,14 @@ export const ORDER_STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
   CANCELLED: "danger",
 };
 
+export const ORDER_STATUS_REASSURANCE: Record<OrderStatus, string> = {
+  PENDING: "Estamos confirmando tu pago.",
+  PAID: "Tu pedido se está preparando para el envío.",
+  SHIPPED: "Tu pedido está en camino.",
+  DELIVERED: "Tu pedido fue entregado.",
+  CANCELLED: "Este pedido fue cancelado.",
+};
+
 export function statusVariantFor(status: OrderStatus): BadgeVariant {
   return ORDER_STATUS_VARIANT[status];
 }

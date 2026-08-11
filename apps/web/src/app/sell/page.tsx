@@ -200,7 +200,7 @@ export default function SellPage() {
         price: Number(form.price),
         images: readyImages.length > 0 ? readyImages : undefined,
       });
-      router.push("/products");
+      router.push("/products?published=1");
     } catch (err) {
       setError(extractApiError(err, "No pudimos crear la publicación"));
     } finally {

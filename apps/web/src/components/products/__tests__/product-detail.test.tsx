@@ -139,7 +139,9 @@ describe("ProductDetail", () => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
     await user.click(screen.getByRole("button", { name: /agregar al carrito/i }));
-    expect(pushMock).toHaveBeenCalledWith("/login");
+    expect(pushMock).toHaveBeenCalledWith(
+      "/login?next=%2Fproducts%2Fp1&reason=cart",
+    );
   });
 
   it("agrega al carrito cuando el usuario está autenticado", async () => {
