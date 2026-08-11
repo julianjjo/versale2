@@ -6,10 +6,11 @@ import { CartModule } from './cart/cart.module';
 import { OrdersModule } from './orders/orders.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { ReviewsModule } from './reviews/reviews.module';
-import { PrismaService } from './prisma/prisma.service';
+import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
   imports: [
+    PrismaModule,
     AuthModule,
     UsersModule,
     ProductsModule,
@@ -18,6 +19,5 @@ import { PrismaService } from './prisma/prisma.service';
     UploadsModule,
     ReviewsModule,
   ],
-  providers: [PrismaService],
 })
 export class AppModule {}
