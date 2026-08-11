@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, extractApiError } from "@/lib/api";
@@ -314,12 +314,16 @@ function CartItemRow({
   isRemoving: boolean;
 }) {
   const [quantity, setQuantity] = useState(String(item.quantity));
+  const [lastSyncedQuantity, setLastSyncedQuantity] = useState(item.quantity);
 
   // Keep the controlled input in sync when the underlying cart item changes
-  // (e.g. after a successful update or when the cart is refetched).
-  useEffect(() => {
+  // (e.g. after a successful update or when the cart is refetched). Setting
+  // state during render rather than in an effect avoids the extra
+  // effect-triggered re-render.
+  if (item.quantity !== lastSyncedQuantity) {
+    setLastSyncedQuantity(item.quantity);
     setQuantity(String(item.quantity));
-  }, [item.quantity]);
+  }
 
   const commit = () => {
     const next = parseQuantity(quantity, item.quantity);
