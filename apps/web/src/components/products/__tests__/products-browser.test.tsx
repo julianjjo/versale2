@@ -56,6 +56,8 @@ const emptyProducts = {
   meta: { total: 0, page: 1, limit: 12, pages: 0 },
 };
 
+const mockFacets = { brands: ["Levi's", "Zara"], categories: ["Jackets", "Sweaters"] };
+
 vi.mock("@/lib/api", () => ({
   api: {
     get: vi.fn(),
@@ -64,13 +66,24 @@ vi.mock("@/lib/api", () => ({
 
 import { api } from "@/lib/api";
 
+// Most tests only care about the /products response; give the /products/facets
+// call a harmless default so brand/category <select> options don't blow up.
+function mockProductsApi(productsResponse: unknown) {
+  vi.mocked(api.get).mockImplementation(async (url: string) => {
+    if (url === "/products/facets") {
+      return { data: mockFacets };
+    }
+    return productsResponse as { data: unknown };
+  });
+}
+
 describe("ProductsBrowser", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("renderiza el formulario de filtros", async () => {
-    vi.mocked(api.get).mockResolvedValue({ data: emptyProducts });
+    mockProductsApi({ data: emptyProducts });
     render(
       <TestProviders>
         <ProductsBrowser showPagination={false} />
@@ -82,7 +95,7 @@ describe("ProductsBrowser", () => {
   });
 
   it("renderiza la lista de productos cuando hay datos", async () => {
-    vi.mocked(api.get).mockResolvedValue({ data: mockProducts });
+    mockProductsApi({ data: mockProducts });
     render(
       <TestProviders>
         <ProductsBrowser showPagination={false} />
@@ -99,7 +112,7 @@ describe("ProductsBrowser", () => {
   });
 
   it("renderiza un estado vacío cuando no hay productos", async () => {
-    vi.mocked(api.get).mockResolvedValue({ data: emptyProducts });
+    mockProductsApi({ data: emptyProducts });
     render(
       <TestProviders>
         <ProductsBrowser showPagination={false} />
@@ -125,7 +138,7 @@ describe("ProductsBrowser", () => {
   });
 
   it("enlaza cada producto a su página de detalle", async () => {
-    vi.mocked(api.get).mockResolvedValue({ data: mockProducts });
+    mockProductsApi({ data: mockProducts });
     render(
       <TestProviders>
         <ProductsBrowser showPagination={false} />
@@ -140,7 +153,7 @@ describe("ProductsBrowser", () => {
   });
 
   it("envía los valores del filtro al hacer click en Aplicar", async () => {
-    vi.mocked(api.get).mockResolvedValue({ data: emptyProducts });
+    mockProductsApi({ data: emptyProducts });
     const user = userEvent.setup();
     render(
       <TestProviders>
@@ -162,7 +175,7 @@ describe("ProductsBrowser", () => {
   });
 
   it("renderiza un placeholder cuando el producto no tiene imagen", async () => {
-    vi.mocked(api.get).mockResolvedValue({ data: mockProducts });
+    mockProductsApi({ data: mockProducts });
     render(
       <TestProviders>
         <ProductsBrowser showPagination={false} />
@@ -176,7 +189,7 @@ describe("ProductsBrowser", () => {
   });
 
   it("renderiza los controles de paginación cuando hay varias páginas", async () => {
-    vi.mocked(api.get).mockResolvedValue({
+    mockProductsApi({
       data: {
         data: [],
         meta: { total: 30, page: 1, limit: 12, pages: 3 },
@@ -199,5 +212,98 @@ describe("ProductsBrowser", () => {
     expect(
       screen.getByRole("button", { name: /página 3/i }),
     ).toBeInTheDocument();
+  });
+
+  it("carga las marcas y categorías disponibles como opciones de filtro", async () => {
+    mockProductsApi({ data: emptyProducts });
+    render(
+      <TestProviders>
+        <ProductsBrowser showPagination={false} />
+      </TestProviders>,
+    );
+
+    const brandSelect = screen.getByLabelText(/filtrar por marca/i);
+    const categorySelect = screen.getByLabelText(/filtrar por categoría/i);
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Levi's" })).toBeInTheDocument();
+    });
+    expect(screen.getByRole("option", { name: "Zara" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Jackets" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Sweaters" })).toBeInTheDocument();
+    expect(brandSelect).toHaveValue("");
+    expect(categorySelect).toHaveValue("");
+  });
+
+  it("envía la marca y la categoría seleccionadas al hacer click en Aplicar", async () => {
+    mockProductsApi({ data: emptyProducts });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductsBrowser showPagination={false} />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Zara" })).toBeInTheDocument();
+    });
+
+    await user.selectOptions(screen.getByLabelText(/filtrar por marca/i), "Zara");
+    await user.selectOptions(
+      screen.getByLabelText(/filtrar por categoría/i),
+      "Jackets",
+    );
+    await user.click(screen.getByRole("button", { name: /aplicar/i }));
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith(
+        "/products",
+        expect.objectContaining({
+          params: expect.objectContaining({
+            brand: "Zara",
+            category: "Jackets",
+            page: 1,
+          }),
+        }),
+      );
+    });
+  });
+
+  it("restablece los campos visibles del formulario al limpiar los filtros", async () => {
+    mockProductsApi({ data: mockProducts });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductsBrowser showPagination={false} />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Zara" })).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByPlaceholderText(/buscar/i);
+    await user.type(searchInput, "chaqueta");
+    await user.selectOptions(screen.getByLabelText(/filtrar por marca/i), "Zara");
+    await user.click(screen.getByRole("button", { name: /aplicar/i }));
+
+    expect(searchInput).toHaveValue("chaqueta");
+    expect(screen.getByLabelText(/filtrar por marca/i)).toHaveValue("Zara");
+
+    await user.click(screen.getByRole("button", { name: /limpiar filtros/i }));
+
+    // Regression: the form used to be uncontrolled (defaultValue), so
+    // clearing the applied filters left stale text visible in the inputs.
+    expect(searchInput).toHaveValue("");
+    expect(screen.getByLabelText(/filtrar por marca/i)).toHaveValue("");
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenLastCalledWith(
+        "/products",
+        expect.objectContaining({
+          params: { page: 1, limit: 12 },
+        }),
+      );
+    });
   });
 });

@@ -30,6 +30,7 @@ export class ProductsService {
       maxPrice,
       size,
       brand,
+      category,
       condition,
       page = 1,
       limit = 10,
@@ -62,6 +63,9 @@ export class ProductsService {
     if (brand) {
       where.brand = { contains: String(brand) };
     }
+    if (category) {
+      where.category = String(category);
+    }
     if (condition) {
       where.condition = condition;
     }
@@ -88,6 +92,28 @@ export class ProductsService {
         limit: Number(limit),
         pages: Math.ceil(total / limit),
       },
+    };
+  }
+
+  async getFacets() {
+    const [brands, categories] = await Promise.all([
+      this.prisma.client.product.findMany({
+        where: { isApproved: true, brand: { not: null } },
+        select: { brand: true },
+        distinct: ['brand'],
+        orderBy: { brand: 'asc' },
+      }),
+      this.prisma.client.product.findMany({
+        where: { isApproved: true },
+        select: { category: true },
+        distinct: ['category'],
+        orderBy: { category: 'asc' },
+      }),
+    ]);
+
+    return {
+      brands: brands.map((p) => p.brand).filter((b): b is string => !!b),
+      categories: categories.map((p) => p.category),
     };
   }
 

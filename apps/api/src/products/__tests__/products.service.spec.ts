@@ -587,6 +587,69 @@ describe('ProductsService', () => {
     });
   });
 
+  describe('findAll with category filter', () => {
+    it('should filter by exact category when provided', async () => {
+      const query = { category: 'Jackets', page: '1', limit: '10' };
+
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAll(query);
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { isApproved: true, category: 'Jackets' },
+        }),
+      );
+      expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
+        where: { isApproved: true, category: 'Jackets' },
+      });
+    });
+  });
+
+  describe('getFacets', () => {
+    it('should return distinct approved brands and categories', async () => {
+      mockPrismaService.client.product.findMany
+        .mockResolvedValueOnce([{ brand: "Levi's" }, { brand: 'Zara' }])
+        .mockResolvedValueOnce([{ category: 'Jackets' }, { category: 'Sweaters' }]);
+
+      const result = await service.getFacets();
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenNthCalledWith(
+        1,
+        {
+          where: { isApproved: true, brand: { not: null } },
+          select: { brand: true },
+          distinct: ['brand'],
+          orderBy: { brand: 'asc' },
+        },
+      );
+      expect(mockPrismaService.client.product.findMany).toHaveBeenNthCalledWith(
+        2,
+        {
+          where: { isApproved: true },
+          select: { category: true },
+          distinct: ['category'],
+          orderBy: { category: 'asc' },
+        },
+      );
+      expect(result).toEqual({
+        brands: ["Levi's", 'Zara'],
+        categories: ['Jackets', 'Sweaters'],
+      });
+    });
+
+    it('should drop null brands from the result', async () => {
+      mockPrismaService.client.product.findMany
+        .mockResolvedValueOnce([{ brand: null }])
+        .mockResolvedValueOnce([{ category: 'Sweaters' }]);
+
+      const result = await service.getFacets();
+
+      expect(result).toEqual({ brands: [], categories: ['Sweaters'] });
+    });
+  });
+
   describe('findAllForAdmin', () => {
     it('should return paginated products for admin (including not approved)', async () => {
       const query = {

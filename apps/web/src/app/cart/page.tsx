@@ -52,6 +52,7 @@ export default function CartPage() {
   const queryClient = useQueryClient();
   const { user, isLoading: isAuthLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
   const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
     street: "",
     city: "",
@@ -89,19 +90,28 @@ export default function CartPage() {
     }: {
       itemId: string;
       quantity: number;
+      productTitle: string;
     }) => {
       await api.patch(`/cart/items/${itemId}`, { quantity });
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cart"] }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["cart"] });
+      setAnnouncement(
+        `Cantidad de ${variables.productTitle} actualizada a ${variables.quantity}.`,
+      );
+    },
     onError: (err) =>
       setError(extractApiError(err, "No pudimos actualizar el producto")),
   });
 
   const removeItem = useMutation({
-    mutationFn: async (itemId: string) => {
+    mutationFn: async ({ itemId }: { itemId: string; productTitle: string }) => {
       await api.delete(`/cart/items/${itemId}`);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cart"] }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["cart"] });
+      setAnnouncement(`${variables.productTitle} se eliminó del carrito.`);
+    },
     onError: (err) =>
       setError(extractApiError(err, "No pudimos eliminar el producto")),
   });
@@ -198,6 +208,10 @@ export default function CartPage() {
 
   return (
     <PageContainer size="default">
+      <div aria-live="polite" role="status" className="sr-only">
+        {announcement}
+      </div>
+
       {isRefetchError && (
         <p
           role="alert"
@@ -245,9 +259,18 @@ export default function CartPage() {
                 item={item}
                 isUpdating={updateQty.isPending}
                 onUpdateQuantity={(quantity) =>
-                  updateQty.mutate({ itemId: item.id, quantity })
+                  updateQty.mutate({
+                    itemId: item.id,
+                    quantity,
+                    productTitle: item.product?.title ?? "el producto",
+                  })
                 }
-                onRemove={() => removeItem.mutate(item.id)}
+                onRemove={() =>
+                  removeItem.mutate({
+                    itemId: item.id,
+                    productTitle: item.product?.title ?? "el producto",
+                  })
+                }
                 isRemoving={removeItem.isPending}
               />
             ))}
