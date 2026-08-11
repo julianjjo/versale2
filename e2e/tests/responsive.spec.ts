@@ -64,9 +64,7 @@ test.describe("Responsive — Home (anonymous)", () => {
     for (const [vp, expectedCols] of expectations) {
       await setViewport(page, vp);
       await page.goto("/products");
-      const grid = page.locator(
-        ".grid.grid-cols-2, .grid.sm\\:grid-cols-3, .grid.lg\\:grid-cols-4",
-      );
+      const grid = page.locator(".products-grid");
       await expect(grid).toBeVisible();
 
       const computedCols = await grid.evaluate((el) => {
