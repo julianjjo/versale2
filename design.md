@@ -185,8 +185,10 @@ in-app.
   `--color-terracotta-deep` background with `--color-paper` text, not plain
   `--color-terracotta` — the base accent under either paper or ink text
   misses 4.5:1 at button text sizes. Hover/active darken with a brightness
-  filter rather than fading toward the page background, since fading would
-  erode the already-tight contrast margin.
+  filter (95%, then 90%) rather than fading toward the page background,
+  since fading would erode the already-tight contrast margin; the deeper
+  90% active step (vs. the other variants' 5%) keeps a distinct pressed
+  cue while staying ≥4.5:1 (~4.93:1).
 
 States:
 
@@ -322,9 +324,11 @@ Targets WCAG 2.2 AA, keyboard-first, full keyboard reachability.
 - All text on `--color-ink` surfaces must reach 4.5:1 against ink. Use
   `--color-paper`. The 50% paper-opacity eyebrow is allowed only on ink
   surfaces where the resulting contrast is ≥ 4.5:1; otherwise bump to 70%.
-- Terracotta on paper (`#c8623a` on `#f6f3ee`) reaches 4.5:1 for body text
-  at 14px+. For 11–13px labels, pair terracotta with a darker ink shade
-  (e.g. `#a04d2c`) or back the text with a paper block.
+- Terracotta on paper (`#c8623a` on `#f6f3ee`) is only ~3.6:1 — it clears
+  the 3:1 large-text threshold (≥24px, e.g. the story stat numbers) but not
+  the 4.5:1 normal-text one. For body text and for 11–13px labels, use
+  `--color-terracotta-deep` (`#a04d2c`, ~5.3:1 on paper) instead, or back
+  plain terracotta with a paper block.
 - Every interactive element must be reachable by Tab; order matches the
   visual order. Focus ring must be visible on all variants.
 - The mobile menu trigger must toggle `aria-expanded` and trap/close focus
