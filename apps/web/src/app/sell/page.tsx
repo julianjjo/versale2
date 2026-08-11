@@ -278,7 +278,7 @@ export default function SellPage() {
           <Input
             label="Precio (COP)"
             type="number"
-            min="1000"
+            min="1"
             step="1"
             value={form.price}
             onChange={(e) => update("price", e.target.value)}

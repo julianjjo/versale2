@@ -162,6 +162,27 @@ describe("CartPage", () => {
     });
   });
 
+  it("muestra un error cuando falla la carga del carrito, sin caer en el estado vacío", async () => {
+    vi.mocked(api.get).mockRejectedValue(new Error("Network error"));
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/no pudimos cargar tu carrito/i),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText(/tu carrito está vacío/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /reintentar/i }),
+    ).toBeInTheDocument();
+  });
+
   it("muestra un estado vacío cuando el carrito no tiene productos", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: emptyCart });
     render(

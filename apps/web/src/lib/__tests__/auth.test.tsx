@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
+import {
+  createTestQueryClient,
+  TestProviders,
+} from "@/test-utils/TestProviders";
 
 vi.mock("../token", () => ({
   tokenStore: {
@@ -20,7 +24,8 @@ vi.mock("../api", () => ({
 
 import { tokenStore } from "../token";
 import { api } from "../api";
-import { useAuth, AuthProvider, fetchProfile } from "../auth";
+import { useAuth, fetchProfile } from "../auth";
+import { notifyUnauthorized } from "../auth-events";
 
 const mockedTokenStore = tokenStore as unknown as {
   get: ReturnType<typeof vi.fn>;
@@ -34,7 +39,7 @@ const mockedApi = api as unknown as {
 };
 
 function wrapper({ children }: { children: ReactNode }) {
-  return <AuthProvider>{children}</AuthProvider>;
+  return <TestProviders>{children}</TestProviders>;
 }
 
 describe("fetchProfile", () => {
@@ -185,6 +190,53 @@ describe("useAuth", () => {
     act(() => result.current.logout());
     expect(mockedTokenStore.clear).toHaveBeenCalled();
     expect(result.current.user).toBeNull();
+  });
+
+  it("logout clears the React Query cache", async () => {
+    mockedTokenStore.get.mockReturnValue("tok");
+    mockedApi.get.mockResolvedValue({
+      data: { id: "u1", email: "a@b.c", name: "Alice", role: "USER" },
+    });
+
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryData(["cart", "u1"], { dummy: true });
+    expect(queryClient.getQueryCache().getAll().length).toBeGreaterThan(0);
+
+    function localWrapper({ children }: { children: ReactNode }) {
+      return <TestProviders client={queryClient}>{children}</TestProviders>;
+    }
+
+    const { result } = renderHook(() => useAuth(), { wrapper: localWrapper });
+    await waitFor(() => expect(result.current.user).not.toBeNull());
+
+    act(() => result.current.logout());
+
+    expect(queryClient.getQueryCache().getAll().length).toBe(0);
+  });
+
+  it("a global 401 also clears the React Query cache", async () => {
+    mockedTokenStore.get.mockReturnValue("tok");
+    mockedApi.get.mockResolvedValue({
+      data: { id: "u1", email: "a@b.c", name: "Alice", role: "USER" },
+    });
+
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryData(["orders"], [{ id: "o1" }]);
+    expect(queryClient.getQueryCache().getAll().length).toBeGreaterThan(0);
+
+    function localWrapper({ children }: { children: ReactNode }) {
+      return <TestProviders client={queryClient}>{children}</TestProviders>;
+    }
+
+    const { result } = renderHook(() => useAuth(), { wrapper: localWrapper });
+    await waitFor(() => expect(result.current.user).not.toBeNull());
+
+    act(() => {
+      notifyUnauthorized();
+    });
+
+    expect(result.current.user).toBeNull();
+    expect(queryClient.getQueryCache().getAll().length).toBe(0);
   });
 
   it("refresh re-fetches the user", async () => {

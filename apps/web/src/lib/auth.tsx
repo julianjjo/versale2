@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
 import { onUnauthorized } from "./auth-events";
 import { tokenStore } from "./token";
@@ -39,6 +40,7 @@ export async function fetchProfile(): Promise<User | null> {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -56,12 +58,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Subscribe to global 401 events. We avoid a full-page reload so the
-  // client-side state (React Query cache, current route) is preserved when
-  // possible — we just clear the user and route to /login.
+  // Subscribe to global 401 events. We avoid a full-page reload — instead we
+  // clear the user and the React Query cache (so no other user's cached
+  // data lingers) and route to /login.
   useEffect(() => {
     return onUnauthorized(() => {
       setUser(null);
+      queryClient.clear();
       const path =
         typeof window !== "undefined" ? window.location.pathname : "/";
       const isPublic = PUBLIC_AUTH_PATHS.some(
@@ -71,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         router.push("/login");
       }
     });
-  }, [router]);
+  }, [router, queryClient]);
 
   const login = async (email: string, password: string) => {
     const res = await api.post<AuthResponse>("/auth/login", {
@@ -95,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     tokenStore.clear();
     setUser(null);
+    queryClient.clear();
   };
 
   const refresh = async () => {

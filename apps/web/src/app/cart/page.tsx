@@ -46,7 +46,7 @@ export default function CartPage() {
     country: "",
   });
 
-  const { data, isLoading } = useQuery<Cart>({
+  const { data, isLoading, isError, refetch } = useQuery<Cart>({
     queryKey: ["cart"],
     queryFn: async () => {
       const response = await api.get<Cart>("/cart");
@@ -133,6 +133,18 @@ export default function CartPage() {
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
           <Spinner className="h-5 w-5" /> Cargando tu carrito…
         </div>
+      </PageContainer>
+    );
+  }
+
+  if (isError) {
+    return (
+      <PageContainer size="narrow">
+        <EmptyState
+          title="No pudimos cargar tu carrito"
+          description="Ocurrió un error al conectar con el servidor. Intenta de nuevo."
+          action={<Button onClick={() => refetch()}>Reintentar</Button>}
+        />
       </PageContainer>
     );
   }
