@@ -264,6 +264,60 @@ describe("CartPage", () => {
     });
   });
 
+  it("anuncia en la región en vivo cuando se elimina un producto", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: mockCart });
+    vi.mocked(api.delete).mockResolvedValue({ data: { success: true } });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
+    });
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("");
+
+    const removeButtons = screen.getAllByRole("button", { name: /eliminar/i });
+    await user.click(removeButtons[0]!);
+
+    await waitFor(() => {
+      expect(status).toHaveTextContent("Cotton t-shirt se eliminó del carrito.");
+    });
+  });
+
+  it("anuncia en la región en vivo cuando se actualiza la cantidad de un producto", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: mockCart });
+    vi.mocked(api.patch).mockResolvedValue({ data: { success: true } });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
+    });
+
+    const quantityInputs = screen.getAllByLabelText(/cantidad/i);
+    await user.clear(quantityInputs[0]!);
+    await user.type(quantityInputs[0]!, "5");
+    await user.tab();
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/cart/items/ci1", { quantity: 5 });
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Cantidad de Cotton t-shirt actualizada a 5.",
+      );
+    });
+  });
+
   it("realiza el pedido al hacer click en Pagar", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockCart });
     vi.mocked(api.post).mockResolvedValue({ data: { id: "order1" } });

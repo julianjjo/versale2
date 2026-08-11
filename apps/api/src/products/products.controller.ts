@@ -30,6 +30,11 @@ export class ProductsController {
     return this.productsService.findAll(query);
   }
 
+  @Get('facets')
+  async getFacets() {
+    return this.productsService.getFacets();
+  }
+
   @UseGuards(OptionalJwtAuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: string, @Req() req: Request) {

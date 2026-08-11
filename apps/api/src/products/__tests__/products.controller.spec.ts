@@ -12,6 +12,7 @@ describe('ProductsController', () => {
 
   const mockProductsService = {
     findAll: jest.fn(),
+    getFacets: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
@@ -47,6 +48,18 @@ describe('ProductsController', () => {
       const result = await controller.findAll(query);
 
       expect(productsService.findAll).toHaveBeenCalledWith(query);
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('getFacets', () => {
+    it('should call productsService.getFacets', async () => {
+      const mockResult = { brands: ["Levi's"], categories: ['Jackets'] };
+      mockProductsService.getFacets.mockResolvedValue(mockResult);
+
+      const result = await controller.getFacets();
+
+      expect(productsService.getFacets).toHaveBeenCalledWith();
       expect(result).toEqual(mockResult);
     });
   });
