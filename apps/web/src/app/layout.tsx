@@ -2,9 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Inter, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
-import { Header } from "@/components/layout/header";
-import { Footer } from "@/components/layout/footer";
-import { Topbar } from "@/components/layout/topbar";
+import { SiteChrome } from "@/components/layout/site-chrome";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -46,10 +44,7 @@ export default function RootLayout({
     >
       <body className="min-h-screen flex flex-col bg-surface text-text-primary antialiased">
         <Providers>
-          <Topbar />
-          <Header />
-          <main className="flex-1">{children}</main>
-          <Footer />
+          <SiteChrome>{children}</SiteChrome>
         </Providers>
       </body>
     </html>
