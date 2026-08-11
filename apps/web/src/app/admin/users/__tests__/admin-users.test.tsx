@@ -54,6 +54,13 @@ function usersFixture(overrides?: Partial<AuthUser>[]) {
   ];
 }
 
+function paginatedResponse(users: ReturnType<typeof usersFixture>) {
+  return {
+    data: users,
+    meta: { total: users.length, page: 1, pages: 1 },
+  };
+}
+
 describe("AdminUsersPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -61,7 +68,7 @@ describe("AdminUsersPage", () => {
   });
 
   it("deshabilita Eliminar en la propia fila del administrador autenticado", async () => {
-    vi.mocked(api.get).mockResolvedValue({ data: usersFixture() });
+    vi.mocked(api.get).mockResolvedValue({ data: paginatedResponse(usersFixture()) });
     render(
       <TestProviders>
         <AdminUsersPage />
@@ -81,9 +88,9 @@ describe("AdminUsersPage", () => {
 
   it("deshabilita Eliminar cuando el objetivo es el último administrador", async () => {
     vi.mocked(api.get).mockResolvedValue({
-      data: [
+      data: paginatedResponse([
         { id: "admin1", email: "admin@versale.co", name: "Admin Uno", role: "ADMIN" as const },
-      ],
+      ]),
     });
     render(
       <TestProviders>
@@ -100,9 +107,11 @@ describe("AdminUsersPage", () => {
 
   it("permite eliminar a un administrador cuando hay otros administradores", async () => {
     vi.mocked(api.get).mockResolvedValue({
-      data: usersFixture([
-        { id: "admin2", email: "admin2@versale.co", name: "Admin Dos", role: "ADMIN" as const },
-      ]),
+      data: paginatedResponse(
+        usersFixture([
+          { id: "admin2", email: "admin2@versale.co", name: "Admin Dos", role: "ADMIN" as const },
+        ]),
+      ),
     });
     vi.mocked(api.delete).mockResolvedValue({ data: { success: true } });
     const user = userEvent.setup();
