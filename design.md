@@ -43,7 +43,9 @@ content breathable.
 | `--color-line-2`   | `rgba(26,26,26,.15)` | Stronger hairline borders.                         |
 | `--color-line-3`   | `rgba(246,243,238,.1)` | Hairline borders on ink.                         |
 | `--color-line-4`   | `rgba(246,243,238,.15)` | Stronger hairline borders on ink.                |
-| `--color-terracotta` | `#c8623a` | Brand accent — italic emphasis, badges, CTA, icons.        |
+| `--color-terracotta` | `#c8623a` | Brand accent — italic emphasis, badges, icons, large text. |
+| `--color-terracotta-deep` | `#a04d2c` | Darker accent step. Required for solid-fill CTA backgrounds and for terracotta text below 14px — plain `--color-terracotta` doesn't clear 4.5:1 as a background against paper or ink text at those sizes. |
+| `--color-terracotta-light` | `#d67348` | Lighter accent step, for terracotta text/eyebrows on `--color-ink` surfaces (plain terracotta fails 4.5:1 there too). |
 | `--color-success`  | `#4a8a4a`  | "Live" pulse, positive status.                             |
 | `--color-danger`   | `#DC2626`  | Destructive actions, form errors.                           |
 | `--color-warning`  | `#D97706`  | "Pending" status.                                           |
@@ -101,8 +103,12 @@ Rules:
 - Strikethrough in display headings is a hero-only effect. Implement with a
   span of class `strike` using a 6px terracotta underline rotated -3deg.
 - Body never uses Fraunces. Display never uses Inter except inside eyebrows.
-- Money uses a tabular numeric variant. The `Price` component already sets
-  `font-mono tabular-nums`; preserve it.
+- Money uses a tabular numeric variant, set in Fraunces like every other
+  display token. The `Price` component sets `font-display tabular-nums`;
+  preserve it. Do not add `font-mono` to it — a monospace font-family
+  utility cascades ahead of any display override in the generated
+  stylesheet regardless of class order in JSX, which is exactly how this
+  broke previously.
 
 ### Spacing scale
 
@@ -174,6 +180,15 @@ in-app.
   `secondary`, `danger`, `ghost`, `accent`) but expose a `pill` boolean that
   switches to radius 9999px and the marketing padding. Default stays
   `rounded-md`.
+- `accent` is the terracotta conversion CTA (Login, Signup, Cart checkout,
+  add-to-cart, save-profile, publish-listing, admin approve). It renders
+  `--color-terracotta-deep` background with `--color-paper` text, not plain
+  `--color-terracotta` — the base accent under either paper or ink text
+  misses 4.5:1 at button text sizes. Hover/active darken with a brightness
+  filter (95%, then 90%) rather than fading toward the page background,
+  since fading would erode the already-tight contrast margin; the deeper
+  90% active step (vs. the other variants' 5%) keeps a distinct pressed
+  cue while staying ≥4.5:1 (~4.93:1).
 
 States:
 
@@ -309,9 +324,11 @@ Targets WCAG 2.2 AA, keyboard-first, full keyboard reachability.
 - All text on `--color-ink` surfaces must reach 4.5:1 against ink. Use
   `--color-paper`. The 50% paper-opacity eyebrow is allowed only on ink
   surfaces where the resulting contrast is ≥ 4.5:1; otherwise bump to 70%.
-- Terracotta on paper (`#c8623a` on `#f6f3ee`) reaches 4.5:1 for body text
-  at 14px+. For 11–13px labels, pair terracotta with a darker ink shade
-  (e.g. `#a04d2c`) or back the text with a paper block.
+- Terracotta on paper (`#c8623a` on `#f6f3ee`) is only ~3.6:1 — it clears
+  the 3:1 large-text threshold (≥24px, e.g. the story stat numbers) but not
+  the 4.5:1 normal-text one. For body text and for 11–13px labels, use
+  `--color-terracotta-deep` (`#a04d2c`, ~5.3:1 on paper) instead, or back
+  plain terracotta with a paper block.
 - Every interactive element must be reachable by Tab; order matches the
   visual order. Focus ring must be visible on all variants.
 - The mobile menu trigger must toggle `aria-expanded` and trap/close focus

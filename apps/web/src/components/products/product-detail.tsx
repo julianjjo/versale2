@@ -197,7 +197,7 @@ export function ProductDetail() {
           </div>
 
           <div className="flex items-baseline gap-2">
-            <Price value={data.price} className="text-3xl font-semibold" />
+            <Price value={data.price} className="text-3xl" />
             <span className="text-xs text-text-muted">COP</span>
           </div>
 
@@ -244,6 +244,7 @@ export function ProductDetail() {
                 aria-label="Cantidad"
               />
               <Button
+                variant="accent"
                 onClick={handleAddToCart}
                 disabled={addToCart.isPending}
                 size="lg"

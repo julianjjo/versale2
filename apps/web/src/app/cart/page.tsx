@@ -310,12 +310,10 @@ export default function CartPage() {
                 <span className="font-semibold text-text-primary">
                   Total sin envío
                 </span>
-                <Price
-                  value={total}
-                  className="text-lg font-semibold text-text-primary"
-                />
+                <Price value={total} className="text-lg text-text-primary" />
               </div>
               <Button
+                variant="accent"
                 onClick={() => checkout.mutate()}
                 disabled={checkout.isPending}
                 fullWidth

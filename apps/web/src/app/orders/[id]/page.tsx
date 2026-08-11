@@ -163,7 +163,7 @@ export default function OrderDetailPage() {
           </span>
           <Price
             value={data.totalAmount}
-            className="text-lg font-semibold text-text-primary"
+            className="text-lg text-text-primary"
           />
         </div>
       </Card>

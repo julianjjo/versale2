@@ -68,7 +68,13 @@ function LoginForm() {
             {error}
           </p>
         )}
-        <Button type="submit" disabled={isLoading} fullWidth size="lg">
+        <Button
+          type="submit"
+          variant="accent"
+          disabled={isLoading}
+          fullWidth
+          size="lg"
+        >
           {isLoading ? "Ingresando…" : "Iniciar sesión"}
         </Button>
       </form>
