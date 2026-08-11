@@ -134,7 +134,7 @@ export function ProductsBrowser({
     <div>
       {showFilters && (
         <form
-          className="mb-6 grid grid-cols-1 gap-3 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2 lg:grid-cols-4"
+          className="mb-6 grid grid-cols-1 gap-3 rounded-2xl border border-border bg-surface-muted p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4"
           onSubmit={(e) => {
             e.preventDefault();
             setFilters((f) => ({
