@@ -619,6 +619,7 @@ describe('ProductsService', () => {
       const result = await service.findAllForAdmin(query);
 
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith({
+        where: {},
         skip: 5,
         take: 5,
         orderBy: { createdAt: 'desc' },
@@ -627,7 +628,9 @@ describe('ProductsService', () => {
           _count: { select: { reviews: true } },
         },
       });
-      expect(mockPrismaService.client.product.count).toHaveBeenCalledWith();
+      expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
+        where: {},
+      });
       expect(result).toEqual({
         data: mockProducts,
         meta: {
@@ -637,6 +640,30 @@ describe('ProductsService', () => {
           pages: 1,
         },
       });
+    });
+
+    it('should filter by isApproved when provided, so admins can count pending products', async () => {
+      const query = { isApproved: 'false', limit: '1' };
+
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(3);
+
+      const result = await service.findAllForAdmin(query);
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith({
+        where: { isApproved: false },
+        skip: 0,
+        take: 1,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          seller: { select: { id: true, name: true } },
+          _count: { select: { reviews: true } },
+        },
+      });
+      expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
+        where: { isApproved: false },
+      });
+      expect(result.meta.total).toBe(3);
     });
   });
 

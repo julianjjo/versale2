@@ -30,7 +30,7 @@ api.interceptors.response.use(
 
 export function extractApiError(
   err: unknown,
-  fallback = "Request failed",
+  fallback = "Ocurrió un error. Intenta de nuevo.",
 ): string {
   if (axios.isAxiosError(err)) {
     const data = err.response?.data as
@@ -39,6 +39,10 @@ export function extractApiError(
     if (data?.message) {
       return Array.isArray(data.message) ? data.message.join(", ") : data.message;
     }
+    // No response.data.message means the backend never responded (network
+    // failure, timeout, CORS) — axios's own error text ("Network Error") is
+    // English and would leak into the UI, so fall back to the caller's copy.
+    return fallback;
   }
   if (err instanceof Error) return err.message;
   return fallback;

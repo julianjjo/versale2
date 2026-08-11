@@ -13,12 +13,12 @@ import type { Order, Product, User } from "@/lib/types";
 
 export default function AdminOverview() {
   const { data: products, isLoading: productsLoading } = useQuery({
-    queryKey: ["admin-products"],
+    queryKey: ["admin-products-pending"],
     queryFn: async () => {
       const res = await api.get<{
         data: Product[];
         meta: { total: number };
-      }>("/products/admin/all?limit=1");
+      }>("/products/admin/all?isApproved=false&limit=1");
       return res.data;
     },
   });

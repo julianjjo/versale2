@@ -60,7 +60,7 @@ export class UsersController {
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Delete(':id')
-  async remove(@Param('id') id: string) {
-    return this.usersService.remove(id);
+  async remove(@Param('id') id: string, @Req() req: AuthRequest) {
+    return this.usersService.remove(id, req.user.id);
   }
 }

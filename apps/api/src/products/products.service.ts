@@ -185,13 +185,19 @@ export class ProductsService {
   }
 
   async findAllForAdmin(query: any) {
-    const { page = 1, limit = 10 } = query;
+    const { page = 1, limit = 10, isApproved } = query;
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 10;
     const skip = (pageNum - 1) * limitNum;
 
+    const where: any = {};
+    if (isApproved !== undefined) {
+      where.isApproved = isApproved === 'true' || isApproved === true;
+    }
+
     const [products, total] = await Promise.all([
       this.prisma.client.product.findMany({
+        where,
         skip,
         take: limitNum,
         orderBy: { createdAt: 'desc' },
@@ -200,7 +206,7 @@ export class ProductsService {
           _count: { select: { reviews: true } },
         },
       }),
-      this.prisma.client.product.count(),
+      this.prisma.client.product.count({ where }),
     ]);
 
     return {

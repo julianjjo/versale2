@@ -9,11 +9,13 @@ import {
   Badge,
   Button,
 } from "@/components/ui";
+import { useAuth } from "@/lib/auth";
 import type { User } from "@/lib/types";
 import { useState } from "react";
 
 export default function AdminUsersPage() {
   const queryClient = useQueryClient();
+  const { user: currentUser } = useAuth();
   const [error, setError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery<User[]>({
@@ -44,6 +46,7 @@ export default function AdminUsersPage() {
   }
 
   const users = data ?? [];
+  const adminCount = users.filter((u) => u.role === "ADMIN").length;
 
   return (
     <div>
@@ -57,33 +60,44 @@ export default function AdminUsersPage() {
         <EmptyState title="No hay usuarios" />
       ) : (
         <div className="space-y-3">
-          {users.map((u) => (
-            <Card key={u.id}>
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-text-primary">
-                    {u.name}
-                  </p>
-                  <p className="text-xs text-text-muted">{u.email}</p>
+          {users.map((u) => {
+            const isSelf = u.id === currentUser?.id;
+            const isLastAdmin = u.role === "ADMIN" && adminCount <= 1;
+            const blockedReason = isSelf
+              ? "No puedes eliminar tu propia cuenta."
+              : isLastAdmin
+                ? "No puedes eliminar al último administrador."
+                : undefined;
+
+            return (
+              <Card key={u.id}>
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-text-primary">
+                      {u.name}
+                    </p>
+                    <p className="text-xs text-text-muted">{u.email}</p>
+                  </div>
+                  <Badge variant={u.role === "ADMIN" ? "info" : "default"}>
+                    {u.role === "ADMIN" ? "Administrador" : "Usuario"}
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => {
+                      if (confirm(`¿Eliminar al usuario ${u.name}?`)) {
+                        remove.mutate(u.id);
+                      }
+                    }}
+                    disabled={remove.isPending || Boolean(blockedReason)}
+                    title={blockedReason}
+                  >
+                    Eliminar
+                  </Button>
                 </div>
-                <Badge variant={u.role === "ADMIN" ? "info" : "default"}>
-                  {u.role === "ADMIN" ? "Administrador" : "Usuario"}
-                </Badge>
-                <Button
-                  size="sm"
-                  variant="danger"
-                  onClick={() => {
-                    if (confirm(`¿Eliminar al usuario ${u.name}?`)) {
-                      remove.mutate(u.id);
-                    }
-                  }}
-                  disabled={remove.isPending}
-                >
-                  Eliminar
-                </Button>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

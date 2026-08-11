@@ -21,7 +21,9 @@ export default function OrdersPage() {
   const router = useRouter();
   const { user, isLoading: isAuthLoading } = useAuth();
 
-  const { data, isLoading } = useQuery<Order[]>({
+  const { data, isLoading, isLoadingError, isRefetchError, refetch } = useQuery<
+    Order[]
+  >({
     queryKey: ["orders"],
     queryFn: async () => {
       const response = await api.get<Order[]>("/orders");
@@ -64,8 +66,32 @@ export default function OrdersPage() {
     );
   }
 
+  if (isLoadingError) {
+    return (
+      <PageContainer size="narrow">
+        <EmptyState
+          title="No pudimos cargar tus pedidos"
+          description="Ocurrió un error al conectar con el servidor. Intenta de nuevo."
+          action={<Button onClick={() => refetch()}>Reintentar</Button>}
+        />
+      </PageContainer>
+    );
+  }
+
   return (
     <PageContainer size="default">
+      {isRefetchError && (
+        <p
+          role="alert"
+          className="mb-4 flex items-center justify-between gap-3 rounded-md border border-danger/30 bg-danger/10 px-4 py-2 text-sm text-danger"
+        >
+          <span>No pudimos actualizar tus pedidos.</span>
+          <Button variant="ghost" onClick={() => refetch()}>
+            Reintentar
+          </Button>
+        </p>
+      )}
+
       <SectionHeader
         title="Historial de pedidos"
         description="Consulta y sigue tus compras pasadas."

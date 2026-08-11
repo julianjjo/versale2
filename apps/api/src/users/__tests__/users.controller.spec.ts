@@ -104,17 +104,21 @@ describe('UsersController', () => {
   });
 
   describe('remove', () => {
-    it('should call usersService.remove with id', async () => {
+    it('should call usersService.remove with id and the requesting admin id', async () => {
       const userId = 'user1';
+      const requesterId = 'admin1';
+      const mockReq = {
+        user: { id: requesterId, email: 'admin@example.com', role: 'ADMIN' },
+      } as AuthRequest;
       const mockResult = {
         id: userId,
       };
 
       mockUsersService.remove.mockResolvedValue(mockResult);
 
-      const result = await controller.remove(userId);
+      const result = await controller.remove(userId, mockReq);
 
-      expect(usersService.remove).toHaveBeenCalledWith(userId);
+      expect(usersService.remove).toHaveBeenCalledWith(userId, requesterId);
       expect(result).toEqual(mockResult);
     });
   });

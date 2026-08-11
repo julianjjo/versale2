@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from '../users.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 
 describe('UsersService', () => {
@@ -16,6 +16,7 @@ describe('UsersService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+        count: jest.fn(),
       },
     },
   };
@@ -225,20 +226,83 @@ describe('UsersService', () => {
   });
 
   describe('remove', () => {
-    it('should remove a user', async () => {
+    it('should remove a regular user', async () => {
       const userId = 'user1';
+      const requesterId = 'admin1';
       const mockDeletedUser = {
         id: userId,
         email: 'user1@example.com',
         name: 'User 1',
       };
 
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        id: userId,
+        role: 'USER',
+      });
       mockPrismaService.client.user.delete.mockResolvedValue(mockDeletedUser);
 
-      const result = await service.remove(userId);
+      const result = await service.remove(userId, requesterId);
 
       expect(mockPrismaService.client.user.delete).toHaveBeenCalledWith({
         where: { id: userId },
+      });
+      expect(result).toEqual(mockDeletedUser);
+    });
+
+    it('should throw NotFoundException if the target user does not exist', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.remove('nonexistent', 'admin1'),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPrismaService.client.user.delete).not.toHaveBeenCalled();
+    });
+
+    it('should throw ForbiddenException when an admin tries to delete their own account', async () => {
+      const adminId = 'admin1';
+
+      await expect(service.remove(adminId, adminId)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(mockPrismaService.client.user.findUnique).not.toHaveBeenCalled();
+      expect(mockPrismaService.client.user.delete).not.toHaveBeenCalled();
+    });
+
+    it('should throw ForbiddenException when deleting the last remaining admin', async () => {
+      const targetId = 'admin2';
+      const requesterId = 'admin1';
+
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        id: targetId,
+        role: 'ADMIN',
+      });
+      mockPrismaService.client.user.count.mockResolvedValue(1);
+
+      await expect(service.remove(targetId, requesterId)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(mockPrismaService.client.user.count).toHaveBeenCalledWith({
+        where: { role: 'ADMIN' },
+      });
+      expect(mockPrismaService.client.user.delete).not.toHaveBeenCalled();
+    });
+
+    it('should allow deleting an admin when other admins remain', async () => {
+      const targetId = 'admin2';
+      const requesterId = 'admin1';
+      const mockDeletedUser = { id: targetId, role: 'ADMIN' };
+
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        id: targetId,
+        role: 'ADMIN',
+      });
+      mockPrismaService.client.user.count.mockResolvedValue(2);
+      mockPrismaService.client.user.delete.mockResolvedValue(mockDeletedUser);
+
+      const result = await service.remove(targetId, requesterId);
+
+      expect(mockPrismaService.client.user.delete).toHaveBeenCalledWith({
+        where: { id: targetId },
       });
       expect(result).toEqual(mockDeletedUser);
     });
