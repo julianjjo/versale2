@@ -60,8 +60,8 @@ describe("Button", () => {
   });
 
   it("renders the accent variant", () => {
-    render(<Button variant="accent">Accent</Button>);
-    const button = screen.getByRole("button");
+    render(<Button variant="accent">Acento</Button>);
+    const button = screen.getByRole("button", { name: "Acento" });
     expect(button.className).toContain("bg-terracotta-deep");
     expect(button.className).toContain("text-paper");
     expect(button.className).toContain("hover:brightness-95");
