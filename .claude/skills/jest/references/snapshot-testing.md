@@ -74,8 +74,9 @@ expect(createUser({ name: 'Alice' })).toMatchInlineSnapshot(
 npx jest --updateSnapshot
 npx jest -u
 
-# Update snapshots for specific tests
-npx jest -u --testPathPattern='Button'
+# Update snapshots for specific tests (CLI flag name differs by version)
+npx jest -u --testPathPattern='Button'   # Jest 29
+npx jest -u --testPathPatterns='Button'  # Jest 30
 
 # In watch mode: press 'u' to update failed snapshots
 ```

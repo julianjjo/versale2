@@ -124,6 +124,10 @@ node --inspect-brk node_modules/.bin/jest --runInBand
 
 ### Debug Specific Test
 
+The CLI flag for filtering by test path differs between Jest 29 and Jest 30.
+
+Jest 29 (`--testPathPattern`):
+
 ```json
 {
   "type": "node",
@@ -134,6 +138,25 @@ node --inspect-brk node_modules/.bin/jest --runInBand
     "--runInBand",
     "--no-cache",
     "--testPathPattern",
+    "${relativeFile}",
+    "--testNamePattern",
+    "test name pattern"
+  ]
+}
+```
+
+Jest 30 (`--testPathPattern` was renamed to `--testPathPatterns`):
+
+```json
+{
+  "type": "node",
+  "request": "launch",
+  "name": "Jest Debug Current Test",
+  "program": "${workspaceFolder}/node_modules/.bin/jest",
+  "args": [
+    "--runInBand",
+    "--no-cache",
+    "--testPathPatterns",
     "${relativeFile}",
     "--testNamePattern",
     "test name pattern"
@@ -202,14 +225,20 @@ transformIgnorePatterns: ['/node_modules/(?!(esm-package)/)']
 ### Jest hangs after tests complete
 
 ```bash
-npx jest --detectOpenHandles --forceExit
+npx jest --detectOpenHandles
 ```
 
-Common causes:
+Use `--detectOpenHandles` to identify the leak, then fix teardown (`afterAll`/`afterEach`). Common causes:
 - Open database connections
 - Running HTTP servers
 - Uncleared intervals/timers
 - Unclosed event listeners
+
+`--forceExit` is a last resort, not a fix — it forces the process to exit without closing the leaked handle, so the same leak persists across runs:
+
+```bash
+npx jest --forceExit  # last resort only — masks the leak instead of fixing it
+```
 
 ### Slow test startup
 

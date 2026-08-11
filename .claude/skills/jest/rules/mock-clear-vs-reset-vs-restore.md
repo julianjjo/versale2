@@ -54,13 +54,13 @@ test('second', () => {
 |---|---|---|---|
 | `clearAllMocks` | Yes | No | No |
 | `resetAllMocks` | Yes | Yes (resets to `jest.fn()`) | No |
-| `restoreAllMocks` | Yes | Yes | Yes |
+| `restoreAllMocks` | Yes | Yes | Yes — but only `jest.spyOn()` mocks and `jest.replaceProperty()` replacements; manual `jest.fn()` assignments aren't restored |
 
 ## Why
 
 - **clearAllMocks**: Use between tests when you want to keep the mock implementation but reset counters (e.g., checking `toHaveBeenCalledTimes` per test).
 - **resetAllMocks**: Use when you want every test to set up its own mock implementation from scratch. Mocks become no-op `jest.fn()`.
-- **restoreAllMocks**: Use when you used `jest.spyOn` and want the original implementation back. This is the safest default for `afterEach`.
+- **restoreAllMocks**: Use when you used `jest.spyOn` (or `jest.replaceProperty`) and want the original implementation back. It does not restore manually assigned `jest.fn()` replacements (e.g. `obj.method = jest.fn()`) — those need their own explicit restoration. This is the safest default for `afterEach`.
 
 Prefer setting `restoreMocks: true` in `jest.config` so you never forget:
 

@@ -119,7 +119,7 @@ Jest is a JavaScript/TypeScript testing framework for unit tests, integration te
 | `jest.mock(module, factory?)` | Mock a module |
 | `jest.useFakeTimers(config?)` | Fake timer APIs |
 | `jest.useRealTimers()` | Restore real timers |
-| `jest.restoreAllMocks()` | Restore all spies/mocks |
+| `jest.restoreAllMocks()` | Restore spies and replaced properties |
 | `jest.resetModules()` | Clear module cache |
 | `jest.isolateModules(fn)` | Sandboxed module cache |
 | `jest.requireActual(module)` | Import real module (bypass mock) |

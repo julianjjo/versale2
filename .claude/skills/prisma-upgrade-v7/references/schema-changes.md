@@ -89,7 +89,7 @@ Creates: `prisma/generated/prisma/client.ts`
 
 ## Datasource Block
 
-The `url`, `directUrl`, and `shadowDatabaseUrl` fields in the `datasource` block are deprecated in Prisma v7. Move them to `prisma.config.ts` and keep only the provider in `schema.prisma`:
+The `url` and `shadowDatabaseUrl` fields in the `datasource` block are deprecated in Prisma v7 schema files; move them to `prisma.config.ts` and keep only the provider in `schema.prisma`. The `directUrl` field is removed entirely — for CLI operations that need a direct, non-pooled connection, point `datasource.url` in `prisma.config.ts` at that direct connection string instead:
 
 ```prisma
 datasource db {
@@ -100,8 +100,7 @@ datasource db {
 ```typescript
 export default defineConfig({
   datasource: {
-    url: env('DATABASE_URL'),
-    directUrl: env('DIRECT_URL'),
+    url: env('DIRECT_URL'),
     shadowDatabaseUrl: env('SHADOW_DATABASE_URL'),
   },
 })

@@ -64,7 +64,7 @@ npm install @prisma/adapter-mssql mssql
 ### PostgreSQL
 
 ```typescript
-import { PrismaClient } from '../generated/client'
+import { PrismaClient } from '../generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
 const adapter = new PrismaPg({
@@ -77,7 +77,7 @@ const prisma = new PrismaClient({ adapter })
 ### MySQL
 
 ```typescript
-import { PrismaClient } from '../generated/client'
+import { PrismaClient } from '../generated/prisma/client'
 import { PrismaMariaDb } from '@prisma/adapter-mariadb'
 
 const adapter = new PrismaMariaDb({
@@ -95,7 +95,7 @@ const prisma = new PrismaClient({ adapter })
 ### SQLite
 
 ```typescript
-import { PrismaClient } from '../generated/client'
+import { PrismaClient } from '../generated/prisma/client'
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
 
 const adapter = new PrismaBetterSqlite3({
@@ -108,7 +108,7 @@ const prisma = new PrismaClient({ adapter })
 ### Neon (Serverless PostgreSQL)
 
 ```typescript
-import { PrismaClient } from '../generated/client'
+import { PrismaClient } from '../generated/prisma/client'
 import { PrismaNeon } from '@prisma/adapter-neon'
 
 const adapter = new PrismaNeon({
@@ -121,7 +121,7 @@ const prisma = new PrismaClient({ adapter })
 ### Prisma Postgres
 
 ```typescript
-import { PrismaClient } from '../generated/client'
+import { PrismaClient } from '../generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
 const adapter = new PrismaPg({
@@ -134,7 +134,7 @@ const prisma = new PrismaClient({ adapter })
 ### Prisma Postgres serverless driver
 
 ```typescript
-import { PrismaClient } from '../generated/client'
+import { PrismaClient } from '../generated/prisma/client'
 import { PrismaPostgresAdapter } from '@prisma/adapter-ppg'
 
 const prisma = new PrismaClient({
@@ -147,9 +147,28 @@ const prisma = new PrismaClient({
 ### SQL Server
 
 ```typescript
-import { PrismaClient } from '../generated/client'
+import { PrismaClient } from '../generated/prisma/client'
 import { PrismaMssql } from '@prisma/adapter-mssql'
 
+const adapter = new PrismaMssql({
+  server: 'localhost',
+  port: 1433,
+  database: 'mydb',
+  user: process.env.SQLSERVER_USER,
+  password: process.env.SQLSERVER_PASSWORD,
+  options: {
+    encrypt: true,
+    trustServerCertificate: false,
+  },
+})
+
+const prisma = new PrismaClient({ adapter })
+```
+
+`trustServerCertificate: true` skips certificate validation entirely. Only enable it for a local-development database, never in production:
+
+```typescript
+// Local development ONLY — never enable this in production.
 const adapter = new PrismaMssql({
   server: 'localhost',
   port: 1433,
@@ -161,8 +180,6 @@ const adapter = new PrismaMssql({
     trustServerCertificate: true,
   },
 })
-
-const prisma = new PrismaClient({ adapter })
 ```
 
 ## Connection Pool Configuration
@@ -194,13 +211,15 @@ const adapter = new PrismaPg({
 
 ## SSL Configuration
 
-### Accept self-signed certificates
+### Accept self-signed certificates (local development only)
+
+Local development ONLY — never use `rejectUnauthorized: false` in production. It disables certificate validation entirely and leaves the connection open to man-in-the-middle attacks.
 
 ```typescript
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false  // Accept self-signed certs
+    rejectUnauthorized: false  // Accept self-signed certs — local dev only, do not use in production
   }
 })
 ```
@@ -234,7 +253,7 @@ const prisma = new PrismaClient({
 ### After (v7)
 
 ```typescript
-import { PrismaClient } from '../generated/client'
+import { PrismaClient } from '../generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
 const adapter = new PrismaPg({
@@ -248,7 +267,7 @@ const prisma = new PrismaClient({ adapter })
 
 ```typescript
 // lib/prisma.ts
-import { PrismaClient } from '../generated/client'
+import { PrismaClient } from '../generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
 const globalForPrisma = globalThis as unknown as {

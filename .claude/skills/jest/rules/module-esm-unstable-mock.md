@@ -28,6 +28,9 @@ test('mocks fetchUser', () => {
 
 ```javascript
 // Use jest.unstable_mockModule + dynamic import
+// ESM has no implicit jest global — import every Jest API you use
+import { jest, test, expect, beforeEach } from '@jest/globals';
+
 beforeEach(async () => {
   jest.unstable_mockModule('./api.mjs', () => ({
     fetchUser: jest.fn(),
@@ -42,19 +45,22 @@ test('mocks fetchUser', async () => {
 ```
 
 ```javascript
-// With partial mocking
-test('partial ESM mock', async () => {
-  jest.unstable_mockModule('./utils.mjs', async () => {
-    const actual = await import('./utils.mjs');
-    return {
-      ...actual,
-      formatDate: jest.fn(() => '2024-01-01'),
-    };
-  });
+// Full mock — mock every export explicitly instead of importing the real
+// module from inside its own mock factory. `await import('./utils.mjs')`
+// inside the factory for './utils.mjs' resolves to the same mocked
+// specifier and re-enters the factory, which hangs the test instead of
+// loading the real module. Partial ESM mocking this way is unsupported.
+import { jest, test, expect } from '@jest/globals';
+
+test('full ESM mock', async () => {
+  jest.unstable_mockModule('./utils.mjs', () => ({
+    formatDate: jest.fn(() => '2024-01-01'),
+    formatCurrency: jest.fn((amount) => `$${amount.toFixed(2)}`),
+  }));
 
   const { formatDate, formatCurrency } = await import('./utils.mjs');
   expect(formatDate()).toBe('2024-01-01');
-  expect(typeof formatCurrency).toBe('function'); // real implementation
+  expect(formatCurrency(1234.5)).toBe('$1234.50');
 });
 ```
 

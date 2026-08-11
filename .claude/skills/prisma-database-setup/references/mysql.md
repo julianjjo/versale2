@@ -27,6 +27,7 @@ generator client {
 In `prisma.config.ts`:
 
 ```typescript
+import 'dotenv/config'
 import { defineConfig, env } from 'prisma/config'
 
 export default defineConfig({
@@ -84,6 +85,13 @@ Use a driver adapter for the standard SQL workflow.
    const prisma = new PrismaClient({ adapter })
    ```
 
+   This example reads `MYSQL_USER`, `MYSQL_PASSWORD`, and `MYSQL_DATABASE` from the environment in addition to `DATABASE_URL`. Add them to your `.env`:
+   ```env
+   MYSQL_USER="user"
+   MYSQL_PASSWORD="password"
+   MYSQL_DATABASE="mydb"
+   ```
+
 ### Text protocol option
 
 If you need the MariaDB driver's text protocol instead of the default binary `execute()` path, enable `useTextProtocol` explicitly:
@@ -117,9 +125,14 @@ datasource db {
 ## Common Issues
 
 ### "Too many connections"
-MySQL has a connection limit. Adjust connection pool size in URL:
-```env
-DATABASE_URL="mysql://...?connection_limit=5"
+MySQL has a connection limit. `PrismaMariaDb` does not read a `connection_limit` query parameter from `DATABASE_URL` — set the pool size via the adapter's options instead:
+```typescript
+const adapter = new PrismaMariaDb({
+  host: 'localhost',
+  port: 3306,
+  connectionLimit: 5,
+  // ...
+})
 ```
 
 ### JSON Support

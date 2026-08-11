@@ -64,9 +64,9 @@ Reference this skill when:
 ## Quick Upgrade Commands
 
 ```bash
-# Update packages
-npm install @prisma/client@7
-npm install -D prisma@7
+# Update packages (pinned to the version this guide was tested against)
+npm install @prisma/client@7.6.0
+npm install -D prisma@7.6.0
 
 # Install a driver adapter (PostgreSQL or Prisma Postgres via direct TCP)
 npm install @prisma/adapter-pg pg
@@ -75,7 +75,7 @@ npm install @prisma/adapter-pg pg
 npm install dotenv
 
 # Regenerate client
-npx prisma generate
+npx prisma@7.6.0 generate
 ```
 
 ## Breaking Changes Summary
@@ -224,8 +224,8 @@ const userSelect = {
 ### 8. Run migrations and generate
 
 ```bash
-npx prisma generate
-npx prisma migrate dev  # if needed
+npx prisma@7.6.0 generate
+npx prisma@7.6.0 migrate dev  # if needed
 ```
 
 ## Troubleshooting
@@ -235,8 +235,8 @@ npx prisma migrate dev  # if needed
 - Ensure `prisma generate` ran successfully
 
 ### SSL certificate errors
-- Add `ssl: { rejectUnauthorized: false }` to the adapter config if you need to preserve old behavior
-- Or configure your certificates properly with `NODE_EXTRA_CA_CERTS` / OpenSSL CA settings
+- Configure your certificates properly first: point `NODE_EXTRA_CA_CERTS` / your OpenSSL CA settings at the CA that signed your database's certificate, or pass `ssl: { ca: fs.readFileSync('/path/to/ca-cert.pem') }` to the adapter config
+- Only as a temporary, local-development-only workaround — never in production — you can add `ssl: { rejectUnauthorized: false }` to the adapter config to bypass certificate validation
 
 ### Connection timeout issues
 - Driver adapters use the underlying driver's defaults, which differ from v6

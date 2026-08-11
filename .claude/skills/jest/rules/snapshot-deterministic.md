@@ -27,17 +27,28 @@ test('creates audit log', () => {
 
 ```javascript
 // Option 1: Mock Date.now
+// Restore in afterEach (not at the end of the test body) so it still runs
+// even if toMatchSnapshot() fails mid-test
+afterEach(() => {
+  jest.useRealTimers();
+});
+
 test('creates audit log', () => {
   jest.useFakeTimers({ now: new Date('2024-01-15T12:00:00Z') });
   const log = createAuditLog('user.login', { userId: 1 });
   expect(log).toMatchSnapshot();
   // Snapshot always has: timestamp: 1705320000000
-  jest.useRealTimers();
 });
 ```
 
 ```javascript
 // Option 2: Mock the random/UUID source
+// Restore the spy in afterEach (or set `restoreMocks: true` in config) so a
+// failed assertion above doesn't leak the mocked crypto.randomUUID into later tests
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 test('creates record with id', () => {
   jest.spyOn(crypto, 'randomUUID').mockReturnValue('00000000-0000-0000-0000-000000000001');
   const record = createRecord({ name: 'test' });

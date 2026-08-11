@@ -49,6 +49,7 @@ generator client {
 In `prisma.config.ts`:
 
 ```typescript
+import 'dotenv/config'
 import { defineConfig, env } from 'prisma/config'
 
 export default defineConfig({
@@ -100,6 +101,8 @@ const adapter = new PrismaPg(process.env.DATABASE_URL!, {
 
 ### Edge/serverless option
 
+> **Early Access:** The Prisma Postgres serverless driver (`@prisma/adapter-ppg` / `@prisma/ppg`) is still Early Access and not recommended for production use.
+
 Use the Prisma Postgres serverless driver only when you need HTTP/WebSocket transport in environments like Workers or Edge Functions:
 
 ```bash
@@ -112,7 +115,7 @@ import { PrismaPostgresAdapter } from '@prisma/adapter-ppg'
 
 const prisma = new PrismaClient({
   adapter: new PrismaPostgresAdapter({
-    connectionString: process.env.PRISMA_DIRECT_TCP_URL,
+    connectionString: process.env.DATABASE_URL,
   }),
 })
 ```

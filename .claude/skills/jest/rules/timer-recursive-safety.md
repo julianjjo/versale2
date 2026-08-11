@@ -33,29 +33,36 @@ test('polls for data', () => {
 ## Correct
 
 ```javascript
-test('polls for data', () => {
+// fetchData must be mocked so poll() has a resolved promise to chain from.
+// The synchronous timer-advance APIs run before .then() schedules the first
+// timer and don't flush Promise callbacks between recursive cycles — use the
+// async variant and await each cycle.
+test('polls for data', async () => {
   jest.useFakeTimers();
+  fetchData.mockResolvedValue({ value: 'data' });
   const cb = jest.fn();
   poll(cb);
 
-  // Run only the timers currently in the queue — does not chase new ones
-  jest.runOnlyPendingTimers();
+  // Run only the timers currently in the queue — does not chase new ones —
+  // and flush the Promise callback before the next recursive timer is scheduled
+  await jest.runOnlyPendingTimersAsync();
   expect(cb).toHaveBeenCalledTimes(1);
 
   // Advance one more cycle
-  jest.runOnlyPendingTimers();
+  await jest.runOnlyPendingTimersAsync();
   expect(cb).toHaveBeenCalledTimes(2);
 });
 ```
 
 ```javascript
-// Alternative: advanceTimersByTime for precise control
-test('polls every second', () => {
+// Alternative: advanceTimersByTimeAsync for precise control
+test('polls every second', async () => {
   jest.useFakeTimers();
+  fetchData.mockResolvedValue({ value: 'data' });
   const cb = jest.fn();
   poll(cb);
 
-  jest.advanceTimersByTime(3000); // advance 3 seconds
+  await jest.advanceTimersByTimeAsync(3000); // advance 3 seconds, flushing Promise callbacks between timers
   expect(cb).toHaveBeenCalledTimes(3);
 });
 ```

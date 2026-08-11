@@ -34,7 +34,7 @@ Scan the target scope for violations of each rule in `rules/`. Search patterns:
 - Odd spacing values like `p-1`, `gap-3`, `m-5` (8px grid)
 - Desktop-first breakpoints (mobile-first)
 - Verbose individual sides where shorthands apply (logical shorthands)
-- `transition-all` usage (GPU animations)
+- `transition-all` paired with `width`/`height`/`margin`/`padding` changes (GPU animations)
 
 ### Step 2: Report
 
@@ -44,7 +44,7 @@ List all findings grouped by rule:
 ## Tailwind CSS Audit Results
 
 ### HIGH Severity
-- `src/components/Card.tsx:15` - `mt-4` → use `mb-4` or `gap` on parent
+- `src/components/Card.tsx:15` - `mt-4` on a flex child → use `gap` on parent instead
 - `src/components/Avatar.tsx:12` - `h-10 w-10` → `size-10`
 
 ### MEDIUM Severity

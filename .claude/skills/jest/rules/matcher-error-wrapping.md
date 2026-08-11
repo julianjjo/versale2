@@ -21,9 +21,11 @@ test('rejects negative age', () => {
 ```
 
 ```javascript
-// BUG: Same problem with async — rejects before .rejects can catch it
+// BUG: `.rejects.toThrow()` returns its own matcher promise, separate from
+// the promise fetchUser(null) returns. Without await/return, that matcher
+// promise is untracked — the test can finish before it settles.
 test('rejects invalid input', async () => {
-  expect(fetchUser(null)).rejects.toThrow(); // UNCAUGHT REJECTION
+  expect(fetchUser(null)).rejects.toThrow(); // untracked matcher promise
 });
 ```
 

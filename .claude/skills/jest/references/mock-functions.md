@@ -114,7 +114,7 @@ mock.mock.lastCall;        // [20] — arguments of last call
 |---|---|---|---|
 | `mockClear()` | `mock.mockClear()` | `clearMocks: true` | Clears `mock.calls`, `mock.instances`, `mock.results` |
 | `mockReset()` | `mock.mockReset()` | `resetMocks: true` | `mockClear()` + removes implementation (returns `undefined`) |
-| `mockRestore()` | `mock.mockRestore()` | `restoreMocks: true` | `mockReset()` + restores original implementation (spyOn only) |
+| `mockRestore()` | `mock.mockRestore()` | `restoreMocks: true` | `mockReset()` + restores the original implementation — only for `jest.spyOn()` mocks and `jest.replaceProperty()` replacements; manually assigned `jest.fn()` mocks are not restored |
 
 ```javascript
 // Config-level (recommended)
@@ -170,12 +170,14 @@ replaced.restore(); // or use restoreMocks config
 ## TypeScript Helpers
 
 ```typescript
-import { jest, type Mocked } from '@jest/globals';
+import { jest } from '@jest/globals';
+import * as api from './api';
 
-// Type a mocked module
+// Type a mocked module — `Mocked`/`MockedFunction` are exposed via the
+// `jest` namespace, not as standalone named exports from @jest/globals
 jest.mock('./api');
-const api = jest.mocked(require('./api'));
-// api.fetchUser is now typed as jest.Mock<typeof fetchUser>
+const mockedApi = api as jest.Mocked<typeof api>;
+// mockedApi.fetchUser is typed as jest.MockedFunction<typeof api.fetchUser>
 
 // Type a single mock function
 const fn = jest.fn<(x: number) => string>();

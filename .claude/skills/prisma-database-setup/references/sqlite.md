@@ -26,6 +26,7 @@ generator client {
 In `prisma.config.ts`:
 
 ```typescript
+import 'dotenv/config'
 import { defineConfig, env } from 'prisma/config'
 
 export default defineConfig({
@@ -63,6 +64,7 @@ Use a driver adapter for the standard SQL workflow.
 
 2. Instantiate Prisma Client with the adapter:
    ```typescript
+   import 'dotenv/config'
    import { PrismaClient } from '../generated/client'
    import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
 
@@ -103,4 +105,4 @@ For edge compatibility or Turso:
 ## Common Issues
 
 ### "Database file not found"
-Ensure the path in `DATABASE_URL` is correct relative to where Prisma is running or the schema file. `file:./dev.db` creates it next to schema.
+Because `prisma.config.ts` lives at the project root, Prisma resolves `DATABASE_URL` relative to the project root, not next to `prisma/schema.prisma`. `file:./dev.db` creates the database at `<project-root>/dev.db`. If you want the file to live beside the schema instead, use `file:./prisma/dev.db`.

@@ -43,14 +43,13 @@ datasource: {
 }
 ```
 
-### datasource.directUrl
+### Direct connections (no more datasource.directUrl)
 
-Direct connection URL (bypassing connection pooler):
+Prisma v7 removed the `directUrl` datasource property. If your app connects through a pooler, CLI operations (migrate, introspect, etc.) still need a direct, non-pooled connection — point `datasource.url` at that direct connection string instead:
 
 ```typescript
 datasource: {
-  url: env('DATABASE_URL'),
-  directUrl: env('DIRECT_DATABASE_URL'),
+  url: env('DIRECT_URL'),
 }
 ```
 
@@ -105,7 +104,6 @@ export default defineConfig({
   // Database connection
   datasource: {
     url: env('DATABASE_URL'),
-    directUrl: env('DIRECT_DATABASE_URL'),
     shadowDatabaseUrl: env('SHADOW_DATABASE_URL'),
   },
 })
@@ -161,8 +159,8 @@ import { defineConfig, env } from 'prisma/config'
 export default defineConfig({
   schema: 'prisma/schema.prisma',
   datasource: {
-    url: env('DATABASE_URL'),
-    directUrl: env('DIRECT_URL'),
+    // v7 has no directUrl — the CLI needs a direct, non-pooled connection here
+    url: env('DIRECT_URL'),
   },
 })
 ```
@@ -190,6 +188,10 @@ prisma migrate dev --config ./config/prisma.config.ts
 import 'dotenv/config'
 import { defineConfig, env } from 'prisma/config'
 import path from 'path'
+import { fileURLToPath } from 'url'
+
+// __dirname is undefined in native ESM — derive it from import.meta.url instead
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   schema: path.join(__dirname, 'packages/database/prisma/schema.prisma'),

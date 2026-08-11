@@ -59,4 +59,4 @@ test('calls callback with data', async () => {
 - `done()` with no argument tells Jest the test passed.
 - If neither is called, Jest waits until timeout — you lose the real failure info.
 
-**Prefer async/await over `done`**. The `done` callback pattern exists for legacy callback-based APIs. Modern code should promisify callbacks and use `async`/`await`, which eliminates this entire class of bugs. Jest 30 deprecates `done` in favor of async patterns.
+**Prefer async/await over `done`**. The `done` callback pattern exists for legacy callback-based APIs and remains fully supported in Jest 30 — it has not been deprecated or removed. Modern code should still promisify callbacks and use `async`/`await` where possible, which eliminates this entire class of bugs. Whichever style you use, don't mix them: a test must not accept a `done` argument and also return a promise — combining both is what actually causes problems.

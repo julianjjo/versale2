@@ -6,7 +6,7 @@ The `jest` object is available globally in every test file. It provides methods 
 
 ### `jest.mock(moduleName, factory?, options?)`
 
-Mocks a module. Hoisted to the top of the file automatically.
+Mocks a module. Hoisted to the top of the file automatically — but only under the CommonJS transform (`babel-jest`/`ts-jest`). Native ESM evaluates static `import` statements before any test-file code runs, so this hoisting does not apply there; use `jest.unstable_mockModule` with a dynamic `import()` instead (see [ESM Mocking](#esm-mocking) below).
 
 ```javascript
 // Auto-mock (all exports become jest.fn())
@@ -144,7 +144,9 @@ jest.getRealSystemTime();  // real Date.now() even when faked
 ```javascript
 jest.clearAllMocks();      // clear call history
 jest.resetAllMocks();      // clear + remove implementations
-jest.restoreAllMocks();    // clear + remove + restore originals
+jest.restoreAllMocks();    // restores jest.spyOn() spies and jest.replaceProperty() replacements to
+                            // their originals — does NOT restore manually assigned jest.fn() mocks
+                            // (e.g. obj.method = jest.fn())
 ```
 
 ## Test Configuration

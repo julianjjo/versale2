@@ -141,9 +141,11 @@ jest.mock('./utils', () => {
 
 ## ESM Mocking — jest.unstable_mockModule
 
-For native ES modules (`import`/`export`). Must use `await import()` after registering the mock.
+For native ES modules (`import`/`export`). Must use `await import()` after registering the mock. ESM does not provide `jest` as an implicit global — import it (and `test`/`expect`) from `@jest/globals`.
 
 ```javascript
+import { jest, test, expect } from '@jest/globals';
+
 jest.unstable_mockModule('./api.mjs', () => ({
   fetchUser: jest.fn(() => ({ id: 1 })),
 }));
@@ -156,10 +158,12 @@ test('ESM mock', async () => {
 
 ### Async factory
 
+An async factory can do setup work before returning the mock, but it must not import the module it is mocking — `await import('./utils.mjs')` inside the factory for `./utils.mjs` resolves to the same mocked specifier and re-enters the factory, hanging the test instead of loading the real module. Mock every export explicitly:
+
 ```javascript
 jest.unstable_mockModule('./utils.mjs', async () => {
-  const actual = await import('./utils.mjs');
-  return { ...actual, format: jest.fn() };
+  const format = await loadFormatter(); // unrelated async setup, not the mocked module
+  return { format: jest.fn(format) };
 });
 ```
 
@@ -200,8 +204,9 @@ test('calls fetchUser', () => {
 ## Clearing Module Mocks
 
 ```javascript
-jest.resetModules();  // clear module cache — next require loads fresh
-jest.restoreAllMocks(); // restore spied/mocked implementations
+jest.resetModules();    // module-registry cleanup — clears the require cache so the next require() loads fresh
+jest.restoreAllMocks(); // spy/property restoration — restores jest.spyOn() spies and jest.replaceProperty()
+                         // replacements to their originals; does not clear or reset standalone jest.fn() mocks
 ```
 
 ## TypeScript: Typing Mocked Modules

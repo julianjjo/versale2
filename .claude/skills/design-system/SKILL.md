@@ -24,7 +24,11 @@ Electronics shop
 
 
 ## Accessibility
-WCAG 2.2 AA, keyboard-first interactions, visible focus states
+WCAG 2.2 AA, keyboard-first interactions, visible focus states. Testable acceptance criteria:
+- Contrast: text and meaningful icons meet a 4.5:1 ratio (3:1 for large text and UI component boundaries).
+- Keyboard reachability: every interactive element is reachable and operable via Tab/Shift+Tab and Enter/Space, in a logical order, with no keyboard traps.
+- Focus visibility: every focusable element has a visibly discernible focus indicator in its `focus-visible` state, with sufficient contrast against the adjacent background.
+- Error states: validation errors are identified in text (not color alone) and exposed to assistive technology (e.g. via `aria-live` or `aria-describedby`).
 
 ## Writing Tone
 concise, confident, helpful

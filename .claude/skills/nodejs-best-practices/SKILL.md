@@ -72,7 +72,9 @@ What are you building?
 ### Native TypeScript
 
 ```
-Node.js 22+: --experimental-strip-types
+Node.js 22.6+: built-in type stripping for erasable TypeScript syntax only (no type-checking)
+├── Node.js 22.6–22.17: requires --experimental-strip-types
+├── Node.js 22.18+: enabled by default
 ├── Run .ts files directly
 ├── No build step needed for simple projects
 └── Consider for: scripts, simple APIs
@@ -162,7 +164,7 @@ Client gets:
 Logs get:
 ├── Full stack trace
 ├── Request context
-├── User ID (if applicable)
+├── Request/correlation ID (avoid raw user IDs; if one is required, pseudonymize it and document retention, redaction, and access controls)
 └── Timestamp
 ```
 
@@ -293,7 +295,8 @@ Trust nothing:
 ### Built-in Test Runner (Node.js 22+)
 
 ```
-node --test src/**/*.test.ts
+Node.js 22.6–22.17: node --experimental-strip-types --test "src/**/*.test.ts"
+Node.js 22.18+:     node --test "src/**/*.test.ts"
 ├── No external dependency
 ├── Good coverage reporting
 └── Watch mode available

@@ -208,19 +208,13 @@ module.exports = {
 };
 ```
 
-### `setupFilesAfterFramework` / `setupFilesAfterFramework` → `setupFilesAfterFramework`
+### `setupFilesAfterEnv`
 
-### `setupFilesAfterFramework`
-
-(Jest 30) Replaces `setupFilesAfterFramework`.
-
-### `setupFilesAfterFramework`
-
-Run after test framework is installed. Use for custom matchers and global test setup.
+Run after the test framework is installed. Use for custom matchers and global test setup.
 
 ```javascript
 module.exports = {
-  setupFilesAfterFramework: ['./jest.setup.js'],
+  setupFilesAfterEnv: ['./jest.setup.js'],
 };
 ```
 

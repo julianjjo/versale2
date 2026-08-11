@@ -23,6 +23,8 @@ test('renders dashboard', () => {
 
 ## Correct
 
+**Prerequisites for the DOM examples below**: `render(...)` requires React Testing Library plus a DOM environment (`jsdom`) — add a `/** @jest-environment jsdom */` docblock at the top of the file, or set `testEnvironment: 'jsdom'` in config, since Jest defaults to the `node` environment. `toBeInTheDocument` additionally requires `@testing-library/jest-dom` to be set up (e.g. via `setupFilesAfterEnv`) — Jest does not ship it.
+
 ```javascript
 // Snapshot only the specific piece you care about
 test('renders user greeting', () => {

@@ -27,6 +27,7 @@ generator client {
 In `prisma.config.ts`:
 
 ```typescript
+import 'dotenv/config'
 import { defineConfig, env } from 'prisma/config'
 
 export default defineConfig({
@@ -75,6 +76,11 @@ Use a driver adapter for the standard SQL workflow.
 
    const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
    const prisma = new PrismaClient({ adapter })
+   ```
+
+   If `DATABASE_URL` targets a non-default schema, pass it explicitly as the adapter's second argument so the runtime client matches the schema the CLI reads from the connection string:
+   ```typescript
+   const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL }, { schema: 'my_schema' })
    ```
 
 ## Common Issues

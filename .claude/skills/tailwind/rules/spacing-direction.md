@@ -4,7 +4,7 @@ impact: HIGH
 tags: spacing, margin, padding, gap
 ---
 
-**Rule**: Never use `mt-*` or `pt-*` classes. Use `mb-*`, `pb-*`, or `gap` instead. Consistent bottom-only spacing prevents margin collapse issues and creates predictable vertical rhythm.
+**Rule**: Prefer `mb-*`/`pb-*` for spacing between sibling elements. Allow `mt-*`/`pt-*` when top-side spacing is intentional (e.g. spacing from a sticky/fixed ancestor, or a component controlling its own leading space). In flex or grid layouts, prefer `gap` on the parent over margins on children.
 
 ### Incorrect
 

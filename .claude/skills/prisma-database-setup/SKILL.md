@@ -67,7 +67,7 @@ The standard SQL workflow uses a driver adapter. Choose the adapter and driver f
 | PostgreSQL | `@prisma/adapter-pg` | `pg` |
 | CockroachDB | `@prisma/adapter-pg` | `pg` |
 | Prisma Postgres (Node.js) | `@prisma/adapter-pg` | `pg` |
-| Prisma Postgres (edge/serverless) | `@prisma/adapter-ppg` | `@prisma/ppg` |
+| Prisma Postgres (edge/serverless) — Early Access, not recommended for production | `@prisma/adapter-ppg` | `@prisma/ppg` |
 | MySQL / MariaDB | `@prisma/adapter-mariadb` | `mariadb` |
 | SQLite | `@prisma/adapter-better-sqlite3` | `better-sqlite3` |
 | SQLite (Turso/LibSQL) | `@prisma/adapter-libsql` | `@libsql/client` |
@@ -90,10 +90,18 @@ const prisma = new PrismaClient({ adapter })
 
 Prisma Client must be installed and generated for any database.
 
-1. Install Prisma CLI and Prisma Client:
+1. Install Prisma CLI and Prisma Client, pinned to a version compatible with your provider:
+
+   **MongoDB** (Prisma 7 does not support MongoDB yet — pin to Prisma 6.19.x and keep the `prisma-client-js` generator):
    ```bash
-   npm install prisma --save-dev
-   npm install @prisma/client
+   npm install prisma@6.19 --save-dev
+   npm install @prisma/client@6.19
+   ```
+
+   **SQL providers** (PostgreSQL, MySQL, SQLite, SQL Server, CockroachDB, Prisma Postgres):
+   ```bash
+   npm install prisma@7.6.0 --save-dev
+   npm install @prisma/client@7.6.0 dotenv
    ```
 
 1. Add a generator block (`prisma-client` requires an explicit output path):

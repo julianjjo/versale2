@@ -61,7 +61,7 @@ Setting `restoreMocks: true` in config is the safest approach because:
 
 1. It applies globally — no test file can forget.
 2. It restores the original implementation, not just a no-op `jest.fn()`.
-3. It covers `jest.spyOn`, `jest.fn` used as replacements, and `jest.replaceProperty`.
+3. It covers `jest.spyOn` and `jest.replaceProperty`. Manually assigned `jest.fn()` replacements require explicit restoration.
 
 If you only need the spy for a single assertion, use the spy's own `.mockRestore()`:
 

@@ -27,6 +27,7 @@ generator client {
 In `prisma.config.ts`:
 
 ```typescript
+import 'dotenv/config'
 import { defineConfig, env } from 'prisma/config'
 
 export default defineConfig({
@@ -39,7 +40,7 @@ export default defineConfig({
 
 ## 3. Environment Variable
 
-In `.env`:
+In `.env` (local development / self-signed certificate only):
 
 ```env
 DATABASE_URL="sqlserver://localhost:1433;database=mydb;user=sa;password=Password123;encrypt=true;trustServerCertificate=true"
@@ -48,11 +49,11 @@ DATABASE_URL="sqlserver://localhost:1433;database=mydb;user=sa;password=Password
 ### Connection String Format
 
 ```
-sqlserver://HOST:PORT;database=DB;user=USER;password=PASS;encrypt=true;trustServerCertificate=true
+sqlserver://HOST:PORT;database=DB;user=USER;password=PASS;encrypt=true;trustServerCertificate=false
 ```
 
 - **encrypt**: Required for Azure (true).
-- **trustServerCertificate**: True for self-signed certs (local dev).
+- **trustServerCertificate**: Only set to `true` for local development against a self-signed certificate, as in the example above. Use `false` for production and any server with a certificate signed by a trusted CA.
 
 ## Driver Adapter
 
@@ -84,6 +85,12 @@ Use a driver adapter for the standard SQL workflow.
    const prisma = new PrismaClient({ adapter })
    ```
 
+   This example reads `SQLSERVER_USER` and `SQLSERVER_PASSWORD` from the environment in addition to `DATABASE_URL`. Add them to your `.env`:
+   ```env
+   SQLSERVER_USER="sa"
+   SQLSERVER_PASSWORD="Password123"
+   ```
+
 ## Common Issues
 
 ### "Login failed for user"
@@ -91,4 +98,4 @@ Use a driver adapter for the standard SQL workflow.
 - Ensure TCP/IP is enabled in SQL Server Configuration Manager.
 
 ### "Table not found" (dbo schema)
-Prisma assumes `dbo` schema by default. If using another schema, update the model or connection string? SQL Server provider mostly sticks to default schema.
+Prisma assumes the `dbo` schema by default. To use a different schema, add the `schema=<name>` parameter to your connection string. For multi-schema setups, list every schema in the `schemas` array of the `datasource` block and add `@@schema("...")` to each model that lives outside the default schema.

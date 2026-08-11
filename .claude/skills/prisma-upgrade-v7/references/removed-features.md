@@ -21,6 +21,7 @@ prisma.$use(async (params, next) => {
 
 ```typescript
 // ✅ v7 approach
+// Assumes `adapter` is already configured — see the driver-adapters guide.
 const prisma = new PrismaClient({ adapter }).$extends({
   query: {
     $allModels: {
@@ -41,6 +42,7 @@ const prisma = new PrismaClient({ adapter }).$extends({
 #### Soft delete
 
 ```typescript
+// Assumes `adapter` is already configured — see the driver-adapters guide.
 const prisma = new PrismaClient({ adapter }).$extends({
   query: {
     user: {
@@ -63,13 +65,20 @@ const prisma = new PrismaClient({ adapter }).$extends({
 
 #### Logging
 
+Do not log raw `args` — they can contain passwords, tokens, emails, and other PII. Log an explicit allowlist of non-sensitive fields instead.
+
 ```typescript
+// Assumes `adapter` is already configured — see the driver-adapters guide.
 const prisma = new PrismaClient({ adapter }).$extends({
   query: {
     $allModels: {
       async $allOperations({ operation, model, args, query }) {
-        console.log(`${model}.${operation}`, JSON.stringify(args))
-        return query(args)
+        const before = Date.now()
+        const result = await query(args)
+        const after = Date.now()
+        // Log only a safe allowlist of fields — never the raw `args`.
+        console.log(`${model}.${operation} took ${after - before}ms`)
+        return result
       },
     },
   },
@@ -94,6 +103,7 @@ const metrics = await prisma.$metrics.json()
 ```typescript
 let totalQueries = 0
 
+// Assumes `adapter` is already configured — see the driver-adapters guide.
 const prisma = new PrismaClient({ adapter }).$extends({
   client: {
     async $totalQueries() {

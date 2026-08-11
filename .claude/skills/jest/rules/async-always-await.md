@@ -17,7 +17,7 @@ If a test calls an async function but does not `await` or `return` the promise, 
 // BUG: Missing `await` — test completes before the promise resolves
 test('fetches user', () => {
   fetchUser(1).then(user => {
-    expect(user.name).toBe('Alice'); // NEVER EXECUTES
+    expect(user.name).toBe('Alice'); // may run after the test completes — too late to affect the result
   });
   // test ends here, passes with 0 assertions
 });
@@ -28,7 +28,7 @@ test('fetches user', () => {
 test('fetches user', () => {
   // no return statement
   fetchUser(1).then(user => {
-    expect(user.name).toBe('Alice'); // NEVER EXECUTES
+    expect(user.name).toBe('Alice'); // may run after the test completes — too late to affect the result
   });
 });
 ```
@@ -63,7 +63,7 @@ test('fetches user', async () => {
 
 Jest cannot detect that a test has a floating promise. The test runner marks the test as passed because the synchronous body completed without throwing. By the time the promise rejects, the test is already done.
 
-**Pair with `expect.assertions(n)`** to guard against this class of bug:
+**`expect.assertions(n)` is a guard, not a substitute for `await`/`return`.** It only checks how many assertions ran during the test — it cannot detect or prove that a promise (or a `.resolves`/`.rejects` assertion) was actually awaited. You still have to explicitly `await` or `return` every promise and every async matcher.
 
 ```javascript
 test('fetches user', async () => {
@@ -73,4 +73,4 @@ test('fetches user', async () => {
 });
 ```
 
-If you accidentally remove the `await`, `expect.assertions(1)` will fail the test because zero assertions ran.
+Used together with `await`, `expect.assertions(n)` is a useful complement: if you accidentally remove the `await`, the assertion inside `.then()` would run too late to be counted, so `expect.assertions(1)` fails the test because zero assertions were recorded by the time it finished. It does not, by itself, make a missing `await` safe.

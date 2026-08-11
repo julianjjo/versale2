@@ -57,6 +57,8 @@ This pattern is essential for large modules where mocking everything would be im
 
 ### Common variant: ES module default export
 
+This pattern applies to CommonJS or transpiled/Babel ESM (source compiled to CommonJS by `babel-jest`/`ts-jest`) — it does not apply to native ESM.
+
 ```javascript
 jest.mock('./config', () => ({
   __esModule: true,
@@ -65,4 +67,4 @@ jest.mock('./config', () => ({
 }));
 ```
 
-The `__esModule: true` flag is needed so Jest treats the mock as an ES module with a `default` property.
+The `__esModule: true` flag is a CommonJS/Babel interop marker that tells the transform to treat the mock as an ES module with a `default` property. Native ESM modules (`"type": "module"` or `.mjs` files) don't go through this transform, so `__esModule: true` has no effect there — mock them with `jest.unstable_mockModule` and a dynamic `import()` instead (see `rules/module-esm-unstable-mock.md`).

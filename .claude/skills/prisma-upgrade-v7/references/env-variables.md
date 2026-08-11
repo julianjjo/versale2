@@ -71,6 +71,10 @@ npm install -D dotenv-cli
 // prisma.config.ts
 import { config } from 'dotenv'
 import path from 'path'
+import { fileURLToPath } from 'url'
+
+// __dirname is undefined in native ESM — derive it from import.meta.url instead
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // Load specific .env file
 config({ path: path.join(__dirname, '.env.local') })
@@ -94,7 +98,7 @@ For your application, load env vars at startup:
 // index.ts
 import 'dotenv/config'
 
-import { PrismaClient } from '../generated/client'
+import { PrismaClient } from '../generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
 const adapter = new PrismaPg({

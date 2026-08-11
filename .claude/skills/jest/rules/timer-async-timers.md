@@ -36,6 +36,16 @@ test('fetches after delay', () => {
 
 ```javascript
 // Jest 29.5+ provides async timer methods
+// fetch('/api') would reject with "Invalid URL" in Node — mock it with a
+// deterministic response instead of hitting the real fetch implementation
+beforeEach(() => {
+  jest.spyOn(global, 'fetch').mockResolvedValue({ id: 1, name: 'Alice' });
+});
+
+afterEach(() => {
+  jest.restoreAllMocks(); // restore the fetch spy
+});
+
 test('fetches after delay', async () => {
   jest.useFakeTimers();
   const promise = delayedFetch('/api');
@@ -44,7 +54,7 @@ test('fetches after delay', async () => {
   await jest.advanceTimersByTimeAsync(1000);
 
   const data = await promise;
-  expect(data).toBeDefined();
+  expect(data).toEqual({ id: 1, name: 'Alice' });
 });
 ```
 

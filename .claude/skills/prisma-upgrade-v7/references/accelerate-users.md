@@ -42,7 +42,7 @@ export default defineConfig({
 ### 4. Instantiate client with accelerateUrl
 
 ```typescript
-import { PrismaClient } from '../generated/client'
+import { PrismaClient } from '../generated/prisma/client'
 import { withAccelerate } from '@prisma/extension-accelerate'
 
 // Use accelerateUrl instead of adapter
@@ -64,19 +64,15 @@ const adapter = new PrismaPg({
 
 ## Migrations with Accelerate
 
-For migrations, you may need a direct database connection:
+For migrations, you need a direct database connection:
 
-### Option 1: Use Accelerate URL for everything
+### `prisma://` URLs require a direct URL for migrations
 
-Accelerate URLs work with Prisma CLI commands:
+`prisma://` Accelerate URLs do **not** support `prisma migrate` or introspection commands. Set `DIRECT_DATABASE_URL` to a direct, non-Accelerate connection string and point `prisma.config.ts` at it for those CLI operations, as shown below.
 
-```bash
-# Works with Accelerate URL
-prisma migrate deploy
-prisma db push
-```
+`prisma+postgres://` URLs (Prisma Postgres's own Accelerate-like scheme) behave differently — see [Prisma Postgres (Cloud)](#prisma-postgres-cloud) below.
 
-### Option 2: Use direct URL for migrations
+### Use a direct URL for migrations
 
 ```env
 DATABASE_URL="prisma+postgres://..."  # For app
@@ -85,6 +81,9 @@ DIRECT_DATABASE_URL="postgresql://..."  # For migrations
 
 ```typescript
 // prisma.config.ts
+import 'dotenv/config'
+import { defineConfig, env } from 'prisma/config'
+
 export default defineConfig({
   datasource: {
     url: env('DIRECT_DATABASE_URL'),  // Direct URL for CLI
@@ -99,7 +98,7 @@ If using Prisma Postgres cloud database:
 ### Same approach
 
 ```typescript
-import { PrismaClient } from '../generated/client'
+import { PrismaClient } from '../generated/prisma/client'
 import { withAccelerate } from '@prisma/extension-accelerate'
 
 export const prisma = new PrismaClient({
@@ -113,7 +112,7 @@ If you later switch to direct TCP connection:
 
 ```typescript
 // Change from accelerateUrl to adapter
-import { PrismaClient } from '../generated/client'
+import { PrismaClient } from '../generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
 const adapter = new PrismaPg({
@@ -138,11 +137,20 @@ const users = await prisma.user.findMany({
 
 ## Edge Runtime
 
-Accelerate works great in edge runtimes:
+Accelerate works great in edge runtimes, but the generated client must target that runtime. Set a platform-specific `runtime` value in the generator block and regenerate before importing the client at the edge:
+
+```prisma
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+  runtime  = "workerd"      // Cloudflare Workers
+  // runtime = "vercel-edge" // Vercel Edge
+}
+```
 
 ```typescript
-// Works in Vercel Edge, Cloudflare Workers, etc.
-import { PrismaClient } from '../generated/client'
+// Works in Vercel Edge, Cloudflare Workers, etc. — after regenerating with the runtime above.
+import { PrismaClient } from '../generated/prisma/client'
 import { withAccelerate } from '@prisma/extension-accelerate'
 
 export const prisma = new PrismaClient({

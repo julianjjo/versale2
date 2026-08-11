@@ -62,7 +62,9 @@ test('finds user when added', () => {
 | State type | Reset strategy |
 |---|---|
 | Module-level variables | Re-initialize in `beforeEach` |
-| Mocks | `jest.restoreAllMocks()` in `afterEach` (or `restoreMocks: true` in config) |
+| Mock call history | `jest.clearAllMocks()` in `afterEach` (or `clearMocks: true` in config) |
+| Mock implementations | `jest.resetAllMocks()` in `afterEach` (or `resetMocks: true` in config) |
+| Spy/replaced-property originals | `jest.restoreAllMocks()` in `afterEach` (or `restoreMocks: true` in config) |
 | Database/external state | `db.clear()` or transaction rollback in `beforeEach` |
 | DOM | `document.body.innerHTML = ''` in `afterEach` or use `jsdom` auto-cleanup |
 | Fake timers | `jest.useRealTimers()` in `afterEach` |
