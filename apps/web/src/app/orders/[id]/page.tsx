@@ -18,6 +18,13 @@ import {
 import { ORDER_STATUS_LABEL, ORDER_STATUS_VARIANT } from "@/lib/order-status";
 import type { Order } from "@/lib/types";
 
+const CONDITION_LABELS: Record<string, string> = {
+  New: "Nuevo",
+  "Like New": "Como nuevo",
+  Good: "Buen estado",
+  Fair: "Aceptable",
+};
+
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -135,7 +142,9 @@ export default function OrderDetailPage() {
                 </Link>
                 {item.product && (
                   <p className="text-xs text-text-muted">
-                    {item.product.condition} · Talla {item.product.size}
+                    {CONDITION_LABELS[item.product.condition] ??
+                      item.product.condition}{" "}
+                    · Talla {item.product.size}
                   </p>
                 )}
                 <p className="mt-1 text-sm text-text-muted">

@@ -102,24 +102,26 @@ body {
   letter-spacing: -0.005em;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  font-family: var(--font-display);
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  color: var(--color-ink);
-}
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--color-ink);
+  }
 
-h1 em,
-h2 em,
-h3 em,
-.display-em {
-  font-style: italic;
-  color: var(--color-terracotta);
+  h1 em,
+  h2 em,
+  h3 em,
+  .display-em {
+    font-style: italic;
+    color: var(--color-terracotta);
+  }
 }
 
 .font-mono,

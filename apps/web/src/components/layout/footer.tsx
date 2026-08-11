@@ -13,7 +13,7 @@ const SELL_LINKS = [
   { label: "Cómo funciona", href: "/sell" },
   { label: "Pedir bolsa", href: "/sell" },
   { label: "Calculadora de ganancias", href: "/sell" },
-  { label: "Centro de ayuda", href: "/login" },
+  { label: "Centro de ayuda", href: "/ayuda" },
 ];
 
 const COMPANY_LINKS = [
@@ -21,7 +21,7 @@ const COMPANY_LINKS = [
   { label: "Crear cuenta", href: "/signup" },
   { label: "Nuestra historia", href: "/products" },
   { label: "Impacto", href: "/products" },
-  { label: "Contacto", href: "/login" },
+  { label: "Contacto", href: "/contacto" },
 ];
 
 export function Footer() {
@@ -62,25 +62,25 @@ export function Footer() {
           <div>© {new Date().getFullYear()} Versale · Moda circular con ❤️</div>
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             <Link
-              href="/login"
+              href="/privacidad"
               className="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
             >
               Privacidad
             </Link>
             <Link
-              href="/login"
+              href="/cookies"
               className="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
             >
               Cookies
             </Link>
             <Link
-              href="/login"
+              href="/terminos"
               className="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
             >
               Términos
             </Link>
             <Link
-              href="/login"
+              href="/envios"
               className="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
             >
               Envíos

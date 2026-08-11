@@ -318,9 +318,8 @@ describe("CartPage", () => {
     });
   });
 
-  it("realiza el pedido al hacer click en Pagar", async () => {
+  it("bloquea el pago y marca los campos si la dirección está en blanco", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockCart });
-    vi.mocked(api.post).mockResolvedValue({ data: { id: "order1" } });
     const user = userEvent.setup();
     render(
       <TestProviders>
@@ -335,7 +334,67 @@ describe("CartPage", () => {
     await user.click(screen.getByRole("button", { name: /pagar/i }));
 
     await waitFor(() => {
-      expect(api.post).toHaveBeenCalledWith("/orders", {});
+      expect(
+        screen.getByText(/completa la dirección de envío/i),
+      ).toBeInTheDocument();
+    });
+    expect(api.post).not.toHaveBeenCalled();
+    expect(screen.getAllByText("Obligatorio").length).toBeGreaterThan(0);
+  });
+
+  it("bloquea el pago si solo se llena un campo de la dirección", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: mockCart });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText("Calle y número"), "Calle 10 # 5-20");
+    await user.click(screen.getByRole("button", { name: /pagar/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/completa la dirección de envío/i),
+      ).toBeInTheDocument();
+    });
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it("realiza el pedido con la dirección al hacer click en Pagar", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: mockCart });
+    vi.mocked(api.post).mockResolvedValue({ data: { id: "order1" } });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText("Calle y número"), "Calle 10 # 5-20");
+    await user.type(screen.getByLabelText("Ciudad"), "Bogotá");
+    await user.type(screen.getByLabelText("País"), "Colombia");
+    await user.click(screen.getByRole("button", { name: /pagar/i }));
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith("/orders", {
+        shippingAddress: {
+          street: "Calle 10 # 5-20",
+          city: "Bogotá",
+          state: "",
+          zip: "",
+          country: "Colombia",
+        },
+      });
     });
     expect(pushMock).toHaveBeenCalledWith("/orders");
   });
@@ -354,6 +413,9 @@ describe("CartPage", () => {
       expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
     });
 
+    await user.type(screen.getByLabelText("Calle y número"), "Calle 10 # 5-20");
+    await user.type(screen.getByLabelText("Ciudad"), "Bogotá");
+    await user.type(screen.getByLabelText("País"), "Colombia");
     await user.click(screen.getByRole("button", { name: /pagar/i }));
 
     await waitFor(() => {

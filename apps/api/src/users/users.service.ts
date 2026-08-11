@@ -1,6 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { Role } from './role.enum';
 import * as bcrypt from 'bcryptjs';
 
 const PUBLIC_USER_SELECT = {
@@ -96,7 +101,30 @@ export class UsersService {
     });
   }
 
-  remove(id: string) {
+  async remove(id: string, requesterId: string) {
+    if (id === requesterId) {
+      throw new ForbiddenException('No puedes eliminar tu propia cuenta.');
+    }
+
+    const target = await this.prisma.client.user.findUnique({
+      where: { id },
+      select: { id: true, role: true },
+    });
+    if (!target) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    if (target.role === Role.ADMIN) {
+      const adminCount = await this.prisma.client.user.count({
+        where: { role: Role.ADMIN },
+      });
+      if (adminCount <= 1) {
+        throw new ForbiddenException(
+          'No puedes eliminar al último administrador.',
+        );
+      }
+    }
+
     return this.prisma.client.user.delete({ where: { id } });
   }
 }

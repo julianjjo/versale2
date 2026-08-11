@@ -167,6 +167,19 @@ describe("extractApiError", () => {
     expect(extractApiError(new Error("boom"), "fallback")).toBe("boom");
   });
 
+  it("returns the fallback instead of axios's English network-error text", () => {
+    const err = new axios.AxiosError(
+      "Network Error",
+      "ERR_NETWORK",
+      { url: "/x" } as never,
+      null,
+      undefined,
+    );
+    expect(extractApiError(err, "No pudimos iniciar sesión")).toBe(
+      "No pudimos iniciar sesión",
+    );
+  });
+
   it("returns the fallback for unknown errors", () => {
     expect(extractApiError("string error", "Default fallback")).toBe(
       "Default fallback",

@@ -33,19 +33,46 @@ function parseQuantity(raw: string, fallback: number): number {
   return n;
 }
 
+type ShippingAddress = {
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+};
+
+const REQUIRED_ADDRESS_FIELDS: Array<keyof ShippingAddress> = [
+  "street",
+  "city",
+  "country",
+];
+
 export default function CartPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, isLoading: isAuthLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
-  const [shippingAddress, setShippingAddress] = useState({
+  const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
     street: "",
     city: "",
     state: "",
     zip: "",
     country: "",
   });
+  const [addressErrors, setAddressErrors] = useState<
+    Partial<Record<keyof ShippingAddress, string>>
+  >({});
+
+  const updateAddressField = (field: keyof ShippingAddress, value: string) => {
+    setShippingAddress((a) => ({ ...a, [field]: value }));
+    setAddressErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
   const { data, isLoading, isLoadingError, isRefetchError, refetch } = useQuery<Cart>({
     queryKey: ["cart"],
@@ -100,10 +127,7 @@ export default function CartPage() {
 
   const checkout = useMutation({
     mutationFn: async () => {
-      const hasAddress = Object.values(shippingAddress).some(
-        (v) => v.trim() !== "",
-      );
-      await api.post("/orders", hasAddress ? { shippingAddress } : {});
+      await api.post("/orders", { shippingAddress });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] });
@@ -112,6 +136,23 @@ export default function CartPage() {
     },
     onError: (err) => setError(extractApiError(err, "No pudimos procesar el pago")),
   });
+
+  const handleCheckout = () => {
+    const errors: Partial<Record<keyof ShippingAddress, string>> = {};
+    for (const field of REQUIRED_ADDRESS_FIELDS) {
+      if (shippingAddress[field].trim() === "") {
+        errors[field] = "Obligatorio";
+      }
+    }
+    if (Object.keys(errors).length > 0) {
+      setAddressErrors(errors);
+      setError("Completa la dirección de envío para continuar.");
+      return;
+    }
+    setAddressErrors({});
+    setError(null);
+    checkout.mutate();
+  };
 
   if (isAuthLoading) {
     return (
@@ -242,55 +283,36 @@ export default function CartPage() {
                 <Input
                   label="Calle y número"
                   value={shippingAddress.street}
-                  onChange={(e) =>
-                    setShippingAddress((a) => ({
-                      ...a,
-                      street: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => updateAddressField("street", e.target.value)}
+                  error={addressErrors.street}
+                  required
                 />
                 <div className="grid grid-cols-2 gap-3">
                   <Input
                     label="Ciudad"
                     value={shippingAddress.city}
-                    onChange={(e) =>
-                      setShippingAddress((a) => ({
-                        ...a,
-                        city: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => updateAddressField("city", e.target.value)}
+                    error={addressErrors.city}
+                    required
                   />
                   <Input
                     label="Departamento"
                     value={shippingAddress.state}
-                    onChange={(e) =>
-                      setShippingAddress((a) => ({
-                        ...a,
-                        state: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => updateAddressField("state", e.target.value)}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <Input
                     label="Código postal"
                     value={shippingAddress.zip}
-                    onChange={(e) =>
-                      setShippingAddress((a) => ({
-                        ...a,
-                        zip: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => updateAddressField("zip", e.target.value)}
                   />
                   <Input
                     label="País"
                     value={shippingAddress.country}
-                    onChange={(e) =>
-                      setShippingAddress((a) => ({
-                        ...a,
-                        country: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => updateAddressField("country", e.target.value)}
+                    error={addressErrors.country}
+                    required
                   />
                 </div>
               </div>
@@ -314,7 +336,7 @@ export default function CartPage() {
               </div>
               <Button
                 variant="accent"
-                onClick={() => checkout.mutate()}
+                onClick={handleCheckout}
                 disabled={checkout.isPending}
                 fullWidth
                 size="lg"
