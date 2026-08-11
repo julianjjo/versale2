@@ -14,7 +14,11 @@ import {
   SectionHeader,
   Price,
 } from "@/components/ui";
-import { ORDER_STATUS_LABEL, ORDER_STATUS_VARIANT } from "@/lib/order-status";
+import {
+  ORDER_STATUS_LABEL,
+  ORDER_STATUS_REASSURANCE,
+  ORDER_STATUS_VARIANT,
+} from "@/lib/order-status";
 import type { Order } from "@/lib/types";
 
 export default function OrdersPage() {
@@ -105,6 +109,9 @@ export default function OrdersPage() {
                 <p className="mt-1 text-xs text-text-muted">
                   Realizado el{" "}
                   {new Date(order.createdAt).toLocaleDateString("es-CO")}
+                </p>
+                <p className="mt-1 text-xs font-medium text-text-primary">
+                  {ORDER_STATUS_REASSURANCE[order.status]}
                 </p>
               </Card>
             </a>

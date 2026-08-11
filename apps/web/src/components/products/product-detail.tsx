@@ -85,10 +85,13 @@ export function ProductDetail() {
       setError(extractApiError(err, "No pudimos publicar la reseña")),
   });
 
+  const loginRedirect = (reason: "cart" | "review") =>
+    `/login?next=${encodeURIComponent(`/products/${id}`)}&reason=${reason}`;
+
   const handleAddToCart = () => {
     setError(null);
     if (!user) {
-      router.push("/login");
+      router.push(loginRedirect("cart"));
       return;
     }
     addToCart.mutate();
@@ -98,7 +101,7 @@ export function ProductDetail() {
     e.preventDefault();
     setError(null);
     if (!user) {
-      router.push("/login");
+      router.push(loginRedirect("review"));
       return;
     }
     createReview.mutate();
@@ -268,7 +271,7 @@ export function ProductDetail() {
         </div>
       </div>
 
-      <section className="mt-12">
+      <section id="resenas" className="mt-12">
         <h2 className="heading-section mb-4 text-text-primary">Reseñas</h2>
         {reviews.length === 0 ? (
           <p className="text-sm text-text-muted">Aún no hay reseñas.</p>
@@ -373,7 +376,7 @@ export function ProductDetail() {
       {!isAuthLoading && !user && (
         <p className="mt-4 text-sm text-text-muted">
           <a
-            href="/login"
+            href={loginRedirect("cart")}
             className="font-medium text-text-primary underline-offset-4 hover:underline"
           >
             Inicia sesión
