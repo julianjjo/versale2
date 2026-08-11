@@ -42,6 +42,46 @@ const CONDITIONS: Array<{ value: string; label: string }> = [
   { value: "Fair", label: "Aceptable" },
 ];
 
+interface FilterFormState {
+  search: string;
+  minPrice: string;
+  maxPrice: string;
+  size: string;
+  brand: string;
+  category: string;
+  condition: string;
+}
+
+const EMPTY_FORM: FilterFormState = {
+  search: "",
+  minPrice: "",
+  maxPrice: "",
+  size: "",
+  brand: "",
+  category: "",
+  condition: "",
+};
+
+function toFormState(f?: ProductFilters): FilterFormState {
+  return {
+    search: f?.search ?? "",
+    minPrice: f?.minPrice != null ? String(f.minPrice) : "",
+    maxPrice: f?.maxPrice != null ? String(f.maxPrice) : "",
+    size: f?.size ?? "",
+    brand: f?.brand ?? "",
+    category: f?.category ?? "",
+    condition: f?.condition ?? "",
+  };
+}
+
+// Always includes the currently-selected value even if it hasn't loaded from
+// the facets endpoint yet, so the <select> never silently drops the user's
+// current choice while `facets` is loading or stale.
+function mergeFacetOptions(fetched: string[] | undefined, current: string): string[] {
+  const options = fetched ?? [];
+  return current && !options.includes(current) ? [current, ...options] : options;
+}
+
 export function ProductsBrowser({
   initialFilters,
   limit = 12,
@@ -53,6 +93,9 @@ export function ProductsBrowser({
     limit,
     ...initialFilters,
   });
+  const [form, setForm] = useState<FilterFormState>(() =>
+    toFormState(initialFilters),
+  );
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["products", filters],
@@ -70,25 +113,39 @@ export function ProductsBrowser({
     },
   });
 
+  const { data: facets } = useQuery({
+    queryKey: ["products-facets"],
+    queryFn: async () => {
+      const response = await api.get<{ brands: string[]; categories: string[] }>(
+        "/products/facets",
+      );
+      return response.data;
+    },
+    enabled: showFilters,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const clearFilters = () => {
+    setForm(EMPTY_FORM);
+    setFilters({ page: 1, limit });
+  };
+
   return (
     <div>
       {showFilters && (
         <form
-          className="mb-6 grid grid-cols-1 gap-3 rounded-2xl border border-border bg-surface-muted p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-6"
+          className="mb-6 grid grid-cols-1 gap-3 rounded-2xl border border-border bg-surface-muted p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4"
           onSubmit={(e) => {
             e.preventDefault();
-            const formData = new FormData(e.currentTarget);
             setFilters((f) => ({
               ...f,
-              search: String(formData.get("search") ?? "") || undefined,
-              minPrice: formData.get("minPrice")
-                ? Number(formData.get("minPrice"))
-                : undefined,
-              maxPrice: formData.get("maxPrice")
-                ? Number(formData.get("maxPrice"))
-                : undefined,
-              size: String(formData.get("size") ?? "") || undefined,
-              condition: String(formData.get("condition") ?? "") || undefined,
+              search: form.search || undefined,
+              minPrice: form.minPrice ? Number(form.minPrice) : undefined,
+              maxPrice: form.maxPrice ? Number(form.maxPrice) : undefined,
+              size: form.size || undefined,
+              brand: form.brand || undefined,
+              category: form.category || undefined,
+              condition: form.condition || undefined,
               page: 1,
             }));
           }}
@@ -96,7 +153,10 @@ export function ProductsBrowser({
           <Input
             name="search"
             placeholder="Buscar prendas, marcas…"
-            defaultValue={filters.search ?? ""}
+            value={form.search}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, search: e.target.value }))
+            }
             wrapperClassName="sm:col-span-2 lg:col-span-2"
             aria-label="Buscar productos"
           />
@@ -106,7 +166,10 @@ export function ProductsBrowser({
             min={0}
             step="1000"
             placeholder="Precio mín."
-            defaultValue={filters.minPrice ?? ""}
+            value={form.minPrice}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, minPrice: e.target.value }))
+            }
             aria-label="Precio mínimo"
           />
           <Input
@@ -115,12 +178,16 @@ export function ProductsBrowser({
             min={0}
             step="1000"
             placeholder="Precio máx."
-            defaultValue={filters.maxPrice ?? ""}
+            value={form.maxPrice}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, maxPrice: e.target.value }))
+            }
             aria-label="Precio máximo"
           />
           <Select
             name="size"
-            defaultValue={filters.size ?? ""}
+            value={form.size}
+            onChange={(e) => setForm((f) => ({ ...f, size: e.target.value }))}
             aria-label="Filtrar por talla"
           >
             <option value="">Cualquier talla</option>
@@ -132,7 +199,10 @@ export function ProductsBrowser({
           </Select>
           <Select
             name="condition"
-            defaultValue={filters.condition ?? ""}
+            value={form.condition}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, condition: e.target.value }))
+            }
             aria-label="Filtrar por condición"
           >
             <option value="">Cualquier condición</option>
@@ -142,7 +212,43 @@ export function ProductsBrowser({
               </option>
             ))}
           </Select>
-          <div className="sm:col-span-2 lg:col-span-6 lg:flex lg:justify-end">
+          <Select
+            name="brand"
+            value={form.brand}
+            onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))}
+            aria-label="Filtrar por marca"
+          >
+            <option value="">Cualquier marca</option>
+            {mergeFacetOptions(facets?.brands, form.brand).map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </Select>
+          <Select
+            name="category"
+            value={form.category}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, category: e.target.value }))
+            }
+            aria-label="Filtrar por categoría"
+          >
+            <option value="">Cualquier categoría</option>
+            {mergeFacetOptions(facets?.categories, form.category).map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+          <div className="flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:justify-end lg:col-span-4">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={clearFilters}
+              className="w-full sm:w-auto"
+            >
+              Limpiar filtros
+            </Button>
             <Button type="submit" className="w-full sm:w-auto">
               Aplicar filtros
             </Button>
@@ -166,11 +272,7 @@ export function ProductsBrowser({
           title="No encontramos productos"
           description="Ajusta los filtros o explora todas las publicaciones."
           action={
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setFilters({ page: 1, limit })}
-            >
+            <Button variant="secondary" size="sm" onClick={clearFilters}>
               Limpiar filtros
             </Button>
           }
