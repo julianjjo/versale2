@@ -32,6 +32,9 @@ test('mocks fetchUser', () => {
 import { jest, test, expect, beforeEach } from '@jest/globals';
 
 beforeEach(async () => {
+  // Reset the ESM module registry first — without this, Jest can return a
+  // previously cached module and ignore this test's mock factory.
+  jest.resetModules();
   jest.unstable_mockModule('./api.mjs', () => ({
     fetchUser: jest.fn(),
   }));

@@ -55,7 +55,7 @@ datasource: {
 
 ### datasource.shadowDatabaseUrl
 
-Shadow database for migrations:
+Shadow database for migrations. `SHADOW_DATABASE_URL` must point to a **separate, empty database** — never reuse `DATABASE_URL`. Prisma Migrate resets the shadow database on every run, and if it's the same database as your application data, that reset can destroy it:
 
 ```typescript
 datasource: {

@@ -63,12 +63,15 @@ Setting `restoreMocks: true` in config is the safest approach because:
 2. It restores the original implementation, not just a no-op `jest.fn()`.
 3. It covers `jest.spyOn` and `jest.replaceProperty`. Manually assigned `jest.fn()` replacements require explicit restoration.
 
-If you only need the spy for a single assertion, use the spy's own `.mockRestore()`:
+If you only need the spy for a single assertion, use the spy's own `.mockRestore()` — wrap the assertion in `try/finally` so the spy is still restored if the assertion throws:
 
 ```javascript
 test('one-off spy', () => {
   const spy = jest.spyOn(fs, 'readFileSync').mockReturnValue('data');
-  expect(readConfig()).toBe('data');
-  spy.mockRestore(); // restored immediately
+  try {
+    expect(readConfig()).toBe('data');
+  } finally {
+    spy.mockRestore(); // restored even if the assertion above throws
+  }
 });
 ```

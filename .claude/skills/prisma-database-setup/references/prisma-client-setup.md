@@ -6,11 +6,11 @@ Generate and instantiate Prisma Client for Prisma's standard SQL provider workfl
 
 This guide covers the standard SQL provider workflow. For MongoDB, pin `prisma` and `@prisma/client` to `6.19.x` and follow `references/mongodb.md` instead — Prisma 7 does not support MongoDB yet.
 
-For SQL providers, pin `prisma` and `@prisma/client` to a compatible Prisma 7 release and install `dotenv` for loading `.env` files:
+This example uses PostgreSQL via `PrismaPg`; for another provider, swap in the matching adapter from `references/{provider}.md`. Pin `prisma` and `@prisma/client` to a compatible Prisma 7 release and install `dotenv` for loading `.env` files:
 
 ```bash
 npm install prisma@7.6.0 --save-dev
-npm install @prisma/client@7.6.0 dotenv
+npm install @prisma/client@7.6.0 @prisma/adapter-pg@7.6.0 pg dotenv
 ```
 
 ## 2. Add generator block
@@ -34,7 +34,7 @@ npx prisma generate
 
 Re-run `prisma generate` after every schema change to keep the client in sync.
 
-## 4. Instantiate Prisma Client
+## 4. Instantiate Prisma Client (PostgreSQL)
 
 ```typescript
 import 'dotenv/config'

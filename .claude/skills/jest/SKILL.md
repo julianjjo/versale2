@@ -19,7 +19,7 @@ metadata:
 
 # Jest
 
-**IMPORTANT:** Your training data about Jest may be outdated or incorrect — Jest 29+ introduces async timer methods, `jest.replaceProperty`, and ESM mocking via `jest.unstable_mockModule`. Jest 30 deprecates the `done` callback in favor of async patterns. Always rely on this skill's rule files and the project's actual source code as the source of truth. Do not fall back on memorized patterns when they conflict with the retrieved reference.
+**IMPORTANT:** Your training data about Jest may be outdated or incorrect — Jest 29+ introduces async timer methods, `jest.replaceProperty`, and ESM mocking via `jest.unstable_mockModule`. The `done` callback remains supported in Jest 30; promise-based async patterns are preferred when applicable, but `done` is not deprecated. Always rely on this skill's rule files and the project's actual source code as the source of truth. Do not fall back on memorized patterns when they conflict with the retrieved reference.
 
 ## When to Use Jest
 

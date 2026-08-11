@@ -118,20 +118,24 @@ const adapter = new PrismaNeon({
 const prisma = new PrismaClient({ adapter })
 ```
 
-### Prisma Postgres
+### Prisma Postgres (direct TCP)
+
+`PrismaPg` needs a direct `postgres://`/`postgresql://` connection string — `prisma://` and `prisma+postgres://` Accelerate URLs are not valid here (use `accelerateUrl` with `withAccelerate` for those instead; see `references/accelerate-users.md`):
 
 ```typescript
 import { PrismaClient } from '../generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
 const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL, // e.g. postgres://user:pass@host:5432/db
 })
 
 const prisma = new PrismaClient({ adapter })
 ```
 
 ### Prisma Postgres serverless driver
+
+`@prisma/adapter-ppg` is Early Access and not recommended for production:
 
 ```typescript
 import { PrismaClient } from '../generated/prisma/client'
@@ -227,10 +231,12 @@ const adapter = new PrismaPg({
 ### Proper SSL configuration
 
 ```typescript
+import { readFileSync } from 'fs'
+
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    ca: fs.readFileSync('/path/to/ca-cert.pem'),
+    ca: readFileSync('/path/to/ca-cert.pem'),
     rejectUnauthorized: true
   }
 })

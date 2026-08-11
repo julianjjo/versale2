@@ -98,10 +98,10 @@ Prisma Client must be installed and generated for any database.
    npm install @prisma/client@6.19
    ```
 
-   **SQL providers** (PostgreSQL, MySQL, SQLite, SQL Server, CockroachDB, Prisma Postgres):
+   **SQL providers** (PostgreSQL, MySQL, SQLite, SQL Server, CockroachDB, Prisma Postgres) — pin `prisma`/`@prisma/client`, then add your provider's driver adapter package (see `references/{provider}.md`); PostgreSQL shown below as an example:
    ```bash
    npm install prisma@7.6.0 --save-dev
-   npm install @prisma/client@7.6.0 dotenv
+   npm install @prisma/client@7.6.0 @prisma/adapter-pg@7.6.0 pg dotenv
    ```
 
 1. Add a generator block (`prisma-client` requires an explicit output path):
@@ -117,7 +117,7 @@ Prisma Client must be installed and generated for any database.
    npx prisma generate
    ```
 
-1. For SQL providers, instantiate Prisma Client with the database-specific driver adapter:
+1. Instantiate Prisma Client with your provider's driver adapter — PostgreSQL example (see `references/{provider}.md` for MySQL, SQLite, SQL Server, CockroachDB, and Prisma Postgres, each of which needs a different adapter and driver package):
    ```typescript
    import { PrismaClient } from '../generated/client'
    import { PrismaPg } from '@prisma/adapter-pg'

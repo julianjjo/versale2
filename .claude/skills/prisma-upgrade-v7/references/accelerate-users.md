@@ -58,7 +58,7 @@ export const prisma = new PrismaClient({
 import { PrismaPg } from '@prisma/adapter-pg'
 
 const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL  // This will fail with prisma://
+  connectionString: process.env.DATABASE_URL  // This will fail — both prisma:// and prisma+postgres:// are invalid for PrismaPg
 })
 ```
 
@@ -153,7 +153,20 @@ generator client {
 import { PrismaClient } from '../generated/prisma/client'
 import { withAccelerate } from '@prisma/extension-accelerate'
 
-export const prisma = new PrismaClient({
-  accelerateUrl: process.env.DATABASE_URL,
-}).$extends(withAccelerate())
+// Accept the URL as a parameter instead of reading process.env directly —
+// on Cloudflare Workers, env vars come from the binding passed into the
+// fetch handler (env.DATABASE_URL), not process.env, without nodejs_compat.
+export function createPrismaClient(databaseUrl: string) {
+  return new PrismaClient({
+    accelerateUrl: databaseUrl,
+  }).$extends(withAccelerate())
+}
+
+// Cloudflare Workers handler:
+export default {
+  async fetch(request: Request, env: { DATABASE_URL: string }) {
+    const prisma = createPrismaClient(env.DATABASE_URL)
+    // ...
+  },
+}
 ```
