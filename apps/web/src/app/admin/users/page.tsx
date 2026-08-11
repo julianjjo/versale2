@@ -59,7 +59,7 @@ export default function AdminUsersPage() {
         <div className="space-y-3">
           {users.map((u) => (
             <Card key={u.id}>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-4">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-text-primary">
                     {u.name}

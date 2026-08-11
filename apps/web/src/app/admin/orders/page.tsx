@@ -102,7 +102,7 @@ export default function AdminOrdersPage() {
                     }
                     disabled={updateStatus.isPending}
                     aria-label="Estado del pedido"
-                    className="h-9 w-40 text-sm"
+                    className="w-40 text-sm"
                   >
                     {STATUSES.map((s) => (
                       <option key={s} value={s}>

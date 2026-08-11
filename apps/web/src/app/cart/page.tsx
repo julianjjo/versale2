@@ -217,7 +217,7 @@ export default function CartPage() {
               <h2 className="heading-card mb-3">Dirección de envío</h2>
               <div className="space-y-3">
                 <Input
-                  placeholder="Calle y número"
+                  label="Calle y número"
                   value={shippingAddress.street}
                   onChange={(e) =>
                     setShippingAddress((a) => ({
@@ -228,7 +228,7 @@ export default function CartPage() {
                 />
                 <div className="grid grid-cols-2 gap-3">
                   <Input
-                    placeholder="Ciudad"
+                    label="Ciudad"
                     value={shippingAddress.city}
                     onChange={(e) =>
                       setShippingAddress((a) => ({
@@ -238,7 +238,7 @@ export default function CartPage() {
                     }
                   />
                   <Input
-                    placeholder="Departamento"
+                    label="Departamento"
                     value={shippingAddress.state}
                     onChange={(e) =>
                       setShippingAddress((a) => ({
@@ -250,7 +250,7 @@ export default function CartPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <Input
-                    placeholder="Código postal"
+                    label="Código postal"
                     value={shippingAddress.zip}
                     onChange={(e) =>
                       setShippingAddress((a) => ({
@@ -260,7 +260,7 @@ export default function CartPage() {
                     }
                   />
                   <Input
-                    placeholder="País"
+                    label="País"
                     value={shippingAddress.country}
                     onChange={(e) =>
                       setShippingAddress((a) => ({
@@ -356,6 +356,8 @@ function CartItemRow({
             <img
               src={item.product.images[0]}
               alt={item.product.title}
+              loading="lazy"
+              decoding="async"
               className="h-full w-full object-cover"
             />
           ) : (

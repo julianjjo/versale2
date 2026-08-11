@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api, extractApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
@@ -17,6 +17,7 @@ import {
 import type { User } from "@/lib/types";
 
 export default function ProfilePage() {
+  const router = useRouter();
   const { user, isLoading: isAuthLoading, logout, refresh } = useAuth();
 
   if (isAuthLoading) {
@@ -35,7 +36,7 @@ export default function ProfilePage() {
         <EmptyState
           title="Inicia sesión"
           description="Necesitas una cuenta para ver tu perfil."
-          action={<Link href="/login">Iniciar sesión</Link>}
+          action={<Button onClick={() => router.push("/login")}>Iniciar sesión</Button>}
         />
       </PageContainer>
     );

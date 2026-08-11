@@ -10,6 +10,7 @@ import {
   Card,
   EmptyState,
   Badge,
+  Button,
   PageContainer,
   Price,
   Divider,
@@ -48,7 +49,7 @@ export default function OrderDetailPage() {
           title="Inicia sesión"
           description="Necesitas una cuenta para ver este pedido."
           action={
-            <button onClick={() => router.push("/login")}>Iniciar sesión</button>
+            <Button onClick={() => router.push("/login")}>Iniciar sesión</Button>
           }
         />
       </PageContainer>
@@ -62,9 +63,9 @@ export default function OrderDetailPage() {
           title="Pedido no encontrado"
           description="No pudimos encontrar ese pedido."
           action={
-            <button onClick={() => router.push("/orders")}>
+            <Button onClick={() => router.push("/orders")}>
               Volver a mis pedidos
-            </button>
+            </Button>
           }
         />
       </PageContainer>
@@ -94,7 +95,7 @@ export default function OrderDetailPage() {
       <Card>
         <h2 className="heading-card mb-3">Productos</h2>
         <div className="space-y-3">
-          {data.items.map((item) => (
+          {data.items.map((item, index) => (
             <div
               key={item.id}
               className="flex items-start gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
@@ -104,6 +105,8 @@ export default function OrderDetailPage() {
                   <img
                     src={item.product.images[0]}
                     alt={item.product.title}
+                    loading={index === 0 ? undefined : "lazy"}
+                    decoding="async"
                     className="h-full w-full object-cover"
                   />
                 ) : (

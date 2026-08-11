@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Button,
   Input,
@@ -39,6 +39,7 @@ export function ProductDetail() {
     return Number.isFinite(n) && n > 0 ? n : 1;
   })();
   const [rating, setRating] = useState(5);
+  const ratingButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -163,6 +164,8 @@ export function ProductDetail() {
                   <img
                     src={img}
                     alt={`${data.title} ${idx + 2}`}
+                    loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover"
                   />
                 </div>
@@ -298,15 +301,48 @@ export function ProductDetail() {
           >
             <h3 className="heading-card">Escribe una reseña</h3>
             <div>
-              <label className="text-sm font-medium text-text-primary">
+              <span
+                id="review-rating-label"
+                className="text-sm font-medium text-text-primary"
+              >
                 Calificación
-              </label>
-              <div className="mt-1 flex items-center gap-1">
+              </span>
+              <div
+                role="radiogroup"
+                aria-labelledby="review-rating-label"
+                className="mt-1 flex items-center gap-1"
+              >
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button
                     key={n}
+                    ref={(el) => {
+                      ratingButtonRefs.current[n - 1] = el;
+                    }}
                     type="button"
+                    role="radio"
+                    aria-checked={n === rating}
+                    tabIndex={n === rating ? 0 : -1}
                     onClick={() => setRating(n)}
+                    onKeyDown={(e) => {
+                      let next: number | null = null;
+                      if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+                        next = rating < 5 ? rating + 1 : 1;
+                      } else if (
+                        e.key === "ArrowLeft" ||
+                        e.key === "ArrowDown"
+                      ) {
+                        next = rating > 1 ? rating - 1 : 5;
+                      } else if (e.key === "Home") {
+                        next = 1;
+                      } else if (e.key === "End") {
+                        next = 5;
+                      }
+                      if (next !== null) {
+                        e.preventDefault();
+                        setRating(next);
+                        ratingButtonRefs.current[next - 1]?.focus();
+                      }
+                    }}
                     className={`text-2xl transition-colors ${
                       n <= rating
                         ? "text-warning"
