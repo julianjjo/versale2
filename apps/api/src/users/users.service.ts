@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcryptjs';
 
 const PUBLIC_USER_SELECT = {
@@ -48,11 +49,8 @@ export class UsersService {
     return user;
   }
 
-  async update(
-    id: string,
-    updateUserDto: { password?: string; name?: string; email?: string },
-  ) {
-    const data: { password?: string; name?: string; email?: string } = {
+  async update(id: string, updateUserDto: UpdateUserDto) {
+    const data: UpdateUserDto = {
       ...updateUserDto,
     };
     if (data.password) {

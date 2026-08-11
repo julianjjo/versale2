@@ -1,7 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Reflector } from '@nestjs/core';
 import { UsersController } from '../users.controller';
 import { UsersService } from '../users.service';
 import { AuthRequest } from '../../../src/types/request.types';
+import { ROLES_KEY } from '../../auth/roles.decorator';
+import { Role } from '../role.enum';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -62,6 +65,19 @@ describe('UsersController', () => {
 
       expect(usersService.findOne).toHaveBeenCalledWith(userId);
       expect(result).toEqual(mockResult);
+    });
+
+    it("is restricted to admins only, so a regular user cannot harvest another user's email", () => {
+      // GET /users/:id returns PUBLIC_USER_SELECT (which includes email) for an
+      // arbitrary user id. The frontend never calls this per-id endpoint, so the
+      // fix is to lock it down to ADMIN via RolesGuard/@Roles, same as GET /users.
+      const reflector = new Reflector();
+      const requiredRoles = reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
+        UsersController.prototype.findOne,
+        UsersController,
+      ]);
+
+      expect(requiredRoles).toEqual([Role.ADMIN]);
     });
   });
 

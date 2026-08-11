@@ -10,11 +10,13 @@ import {
   UseGuards,
   Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { AuthRequest } from '../types/request.types';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../users/role.enum';
@@ -28,9 +30,13 @@ export class ProductsController {
     return this.productsService.findAll(query);
   }
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.productsService.findOne(id);
+  async findOne(@Param('id') id: string, @Req() req: Request) {
+    return this.productsService.findOne(
+      id,
+      (req as { user?: { id: string; role: Role } }).user ?? null,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -49,13 +55,18 @@ export class ProductsController {
     @Body() updateProductDto: UpdateProductDto,
     @Req() req: AuthRequest,
   ) {
-    return this.productsService.update(id, updateProductDto, req.user.id);
+    return this.productsService.update(
+      id,
+      updateProductDto,
+      req.user.id,
+      req.user.role as Role,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   async remove(@Param('id') id: string, @Req() req: AuthRequest) {
-    return this.productsService.remove(id, req.user.id);
+    return this.productsService.remove(id, req.user.id, req.user.role as Role);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

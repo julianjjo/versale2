@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { Role } from '../users/role.enum';
 
 @Injectable()
 export class ProductsService {
@@ -90,7 +91,7 @@ export class ProductsService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, requester?: { id: string; role: Role } | null) {
     const product = await this.prisma.client.product.findUnique({
       where: { id },
       include: {
@@ -110,23 +111,52 @@ export class ProductsService {
     });
 
     if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
+      throw new NotFoundException(`Producto con ID ${id} no encontrado`);
+    }
+
+    if (!product.isApproved) {
+      const canView =
+        !!requester &&
+        (requester.role === Role.ADMIN || requester.id === product.sellerId);
+
+      if (!canView) {
+        throw new NotFoundException(`Producto con ID ${id} no encontrado`);
+      }
     }
 
     return product;
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto, userId: string) {
+  async findRaw(id: string) {
     const product = await this.prisma.client.product.findUnique({
       where: { id },
     });
 
     if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
+      throw new NotFoundException(`Producto con ID ${id} no encontrado`);
     }
 
-    if (product.sellerId !== userId) {
-      throw new ForbiddenException('Not authorized to update this product');
+    return product;
+  }
+
+  async update(
+    id: string,
+    updateProductDto: UpdateProductDto,
+    userId: string,
+    role: Role,
+  ) {
+    const product = await this.prisma.client.product.findUnique({
+      where: { id },
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Producto con ID ${id} no encontrado`);
+    }
+
+    if (product.sellerId !== userId && role !== Role.ADMIN) {
+      throw new ForbiddenException(
+        'No tienes autorización para actualizar este producto',
+      );
     }
 
     return this.prisma.client.product.update({
@@ -136,17 +166,19 @@ export class ProductsService {
     });
   }
 
-  async remove(id: string, userId: string) {
+  async remove(id: string, userId: string, role: Role) {
     const product = await this.prisma.client.product.findUnique({
       where: { id },
     });
 
     if (!product) {
-      throw new NotFoundException(`Product with ID ${id} not found`);
+      throw new NotFoundException(`Producto con ID ${id} no encontrado`);
     }
 
-    if (product.sellerId !== userId) {
-      throw new ForbiddenException('Not authorized to delete this product');
+    if (product.sellerId !== userId && role !== Role.ADMIN) {
+      throw new ForbiddenException(
+        'No tienes autorización para eliminar este producto',
+      );
     }
 
     return this.prisma.client.product.delete({ where: { id } });
