@@ -76,7 +76,7 @@ export default function AdminOrdersPage() {
         <div className="space-y-3">
           {orders.map((order) => (
             <Card key={order.id}>
-              <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="min-w-0 flex-1">
                   <Link
                     href={`/orders/${order.id}`}
@@ -91,7 +91,7 @@ export default function AdminOrdersPage() {
                     {new Date(order.createdAt).toLocaleDateString("es-CO")}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 sm:flex-shrink-0">
                   <Select
                     value={order.status}
                     onChange={(e) =>
@@ -102,7 +102,7 @@ export default function AdminOrdersPage() {
                     }
                     disabled={updateStatus.isPending}
                     aria-label="Estado del pedido"
-                    className="w-40 text-sm"
+                    className="flex-1 text-sm sm:w-40 sm:flex-none"
                   >
                     {STATUSES.map((s) => (
                       <option key={s} value={s}>
@@ -110,7 +110,10 @@ export default function AdminOrdersPage() {
                       </option>
                     ))}
                   </Select>
-                  <Badge variant={ORDER_STATUS_VARIANT[order.status]}>
+                  <Badge
+                    variant={ORDER_STATUS_VARIANT[order.status]}
+                    className="flex-shrink-0"
+                  >
                     {ORDER_STATUS_LABEL[order.status]}
                   </Badge>
                 </div>
