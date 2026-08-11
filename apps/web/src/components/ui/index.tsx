@@ -1,5 +1,9 @@
+"use client";
+
 import {
+  useEffect,
   useId,
+  useRef,
   type ReactNode,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
@@ -236,6 +240,41 @@ export function Select({
   );
 }
 
+interface CheckboxProps extends InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+}
+
+export function Checkbox({
+  label,
+  id,
+  className = "",
+  ...props
+}: CheckboxProps) {
+  const generatedId = useId();
+  const fieldId = id ?? generatedId;
+  const input = (
+    <input
+      type="checkbox"
+      id={fieldId}
+      style={{ accentColor: "var(--color-ink)" }}
+      className={`h-4 w-4 rounded border-border-strong text-text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      {...props}
+    />
+  );
+
+  if (!label) return input;
+
+  return (
+    <label
+      htmlFor={fieldId}
+      className="inline-flex items-center gap-2 text-sm text-text-primary"
+    >
+      {input}
+      {label}
+    </label>
+  );
+}
+
 export function Spinner({ className = "" }: { className?: string }) {
   return (
     <span
@@ -273,6 +312,56 @@ export function EmptyState({
         )}
       </div>
       {action && <div className="mt-2">{action}</div>}
+    </div>
+  );
+}
+
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: ReactNode;
+}) {
+  const titleId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    panelRef.current?.focus();
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-ink/40"
+        aria-hidden="true"
+        onClick={onClose}
+      />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="relative w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-[0_20px_50px_-20px_rgba(26,26,26,0.25)] focus:outline-none"
+      >
+        <h2 id={titleId} className="heading-card text-text-primary">
+          {title}
+        </h2>
+        <div className="mt-4">{children}</div>
+      </div>
     </div>
   );
 }

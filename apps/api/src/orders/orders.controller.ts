@@ -5,6 +5,7 @@ import {
   Patch,
   Param,
   Body,
+  Query,
   UseGuards,
   Req,
 } from '@nestjs/common';
@@ -43,8 +44,8 @@ export class OrdersController {
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Get('admin/all')
-  async getAllOrders() {
-    return this.ordersService.getAllOrders();
+  async getAllOrders(@Query() query: any) {
+    return this.ordersService.getAllOrders(query);
   }
 
   @UseGuards(RolesGuard)

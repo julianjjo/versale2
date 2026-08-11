@@ -16,6 +16,8 @@ export interface Product {
   price: number;
   sellerId: string;
   isApproved: boolean;
+  rejectedAt?: string | null;
+  rejectionReason?: string | null;
   createdAt: string;
   updatedAt: string;
   images?: string[] | null;
@@ -70,6 +72,7 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   items: OrderItem[];
+  user?: { id: string; name: string; email: string };
 }
 
 export interface Review {

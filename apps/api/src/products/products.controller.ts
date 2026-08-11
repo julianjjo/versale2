@@ -15,6 +15,7 @@ import { AuthRequest } from '../types/request.types';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { RejectProductDto } from './dto/reject-product.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -86,5 +87,15 @@ export class ProductsController {
   @Patch('admin/:id/approve')
   async approveProduct(@Param('id') id: string) {
     return this.productsService.approveProduct(id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Patch('admin/:id/reject')
+  async rejectProduct(
+    @Param('id') id: string,
+    @Body() rejectProductDto: RejectProductDto,
+  ) {
+    return this.productsService.rejectProduct(id, rejectProductDto.reason);
   }
 }
