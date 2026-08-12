@@ -129,13 +129,20 @@ export default function AdminProductsPage() {
       </h2>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filtrar por estado">
+        {/* Filtros, no pestañas: son botones que filtran una sola lista, sin
+            paneles asociados ni navegación por flechas. Declarar role="tab" sin
+            el patrón completo le promete al lector de pantalla una interacción
+            que no existe, así que se quedan como botones con aria-pressed. */}
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-label="Filtrar por estado"
+        >
           {STATUS_TABS.map((tab) => (
             <button
               key={tab.value}
               type="button"
-              role="tab"
-              aria-selected={status === tab.value}
+              aria-pressed={status === tab.value}
               onClick={() => setTab(tab.value)}
               className={`filter-pill ${status === tab.value ? "is-active" : ""}`}
             >
@@ -260,22 +267,25 @@ export default function AdminProductsPage() {
         </div>
       )}
 
+      {/* Límites sobre `page` y no sobre `meta.page`: keepPreviousData deja la
+          meta anterior visible mientras llega la nueva, y con eso un doble clic
+          rápido saltaba una página. */}
       {meta && meta.pages > 1 && (
         <div className="mt-6 flex items-center justify-center gap-2">
           <Button
             variant="secondary"
-            disabled={meta.page <= 1}
-            onClick={() => setPage((p) => p - 1)}
+            disabled={page <= 1 || isFetching}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             ‹ Anterior
           </Button>
           <span className="text-sm text-text-muted">
-            Página {meta.page} de {meta.pages}
+            Página {page} de {meta.pages}
           </span>
           <Button
             variant="secondary"
-            disabled={meta.page >= meta.pages}
-            onClick={() => setPage((p) => p + 1)}
+            disabled={page >= meta.pages || isFetching}
+            onClick={() => setPage((p) => Math.min(meta.pages, p + 1))}
           >
             Siguiente ›
           </Button>

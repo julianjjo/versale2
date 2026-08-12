@@ -23,10 +23,15 @@ function resolveCorsOrigins(): string[] {
   if (!configured) {
     return DEFAULT_CORS_ORIGINS;
   }
-  return configured
+  const origins = configured
     .split(',')
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
+
+  // A value that is only separators or whitespace would leave an empty list,
+  // and `enableCors({ origin: [] })` rejects every browser origin with no
+  // diagnostic — a one-character typo would take the web app down.
+  return origins.length > 0 ? origins : DEFAULT_CORS_ORIGINS;
 }
 
 async function bootstrap() {

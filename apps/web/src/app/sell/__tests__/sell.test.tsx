@@ -97,7 +97,9 @@ describe("SellPage — subida de imágenes", () => {
 
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent(/una foto no se subió/i);
-    expect(alert).toHaveTextContent(/aparecería sin esas fotos/i);
+    // La publicación queda bloqueada mientras haya fotos fallidas, así que el
+    // aviso debe decir eso y no ofrecer publicar sin ellas.
+    expect(alert).toHaveTextContent(/no puedes publicar hasta resolverlas/i);
 
     const submit = screen.getByRole("button", { name: /publicar producto/i });
     expect(submit).toBeDisabled();

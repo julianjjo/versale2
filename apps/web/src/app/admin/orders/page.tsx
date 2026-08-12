@@ -285,26 +285,31 @@ export default function AdminOrdersPage() {
         </div>
       )}
 
+      {/* Los límites se calculan con `page` (el estado local, que es la
+          intención del admin) y no con `meta.page`: mientras la consulta nueva
+          está en vuelo, keepPreviousData deja `meta` apuntando a la página
+          anterior, así que un segundo clic rápido se saltaba una página entera.
+          Además se bloquean los controles mientras se está trayendo la nueva. */}
       {meta && meta.pages > 1 && (
         <div className="mt-6 flex items-center justify-center gap-2">
           <Button
             variant="secondary"
-            disabled={meta.page <= 1}
+            disabled={page <= 1 || isFetching}
             onClick={() => {
-              setPage((p) => p - 1);
+              setPage((p) => Math.max(1, p - 1));
               setSelected(new Set());
             }}
           >
             ‹ Anterior
           </Button>
           <span className="text-sm text-text-muted">
-            Página {meta.page} de {meta.pages}
+            Página {page} de {meta.pages}
           </span>
           <Button
             variant="secondary"
-            disabled={meta.page >= meta.pages}
+            disabled={page >= meta.pages || isFetching}
             onClick={() => {
-              setPage((p) => p + 1);
+              setPage((p) => Math.min(meta.pages, p + 1));
               setSelected(new Set());
             }}
           >

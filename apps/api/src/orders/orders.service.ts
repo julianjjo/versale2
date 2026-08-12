@@ -23,6 +23,16 @@ const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.CANCELLED]: [],
 };
 
+// Only these statuses represent money actually received. PENDING is an order
+// that was placed but never paid, and CANCELLED was never charged: neither is
+// revenue. This mirrors the semantics the admin dashboard used to compute
+// client-side.
+const PAID_STATUSES: OrderStatus[] = [
+  OrderStatus.PAID,
+  OrderStatus.SHIPPED,
+  OrderStatus.DELIVERED,
+];
+
 @Injectable()
 export class OrdersService {
   constructor(private prisma: PrismaService) {}
@@ -218,6 +228,39 @@ export class OrdersService {
         pages: Math.ceil(total / limitNum),
       },
     };
+  }
+
+  // Dashboard totals, aggregated by the database. The admin overview used to
+  // pull a page of orders and add up `totalAmount` in the browser, which both
+  // shipped every order (with items and products) over the wire and silently
+  // under-reported revenue past the first page.
+  async getOrderStats() {
+    const grouped = await this.prisma.client.order.groupBy({
+      by: ['status'],
+      _sum: { totalAmount: true },
+      _count: true,
+    });
+
+    let totalOrders = 0;
+    let confirmedRevenue = 0;
+    let pendingRevenue = 0;
+
+    for (const row of grouped) {
+      const status = row.status as OrderStatus;
+      // A status with no rows never appears here, but `_sum.totalAmount` is
+      // also null whenever the group sums to nothing — coalesce either way.
+      const amount = row._sum?.totalAmount ?? 0;
+      totalOrders += row._count ?? 0;
+
+      if (PAID_STATUSES.includes(status)) {
+        confirmedRevenue += amount;
+      } else if (status === OrderStatus.PENDING) {
+        pendingRevenue += amount;
+      }
+      // CANCELLED counts toward the order total but toward neither revenue.
+    }
+
+    return { totalOrders, confirmedRevenue, pendingRevenue };
   }
 
   async updateOrderStatus(id: string, status: OrderStatus) {

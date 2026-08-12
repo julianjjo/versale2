@@ -51,6 +51,7 @@ describe('OrdersService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
         count: jest.fn(),
+        groupBy: jest.fn(),
       },
       cartItem: {
         deleteMany: jest.fn(),
@@ -633,6 +634,89 @@ describe('OrdersService', () => {
         page: 1,
         limit: 100,
         pages: 0,
+      });
+    });
+  });
+
+  describe('getOrderStats', () => {
+    it('should aggregate in the database with groupBy instead of loading orders into JS', async () => {
+      mockPrismaService.client.order.groupBy.mockResolvedValue([]);
+
+      await service.getOrderStats();
+
+      expect(mockPrismaService.client.order.groupBy).toHaveBeenCalledWith({
+        by: ['status'],
+        _sum: { totalAmount: true },
+        _count: true,
+      });
+      // No page of orders is fetched just to add up a column.
+      expect(mockPrismaService.client.order.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should count PAID, SHIPPED and DELIVERED as confirmed revenue and PENDING as pending', async () => {
+      mockPrismaService.client.order.groupBy.mockResolvedValue([
+        { status: OrderStatus.PENDING, _sum: { totalAmount: 50000 }, _count: 2 },
+        { status: OrderStatus.PAID, _sum: { totalAmount: 120000 }, _count: 3 },
+        { status: OrderStatus.SHIPPED, _sum: { totalAmount: 80000 }, _count: 1 },
+        {
+          status: OrderStatus.DELIVERED,
+          _sum: { totalAmount: 200000 },
+          _count: 4,
+        },
+      ]);
+
+      const result = await service.getOrderStats();
+
+      expect(result).toEqual({
+        totalOrders: 10,
+        confirmedRevenue: 400000,
+        pendingRevenue: 50000,
+      });
+    });
+
+    it('should exclude CANCELLED from both revenue figures while still counting the orders', async () => {
+      mockPrismaService.client.order.groupBy.mockResolvedValue([
+        { status: OrderStatus.PAID, _sum: { totalAmount: 120000 }, _count: 1 },
+        {
+          status: OrderStatus.CANCELLED,
+          _sum: { totalAmount: 999000 },
+          _count: 5,
+        },
+      ]);
+
+      const result = await service.getOrderStats();
+
+      expect(result).toEqual({
+        totalOrders: 6,
+        confirmedRevenue: 120000,
+        pendingRevenue: 0,
+      });
+    });
+
+    it('should coalesce a null _sum.totalAmount to 0 instead of producing NaN', async () => {
+      mockPrismaService.client.order.groupBy.mockResolvedValue([
+        { status: OrderStatus.PAID, _sum: { totalAmount: null }, _count: 1 },
+        { status: OrderStatus.PENDING, _sum: { totalAmount: null }, _count: 2 },
+      ]);
+
+      const result = await service.getOrderStats();
+
+      expect(result).toEqual({
+        totalOrders: 3,
+        confirmedRevenue: 0,
+        pendingRevenue: 0,
+      });
+    });
+
+    it('should report zeroes when there are no orders at all', async () => {
+      mockPrismaService.client.order.groupBy.mockResolvedValue([]);
+
+      const result = await service.getOrderStats();
+
+      expect(result).toEqual({
+        totalOrders: 0,
+        confirmedRevenue: 0,
+        pendingRevenue: 0,
       });
     });
   });

@@ -53,6 +53,15 @@ model Product {
   reviews       Review[]
   images        Json?    // Changed to Json type (SQLite compatible), nullable
   cartItems     CartItem[] @relation("CartItemProduct")
+
+  // The public catalog always filters on isApproved + soldAt and sorts by
+  // createdAt desc, so this covers the hottest query in the product end to end.
+  // Without it every listing page was a full table scan.
+  @@index([isApproved, soldAt, createdAt])
+  // Admin moderation queue buckets on isApproved + rejectedAt.
+  @@index([isApproved, rejectedAt])
+  // Resolving a seller's own listings.
+  @@index([sellerId])
 }
 
 model Cart {
@@ -87,6 +96,11 @@ model Order {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   items         OrderItem[] @relation("OrderItemOrder")
+
+  // Order history is always "this user's orders, newest first".
+  @@index([userId, createdAt])
+  // The admin dashboard aggregates revenue by status.
+  @@index([status])
 }
 
 enum OrderStatus {
@@ -105,6 +119,9 @@ model OrderItem {
   product       Product  @relation(fields:[productId], references:[id])
   quantity      Int
   price         Float    // price at time of purchase
+
+  @@index([orderId])
+  @@index([productId])
 }
 
 model Review {
@@ -116,4 +133,7 @@ model Review {
   rating        Int
   comment       String?
   createdAt     DateTime @default(now())
+
+  // Every product page loads its reviews newest-first.
+  @@index([productId, createdAt])
 }

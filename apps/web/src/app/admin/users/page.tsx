@@ -170,22 +170,25 @@ export default function AdminUsersPage() {
         </div>
       )}
 
+      {/* Límites sobre `page` y no sobre `meta.page`: keepPreviousData deja la
+          meta anterior visible mientras llega la nueva, y con eso un doble clic
+          rápido saltaba una página. */}
       {meta && meta.pages > 1 && (
         <div className="mt-6 flex items-center justify-center gap-2">
           <Button
             variant="secondary"
-            disabled={meta.page <= 1}
-            onClick={() => setPage((p) => p - 1)}
+            disabled={page <= 1 || isFetching}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             ‹ Anterior
           </Button>
           <span className="text-sm text-text-muted">
-            Página {meta.page} de {meta.pages}
+            Página {page} de {meta.pages}
           </span>
           <Button
             variant="secondary"
-            disabled={meta.page >= meta.pages}
-            onClick={() => setPage((p) => p + 1)}
+            disabled={page >= meta.pages || isFetching}
+            onClick={() => setPage((p) => Math.min(meta.pages, p + 1))}
           >
             Siguiente ›
           </Button>

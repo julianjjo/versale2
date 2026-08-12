@@ -391,9 +391,9 @@ export default function SellPage() {
                     : `${failedImages.length} fotos no se subieron.`}
                 </p>
                 <p className="mt-1 text-text-primary">
-                  Si publicas ahora, tu prenda aparecería sin esas fotos.
-                  Reintenta la subida o quítalas para continuar; el resto del
-                  formulario se conserva tal como lo escribiste.
+                  No puedes publicar hasta resolverlas. Reintenta la subida o
+                  quítalas para continuar; el resto del formulario se conserva
+                  tal como lo escribiste.
                 </p>
               </div>
             )}

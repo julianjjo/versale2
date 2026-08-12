@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { api } from "@/lib/api";
@@ -9,11 +10,20 @@ import {
   ORDER_STATUS_VARIANT,
 } from "@/lib/order-status";
 import { Badge } from "@/components/ui";
-import type { Order, OrderStatus, Product } from "@/lib/types";
+import type { Order, Product } from "@/lib/types";
 
-// Sólo estos estados representan plata efectivamente recibida. PENDING es un
-// pedido sin pagar y CANCELLED nunca se cobró: ninguno es ingreso.
-const PAID_STATUSES: OrderStatus[] = ["PAID", "SHIPPED", "DELIVERED"];
+// Cuántos pedidos pide la tarjeta "Pedidos recientes". Es lo único que necesita
+// la lista: los totales de la grilla vienen agregados de `/orders/admin/stats`.
+const RECENT_ORDERS_LIMIT = 5;
+
+type OrderStats = {
+  totalOrders: number;
+  // Plata efectivamente recibida (PAID, SHIPPED, DELIVERED) frente a pedidos
+  // hechos pero sin pagar (PENDING). CANCELLED no cuenta en ninguna. La
+  // agregación la hace la base de datos, no el navegador.
+  confirmedRevenue: number;
+  pendingRevenue: number;
+};
 
 export default function AdminOverview() {
   const { data: products, isLoading: productsLoading } = useQuery({
@@ -27,13 +37,21 @@ export default function AdminOverview() {
     },
   });
 
-  const { data: orders, isLoading: ordersLoading } = useQuery({
-    queryKey: ["admin-orders"],
+  const { data: orderStats, isLoading: statsLoading } = useQuery({
+    queryKey: ["admin-order-stats"],
+    queryFn: async () => {
+      const res = await api.get<OrderStats>("/orders/admin/stats");
+      return res.data;
+    },
+  });
+
+  const { data: recentOrders, isLoading: ordersLoading } = useQuery({
+    queryKey: ["admin-orders-recent", RECENT_ORDERS_LIMIT],
     queryFn: async () => {
       const res = await api.get<{
         data: Order[];
         meta: { total: number };
-      }>("/orders/admin/all?limit=1000");
+      }>(`/orders/admin/all?limit=${RECENT_ORDERS_LIMIT}`);
       return res.data;
     },
   });
@@ -49,16 +67,13 @@ export default function AdminOverview() {
   });
 
   const pendingProducts = products?.meta.total ?? 0;
-  const totalOrders = orders?.meta.total ?? 0;
   const totalUsers = usersOverview?.meta.total ?? 0;
-  const sumRevenue = (statuses: OrderStatus[]) =>
-    orders?.data
-      .filter((o) => statuses.includes(o.status))
-      .reduce((sum, o) => sum + o.totalAmount, 0) ?? 0;
-  const confirmedRevenue = sumRevenue(PAID_STATUSES);
-  const pendingRevenue = sumRevenue(["PENDING"]);
+  const totalOrders = orderStats?.totalOrders ?? 0;
+  const confirmedRevenue = orderStats?.confirmedRevenue ?? 0;
+  const pendingRevenue = orderStats?.pendingRevenue ?? 0;
 
-  const loading = productsLoading || ordersLoading || usersLoading;
+  const loading =
+    productsLoading || statsLoading || ordersLoading || usersLoading;
 
   if (loading) {
     return (
@@ -88,20 +103,23 @@ export default function AdminOverview() {
         />
         <StatCard
           label="Ingresos confirmados (COP)"
-          value={formatRevenue(confirmedRevenue)}
+          value={<Price value={confirmedRevenue} className="font-semibold" />}
           hint={
-            pendingRevenue > 0
-              ? `${formatRevenue(pendingRevenue)} pendientes de pago`
-              : undefined
+            pendingRevenue > 0 ? (
+              <>
+                <Price value={pendingRevenue} className="text-text-muted" />{" "}
+                pendientes de pago
+              </>
+            ) : undefined
           }
         />
       </div>
 
-      {orders && orders.data.length > 0 && (
+      {recentOrders && recentOrders.data.length > 0 && (
         <Card>
           <h2 className="heading-card mb-3">Pedidos recientes</h2>
           <div className="divide-y divide-border">
-            {orders.data.slice(0, 5).map((order) => (
+            {recentOrders.data.map((order) => (
               <div
                 key={order.id}
                 className="flex items-center justify-between py-2 text-sm first:pt-0 last:pb-0"
@@ -122,14 +140,8 @@ export default function AdminOverview() {
   );
 }
 
-function formatRevenue(value: number): string {
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
+// `value` y `hint` aceptan nodos para que los importes se rendericen con el
+// componente `Price` (la única fuente de formato de moneda de la app).
 function StatCard({
   label,
   value,
@@ -137,9 +149,9 @@ function StatCard({
   hint,
 }: {
   label: string;
-  value: number | string;
+  value: ReactNode;
   href?: string;
-  hint?: string;
+  hint?: ReactNode;
 }) {
   const inner = (
     <Card className="h-full transition-shadow hover:shadow-md">

@@ -52,7 +52,13 @@ export function ProductDetail({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery<Product>({
+  const {
+    data,
+    isLoading,
+    isError,
+    error: loadError,
+    refetch,
+  } = useQuery<Product>({
     queryKey: ["product", id],
     queryFn: async () => {
       const response = await api.get<Product>(`/products/${id}`);
@@ -122,6 +128,25 @@ export function ProductDetail({
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
           <Spinner className="h-5 w-5" /> Cargando producto…
         </div>
+      </PageContainer>
+    );
+  }
+  // Un 404 sí significa que la prenda no existe; cualquier otro fallo (red,
+  // timeout, 500) es temporal. Antes ambos caían en "Producto no encontrado",
+  // que le decía al visitante que la prenda se había eliminado cuando en
+  // realidad solo había que reintentar.
+  const requestFailed =
+    (loadError as { response?: { status?: number } } | null)?.response
+      ?.status !== 404;
+
+  if (isError && !data && requestFailed) {
+    return (
+      <PageContainer>
+        <EmptyState
+          title="No pudimos cargar la prenda"
+          description="Hubo un problema al conectar con el servidor. Puede ser temporal."
+          action={<Button onClick={() => refetch()}>Reintentar</Button>}
+        />
       </PageContainer>
     );
   }

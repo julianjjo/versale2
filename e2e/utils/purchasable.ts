@@ -54,7 +54,12 @@ export async function createPurchasableProduct(
   const authorToken = await getToken(request, "author");
   const adminToken = await getToken(request, "admin");
 
-  const title = overrides.title ?? `Prenda de prueba ${Date.now()}`;
+  // Date.now() alone is millisecond-resolution, and specs run in parallel — two
+  // products can land on the same title. The sold-out spec asserts on a
+  // title search returning zero, so a same-named unsold twin would break it.
+  const title =
+    overrides.title ??
+    `Prenda de prueba ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const price = overrides.price ?? 50000;
 
   const created = await request.post(`${API_URL}/products`, {
@@ -122,12 +127,23 @@ export async function createBuyer(
   };
 }
 
-/** Empties the given user's cart so a test starts from a known state. */
+/**
+ * Empties the given user's cart so a test starts from a known state.
+ *
+ * Throws on failure: a silently-failed cleanup leaves the caller asserting
+ * against leftover items while believing the cart is empty, which is exactly
+ * the kind of shared-state bug this helper exists to prevent.
+ */
 export async function clearCart(
   request: APIRequestContext,
   token: string,
 ): Promise<void> {
-  await request.delete(`${API_URL}/cart`, {
+  const response = await request.delete(`${API_URL}/cart`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  if (!response.ok()) {
+    throw new Error(
+      `No se pudo vaciar el carrito de prueba: ${response.status()} ${await response.text()}`,
+    );
+  }
 }

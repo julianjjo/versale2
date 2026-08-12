@@ -1,9 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+// `esModuleInterop` is off in apps/api, and @types/supertest uses `export =`,
+// so the namespace import is the one that stays callable after compilation.
+import * as request from 'supertest';
 import { OrdersController } from '../orders.controller';
 import { OrdersService } from '../orders.service';
 import { AuthRequest } from '../../../src/types/request.types';
 import { OrderStatus } from '../order-status.enum';
 import { CreateOrderDto } from '../dto/create-order.dto';
+import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { RolesGuard } from '../../auth/roles.guard';
+import { ROLES_KEY } from '../../auth/roles.decorator';
+import { Role } from '../../users/role.enum';
 
 describe('OrdersController', () => {
   let controller: OrdersController;
@@ -14,6 +23,7 @@ describe('OrdersController', () => {
     getUserOrders: jest.fn(),
     getOrderById: jest.fn(),
     getAllOrders: jest.fn(),
+    getOrderStats: jest.fn(),
     updateOrderStatus: jest.fn(),
   };
 
@@ -155,6 +165,33 @@ describe('OrdersController', () => {
     });
   });
 
+  describe('getOrderStats', () => {
+    it('should return the aggregate the service produced, untouched', async () => {
+      const mockResult = {
+        totalOrders: 1200,
+        confirmedRevenue: 45000000,
+        pendingRevenue: 1500000,
+      };
+
+      mockOrdersService.getOrderStats.mockResolvedValue(mockResult);
+
+      const result = await controller.getOrderStats();
+
+      expect(ordersService.getOrderStats).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(mockResult);
+    });
+
+    it('is admin-only, like the rest of the admin/* order routes', () => {
+      const reflector = new Reflector();
+      const requiredRoles = reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
+        OrdersController.prototype.getOrderStats,
+        OrdersController,
+      ]);
+
+      expect(requiredRoles).toEqual([Role.ADMIN]);
+    });
+  });
+
   describe('updateOrderStatus', () => {
     it('should call ordersService.updateOrderStatus with id and status', async () => {
       const orderId = 'order1';
@@ -173,6 +210,64 @@ describe('OrdersController', () => {
         OrderStatus.PAID,
       );
       expect(result).toEqual(mockResult);
+    });
+  });
+
+  // Nest matches routes in declaration order and `@Get(':id')` is declared
+  // before the admin routes, so assert against the real router that the literal
+  // admin/* paths are not swallowed by the wildcard param.
+  describe('route resolution', () => {
+    let app: INestApplication;
+
+    beforeEach(async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        controllers: [OrdersController],
+        providers: [{ provide: OrdersService, useValue: mockOrdersService }],
+      })
+        .overrideGuard(JwtAuthGuard)
+        .useValue({ canActivate: () => true })
+        .overrideGuard(RolesGuard)
+        .useValue({ canActivate: () => true })
+        .compile();
+
+      app = module.createNestApplication();
+      await app.init();
+    });
+
+    afterEach(async () => {
+      await app.close();
+    });
+
+    it('routes GET /orders/admin/stats to getOrderStats, not to the :id handler', async () => {
+      const stats = {
+        totalOrders: 3,
+        confirmedRevenue: 250000,
+        pendingRevenue: 50000,
+      };
+      mockOrdersService.getOrderStats.mockResolvedValue(stats);
+
+      const res = await request(app.getHttpServer())
+        .get('/orders/admin/stats')
+        .expect(200);
+
+      expect(res.body).toEqual(stats);
+      expect(mockOrdersService.getOrderStats).toHaveBeenCalledTimes(1);
+      expect(mockOrdersService.getOrderById).not.toHaveBeenCalled();
+    });
+
+    it('still routes GET /orders/admin/all to getAllOrders', async () => {
+      const page = {
+        data: [],
+        meta: { total: 0, page: 1, limit: 5, pages: 0 },
+      };
+      mockOrdersService.getAllOrders.mockResolvedValue(page);
+
+      const res = await request(app.getHttpServer())
+        .get('/orders/admin/all?limit=5')
+        .expect(200);
+
+      expect(res.body).toEqual(page);
+      expect(mockOrdersService.getOrderById).not.toHaveBeenCalled();
     });
   });
 });

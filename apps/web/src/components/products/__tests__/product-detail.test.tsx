@@ -115,7 +115,10 @@ describe("ProductDetail", () => {
   });
 
   it("muestra el estado no encontrado cuando el producto no existe", async () => {
-    vi.mocked(api.get).mockRejectedValue(new Error("Not found"));
+    // Un 404 de verdad: la prenda ya no está publicada.
+    vi.mocked(api.get).mockRejectedValue(
+      Object.assign(new Error("Not found"), { response: { status: 404 } }),
+    );
     render(
       <TestProviders>
         <ProductDetail />
@@ -125,6 +128,25 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText(/producto no encontrado/i)).toBeInTheDocument();
     });
+  });
+
+  it("ofrece reintentar cuando la carga falla por un error temporal", async () => {
+    // Sin respuesta (red caída) o un 5xx no significan que la prenda no exista,
+    // así que no debe decirse que fue eliminada.
+    vi.mocked(api.get).mockRejectedValue(new Error("Network Error"));
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/no pudimos cargar la prenda/i)).toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole("button", { name: /reintentar/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/producto no encontrado/i)).not.toBeInTheDocument();
   });
 
   it("pide inicio de sesión al agregar al carrito sin sesión", async () => {

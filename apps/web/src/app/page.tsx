@@ -32,8 +32,10 @@ const STEPS = [
   {
     n: "02",
     title: "Un administrador la revisa",
-    body: "Revisamos cada publicación antes de que entre al catálogo. Si algo no encaja, te contamos el motivo del rechazo.",
-    tag: "→ Aprobación o motivo de rechazo",
+    // No prometas el aviso de rechazo: hoy no existe ninguna superficie que le
+    // muestre al vendedor que su publicación fue rechazada ni por qué.
+    body: "Revisamos cada publicación antes de que entre al catálogo, para que todo lo que se ve sea de fiar.",
+    tag: "→ Revisión antes de publicar",
     tone: "paper-3" as const,
   },
   {
