@@ -46,6 +46,7 @@ model Product {
   isApproved    Boolean  @default(false) // for admin moderation
   rejectedAt    DateTime?
   rejectionReason String?
+  soldAt        DateTime? // one-of-a-kind item: set once purchased, then it is gone
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   orders        OrderItem[]

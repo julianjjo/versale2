@@ -5,16 +5,38 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
 import { OrderStatus } from './order-status.enum';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { MAX_ITEM_QUANTITY } from '../cart/dto/cart.dto';
 import { Role } from '../users/role.enum';
+
+const MAX_PAGE_SIZE = 100;
+const DEFAULT_PAGE_SIZE = 10;
+
+// Legal moves of the order lifecycle. DELIVERED and CANCELLED are terminal, and
+// an order can only be cancelled while it has not shipped yet.
+const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  [OrderStatus.PENDING]: [OrderStatus.PAID, OrderStatus.CANCELLED],
+  [OrderStatus.PAID]: [OrderStatus.SHIPPED, OrderStatus.CANCELLED],
+  [OrderStatus.SHIPPED]: [OrderStatus.DELIVERED],
+  [OrderStatus.DELIVERED]: [],
+  [OrderStatus.CANCELLED]: [],
+};
 
 @Injectable()
 export class OrdersService {
   constructor(private prisma: PrismaService) {}
 
-  async createOrder(userId: string, dto: CreateOrderDto = {}) {
+  async createOrder(userId: string, dto: CreateOrderDto) {
+    // The global ValidationPipe already rejects a missing address, but guard
+    // here too so a direct service call can never persist an empty one.
+    const address = dto?.shippingAddress;
+    if (!address) {
+      throw new BadRequestException('La dirección de envío es obligatoria');
+    }
+
+    const { street, city, state, zip, country } = address;
+
     return this.prisma.client.$transaction(async (tx) => {
       const cart = await tx.cart.findUnique({
         where: { userId },
@@ -22,7 +44,7 @@ export class OrdersService {
       });
 
       if (!cart || cart.items.length === 0) {
-        throw new BadRequestException('Cart is empty');
+        throw new BadRequestException('Tu carrito está vacío');
       }
 
       let totalAmount = 0;
@@ -37,19 +59,33 @@ export class OrdersService {
 
         if (!product || !product.isApproved) {
           throw new BadRequestException(
-            `Product ${product?.title ?? item.productId} is no longer available`,
+            `El producto ${product?.title ?? item.productId} ya no está disponible`,
+          );
+        }
+
+        // Re-checked inside the transaction so two concurrent checkouts of the
+        // same one-of-a-kind garment cannot both succeed.
+        if (product.soldAt) {
+          throw new BadRequestException(
+            `El producto ${product.title} ya fue vendido`,
           );
         }
 
         if (product.sellerId === userId) {
           throw new BadRequestException(
-            `You cannot purchase your own product: ${product.title}`,
+            `No puedes comprar tu propio producto: ${product.title}`,
           );
         }
 
-        if (item.quantity <= 0) {
+        if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
           throw new BadRequestException(
-            `Invalid quantity for product: ${product.title}`,
+            `Cantidad inválida para el producto: ${product.title}`,
+          );
+        }
+
+        if (item.quantity > MAX_ITEM_QUANTITY) {
+          throw new BadRequestException(
+            `Cada prenda es única: solo hay ${MAX_ITEM_QUANTITY} unidad de ${product.title}`,
           );
         }
 
@@ -68,7 +104,13 @@ export class OrdersService {
           userId,
           totalAmount,
           status: OrderStatus.PENDING,
-          shippingAddress: (dto.shippingAddress ?? {}) as Prisma.InputJsonValue,
+          shippingAddress: {
+            street,
+            city,
+            state: state ?? '',
+            zip: zip ?? '',
+            country,
+          },
           items: { create: orderItems },
         },
         include: {
@@ -77,6 +119,21 @@ export class OrdersService {
           },
         },
       });
+
+      // Compare-and-swap in the same transaction: only rows that are still
+      // unsold are flipped, so if a racing checkout already claimed one of them
+      // the count comes back short and the whole order is rolled back.
+      const productIds = orderItems.map((item) => item.productId);
+      const sold = await tx.product.updateMany({
+        where: { id: { in: productIds }, soldAt: null },
+        data: { soldAt: new Date() },
+      });
+
+      if (sold.count !== productIds.length) {
+        throw new BadRequestException(
+          'Alguno de los productos de tu carrito acaba de ser vendido. Actualiza tu carrito e inténtalo de nuevo',
+        );
+      }
 
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
 
@@ -107,7 +164,7 @@ export class OrdersService {
     });
 
     if (!order) {
-      throw new NotFoundException(`Order with ID ${id} not found`);
+      throw new NotFoundException(`No se encontró el pedido con ID ${id}`);
     }
 
     if (order.userId !== userId && role !== Role.ADMIN) {
@@ -120,9 +177,12 @@ export class OrdersService {
   }
 
   async getAllOrders(query: any = {}) {
-    const { search, page = 1, limit = 10 } = query;
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 10;
+    const { search, page, limit } = query ?? {};
+    const pageNum = Math.max(1, Math.trunc(Number(page)) || 1);
+    const limitNum = Math.min(
+      MAX_PAGE_SIZE,
+      Math.max(1, Math.trunc(Number(limit)) || DEFAULT_PAGE_SIZE),
+    );
     const skip = (pageNum - 1) * limitNum;
 
     const where: any = {};
@@ -161,6 +221,23 @@ export class OrdersService {
   }
 
   async updateOrderStatus(id: string, status: OrderStatus) {
+    const order = await this.prisma.client.order.findUnique({
+      where: { id },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`No se encontró el pedido con ID ${id}`);
+    }
+
+    const currentStatus = order.status as OrderStatus;
+    const allowed = ALLOWED_STATUS_TRANSITIONS[currentStatus] ?? [];
+
+    if (!allowed.includes(status)) {
+      throw new BadRequestException(
+        `No se puede cambiar el estado del pedido de ${currentStatus} a ${status}`,
+      );
+    }
+
     return this.prisma.client.order.update({
       where: { id },
       data: { status },

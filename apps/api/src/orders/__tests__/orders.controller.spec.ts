@@ -3,6 +3,7 @@ import { OrdersController } from '../orders.controller';
 import { OrdersService } from '../orders.service';
 import { AuthRequest } from '../../../src/types/request.types';
 import { OrderStatus } from '../order-status.enum';
+import { CreateOrderDto } from '../dto/create-order.dto';
 
 describe('OrdersController', () => {
   let controller: OrdersController;
@@ -31,11 +32,21 @@ describe('OrdersController', () => {
   });
 
   describe('createOrder', () => {
-    it('should call ordersService.createOrder with userId from request', async () => {
+    it('should call ordersService.createOrder with userId from request and the shipping address', async () => {
       const userId = 'user1';
       const mockReq = {
         user: { id: userId, email: 'test@example.com', role: 'USER' },
       } as AuthRequest;
+
+      const body = {
+        shippingAddress: {
+          street: 'Calle 72 #10-34',
+          city: 'Bogotá',
+          state: 'Cundinamarca',
+          zip: '110221',
+          country: 'Colombia',
+        },
+      } as CreateOrderDto;
 
       const mockResult = {
         id: 'order1',
@@ -45,9 +56,9 @@ describe('OrdersController', () => {
 
       mockOrdersService.createOrder.mockResolvedValue(mockResult);
 
-      const result = await controller.createOrder(mockReq, {});
+      const result = await controller.createOrder(mockReq, body);
 
-      expect(ordersService.createOrder).toHaveBeenCalledWith(userId, {});
+      expect(ordersService.createOrder).toHaveBeenCalledWith(userId, body);
       expect(result).toEqual(mockResult);
     });
   });

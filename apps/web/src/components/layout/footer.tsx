@@ -1,27 +1,30 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
+// Every link resolves to a distinct destination that exists. The catalog has
+// no gender field, so the old Mujer/Hombre/Unisex entries all pointed at the
+// same unfiltered /products; condition is a real filter the browser reads
+// from the query string.
 const BUY_LINKS = [
   { label: "Explorar", href: "/products" },
-  { label: "Mujer", href: "/products" },
-  { label: "Hombre", href: "/products" },
-  { label: "Unisex", href: "/products" },
-  { label: "Drops nuevos", href: "/products" },
+  { label: "Nuevo", href: "/products?condition=New" },
+  { label: "Como nuevo", href: "/products?condition=Like%20New" },
+  { label: "Buen estado", href: "/products?condition=Good" },
 ];
 
-const SELL_LINKS = [
+// "Pedir bolsa" and "Calculadora de ganancias" were removed: neither feature
+// exists, and both pointed back at /sell.
+const ACCOUNT_LINKS = [
   { label: "Vender", href: "/sell" },
-  { label: "Cómo funciona", href: "/sell" },
-  { label: "Pedir bolsa", href: "/sell" },
-  { label: "Calculadora de ganancias", href: "/sell" },
-  { label: "Centro de ayuda", href: "/ayuda" },
-];
-
-const COMPANY_LINKS = [
+  { label: "Mis pedidos", href: "/orders" },
+  { label: "Mi perfil", href: "/profile" },
   { label: "Iniciar sesión", href: "/login" },
   { label: "Crear cuenta", href: "/signup" },
-  { label: "Nuestra historia", href: "/products" },
-  { label: "Impacto", href: "/products" },
+];
+
+const HELP_LINKS = [
+  { label: "Centro de ayuda", href: "/ayuda" },
   { label: "Contacto", href: "/contacto" },
+  { label: "Envíos", href: "/envios" },
 ];
 
 export function Footer() {
@@ -33,29 +36,18 @@ export function Footer() {
             <div className="mb-4 font-display text-[36px] font-medium tracking-[-0.03em]">
               versal<em className="text-terracotta">e</em>
             </div>
-            <p className="mb-6 max-w-[280px] text-sm leading-relaxed opacity-65">
-              Moda circular curada por personas, para personas. Hecho con cariño
-              en Colombia, México y Argentina.
+            {/* The social icons were all href="#": there are no Versale
+                accounts to link to yet, so the row was removed rather than
+                left inert. */}
+            <p className="max-w-[280px] text-sm leading-relaxed text-paper/70">
+              Moda circular curada por personas, para personas. Hecho con
+              cariño en Colombia.
             </p>
-            <div className="flex gap-2.5">
-              <SocialLink label="Instagram">
-                <InstagramIcon />
-              </SocialLink>
-              <SocialLink label="TikTok">
-                <TikTokIcon />
-              </SocialLink>
-              <SocialLink label="Pinterest">
-                <PinterestIcon />
-              </SocialLink>
-              <SocialLink label="Email">
-                <MailIcon />
-              </SocialLink>
-            </div>
           </div>
 
           <FooterColumn title="Comprar" links={BUY_LINKS} />
-          <FooterColumn title="Vender" links={SELL_LINKS} />
-          <FooterColumn title="Versale" links={COMPANY_LINKS} />
+          <FooterColumn title="Tu cuenta" links={ACCOUNT_LINKS} />
+          <FooterColumn title="Ayuda" links={HELP_LINKS} />
         </div>
 
         <div className="flex flex-col items-start justify-between gap-4 border-t border-line-3 pt-8 text-xs opacity-60 sm:flex-row sm:items-center">
@@ -78,12 +70,6 @@ export function Footer() {
               className="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
             >
               Términos
-            </Link>
-            <Link
-              href="/envios"
-              className="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
-            >
-              Envíos
             </Link>
           </div>
         </div>
@@ -117,74 +103,5 @@ function FooterColumn({
         ))}
       </ul>
     </div>
-  );
-}
-
-function SocialLink({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <a
-      href="#"
-      aria-label={label}
-      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-paper/20 text-paper transition-colors hover:border-terracotta hover:bg-terracotta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
-    >
-      {children}
-    </a>
-  );
-}
-
-function InstagramIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden
-    >
-      <rect x="2" y="2" width="20" height="20" rx="5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="18" cy="6" r="1" fill="currentColor" />
-    </svg>
-  );
-}
-
-function TikTokIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M19.5 6.5a5.5 5.5 0 0 1-3.5-1.3V16a5 5 0 1 1-5-5v3a2 2 0 1 0 2 2V2h3a5 5 0 0 0 3.5 4.5z" />
-    </svg>
-  );
-}
-
-function PinterestIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12 2a10 10 0 0 0-3.6 19.3c-.1-.8-.2-2 0-2.9l1.3-5.5s-.3-.7-.3-1.6c0-1.5.9-2.6 2-2.6.9 0 1.4.7 1.4 1.5 0 .9-.6 2.3-.9 3.6-.3 1.1.5 2 1.6 2 1.9 0 3.4-2 3.4-5 0-2.6-1.9-4.4-4.5-4.4-3.1 0-4.9 2.3-4.9 4.7 0 .9.4 1.9.8 2.5.1.1.1.2.1.3l-.3 1.2c-.1.2-.2.3-.4.2-1.5-.7-2.4-2.8-2.4-4.5 0-3.7 2.7-7.1 7.7-7.1 4.1 0 7.2 2.9 7.2 6.8 0 4-2.6 7.3-6.1 7.3-1.2 0-2.3-.6-2.7-1.4l-.7 2.8c-.3 1-1 2.3-1.5 3.1A10 10 0 1 0 12 2z" />
-    </svg>
-  );
-}
-
-function MailIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden
-    >
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="m22 7-10 7L2 7" />
-    </svg>
   );
 }

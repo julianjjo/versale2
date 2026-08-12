@@ -1,65 +1,47 @@
 import Link from "next/link";
 import { ProductsBrowser } from "@/components/products/products-browser";
-import { NewsletterCTA } from "@/components/marketing/newsletter-cta";
-import { StarRating } from "@/components/ui";
+import { CategoryGrid } from "@/components/marketing/category-grid";
+import { ClosingCTA } from "@/components/marketing/closing-cta";
 
-const CATEGORIES: { title: string; count: string; span: string }[] = [
-  { title: "Vintage 90s", count: "1.2k piezas", span: "lg:col-span-5" },
-  { title: "Denim", count: "860 piezas", span: "lg:col-span-4" },
-  { title: "Básicos", count: "2k+", span: "lg:col-span-3" },
-  { title: "Accesorios", count: "540 piezas", span: "lg:col-span-3" },
-  { title: "Outerwear", count: "320 piezas", span: "lg:col-span-5" },
-  { title: "Zapatos", count: "680 piezas", span: "lg:col-span-4" },
+// Verifiable properties of the product, not usage metrics: Versale has no
+// production traffic yet, so the home page must not present placeholder
+// numbers (sales, viewers, sellers) as real evidence.
+const TRUST_POINTS = [
+  {
+    label: "Revisión previa",
+    body: "Un administrador aprueba cada publicación antes de que aparezca en el catálogo.",
+  },
+  {
+    label: "Precios en COP",
+    body: "Pensado para Colombia: todo se muestra en pesos colombianos.",
+  },
+  {
+    label: "Vender sin trámites",
+    body: "No hay rol de vendedor: publicas desde tu propia cuenta.",
+  },
 ];
 
 const STEPS = [
   {
     n: "01",
     title: "Publica tus prendas",
-    body: "Sube fotos, describe el estado y ponle precio. Sin mínimo, sin compromiso.",
-    tag: "→ Gratis y sin mínimo",
+    body: "Sube fotos, describe el estado y ponle precio en pesos colombianos. No necesitas una cuenta de vendedor aparte.",
+    tag: "→ Desde tu cuenta, sin solicitud",
     tone: "paper-2" as const,
   },
   {
     n: "02",
-    title: "Nuestro equipo las cura",
-    body: "Revisamos cada pieza una a una, limpiamos, fotografiamos y publicamos con tu nombre.",
-    tag: "→ Cobras hasta 70% del precio",
+    title: "Un administrador la revisa",
+    body: "Revisamos cada publicación antes de que entre al catálogo. Si algo no encaja, te contamos el motivo del rechazo.",
+    tag: "→ Aprobación o motivo de rechazo",
     tone: "paper-3" as const,
   },
   {
     n: "03",
-    title: "Recibe tu dinero",
-    body: "Cuando tu pieza se vende, el saldo entra a tu cuenta versale. Úsalo o retíralo.",
-    tag: "→ Pago semanal disponible",
+    title: "Vende y coordina la entrega",
+    body: "Cuando alguien compra tu prenda, el pedido queda registrado y puedes seguir su estado hasta la entrega.",
+    tag: "→ Seguimiento del estado del pedido",
     tone: "ink" as const,
-  },
-];
-
-const TESTIMONIALS = [
-  {
-    stars: 5,
-    quote:
-      "Vendí en una semana 4 chaquetas que tenía muertas en el armario. Y me pagaron lo justo. Volveré a subir todo lo que no uso.",
-    name: "Lucía M.",
-    loc: "Bogotá · vendedora",
-    avatar: "https://i.pravatar.cc/100?img=47",
-  },
-  {
-    stars: 5,
-    quote:
-      "Encontré una chaqueta de los 90 que llevaba meses buscando. Estaba nueva, llegó en 3 días y me ahorré 80€ vs. vintage online.",
-    name: "Andrea P.",
-    loc: "CDMX · compradora",
-    avatar: "https://i.pravatar.cc/100?img=12",
-  },
-  {
-    stars: 5,
-    quote:
-      "El filtro por estado de prenda y la descripción detallada me dan mucha confianza. Ya he hecho 6 pedidos y todos perfectos.",
-    name: "Marta R.",
-    loc: "Medellín · compradora",
-    avatar: "https://i.pravatar.cc/100?img=32",
   },
 ];
 
@@ -79,36 +61,12 @@ export default function HomePage() {
               </h2>
             </div>
             <p className="max-w-[340px] text-sm text-muted-2">
-              Seis formas de empezar tu próximo look. Cada categoría, curada
-              por nuestro equipo de estilistas.
+              Las categorías que la comunidad ya está publicando. Cada una te
+              lleva al catálogo filtrado por esa categoría.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-12">
-            {CATEGORIES.map((c, i) => (
-              <Link
-                key={c.title}
-                href="/products"
-                className={`group relative aspect-[1/1.2] overflow-hidden rounded-[18px] ${c.span}`}
-              >
-                <div
-                  aria-hidden
-                  className="absolute inset-0 bg-gradient-to-b from-transparent to-black/70"
-                />
-                <div
-                  aria-hidden
-                  className="absolute inset-0 bg-paper-3 transition-transform duration-700 group-hover:scale-105"
-                />
-                <div className="absolute inset-x-6 bottom-6 z-10 text-paper">
-                  <h3 className="font-display text-[28px] tracking-[-0.02em] sm:text-[30px]">
-                    {c.title}
-                  </h3>
-                  <span className="text-[13px] opacity-85">{c.count}</span>
-                </div>
-                <span className="sr-only">{`Categoría ${c.title} con ${c.count}`}</span>
-              </Link>
-            ))}
-          </div>
+          <CategoryGrid />
         </div>
       </section>
 
@@ -118,11 +76,7 @@ export default function HomePage() {
 
       <HowSection />
 
-      <EditorialSection />
-
-      <TestimonialsSection />
-
-      <NewsletterCTA />
+      <ClosingCTA />
     </div>
   );
 }
@@ -155,10 +109,17 @@ function Hero() {
               Empieza a vender
             </Link>
           </div>
-          <dl className="mt-16 grid grid-cols-3 gap-8 border-t border-line pt-6">
-            <Stat number="12k+" label="prendas revendidas" />
-            <Stat number="4.2t" label="de CO₂ ahorrado" />
-            <Stat number="3.4k" label="vendedores activos" />
+          <dl className="mt-16 grid grid-cols-1 gap-6 border-t border-line pt-6 sm:grid-cols-3 sm:gap-8">
+            {TRUST_POINTS.map((point) => (
+              <div key={point.label}>
+                <dt className="font-display text-[20px] font-medium leading-tight tracking-[-0.02em] text-ink lg:text-[22px]">
+                  {point.label}
+                </dt>
+                <dd className="mt-1.5 text-[13px] leading-[1.5] text-muted-2">
+                  {point.body}
+                </dd>
+              </div>
+            ))}
           </dl>
         </div>
 
@@ -174,19 +135,14 @@ function Hero() {
           </div>
 
           <div className="absolute left-6 top-6 z-20 flex items-center gap-2 rounded-full bg-paper px-5 py-2.5 text-[12px] font-medium uppercase tracking-[0.1em] text-ink shadow-[0_6px_20px_-8px_rgba(26,26,26,0.2)]">
-            <span className="relative h-2 w-2 rounded-full bg-success">
-              <span
-                aria-hidden
-                className="pulse-dot absolute -inset-1 rounded-full border border-success"
-              />
-            </span>
-            2.4k personas mirando ahora
+            <span aria-hidden className="h-2 w-2 rounded-full bg-success" />
+            Cada prenda, revisada
           </div>
 
           <div className="absolute bottom-6 right-6 z-20 max-w-[240px] rounded-[14px] bg-ink px-5 py-4 text-paper">
-            <b className="block font-display text-[22px]">−65%</b>
+            <b className="block font-display text-[22px]">Segunda mano</b>
             <span className="mt-1 block text-[12px] leading-snug opacity-70">
-              vs. precio original. Misma calidad, otro precio.
+              Prendas con historia, revisadas antes de publicarse.
             </span>
           </div>
         </div>
@@ -195,22 +151,11 @@ function Hero() {
   );
 }
 
-function Stat({ number, label }: { number: string; label: string }) {
-  return (
-    <div>
-      <dt className="font-display text-[28px] font-medium leading-none tracking-[-0.02em] text-ink lg:text-[30px]">
-        {number}
-      </dt>
-      <dd className="mt-1.5 text-[13px] text-muted-2">{label}</dd>
-    </div>
-  );
-}
-
 function Marquee() {
   const items = [
     "moda circular",
     "vintage curado",
-    "envío neutro en carbono",
+    "segunda mano",
     "segunda vida",
     "estilo real",
   ];
@@ -234,38 +179,20 @@ function ProductsSection() {
           <div>
             <span className="text-eyebrow">Recién llegadas</span>
             <h2 className="mt-3 heading-section-sm text-ink">
-              Las favoritas de la semana.
+              Lo último aprobado.
             </h2>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <FilterPill active>Todo</FilterPill>
-            <FilterPill>Mujer</FilterPill>
-            <FilterPill>Hombre</FilterPill>
-            <FilterPill>Unisex</FilterPill>
-            <FilterPill>−50%</FilterPill>
-          </div>
+          <Link href="/products" className="btn-pill btn-pill-ghost">
+            Ver todo el catálogo
+            <span className="arrow" aria-hidden>
+              →
+            </span>
+          </Link>
         </div>
 
         <ProductsBrowser limit={6} showFilters={false} showPagination={false} />
       </div>
     </section>
-  );
-}
-
-function FilterPill({
-  children,
-  active = false,
-}: {
-  children: React.ReactNode;
-  active?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      className={`filter-pill ${active ? "is-active" : ""}`}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -290,29 +217,31 @@ function StorySection() {
           </h2>
           <p className="mt-8 max-w-[480px] text-base leading-[1.7] text-paper/75">
             Versale nació con una idea simple: el armario de alguien más ya
-            tiene la prenda que estabas buscando. Hoy somos una comunidad de
-            miles de personas que deciden dar segunda vida a su ropa — y de
-            paso, ahorramos agua, CO₂ y mucho fast fashion.
+            tiene la prenda que estabas buscando. Estamos construyendo un
+            marketplace donde dar segunda vida a la ropa sea tan fácil como
+            comprarla nueva — y mucho menos costoso para el planeta.
           </p>
           <p className="mt-4 max-w-[480px] text-base leading-[1.7] text-paper/75">
             Cada compra es un acto pequeño con un impacto real. Bienvenida a
             la moda circular.
           </p>
-          <div className="mt-12 grid grid-cols-2 gap-8 border-t border-line-4 pt-8">
+          <div className="mt-12 grid grid-cols-1 gap-8 border-t border-line-4 pt-8 sm:grid-cols-2">
             <div>
-              <div className="font-display text-[64px] leading-none tracking-[-0.03em] text-terracotta">
-                2.7M L
+              <div className="font-display text-[28px] leading-tight tracking-[-0.02em] text-terracotta-light">
+                Curaduría antes que volumen
               </div>
-              <div className="mt-2 max-w-[140px] text-[13px] text-paper/65">
-                de agua ahorrados por cada 100 piezas
+              <div className="mt-2 max-w-[260px] text-[13px] leading-[1.6] text-paper/85">
+                Ninguna publicación entra al catálogo sin que un administrador
+                la apruebe.
               </div>
             </div>
             <div>
-              <div className="font-display text-[64px] leading-none tracking-[-0.03em] text-terracotta">
-                85%
+              <div className="font-display text-[28px] leading-tight tracking-[-0.02em] text-terracotta-light">
+                Vender es cuestión de minutos
               </div>
-              <div className="mt-2 max-w-[140px] text-[13px] text-paper/65">
-                menos CO₂ que comprar nueva
+              <div className="mt-2 max-w-[260px] text-[13px] leading-[1.6] text-paper/85">
+                Sin rol de vendedor ni solicitud previa: cualquier cuenta puede
+                publicar una prenda.
               </div>
             </div>
           </div>
@@ -321,15 +250,19 @@ function StorySection() {
         <div className="relative h-[480px] overflow-hidden rounded-[20px] lg:h-[640px]">
           <div className="h-full w-full bg-paper-3" />
           <div className="absolute inset-x-6 bottom-6 flex items-center gap-4 rounded-[14px] bg-paper/95 p-5 text-ink">
-            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-terracotta text-[20px] text-paper">
+            <div
+              aria-hidden
+              className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-terracotta-deep text-[20px] text-paper"
+            >
               ♻
             </div>
             <div>
               <b className="block font-display text-[18px]">
-                Envío neutro en carbono
+                Cada prenda, revisada
               </b>
               <span className="text-[12px] leading-snug text-muted-2">
-                Compensamos el 100% de las emisiones de cada pedido.
+                Un administrador aprueba o rechaza cada publicación antes de
+                que llegue al catálogo.
               </span>
             </div>
           </div>
@@ -350,8 +283,8 @@ function HowSection() {
             <em>muy fácil</em>.
           </h2>
           <p className="max-w-[340px] text-sm text-muted-2">
-            Nosotras nos encargamos de todo. Tú decides qué pasa con tu ropa,
-            y recibes dinero por ello.
+            Tú publicas, nosotros revisamos. Sin rol de vendedor, sin
+            solicitud previa y sin esperar una invitación.
           </p>
         </div>
 
@@ -394,7 +327,13 @@ function StepCard({
       >
         {n}
       </div>
-      <h3 className="mb-3 font-display text-[28px] tracking-[-0.02em]">
+      {/* Headings carry --color-ink from the base layer, which is invisible on
+          the ink-toned card — set the colour on the element itself. */}
+      <h3
+        className={`mb-3 font-display text-[28px] tracking-[-0.02em] ${
+          ink ? "text-paper" : "text-ink"
+        }`}
+      >
         {title}
       </h3>
       <p
@@ -416,90 +355,5 @@ function StepCard({
         {tag}
       </span>
     </div>
-  );
-}
-
-function EditorialSection() {
-  return (
-    <section className="bg-surface py-20 lg:py-24">
-      <div className="mx-auto w-full max-w-[1320px] px-5 sm:px-8">
-        <div className="grid grid-cols-1 items-center gap-10 overflow-hidden rounded-[24px] bg-paper-2 p-8 sm:p-12 lg:grid-cols-2 lg:gap-16 lg:p-16">
-          <div>
-            <span className="text-eyebrow">Lookbook · Otoño &apos;25</span>
-            <h2 className="mt-4 mb-6 font-display text-[44px] leading-[1.05] tracking-[-0.03em] text-ink lg:text-[54px]">
-              7 looks con <em>menos de 7 piezas</em>.
-            </h2>
-            <p className="mb-8 max-w-[440px] text-[15px] leading-[1.65] text-muted-2">
-              Probamos cómo armar una semana entera de outfits usando solo
-              básicos versátiles y una chaqueta statement. Spoiler: menos es
-              mucho más.
-            </p>
-            <Link href="/products" className="btn-pill btn-pill-primary">
-              Ver el lookbook
-              <span className="arrow" aria-hidden>
-                →
-              </span>
-            </Link>
-          </div>
-          <div className="h-[380px] overflow-hidden rounded-[18px] lg:h-[520px]">
-            <div className="h-full w-full bg-paper-3" />
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function TestimonialsSection() {
-  return (
-    <section className="bg-surface py-20 lg:py-24">
-      <div className="mx-auto w-full max-w-[1320px] px-5 sm:px-8">
-        <div className="mb-14 flex flex-wrap items-end justify-between gap-8">
-          <h2 className="max-w-[680px] heading-section text-ink">
-            Lo que dice <em>la comunidad</em>.
-          </h2>
-          <p className="max-w-[340px] text-sm text-muted-2">
-            Más de 80.000 personas ya compran y venden en versale. Esto es lo
-            que opinan.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {TESTIMONIALS.map((t) => (
-            <article
-              key={t.name}
-              className="flex min-h-[340px] flex-col justify-between rounded-[18px] bg-paper-2 p-8"
-            >
-              <div>
-                <div className="mb-5">
-                  <StarRating value={t.stars} className="text-terracotta" />
-                </div>
-                <p className="font-display text-[22px] leading-[1.35] tracking-[-0.01em] text-ink">
-                  “{t.quote}”
-                </p>
-              </div>
-              <div className="mt-8 flex items-center gap-3">
-                <div className="h-11 w-11 overflow-hidden rounded-full bg-terracotta">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={t.avatar}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-                <div>
-                  <div className="text-[14px] font-semibold text-ink">
-                    {t.name}
-                  </div>
-                  <div className="text-[12px] text-muted">{t.loc}</div>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
   );
 }

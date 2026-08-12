@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { VIEWPORTS, type ViewportName } from "../utils/viewport";
+import { createBuyer, createPurchasableProduct } from "../utils/purchasable";
 
 test.describe.configure({ mode: "serial" });
 
@@ -272,23 +273,34 @@ test.describe("Responsive — Cart & checkout", () => {
   test("cart: stacks items and summary on mobile, 2-column on desktop", async ({
     page,
   }) => {
-    // Login + add a product to cart
+    // Buyer and garment of its own: the seeded account has a single cart and
+    // the spec files run in parallel, so sharing it lets another test empty
+    // this cart mid-assertion and leaves the layout checks with nothing to
+    // measure.
+    const product = await createPurchasableProduct(page.request);
+    const buyer = await createBuyer(page.request);
+
     await page.goto("/login");
-    await page.getByLabel("Correo electrónico").fill("user@e2e.test");
-    await page.getByLabel("Contraseña").fill("user12345");
+    await page.getByLabel("Correo electrónico").fill(buyer.email);
+    await page.getByLabel("Contraseña").fill(buyer.password);
     await page.getByRole("main").getByRole("button", { name: /iniciar sesión/i }).click();
     await page.waitForURL(/\/products/, { timeout: 10_000 });
-    await page.goto("/products");
-    await page.getByRole("heading", { name: /vintage denim jacket/i }).click();
-    await expect(page).toHaveURL(/\/products\/.+/);
+
+    await page.goto(`/products/${product.id}`);
     await page.getByRole("button", { name: /agregar al carrito/i }).click();
-    await page.waitForTimeout(500);
-    await page.goto("/cart");
+    await expect(page.getByText(/agregado al carrito/i)).toBeVisible({
+      timeout: 10_000,
+    });
 
     for (const vp of [MOBILE, DESKTOP] as const) {
       await setViewport(page, vp);
       await page.goto("/cart");
-      const heading = page.getByRole("heading", { name: /tu carrito/i });
+      // Exact name: "Tu carrito está vacío" is also a heading, and matching it
+      // would mean the assertion passes on an empty cart.
+      const heading = page.getByRole("heading", {
+        name: "Tu carrito",
+        exact: true,
+      });
       await expect(heading).toBeVisible();
     }
 
@@ -296,7 +308,7 @@ test.describe("Responsive — Cart & checkout", () => {
     // items list and summary cards are side-by-side (different x ranges).
     await setViewport(page, DESKTOP);
     await page.goto("/cart");
-    const itemCard = page.getByText(/vintage denim jacket/i).first();
+    const itemCard = page.getByText(product.title).first();
     const summary = page.getByText(/subtotal/i).first();
     const itemBox = await itemCard.boundingBox();
     const summaryBox = await summary.boundingBox();

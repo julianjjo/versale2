@@ -69,6 +69,23 @@ export default function SignupPage() {
               {error}
             </p>
           )}
+          <p className="text-xs leading-relaxed text-text-muted">
+            Al crear tu cuenta aceptas nuestros{" "}
+            <Link
+              href="/terminos"
+              className="font-medium text-text-primary underline underline-offset-4"
+            >
+              Términos y condiciones
+            </Link>{" "}
+            y nuestra{" "}
+            <Link
+              href="/privacidad"
+              className="font-medium text-text-primary underline underline-offset-4"
+            >
+              Política de privacidad
+            </Link>
+            .
+          </p>
           <Button
             type="submit"
             variant="accent"

@@ -1,6 +1,11 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
 import {
   Spinner,
@@ -19,7 +24,7 @@ import {
   ORDER_STATUS_VARIANT,
 } from "@/lib/order-status";
 import type { Order, OrderStatus } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 const STATUSES = ORDER_STATUSES;
@@ -32,17 +37,23 @@ export default function AdminOrdersPage() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<OrderStatus | "">("");
+  const bulkBarRef = useRef<HTMLDivElement>(null);
+  const [bulkBarHeight, setBulkBarHeight] = useState(0);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setSearch(searchInput.trim());
+      const next = searchInput.trim();
+      // Si el término no cambió (montaje, espacios al final) no reiniciamos la
+      // paginación ni borramos lo que el admin ya tenía seleccionado.
+      if (next === search) return;
+      setSearch(next);
       setPage(1);
       setSelected(new Set());
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchInput]);
+  }, [searchInput, search]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ["admin-orders", search, page],
     queryFn: async () => {
       const res = await api.get<{
@@ -53,6 +64,10 @@ export default function AdminOrdersPage() {
       );
       return res.data;
     },
+    // Cada término de búsqueda es una queryKey nueva: sin esto la página se
+    // quedaría sin datos y el buscador se desmontaría (perdiendo el foco y el
+    // cursor) en cada pulsación.
+    placeholderData: keepPreviousData,
   });
 
   const invalidateOrders = () =>
@@ -75,15 +90,41 @@ export default function AdminOrdersPage() {
       ids: string[];
       status: OrderStatus;
     }) => {
-      await Promise.all(
+      // allSettled y no all: una sola falla no debe descartar las escrituras
+      // que sí funcionaron ni impedir que refresquemos la lista.
+      const results = await Promise.allSettled(
         ids.map((id) => api.patch(`/orders/admin/${id}/status`, { status })),
       );
+      const failedIds = ids.filter((_, i) => results[i].status === "rejected");
+      return { total: ids.length, failedIds };
     },
-    onSuccess: () => {
-      invalidateOrders();
-      setSelected(new Set());
-      setBulkStatus("");
+    onMutate: () => setError(null),
+    onSuccess: ({ total, failedIds }) => {
+      const failed = failedIds.length;
+      const succeeded = total - failed;
+      // Los que fallaron siguen seleccionados (y conservamos el estado elegido)
+      // para poder reintentar sin volver a marcarlos uno por uno.
+      setSelected(new Set(failedIds));
+      if (failed === 0) {
+        setBulkStatus("");
+        return;
+      }
+      setError(
+        succeeded === 0
+          ? `No pudimos actualizar ${
+              failed === 1
+                ? "el pedido seleccionado"
+                : `los ${failed} pedidos seleccionados`
+            }. Intenta de nuevo.`
+          : `Actualizamos ${succeeded} de ${total} pedidos. ${
+              failed === 1
+                ? "1 quedó sin actualizar y sigue seleccionado"
+                : `${failed} quedaron sin actualizar y siguen seleccionados`
+            }.`,
+      );
     },
+    // Pase lo que pase, la lista se recarga: nunca dejamos estados obsoletos.
+    onSettled: invalidateOrders,
     onError: (err) =>
       setError(extractApiError(err, "No pudimos actualizar los pedidos seleccionados")),
   });
@@ -115,21 +156,30 @@ export default function AdminOrdersPage() {
     });
   };
 
-  if (isLoading && !data) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-        <Spinner className="h-5 w-5" /> Cargando…
-      </div>
-    );
-  }
+  // La barra de selección es fija y en móvil se envuelve en dos o tres líneas,
+  // así que un padding fijo nunca alcanza. Medimos su alto real (incluido su
+  // propio padding) y reservamos exactamente ese espacio bajo la lista.
+  useEffect(() => {
+    const el = bulkBarRef.current;
+    if (!el) {
+      setBulkBarHeight(0);
+      return;
+    }
+    const measure = () => setBulkBarHeight(el.getBoundingClientRect().height);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [selected.size, bulkUpdateStatus.isPending]);
 
   return (
-    <div className="pb-20">
+    <div style={{ paddingBottom: bulkBarHeight }}>
       <h2 className="heading-section mb-4 text-text-primary">
         Todos los pedidos
       </h2>
 
-      <div className="mb-4">
+      <div className="mb-4 flex items-center gap-3">
         <Input
           type="search"
           placeholder="Buscar por comprador, correo o ID de pedido"
@@ -137,7 +187,13 @@ export default function AdminOrdersPage() {
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           className="max-w-md"
+          wrapperClassName="flex-1"
         />
+        {isFetching && !isLoading && (
+          <span className="inline-flex flex-shrink-0 items-center gap-1.5 text-xs text-text-muted">
+            <Spinner className="h-3.5 w-3.5" /> Actualizando…
+          </span>
+        )}
       </div>
 
       {error && (
@@ -146,12 +202,16 @@ export default function AdminOrdersPage() {
         </p>
       )}
 
-      {orders.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
+          <Spinner className="h-5 w-5" /> Cargando…
+        </div>
+      ) : orders.length === 0 ? (
         <EmptyState
           title={search ? "Ningún pedido coincide con la búsqueda" : "Aún no hay pedidos"}
         />
       ) : (
-        <>
+        <div aria-busy={isFetching}>
           <div className="mb-2 flex items-center gap-2 px-1">
             <Checkbox
               checked={allInViewSelected}
@@ -222,7 +282,7 @@ export default function AdminOrdersPage() {
               </Card>
             ))}
           </div>
-        </>
+        </div>
       )}
 
       {meta && meta.pages > 1 && (
@@ -254,7 +314,10 @@ export default function AdminOrdersPage() {
       )}
 
       {selected.size > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-4">
+        <div
+          ref={bulkBarRef}
+          className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-4"
+        >
           <div className="flex w-full max-w-2xl flex-wrap items-center gap-3 rounded-2xl border border-border bg-surface p-4 shadow-[0_20px_50px_-20px_rgba(26,26,26,0.35)]">
             <span className="text-sm font-medium text-text-primary">
               {selected.size === 1

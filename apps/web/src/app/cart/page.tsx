@@ -325,15 +325,22 @@ export default function CartPage() {
               </div>
               <div className="mt-1 flex items-center justify-between text-xs text-text-muted">
                 <span>Envío</span>
-                <span>Se calcula al entregar</span>
+                <span>No incluido</span>
               </div>
               <Divider className="my-3" />
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-2 flex items-center justify-between">
                 <span className="font-semibold text-text-primary">
                   Total sin envío
                 </span>
                 <Price value={total} className="text-lg text-text-primary" />
               </div>
+              {/* The API's order total is the sum of the items only: there is
+                  no shipping calculation anywhere in the product, so the
+                  summary says so instead of implying one will appear later. */}
+              <p className="mb-4 text-xs leading-[1.5] text-text-muted">
+                El costo del envío no está incluido en este total: se acuerda
+                con el vendedor al momento de la entrega.
+              </p>
               <Button
                 variant="accent"
                 onClick={handleCheckout}

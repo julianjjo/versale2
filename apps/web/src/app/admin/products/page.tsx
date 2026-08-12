@@ -1,6 +1,11 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
 import {
   Spinner,
@@ -47,7 +52,7 @@ export default function AdminProductsPage() {
   const [rejectTarget, setRejectTarget] = useState<Product | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ["admin-products", status, page],
     queryFn: async () => {
       const res = await api.get<{
@@ -56,6 +61,9 @@ export default function AdminProductsPage() {
       }>(`/products/admin/all?status=${status}&page=${page}&limit=20`);
       return res.data;
     },
+    // Cada pestaña y página es una queryKey nueva: mantenemos la lista anterior
+    // a la vista para no vaciar la pantalla en cada cambio de filtro.
+    placeholderData: keepPreviousData,
   });
 
   const { data: pendingCount } = useQuery({
@@ -120,24 +128,31 @@ export default function AdminProductsPage() {
         Todas las publicaciones
       </h2>
 
-      <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Filtrar por estado">
-        {STATUS_TABS.map((tab) => (
-          <button
-            key={tab.value}
-            type="button"
-            role="tab"
-            aria-selected={status === tab.value}
-            onClick={() => setTab(tab.value)}
-            className={`filter-pill ${status === tab.value ? "is-active" : ""}`}
-          >
-            {tab.label}
-            {tab.value === "pending" && !!pendingCount && (
-              <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 text-[10px] font-semibold text-paper">
-                {pendingCount}
-              </span>
-            )}
-          </button>
-        ))}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filtrar por estado">
+          {STATUS_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              role="tab"
+              aria-selected={status === tab.value}
+              onClick={() => setTab(tab.value)}
+              className={`filter-pill ${status === tab.value ? "is-active" : ""}`}
+            >
+              {tab.label}
+              {tab.value === "pending" && !!pendingCount && (
+                <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 text-[10px] font-semibold text-paper">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        {isFetching && !isLoading && (
+          <span className="inline-flex flex-shrink-0 items-center gap-1.5 text-xs text-text-muted">
+            <Spinner className="h-3.5 w-3.5" /> Actualizando…
+          </span>
+        )}
       </div>
 
       {error && (
@@ -153,7 +168,7 @@ export default function AdminProductsPage() {
       ) : products.length === 0 ? (
         <EmptyState title={EMPTY_STATE_COPY[status]} />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3" aria-busy={isFetching}>
           {products.map((product, index) => {
             const isPending = !product.isApproved && !product.rejectedAt;
             const isRejected = !product.isApproved && !!product.rejectedAt;
@@ -277,8 +292,9 @@ export default function AdminProductsPage() {
         title={`Rechazar "${rejectTarget?.title ?? ""}"`}
       >
         <p className="text-sm text-text-muted">
-          El vendedor verá este motivo y podrá editar y volver a enviar la
-          publicación.
+          El motivo queda guardado como nota interna: se ve en la pestaña
+          “Rechazados” de este panel. Hoy el vendedor no recibe ninguna
+          notificación del rechazo.
         </p>
         <Textarea
           className="mt-3"

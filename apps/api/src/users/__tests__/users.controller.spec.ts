@@ -144,7 +144,7 @@ describe('UsersController', () => {
   });
 
   describe('updateProfile', () => {
-    it('should call usersService.update with userId from request and updateUserDto', async () => {
+    it('should call usersService.update with userId from request, flagged as self-service', async () => {
       const userId = 'user1';
       const updateUserDto = {
         name: 'Updated Name',
@@ -162,7 +162,9 @@ describe('UsersController', () => {
 
       const result = await controller.updateProfile(mockReq, updateUserDto);
 
-      expect(usersService.update).toHaveBeenCalledWith(userId, updateUserDto);
+      expect(usersService.update).toHaveBeenCalledWith(userId, updateUserDto, {
+        isSelfService: true,
+      });
       expect(result).toEqual(mockResult);
     });
   });

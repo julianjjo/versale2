@@ -27,8 +27,9 @@ Next.js (App Router) frontend for Versale. Renders the public catalog, user auth
 - After creating a product via `/sell`, the app pushes the user to `/products` (the product is `isApproved: false` until an admin approves it).
 - Money is rendered through the `Price` UI component which formats `Float` amounts as COP currency.
 - Order status display goes through `ORDER_STATUS_LABEL` in `src/lib/order-status.ts`. Keep these labels in Spanish.
-- The marketing surface (home page, topbar, header, footer) follows the design tokens documented in `design.md` at the repo root. Marketing-only primitives live in `src/components/marketing/` (e.g. `newsletter-cta.tsx`, `newsletter-form.tsx`); the home page (`src/app/page.tsx`) is composed from those primitives plus `ProductsBrowser`.
-- The `Button` component (`src/components/ui/index.tsx`) accepts a `pill` boolean. In-app CTAs default to the rounded square; marketing CTAs (header auth, hero, editorial, newsletter) set `pill`.
+- The marketing surface (home page, topbar, header, footer) follows the design tokens documented in `design.md` at the repo root. Marketing-only primitives live in `src/components/marketing/` (e.g. `category-grid.tsx`, `closing-cta.tsx`); the home page (`src/app/page.tsx`) is composed from those primitives plus `ProductsBrowser`.
+- Marketing copy must only claim capabilities the product actually has. There is no newsletter backend, no returns flow, and no free-shipping threshold, so no surface may promise them; likewise do not present placeholder testimonials or invented metrics as real evidence (see `PRODUCT.md`).
+- The `Button` component (`src/components/ui/index.tsx`) accepts a `pill` boolean. In-app CTAs default to the rounded square; marketing CTAs (header auth, hero, editorial) set `pill`.
 - HTML5 form validation must not block legitimate input. The sell form price field uses `step="1"` (any positive integer) to match backend DTO constraints.
 
 ## Verification

@@ -495,6 +495,8 @@ export function Price({
   );
 }
 
+const MAX_STARS = 5;
+
 export function StarRating({
   value,
   size = "sm",
@@ -504,18 +506,26 @@ export function StarRating({
   size?: "sm" | "md";
   className?: string;
 }) {
-  const rounded = Math.round(value);
+  // Shared primitive: it has to be total. `String.repeat` throws a RangeError
+  // on a negative count, so a rating outside 0..5 (an average pulled from bad
+  // data, NaN, undefined) used to blow up `"★".repeat(5 - rounded)` and take
+  // the whole page down with it. Clamp first, render second — the worst case
+  // is now a wrong-looking rating, never a blank page.
+  const safeValue = Number.isFinite(value)
+    ? Math.min(MAX_STARS, Math.max(0, value))
+    : 0;
+  const filled = Math.round(safeValue);
   return (
     <span
       role="img"
-      aria-label={`${value.toFixed(1)} de 5 estrellas`}
+      aria-label={`${safeValue.toFixed(1)} de ${MAX_STARS} estrellas`}
       className={`inline-flex items-center gap-0.5 ${className} ${
         size === "md" ? "text-base" : "text-sm"
       }`}
     >
-      <span aria-hidden="true">{"★".repeat(rounded)}</span>
+      <span aria-hidden="true">{"★".repeat(filled)}</span>
       <span aria-hidden="true" className="text-border">
-        {"★".repeat(5 - rounded)}
+        {"★".repeat(MAX_STARS - filled)}
       </span>
     </span>
   );

@@ -2,44 +2,66 @@ import {
   IsString,
   IsOptional,
   IsIn,
-  IsNumber,
+  IsInt,
   IsPositive,
   IsArray,
+  Max,
+  MaxLength,
 } from 'class-validator';
 
 export class UpdateProductDto {
-  @IsString()
+  @IsString({ message: 'El título debe ser un texto' })
   @IsOptional()
+  @MaxLength(120, { message: 'El título no puede superar los 120 caracteres' })
   title?: string;
 
-  @IsString()
+  @IsString({ message: 'La descripción debe ser un texto' })
   @IsOptional()
+  @MaxLength(2000, {
+    message: 'La descripción no puede superar los 2000 caracteres',
+  })
   description?: string;
 
-  @IsString()
+  @IsString({ message: 'La categoría debe ser un texto' })
   @IsOptional()
   category?: string;
 
-  @IsString()
+  @IsString({ message: 'La marca debe ser un texto' })
   @IsOptional()
   brand?: string;
 
-  @IsString()
+  @IsString({ message: 'La talla debe ser un texto' })
   @IsOptional()
+  @IsIn(['XS', 'S', 'M', 'L', 'XL', 'XXL'], {
+    message: 'La talla debe ser XS, S, M, L, XL o XXL',
+  })
   size?: string;
 
-  @IsString()
+  @IsString({ message: 'La condición debe ser un texto' })
   @IsOptional()
-  @IsIn(['New', 'Like New', 'Good', 'Fair'])
+  @IsIn(['New', 'Like New', 'Good', 'Fair'], {
+    message:
+      'La condición debe ser New (nuevo), Like New (como nuevo), Good (buen estado) o Fair (aceptable)',
+  })
   condition?: string;
 
-  @IsNumber({ maxDecimalPlaces: 2 })
+  // COP has no subunit in practice and the whole UI formats prices without
+  // decimals, so only whole pesos are accepted.
+  @IsInt({
+    message: 'El precio debe ser un número entero de pesos, sin decimales',
+  })
   @IsOptional()
-  @IsPositive()
+  @IsPositive({ message: 'El precio debe ser mayor a 0' })
+  @Max(100_000_000, {
+    message: 'El precio no puede superar los 100.000.000 de pesos',
+  })
   price?: number;
 
-  @IsArray()
-  @IsString({ each: true })
+  @IsArray({ message: 'Las imágenes deben enviarse como una lista' })
+  @IsString({
+    each: true,
+    message: 'Cada imagen debe ser una URL en texto',
+  })
   @IsOptional()
   images?: string[];
 }

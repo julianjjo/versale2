@@ -9,7 +9,11 @@ import {
   ORDER_STATUS_VARIANT,
 } from "@/lib/order-status";
 import { Badge } from "@/components/ui";
-import type { Order, Product } from "@/lib/types";
+import type { Order, OrderStatus, Product } from "@/lib/types";
+
+// Sólo estos estados representan plata efectivamente recibida. PENDING es un
+// pedido sin pagar y CANCELLED nunca se cobró: ninguno es ingreso.
+const PAID_STATUSES: OrderStatus[] = ["PAID", "SHIPPED", "DELIVERED"];
 
 export default function AdminOverview() {
   const { data: products, isLoading: productsLoading } = useQuery({
@@ -47,9 +51,12 @@ export default function AdminOverview() {
   const pendingProducts = products?.meta.total ?? 0;
   const totalOrders = orders?.meta.total ?? 0;
   const totalUsers = usersOverview?.meta.total ?? 0;
-  const totalRevenue = orders?.data
-    .filter((o) => o.status !== "CANCELLED")
-    .reduce((sum, o) => sum + o.totalAmount, 0) ?? 0;
+  const sumRevenue = (statuses: OrderStatus[]) =>
+    orders?.data
+      .filter((o) => statuses.includes(o.status))
+      .reduce((sum, o) => sum + o.totalAmount, 0) ?? 0;
+  const confirmedRevenue = sumRevenue(PAID_STATUSES);
+  const pendingRevenue = sumRevenue(["PENDING"]);
 
   const loading = productsLoading || ordersLoading || usersLoading;
 
@@ -80,8 +87,13 @@ export default function AdminOverview() {
           href="/admin/users"
         />
         <StatCard
-          label="Ingresos (COP)"
-          value={formatRevenue(totalRevenue)}
+          label="Ingresos confirmados (COP)"
+          value={formatRevenue(confirmedRevenue)}
+          hint={
+            pendingRevenue > 0
+              ? `${formatRevenue(pendingRevenue)} pendientes de pago`
+              : undefined
+          }
         />
       </div>
 
@@ -122,10 +134,12 @@ function StatCard({
   label,
   value,
   href,
+  hint,
 }: {
   label: string;
   value: number | string;
   href?: string;
+  hint?: string;
 }) {
   const inner = (
     <Card className="h-full transition-shadow hover:shadow-md">
@@ -133,6 +147,7 @@ function StatCard({
       <p className="mt-2 text-2xl font-semibold text-text-primary">
         {value}
       </p>
+      {hint && <p className="mt-1 text-xs text-text-muted">{hint}</p>}
     </Card>
   );
   return href ? (

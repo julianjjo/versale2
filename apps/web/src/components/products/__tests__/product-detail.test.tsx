@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProductDetail } from "../product-detail";
 import { TestProviders } from "@/test-utils/TestProviders";
+import type { Product } from "@/lib/types";
 
 const pushMock = vi.fn();
 
@@ -213,6 +214,25 @@ describe("ProductDetail", () => {
         comment: "¡Buenísimo!",
       });
     });
+  });
+
+  it("usa el producto resuelto en el servidor sin esperar a la API", async () => {
+    // The server component already resolved the product (and produced a real
+    // 404 when it was missing), so the page paints without a spinner and a
+    // failed refetch must not swap it for the "no encontrado" empty state.
+    vi.mocked(api.get).mockRejectedValue(new Error("Network Error"));
+    render(
+      <TestProviders>
+        <ProductDetail initialProduct={mockProduct as unknown as Product} />
+      </TestProviders>,
+    );
+
+    expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalled();
+    });
+    expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    expect(screen.queryByText(/producto no encontrado/i)).toBeNull();
   });
 
   it("navega la calificación con el teclado (roving tabindex)", async () => {

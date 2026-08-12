@@ -1,7 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { HttpStatus } from '@nestjs/common';
+import type { Response } from 'express';
 import { ReviewsController } from '../reviews.controller';
 import { ReviewsService } from '../reviews.service';
 import { AuthRequest } from '../../../src/types/request.types';
+import { Role } from '../../users/role.enum';
 
 describe('ReviewsController', () => {
   let controller: ReviewsController;
@@ -14,6 +17,9 @@ describe('ReviewsController', () => {
     remove: jest.fn(),
     getAllReviews: jest.fn(),
   };
+
+  const createMockRes = () =>
+    ({ status: jest.fn().mockReturnThis() }) as unknown as Response;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -50,7 +56,7 @@ describe('ReviewsController', () => {
   });
 
   describe('createReview', () => {
-    it('should call reviewsService.create with body, userId and productId', async () => {
+    it('should call reviewsService.create with body, userId and productId and answer 201 for a new review', async () => {
       const userId = 'user1';
       const body = {
         productId: 'product1',
@@ -60,28 +66,52 @@ describe('ReviewsController', () => {
       const mockReq = {
         user: { id: userId, email: 'test@example.com', role: 'USER' },
       } as AuthRequest;
+      const res = createMockRes();
 
-      const mockResult = {
+      const review = {
         id: 'review1',
         ...body,
         userId,
       };
 
-      mockReviewsService.create.mockResolvedValue(mockResult);
+      mockReviewsService.create.mockResolvedValue({ review, created: true });
 
-      const result = await controller.createReview(mockReq, body);
+      const result = await controller.createReview(mockReq, body, res);
 
       expect(reviewsService.create).toHaveBeenCalledWith(
         body,
         userId,
         body.productId,
       );
-      expect(result).toEqual(mockResult);
+      expect(res.status).toHaveBeenCalledWith(HttpStatus.CREATED);
+      expect(result).toEqual(review);
+    });
+
+    it('should answer 200 when the post edits the caller existing review instead of creating one', async () => {
+      const userId = 'user1';
+      const body = {
+        productId: 'product1',
+        rating: 3,
+        comment: 'Lo cambié de opinión',
+      };
+      const mockReq = {
+        user: { id: userId, email: 'test@example.com', role: 'USER' },
+      } as AuthRequest;
+      const res = createMockRes();
+
+      const review = { id: 'review1', ...body, userId };
+
+      mockReviewsService.create.mockResolvedValue({ review, created: false });
+
+      const result = await controller.createReview(mockReq, body, res);
+
+      expect(res.status).toHaveBeenCalledWith(HttpStatus.OK);
+      expect(result).toEqual(review);
     });
   });
 
   describe('updateReview', () => {
-    it('should call reviewsService.update with id, body and userId', async () => {
+    it('should call reviewsService.update with id, body, userId and the caller role', async () => {
       const userId = 'user1';
       const reviewId = 'review1';
       const body = {
@@ -105,13 +135,14 @@ describe('ReviewsController', () => {
         reviewId,
         body,
         userId,
+        Role.USER,
       );
       expect(result).toEqual(mockResult);
     });
   });
 
   describe('deleteReview', () => {
-    it('should call reviewsService.remove with id and userId', async () => {
+    it('should call reviewsService.remove with id, userId and the caller role', async () => {
       const userId = 'user1';
       const reviewId = 'review1';
       const mockReq = {
@@ -126,8 +157,29 @@ describe('ReviewsController', () => {
 
       const result = await controller.deleteReview(mockReq, reviewId);
 
-      expect(reviewsService.remove).toHaveBeenCalledWith(reviewId, userId);
+      expect(reviewsService.remove).toHaveBeenCalledWith(
+        reviewId,
+        userId,
+        Role.USER,
+      );
       expect(result).toEqual(mockResult);
+    });
+
+    it('should pass the admin role through so an admin can moderate any review', async () => {
+      const reviewId = 'review1';
+      const mockReq = {
+        user: { id: 'admin1', email: 'admin@example.com', role: 'ADMIN' },
+      } as AuthRequest;
+
+      mockReviewsService.remove.mockResolvedValue({ id: reviewId });
+
+      await controller.deleteReview(mockReq, reviewId);
+
+      expect(reviewsService.remove).toHaveBeenCalledWith(
+        reviewId,
+        'admin1',
+        Role.ADMIN,
+      );
     });
   });
 

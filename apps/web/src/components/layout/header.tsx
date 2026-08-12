@@ -89,9 +89,15 @@ export function Header() {
           </span>
         </Link>
 
+        {/* The inline nav runs from `md` so the supported tablet viewport keeps
+            it, but the widest authenticated cluster (4 links + Admin badge +
+            name chip + Cerrar sesión) used to need ~833px and pushed 768px into
+            horizontal scroll. Between md and lg it runs condensed: tighter gaps
+            and an initial-only profile link, so every destination stays
+            reachable without overflowing. */}
         <nav
           aria-label="Navegación principal"
-          className="hidden items-center gap-9 sm:flex"
+          className="hidden items-center gap-5 md:flex lg:gap-9"
         >
           <NavLink href="/products">Explorar</NavLink>
           {user && <NavLink href="/cart">Carrito</NavLink>}
@@ -107,22 +113,29 @@ export function Header() {
           )}
         </nav>
 
-        <div className="hidden items-center gap-2 sm:flex">
-          <IconButton ariaLabel="Buscar">
-            <SearchIcon />
-          </IconButton>
-          <IconButton ariaLabel="Favoritos">
-            <HeartIcon />
-          </IconButton>
-
+        {/* No Buscar/Favoritos icon buttons: neither did anything. Search
+            lives in the catalog filters behind "Explorar", and there is no
+            favourites feature in the data model at all. */}
+        <div className="hidden items-center gap-2 md:flex">
           {!isLoading &&
             (user ? (
               <>
+                {/* Below lg the full name is what tips the row into overflow,
+                    so tablet gets an initial-only chip. It keeps its accessible
+                    name either way, so /profile is still reachable and still
+                    announced as the user's profile. */}
                 <Link
                   href="/profile"
-                  className="rounded-full border border-border px-4 py-1.5 text-sm font-medium text-text-primary transition-colors hover:bg-surface-muted"
+                  aria-label={`Perfil de ${user.name}`}
+                  title={user.name}
+                  className="rounded-full border border-border px-3 py-1.5 text-sm font-medium text-text-primary transition-colors hover:bg-surface-muted lg:px-4"
                 >
-                  {user.name}
+                  <span aria-hidden="true" className="lg:hidden">
+                    {user.name.trim().charAt(0).toUpperCase()}
+                  </span>
+                  <span aria-hidden="true" className="hidden lg:inline">
+                    {user.name}
+                  </span>
                 </Link>
                 <Button
                   size="sm"
@@ -155,7 +168,7 @@ export function Header() {
             ))}
         </div>
 
-        <div className="flex items-center gap-1 sm:hidden">
+        <div className="flex items-center gap-1 md:hidden">
           {user && (
             <Link
               href="/cart"
@@ -187,7 +200,7 @@ export function Header() {
             aria-hidden="true"
             data-testid="mobile-menu-backdrop"
             onClick={closeMenu}
-            className="fixed inset-0 z-30 bg-ink/30 backdrop-blur-sm sm:hidden"
+            className="fixed inset-0 z-30 bg-ink/30 backdrop-blur-sm md:hidden"
           />
           <div
             ref={menuPanelRef}
@@ -195,7 +208,7 @@ export function Header() {
             role="dialog"
             aria-modal="true"
             aria-label="Navegación móvil"
-            className="fixed inset-x-0 top-16 z-40 border-b border-border bg-surface shadow-lg sm:hidden"
+            className="fixed inset-x-0 top-16 z-40 border-b border-border bg-surface shadow-lg md:hidden"
           >
             <nav
               aria-label="Navegación móvil"
@@ -291,24 +304,6 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
   );
 }
 
-function IconButton({
-  ariaLabel,
-  children,
-}: {
-  ariaLabel: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      className="inline-flex h-10 w-10 items-center justify-center rounded-full text-text-primary transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-    >
-      {children}
-    </button>
-  );
-}
-
 function MobileLink({
   href,
   onClick,
@@ -384,43 +379,6 @@ function CartIcon() {
       <circle cx="9" cy="21" r="1" />
       <circle cx="20" cy="21" r="1" />
       <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-    </svg>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <circle cx="11" cy="11" r="7" />
-      <path d="m21 21-4.3-4.3" />
-    </svg>
-  );
-}
-
-function HeartIcon() {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M19 14c1.5-1.4 3-3.3 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.2 1.5 4.1 3 5.5l7 7Z" />
     </svg>
   );
 }

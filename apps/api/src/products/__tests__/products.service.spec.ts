@@ -185,6 +185,46 @@ describe('ProductsService', () => {
       );
     });
 
+    it('should throw NotFoundException for a sold product when requester is a different user', async () => {
+      const productId = 'product1';
+      const mockProduct = {
+        id: productId,
+        sellerId: 'seller1',
+        isApproved: true,
+        soldAt: new Date(),
+      };
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+
+      await expect(
+        service.findOne(productId, { id: 'someoneElse', role: Role.USER }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should return a sold product to its seller and to an admin', async () => {
+      const productId = 'product1';
+      const sellerId = 'seller1';
+      const mockProduct = {
+        id: productId,
+        sellerId,
+        isApproved: true,
+        soldAt: new Date(),
+      };
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+
+      await expect(
+        service.findOne(productId, { id: sellerId, role: Role.USER }),
+      ).resolves.toEqual(mockProduct);
+      await expect(
+        service.findOne(productId, { id: 'admin1', role: Role.ADMIN }),
+      ).resolves.toEqual(mockProduct);
+    });
+
     it('should throw NotFoundException for an unapproved product when requester is a different user', async () => {
       const productId = 'product1';
       const mockProduct = {
@@ -252,12 +292,12 @@ describe('ProductsService', () => {
   });
 
   describe('update', () => {
-    it('should update a product if user is the seller', async () => {
+    it('should update a product and send it back for review when the seller changes moderated content', async () => {
       const productId = 'product1';
       const userId = 'seller1';
       const updateProductDto: UpdateProductDto = {
         title: 'Updated Product',
-        price: 15.0,
+        price: 15,
       };
 
       const existingProduct = {
@@ -267,15 +307,18 @@ describe('ProductsService', () => {
         category: 'Test',
         size: 'M',
         condition: 'New',
-        price: 10.0,
+        price: 10,
         sellerId: userId, // same as userId
         isApproved: true,
+        rejectedAt: null,
+        rejectionReason: null,
       };
 
       const updatedProduct = {
         ...existingProduct,
         ...updateProductDto,
         id: productId,
+        isApproved: false,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -295,12 +338,106 @@ describe('ProductsService', () => {
       });
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
         where: { id: productId },
-        data: updateProductDto,
+        data: {
+          ...updateProductDto,
+          isApproved: false,
+          rejectedAt: null,
+          rejectionReason: null,
+        },
         include: {
           seller: { select: { id: true, name: true } },
         },
       });
       expect(result).toEqual(updatedProduct);
+    });
+
+    it('should not reset the approval when the seller sends the same values', async () => {
+      const productId = 'product1';
+      const userId = 'seller1';
+      const updateProductDto: UpdateProductDto = {
+        title: 'Camisa básica azul',
+        price: 40000,
+        images: ['image1.jpg'],
+      };
+
+      const existingProduct = {
+        id: productId,
+        title: 'Camisa básica azul',
+        description: 'Como nueva',
+        category: 'Camisas',
+        size: 'M',
+        condition: 'Good',
+        price: 40000,
+        images: ['image1.jpg'],
+        sellerId: userId,
+        isApproved: true,
+        rejectedAt: null,
+        rejectionReason: null,
+      };
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        existingProduct,
+      );
+      mockPrismaService.client.product.update.mockResolvedValue(
+        existingProduct,
+      );
+
+      await service.update(productId, updateProductDto, userId, Role.USER);
+
+      expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
+        where: { id: productId },
+        data: updateProductDto,
+        include: {
+          seller: { select: { id: true, name: true } },
+        },
+      });
+    });
+
+    it('should clear the rejection so an edited rejected product goes back to the pending queue', async () => {
+      const productId = 'product1';
+      const userId = 'seller1';
+      const updateProductDto: UpdateProductDto = {
+        description: 'Descripción corregida con más detalle',
+      };
+
+      const existingProduct = {
+        id: productId,
+        title: 'Camisa básica azul',
+        description: 'Corta',
+        category: 'Camisas',
+        size: 'M',
+        condition: 'Good',
+        price: 40000,
+        sellerId: userId,
+        isApproved: false,
+        rejectedAt: new Date(),
+        rejectionReason: 'Descripción incompleta',
+      };
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        existingProduct,
+      );
+      mockPrismaService.client.product.update.mockResolvedValue({
+        ...existingProduct,
+        ...updateProductDto,
+        rejectedAt: null,
+        rejectionReason: null,
+      });
+
+      await service.update(productId, updateProductDto, userId, Role.USER);
+
+      expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
+        where: { id: productId },
+        data: {
+          ...updateProductDto,
+          isApproved: false,
+          rejectedAt: null,
+          rejectionReason: null,
+        },
+        include: {
+          seller: { select: { id: true, name: true } },
+        },
+      });
     });
 
     it('should throw NotFoundException if product not found', async () => {
@@ -335,7 +472,7 @@ describe('ProductsService', () => {
       ).rejects.toThrow('No tienes autorización para actualizar este producto');
     });
 
-    it('should allow an admin to update a product they do not own', async () => {
+    it('should allow an admin to update a product they do not own without revoking the approval', async () => {
       const productId = 'product1';
       const sellerId = 'seller1';
       const adminId = 'admin1';
@@ -344,6 +481,8 @@ describe('ProductsService', () => {
       const existingProduct = {
         id: productId,
         sellerId, // different from adminId
+        title: 'Old Title',
+        isApproved: true,
       };
 
       const updatedProduct = { ...existingProduct, ...updateProductDto };
@@ -501,6 +640,75 @@ describe('ProductsService', () => {
     });
   });
 
+  describe('price and size validation', () => {
+    const buildDto = () => {
+      const dto = new CreateProductDto();
+      dto.title = 'Camisa básica azul';
+      dto.description = 'Como nueva, usada dos veces';
+      dto.category = 'Camisas';
+      dto.size = 'M';
+      dto.condition = 'Good';
+      dto.price = 40000;
+      return dto;
+    };
+
+    it('rejects a price with decimals on CreateProductDto (COP has no subunit)', async () => {
+      const dto = buildDto();
+      dto.price = 25000.55;
+
+      const errors = await validate(dto);
+      const priceError = errors.find((error) => error.property === 'price');
+
+      expect(priceError?.constraints).toHaveProperty('isInt');
+    });
+
+    it('rejects an absurdly large price on CreateProductDto', async () => {
+      const dto = buildDto();
+      dto.price = 999_999_999_999;
+
+      const errors = await validate(dto);
+      const priceError = errors.find((error) => error.property === 'price');
+
+      expect(priceError?.constraints).toHaveProperty('max');
+    });
+
+    it('rejects a size outside the published size list', async () => {
+      const dto = buildDto();
+      dto.size = 'Talla única';
+
+      const errors = await validate(dto);
+      const sizeError = errors.find((error) => error.property === 'size');
+
+      expect(sizeError?.constraints).toHaveProperty('isIn');
+    });
+
+    it('rejects an overlong title', async () => {
+      const dto = buildDto();
+      dto.title = 'a'.repeat(121);
+
+      const errors = await validate(dto);
+      const titleError = errors.find((error) => error.property === 'title');
+
+      expect(titleError?.constraints).toHaveProperty('maxLength');
+    });
+
+    it('accepts a whole-peso price and a valid size', async () => {
+      const errors = await validate(buildDto());
+
+      expect(errors).toHaveLength(0);
+    });
+
+    it('rejects a price with decimals on UpdateProductDto', async () => {
+      const dto = new UpdateProductDto();
+      dto.price = 0.01;
+
+      const errors = await validate(dto);
+      const priceError = errors.find((error) => error.property === 'price');
+
+      expect(priceError?.constraints).toHaveProperty('isInt');
+    });
+  });
+
   describe('findAll', () => {
     it('should return paginated products with filters', async () => {
       const query = {
@@ -541,6 +749,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith({
         where: {
           isApproved: true,
+          soldAt: null,
           OR: [
             { title: { contains: 'test' } },
             { description: { contains: 'test' } },
@@ -563,6 +772,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
         where: {
           isApproved: true,
+          soldAt: null,
           OR: [
             { title: { contains: 'test' } },
             { description: { contains: 'test' } },
@@ -598,12 +808,48 @@ describe('ProductsService', () => {
 
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { isApproved: true, category: 'Jackets' },
+          where: { isApproved: true, soldAt: null, category: 'Jackets' },
         }),
       );
       expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
-        where: { isApproved: true, category: 'Jackets' },
+        where: { isApproved: true, soldAt: null, category: 'Jackets' },
       });
+    });
+  });
+
+  describe('findAll pagination bounds', () => {
+    beforeEach(() => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+    });
+
+    it('should floor the page at 1 so a negative page never produces a negative skip', async () => {
+      const result = await service.findAll({ page: '-1', limit: '10' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 10 }),
+      );
+      expect(result.meta).toEqual({ total: 0, page: 1, limit: 10, pages: 0 });
+    });
+
+    it('should clamp an oversized limit to the maximum page size', async () => {
+      const result = await service.findAll({ limit: '999999' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 100 }),
+      );
+      expect(result.meta.limit).toBe(100);
+    });
+
+    it('should fall back to the default page size for a non-numeric limit', async () => {
+      mockPrismaService.client.product.count.mockResolvedValue(25);
+
+      const result = await service.findAll({ page: 'abc', limit: 'many' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 10 }),
+      );
+      expect(result.meta).toEqual({ total: 25, page: 1, limit: 10, pages: 3 });
     });
   });
 
@@ -618,7 +864,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenNthCalledWith(
         1,
         {
-          where: { isApproved: true, brand: { not: null } },
+          where: { isApproved: true, soldAt: null, brand: { not: null } },
           select: { brand: true },
           distinct: ['brand'],
           orderBy: { brand: 'asc' },
@@ -627,7 +873,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenNthCalledWith(
         2,
         {
-          where: { isApproved: true },
+          where: { isApproved: true, soldAt: null },
           select: { category: true },
           distinct: ['category'],
           orderBy: { category: 'asc' },
@@ -743,6 +989,35 @@ describe('ProductsService', () => {
           where: { isApproved: false, rejectedAt: { not: null } },
         }),
       );
+    });
+
+    it('should keep sold products visible to admins in the approved bucket', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAllForAdmin({ status: 'approved' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { isApproved: true } }),
+      );
+      expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
+        where: { isApproved: true },
+      });
+    });
+
+    it('should clamp the pagination for admin listings too', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      const result = await service.findAllForAdmin({
+        page: '-3',
+        limit: '999999',
+      });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 100 }),
+      );
+      expect(result.meta).toEqual({ total: 0, page: 1, limit: 100, pages: 0 });
     });
   });
 

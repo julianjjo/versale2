@@ -8,9 +8,60 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Role } from '../users/role.enum';
 
+const DEFAULT_PAGE_SIZE = 10;
+const MAX_PAGE_SIZE = 100;
+
+// Fields moderation actually judges: if a seller changes any of them the
+// listing has to be reviewed again before going back to the public catalog.
+const MODERATED_FIELDS = [
+  'title',
+  'description',
+  'price',
+  'category',
+  'brand',
+  'condition',
+  'size',
+  'images',
+] as const;
+
 @Injectable()
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
+
+  private resolvePagination(page: unknown, limit: unknown) {
+    const parsedPage = Math.floor(Number(page));
+    const parsedLimit = Math.floor(Number(limit));
+
+    const pageNum =
+      Number.isFinite(parsedPage) && parsedPage >= 1 ? parsedPage : 1;
+    const limitNum =
+      Number.isFinite(parsedLimit) && parsedLimit >= 1
+        ? Math.min(parsedLimit, MAX_PAGE_SIZE)
+        : DEFAULT_PAGE_SIZE;
+
+    return { pageNum, limitNum, skip: (pageNum - 1) * limitNum };
+  }
+
+  private hasModeratedChanges(
+    product: Record<string, unknown>,
+    updateProductDto: UpdateProductDto,
+  ) {
+    const update = updateProductDto as Record<string, unknown>;
+
+    return MODERATED_FIELDS.some((field) => {
+      const next = update[field];
+      if (next === undefined) {
+        return false;
+      }
+      if (field === 'images') {
+        return (
+          JSON.stringify(next ?? null) !==
+          JSON.stringify(product[field] ?? null)
+        );
+      }
+      return next !== product[field];
+    });
+  }
 
   async create(createProductDto: CreateProductDto, sellerId: string) {
     const { images, ...rest } = createProductDto;
@@ -35,11 +86,10 @@ export class ProductsService {
       page = 1,
       limit = 10,
     } = query;
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 10;
-    const skip = (pageNum - 1) * limitNum;
+    const { pageNum, limitNum, skip } = this.resolvePagination(page, limit);
 
-    const where: any = { isApproved: true };
+    // Sold items are one-of-a-kind: once bought they leave the public catalog.
+    const where: any = { isApproved: true, soldAt: null };
 
     if (search) {
       const term = String(search);
@@ -88,9 +138,9 @@ export class ProductsService {
       data: products,
       meta: {
         total,
-        page: Number(page),
-        limit: Number(limit),
-        pages: Math.ceil(total / limit),
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum),
       },
     };
   }
@@ -98,13 +148,13 @@ export class ProductsService {
   async getFacets() {
     const [brands, categories] = await Promise.all([
       this.prisma.client.product.findMany({
-        where: { isApproved: true, brand: { not: null } },
+        where: { isApproved: true, soldAt: null, brand: { not: null } },
         select: { brand: true },
         distinct: ['brand'],
         orderBy: { brand: 'asc' },
       }),
       this.prisma.client.product.findMany({
-        where: { isApproved: true },
+        where: { isApproved: true, soldAt: null },
         select: { category: true },
         distinct: ['category'],
         orderBy: { category: 'asc' },
@@ -140,7 +190,9 @@ export class ProductsService {
       throw new NotFoundException(`Producto con ID ${id} no encontrado`);
     }
 
-    if (!product.isApproved) {
+    // A sold product is gone for everyone except its seller and admins, who
+    // still need it for order history and moderation.
+    if (!product.isApproved || product.soldAt) {
       const canView =
         !!requester &&
         (requester.role === Role.ADMIN || requester.id === product.sellerId);
@@ -185,9 +237,21 @@ export class ProductsService {
       );
     }
 
+    // An admin editing a listing is the moderator, so their edits stand.
+    // A seller touching anything moderation judged sends it back to the queue,
+    // and clears any previous rejection so it lands in "pendientes" again.
+    const needsReview =
+      role !== Role.ADMIN &&
+      this.hasModeratedChanges(product, updateProductDto);
+
     return this.prisma.client.product.update({
       where: { id },
-      data: { ...updateProductDto },
+      data: {
+        ...updateProductDto,
+        ...(needsReview
+          ? { isApproved: false, rejectedAt: null, rejectionReason: null }
+          : {}),
+      },
       include: { seller: { select: { id: true, name: true } } },
     });
   }
@@ -212,10 +276,10 @@ export class ProductsService {
 
   async findAllForAdmin(query: any) {
     const { status, page = 1, limit = 10 } = query;
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 10;
-    const skip = (pageNum - 1) * limitNum;
+    const { pageNum, limitNum, skip } = this.resolvePagination(page, limit);
 
+    // Admins see everything, sold items included: an approved product that has
+    // been bought stays in the "aprobados" bucket, it just left the catalog.
     const where: any = {};
     if (status === 'pending') {
       where.isApproved = false;

@@ -5,26 +5,38 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateReviewDto } from './dto/create-review.dto';
+import { UpdateReviewDto } from './dto/update-review.dto';
+import { Role } from '../users/role.enum';
+
+const MAX_PAGE_SIZE = 100;
+const DEFAULT_PAGE_SIZE = 10;
 
 @Injectable()
 export class ReviewsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createReviewDto: any, userId: string, productId: string) {
+  async create(
+    createReviewDto: CreateReviewDto,
+    userId: string,
+    productId: string,
+  ) {
     const product = await this.prisma.client.product.findUnique({
       where: { id: productId },
     });
 
     if (!product) {
-      throw new NotFoundException(`Product with ID ${productId} not found`);
+      throw new NotFoundException(`Producto con ID ${productId} no encontrado`);
     }
 
     if (!product.isApproved) {
-      throw new BadRequestException('Product is not approved for sale');
+      throw new BadRequestException(
+        'El producto no está aprobado para la venta',
+      );
     }
 
     if (product.sellerId === userId) {
-      throw new BadRequestException('You cannot review your own product');
+      throw new BadRequestException('No puedes reseñar tu propio producto');
     }
 
     const existingReview = await this.prisma.client.review.findFirst({
@@ -32,16 +44,18 @@ export class ReviewsService {
     });
 
     if (existingReview) {
-      return this.prisma.client.review.update({
+      const review = await this.prisma.client.review.update({
         where: { id: existingReview.id },
         data: {
           rating: createReviewDto.rating,
           comment: createReviewDto.comment,
         },
       });
+
+      return { review, created: false };
     }
 
-    return this.prisma.client.review.create({
+    const review = await this.prisma.client.review.create({
       data: {
         rating: createReviewDto.rating,
         comment: createReviewDto.comment,
@@ -49,6 +63,8 @@ export class ReviewsService {
         productId,
       },
     });
+
+    return { review, created: true };
   }
 
   async findAllByProduct(productId: string) {
@@ -59,45 +75,61 @@ export class ReviewsService {
     });
   }
 
-  async update(id: string, updateReviewDto: any, userId: string) {
+  async update(
+    id: string,
+    updateReviewDto: UpdateReviewDto,
+    userId: string,
+    role: Role,
+  ) {
     const review = await this.prisma.client.review.findUnique({
       where: { id },
     });
 
     if (!review) {
-      throw new NotFoundException(`Review with ID ${id} not found`);
+      throw new NotFoundException(`No se encontró la reseña con ID ${id}`);
     }
 
-    if (review.userId !== userId) {
-      throw new ForbiddenException('Not authorized to update this review');
+    if (review.userId !== userId && role !== Role.ADMIN) {
+      throw new ForbiddenException(
+        'No tienes autorización para actualizar esta reseña',
+      );
     }
+
+    // Defence in depth: only the two editable fields ever reach Prisma, so even
+    // if validation were bypassed again, userId/productId stay unwritable.
+    const { rating, comment } = updateReviewDto;
 
     return this.prisma.client.review.update({
       where: { id },
-      data: updateReviewDto,
+      data: { rating, comment },
     });
   }
 
-  async remove(id: string, userId: string) {
+  async remove(id: string, userId: string, role: Role) {
     const review = await this.prisma.client.review.findUnique({
       where: { id },
     });
 
     if (!review) {
-      throw new NotFoundException(`Review with ID ${id} not found`);
+      throw new NotFoundException(`No se encontró la reseña con ID ${id}`);
     }
 
-    if (review.userId !== userId) {
-      throw new ForbiddenException('Not authorized to delete this review');
+    if (review.userId !== userId && role !== Role.ADMIN) {
+      throw new ForbiddenException(
+        'No tienes autorización para eliminar esta reseña',
+      );
     }
 
     return this.prisma.client.review.delete({ where: { id } });
   }
 
   async getAllReviews(query: any) {
-    const { page = 1, limit = 10 } = query;
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 10;
+    const { page, limit } = query ?? {};
+    const pageNum = Math.max(1, Math.trunc(Number(page)) || 1);
+    const limitNum = Math.min(
+      MAX_PAGE_SIZE,
+      Math.max(1, Math.trunc(Number(limit)) || DEFAULT_PAGE_SIZE),
+    );
     const skip = (pageNum - 1) * limitNum;
 
     const [reviews, total] = await Promise.all([

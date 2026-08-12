@@ -1,6 +1,11 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
 import {
   Spinner,
@@ -28,13 +33,17 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setSearch(searchInput.trim());
+      const next = searchInput.trim();
+      // Si el término no cambió (montaje, espacios al final) no reiniciamos la
+      // paginación.
+      if (next === search) return;
+      setSearch(next);
       setPage(1);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchInput]);
+  }, [searchInput, search]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ["admin-users", search, role, page],
     queryFn: async () => {
       const res = await api.get<{
@@ -45,6 +54,10 @@ export default function AdminUsersPage() {
       );
       return res.data;
     },
+    // Cada término de búsqueda es una queryKey nueva: sin esto la página se
+    // quedaría sin datos y el buscador se desmontaría (perdiendo el foco y el
+    // cursor) en cada pulsación.
+    placeholderData: keepPreviousData,
   });
 
   const remove = useMutation({
@@ -57,14 +70,6 @@ export default function AdminUsersPage() {
     onError: (err) =>
       setError(extractApiError(err, "No pudimos eliminar al usuario")),
   });
-
-  if (isLoading && !data) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-        <Spinner className="h-5 w-5" /> Cargando…
-      </div>
-    );
-  }
 
   const users = data?.data ?? [];
   const meta = data?.meta;
@@ -97,6 +102,11 @@ export default function AdminUsersPage() {
           <option value="USER">Usuario</option>
           <option value="ADMIN">Administrador</option>
         </Select>
+        {isFetching && !isLoading && (
+          <span className="inline-flex flex-shrink-0 items-center gap-1.5 self-center text-xs text-text-muted">
+            <Spinner className="h-3.5 w-3.5" /> Actualizando…
+          </span>
+        )}
       </div>
 
       {error && (
@@ -105,7 +115,11 @@ export default function AdminUsersPage() {
         </p>
       )}
 
-      {users.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
+          <Spinner className="h-5 w-5" /> Cargando…
+        </div>
+      ) : users.length === 0 ? (
         <EmptyState
           title={
             search || role
@@ -114,7 +128,7 @@ export default function AdminUsersPage() {
           }
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3" aria-busy={isFetching}>
           {users.map((u) => {
             const isSelf = u.id === currentUser?.id;
             const isLastAdmin = u.role === "ADMIN" && adminCount <= 1;

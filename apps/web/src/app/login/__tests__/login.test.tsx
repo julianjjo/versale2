@@ -146,4 +146,26 @@ describe("LoginPage", () => {
       expect(pushMock).toHaveBeenCalledWith("/products/p1");
     });
   });
+
+  it("ignora un next que apunta fuera de la app", async () => {
+    mockSearchParams = new URLSearchParams("next=//evil.example/products");
+    const user = userEvent.setup();
+    renderLogin();
+
+    await user.type(screen.getByLabelText("Correo electrónico"), "alice@ejemplo.co");
+    await user.type(screen.getByLabelText("Contraseña"), "secreto123");
+    await user.click(screen.getByRole("button", { name: /iniciar sesión/i }));
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/products");
+    });
+  });
+
+  it("muestra el mensaje por defecto si reason no es una clave propia", () => {
+    mockSearchParams = new URLSearchParams("reason=__proto__");
+    renderLogin();
+    expect(
+      screen.getByText(/inicia sesión para comprar y vender en versale/i),
+    ).toBeInTheDocument();
+  });
 });

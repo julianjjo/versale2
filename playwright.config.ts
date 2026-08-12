@@ -6,6 +6,7 @@ const API_DIR = path.join(REPO_ROOT, "apps", "api");
 const WEB_DIR = path.join(REPO_ROOT, "apps", "web");
 
 const E2E_DB = path.join(API_DIR, "e2e.db");
+const RESET_DB_SCRIPT = path.join(REPO_ROOT, "e2e", "utils", "reset-db.js");
 const API_PORT = 3101;
 const WEB_PORT = 3100;
 const API_URL = `http://127.0.0.1:${API_PORT}`;
@@ -34,7 +35,16 @@ export default defineConfig({
   globalSetup: path.join(REPO_ROOT, "e2e", "utils", "global-setup.ts"),
   webServer: [
     {
-      command: `rm -f tsconfig.build.tsbuildinfo && DATABASE_URL=file:${E2E_DB} npx prisma db push --schema=./prisma/schema.prisma --accept-data-loss && DATABASE_URL=file:${E2E_DB} PORT=${API_PORT} JWT_SECRET=e2e-test-secret NODE_ENV=test npx nest start`,
+      // Rebuild the e2e database from the committed migrations, not from
+      // `prisma db push`. A push silently reconciles the DB with schema.prisma,
+      // which is exactly how the schema once drifted ahead of the migrations
+      // without anything failing. Deploying migrations makes the suite fail
+      // loudly if a schema change ever ships without one again.
+      //
+      // Every variable this needs comes from `env` below rather than inline
+      // `VAR=value` prefixes, which are POSIX-only and broke the suite on
+      // Windows.
+      command: `node ${RESET_DB_SCRIPT} && npx prisma migrate deploy --schema=./prisma/schema.prisma && npx nest start`,
       cwd: API_DIR,
       port: API_PORT,
       reuseExistingServer: false,
@@ -44,12 +54,18 @@ export default defineConfig({
         PORT: String(API_PORT),
         JWT_SECRET: "e2e-test-secret",
         NODE_ENV: "test",
+        // The whole suite hits the API from one IP and logs in once per test,
+        // so the production rate limits would throttle the run itself.
+        THROTTLE_LIMIT: "100000",
+        AUTH_THROTTLE_LIMIT: "100000",
       },
       stdout: "pipe",
       stderr: "pipe",
     },
     {
-      command: `NEXT_PUBLIC_API_URL=${API_URL} NODE_ENV=test npx next dev -p ${WEB_PORT}`,
+      // Same reason as the API server above: the env comes from `env`, not from
+      // POSIX-only inline `VAR=value` prefixes.
+      command: `npx next dev -p ${WEB_PORT}`,
       cwd: WEB_DIR,
       port: WEB_PORT,
       reuseExistingServer: false,

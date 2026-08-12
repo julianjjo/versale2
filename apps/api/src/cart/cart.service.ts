@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProductsService } from '../products/products.service';
+import { MAX_ITEM_QUANTITY } from './dto/cart.dto';
 
 @Injectable()
 export class CartService {
@@ -32,11 +33,7 @@ export class CartService {
   }
 
   async addItem(userId: string, productId: string, quantity: number) {
-    if (!Number.isInteger(quantity) || quantity <= 0) {
-      throw new BadRequestException(
-        'La cantidad debe ser un número entero positivo',
-      );
-    }
+    this.assertValidQuantity(quantity);
 
     const cart = await this.getCart(userId);
 
@@ -47,9 +44,18 @@ export class CartService {
       );
     }
 
+    if (product.soldAt) {
+      throw new BadRequestException(
+        'Este producto ya fue vendido y no está disponible',
+      );
+    }
+
     return this.prisma.client.cartItem.upsert({
       where: { cartId_productId: { cartId: cart.id, productId } },
-      update: { quantity: { increment: quantity } },
+      // Each listing is a single garment, so re-adding it keeps the line at the
+      // same quantity instead of incrementing, and refreshes the price snapshot
+      // so a later checkout can never be charged an outdated price.
+      update: { quantity, priceAtAdd: product.price },
       create: {
         cartId: cart.id,
         productId,
@@ -65,11 +71,7 @@ export class CartService {
   }
 
   async updateItem(cartItemId: string, quantity: number, userId: string) {
-    if (!Number.isInteger(quantity) || quantity <= 0) {
-      throw new BadRequestException(
-        'La cantidad debe ser un número entero positivo',
-      );
-    }
+    this.assertValidQuantity(quantity);
 
     const cartItem = await this.prisma.client.cartItem.findUnique({
       where: { id: cartItemId },
@@ -128,5 +130,19 @@ export class CartService {
       where: { cartId: cart.id },
     });
     return { success: true };
+  }
+
+  private assertValidQuantity(quantity: number) {
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new BadRequestException(
+        'La cantidad debe ser un número entero positivo',
+      );
+    }
+
+    if (quantity > MAX_ITEM_QUANTITY) {
+      throw new BadRequestException(
+        `Cada prenda es única: no puedes agregar más de ${MAX_ITEM_QUANTITY} unidad por producto`,
+      );
+    }
   }
 }

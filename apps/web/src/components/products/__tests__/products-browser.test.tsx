@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProductsBrowser } from "../products-browser";
 import { TestProviders } from "@/test-utils/TestProviders";
@@ -11,6 +11,47 @@ vi.mock("next/link", () => ({
     </a>
   ),
 }));
+
+// Minimal App Router stand-in: `push` swaps the URL and notifies the
+// subscribers of `useSearchParams`, so the component reacts to navigation the
+// same way it does in the browser (shared link, Back/Forward, filter apply).
+const nav = vi.hoisted(() => {
+  const state = {
+    url: "/products",
+    listeners: new Set<() => void>(),
+    navigate(url: string) {
+      state.url = url;
+      state.listeners.forEach((listener) => listener());
+    },
+    reset(url = "/products") {
+      state.url = url;
+    },
+  };
+  return state;
+});
+
+vi.mock("next/navigation", async () => {
+  const { useSyncExternalStore } = await import("react");
+  const subscribe = (onChange: () => void) => {
+    nav.listeners.add(onChange);
+    return () => {
+      nav.listeners.delete(onChange);
+    };
+  };
+  const getUrl = () => nav.url;
+  return {
+    useRouter: () => ({
+      push: (url: string) => nav.navigate(url),
+      replace: (url: string) => nav.navigate(url),
+      refresh: vi.fn(),
+    }),
+    usePathname: () => useSyncExternalStore(subscribe, getUrl, getUrl).split("?")[0],
+    useSearchParams: () =>
+      new URLSearchParams(
+        useSyncExternalStore(subscribe, getUrl, getUrl).split("?")[1] ?? "",
+      ),
+  };
+});
 
 const mockProducts = {
   data: [
@@ -80,6 +121,7 @@ function mockProductsApi(productsResponse: unknown) {
 describe("ProductsBrowser", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    nav.reset();
   });
 
   it("renderiza el formulario de filtros", async () => {
@@ -305,5 +347,126 @@ describe("ProductsBrowser", () => {
         }),
       );
     });
+  });
+
+  // Regression: filters lived in useState only, so a shared link showed the
+  // recipient the whole catalog and the URL never reflected what was applied.
+  it("inicializa los filtros desde la query string", async () => {
+    mockProductsApi({ data: emptyProducts });
+    nav.reset("/products?size=M&condition=Good&search=jacket&page=2");
+    render(
+      <TestProviders>
+        <ProductsBrowser />
+      </TestProviders>,
+    );
+
+    expect(screen.getByPlaceholderText(/buscar/i)).toHaveValue("jacket");
+    expect(screen.getByLabelText(/filtrar por talla/i)).toHaveValue("M");
+    expect(screen.getByLabelText(/filtrar por condición/i)).toHaveValue("Good");
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith(
+        "/products",
+        expect.objectContaining({
+          params: expect.objectContaining({
+            search: "jacket",
+            size: "M",
+            condition: "Good",
+            page: 2,
+          }),
+        }),
+      );
+    });
+  });
+
+  it("escribe los filtros aplicados en la URL", async () => {
+    mockProductsApi({ data: emptyProducts });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductsBrowser showPagination={false} />
+      </TestProviders>,
+    );
+
+    await user.type(screen.getByPlaceholderText(/buscar/i), "chaqueta");
+    await user.selectOptions(screen.getByLabelText(/filtrar por talla/i), "L");
+    await user.click(screen.getByRole("button", { name: /aplicar/i }));
+
+    expect(nav.url).toBe("/products?search=chaqueta&size=L");
+  });
+
+  it("limpia la query string al limpiar los filtros", async () => {
+    mockProductsApi({ data: emptyProducts });
+    nav.reset("/products?search=chaqueta");
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductsBrowser showPagination={false} />
+      </TestProviders>,
+    );
+
+    await user.click(screen.getByRole("button", { name: /limpiar filtros/i }));
+
+    expect(nav.url).toBe("/products");
+  });
+
+  it("guarda la página en la URL y responde a la navegación del historial", async () => {
+    mockProductsApi({
+      data: {
+        data: [],
+        meta: { total: 30, page: 1, limit: 12, pages: 3 },
+      },
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductsBrowser />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /página 2/i }),
+      ).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: /página 2/i }));
+    expect(nav.url).toBe("/products?page=2");
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenLastCalledWith(
+        "/products",
+        expect.objectContaining({
+          params: expect.objectContaining({ page: 2 }),
+        }),
+      );
+    });
+
+    // Back: the browser restores the previous URL and the view follows it
+    // instead of silently resetting to an unfiltered page 1.
+    act(() => {
+      nav.navigate("/products");
+    });
+    await waitFor(() => {
+      expect(api.get).toHaveBeenLastCalledWith(
+        "/products",
+        expect.objectContaining({
+          params: expect.objectContaining({ page: 1 }),
+        }),
+      );
+    });
+  });
+
+  it("no reescribe la URL cuando se usa embebido sin filtros ni paginación", async () => {
+    mockProductsApi({ data: mockProducts });
+    render(
+      <TestProviders>
+        <ProductsBrowser limit={6} showFilters={false} showPagination={false} />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    });
+    expect(nav.url).toBe("/products");
   });
 });

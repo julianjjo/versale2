@@ -7,12 +7,16 @@ import {
   Body,
   Delete,
   Query,
+  Res,
+  HttpStatus,
   UseGuards,
   Req,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { AuthRequest } from '../types/request.types';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { UpdateReviewDto } from './dto/update-review.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -29,9 +33,23 @@ export class ReviewsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async createReview(@Req() req: AuthRequest, @Body() body: CreateReviewDto) {
+  async createReview(
+    @Req() req: AuthRequest,
+    @Body() body: CreateReviewDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const userId = req.user.id;
-    return this.reviewsService.create(body, userId, body.productId);
+    const { review, created } = await this.reviewsService.create(
+      body,
+      userId,
+      body.productId,
+    );
+
+    // Posting again for the same product edits the existing review, so the
+    // response is a 200 OK rather than a 201 Created.
+    res.status(created ? HttpStatus.CREATED : HttpStatus.OK);
+
+    return review;
   }
 
   @UseGuards(JwtAuthGuard)
@@ -39,17 +57,17 @@ export class ReviewsController {
   async updateReview(
     @Req() req: AuthRequest,
     @Param('id') id: string,
-    @Body() body: Partial<CreateReviewDto>,
+    @Body() body: UpdateReviewDto,
   ) {
     const userId = req.user.id;
-    return this.reviewsService.update(id, body, userId);
+    return this.reviewsService.update(id, body, userId, req.user.role as Role);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   async deleteReview(@Req() req: AuthRequest, @Param('id') id: string) {
     const userId = req.user.id;
-    return this.reviewsService.remove(id, userId);
+    return this.reviewsService.remove(id, userId, req.user.role as Role);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

@@ -43,6 +43,60 @@ describe('UpdateUserDto with the global ValidationPipe', () => {
       password: 'longenough',
     });
   });
+
+  it('keeps currentPassword so the self-service credential check can run', async () => {
+    const result = await pipe.transform(
+      { password: 'longenough', currentPassword: 'oldpassword' },
+      metadata,
+    );
+
+    expect(result).toEqual({
+      password: 'longenough',
+      currentPassword: 'oldpassword',
+    });
+  });
+});
+
+describe('UpdateUserDto field constraints', () => {
+  it('rejects an empty name', async () => {
+    const dto = plainToInstance(UpdateUserDto, { name: '' });
+
+    const errors = await validate(dto);
+
+    expect(errors.some((error) => error.property === 'name')).toBe(true);
+  });
+
+  it('rejects a name longer than the allowed maximum', async () => {
+    const dto = plainToInstance(UpdateUserDto, { name: 'a'.repeat(5000) });
+
+    const errors = await validate(dto);
+
+    expect(errors.some((error) => error.property === 'name')).toBe(true);
+  });
+
+  it('accepts a reasonable name', async () => {
+    const dto = plainToInstance(UpdateUserDto, { name: 'Ana Gómez' });
+
+    const errors = await validate(dto);
+
+    expect(errors).toEqual([]);
+  });
+
+  it('rejects a password shorter than the signup minimum', async () => {
+    const dto = plainToInstance(UpdateUserDto, { password: 'a' });
+
+    const errors = await validate(dto);
+
+    expect(errors.some((error) => error.property === 'password')).toBe(true);
+  });
+
+  it('accepts a password that meets the signup minimum', async () => {
+    const dto = plainToInstance(UpdateUserDto, { password: '123456' });
+
+    const errors = await validate(dto);
+
+    expect(errors).toEqual([]);
+  });
 });
 
 describe('UpdateUserDto validation with explicit null vs omitted (undefined) fields', () => {

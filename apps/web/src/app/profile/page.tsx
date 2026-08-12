@@ -57,28 +57,49 @@ function ProfileForm({
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [password, setPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [currentPasswordError, setCurrentPasswordError] = useState<
+    string | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Changing either credential that owns the account has to be proven with the
+  // password in force right now; the API rejects the request without it.
+  const requiresCurrentPassword =
+    Boolean(password) || (Boolean(email) && email !== user.email);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
-    setIsSaving(true);
-    try {
-      const body: Record<string, string> = {};
-      if (name && name !== user.name) body.name = name;
-      if (email && email !== user.email) body.email = email;
-      if (password) body.password = password;
-      if (Object.keys(body).length === 0) {
-        setSuccess("Nada que actualizar");
-        setIsSaving(false);
+    setCurrentPasswordError(null);
+
+    const body: Record<string, string> = {};
+    if (name && name !== user.name) body.name = name;
+    if (email && email !== user.email) body.email = email;
+    if (password) body.password = password;
+    if (Object.keys(body).length === 0) {
+      setSuccess("Nada que actualizar");
+      return;
+    }
+    if (requiresCurrentPassword) {
+      if (!currentPassword) {
+        setCurrentPasswordError(
+          "Ingresa tu contraseña actual para cambiar tu correo o tu contraseña.",
+        );
         return;
       }
+      body.currentPassword = currentPassword;
+    }
+
+    setIsSaving(true);
+    try {
       await api.patch<User>("/users/me", body);
       await refresh();
       setPassword("");
+      setCurrentPassword("");
       setSuccess("Perfil actualizado");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -133,11 +154,27 @@ function ProfileForm({
           <Input
             label="Nueva contraseña"
             type="password"
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Déjala en blanco para conservar la actual"
             minLength={6}
             hint="Mínimo 6 caracteres."
+          />
+          {/* Not marked `required`: the browser's own validation bubble is
+              localised to the browser, not the app, so the check runs in JS
+              and reports in Spanish. */}
+          <Input
+            label="Contraseña actual"
+            type="password"
+            autoComplete="current-password"
+            value={currentPassword}
+            onChange={(e) => {
+              setCurrentPassword(e.target.value);
+              setCurrentPasswordError(null);
+            }}
+            error={currentPasswordError ?? undefined}
+            hint="Solo es necesaria si cambias tu correo o tu contraseña."
           />
           {error && (
             <p className="text-sm text-danger" role="alert">

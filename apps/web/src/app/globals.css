@@ -172,8 +172,36 @@ body {
   }
 
   .text-eyebrow-paper {
+    /* Full opacity, no dimming: this class only sits on the terracotta-deep
+       CTA ground, where paper at 100% is 5.28:1 and any opacity below ~0.95
+       drops the 11px eyebrow under the 4.5:1 AA floor. */
     color: var(--color-paper);
-    opacity: 0.7;
+  }
+
+  /* Headings on a terracotta ground: the base `h2 em` rule paints italic
+     emphasis in --color-terracotta, which is invisible against an accent
+     background (1:1). On those sections the emphasis carries through the
+     italic alone and inherits the heading's own colour. */
+  .heading-on-accent em {
+    color: inherit;
+  }
+
+  /* Category tiles. The label reads against the tile's flat placeholder
+     ground, so the scrim has to be painted *between* the ground and the text
+     — painted underneath it (the previous stacking) left the label at
+     1.18:1. At full strength paper-on-scrim is 9.7:1; the band stays solid
+     across the whole area the label can occupy and only fades near the top. */
+  .category-tile-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(
+      to top,
+      rgba(26, 26, 26, 0.82) 0%,
+      rgba(26, 26, 26, 0.82) 65%,
+      rgba(26, 26, 26, 0.3) 86%,
+      rgba(26, 26, 26, 0) 100%
+    );
   }
 
   .text-eyebrow-terracotta {
@@ -257,6 +285,26 @@ body {
   .btn-pill-on-ink:hover {
     background: var(--color-ink-2);
     transform: translateY(-1px);
+  }
+  /* Pills on the terracotta-deep CTA ground. The paper fill sits at 5.28:1
+     against that ground and its ink label at 12.7:1; the ghost variant uses
+     the same paper for border and label, also 5.28:1. */
+  .btn-pill-paper {
+    background: var(--color-paper);
+    color: var(--color-ink);
+  }
+  .btn-pill-paper:hover {
+    background: var(--color-paper-2);
+    transform: translateY(-2px);
+  }
+  .btn-pill-ghost-paper {
+    background: transparent;
+    border-color: var(--color-paper);
+    color: var(--color-paper);
+  }
+  .btn-pill-ghost-paper:hover {
+    background: var(--color-paper);
+    color: var(--color-ink);
   }
 
   .filter-pill {

@@ -1,4 +1,11 @@
 import { test as base, expect } from "../fixtures/auth";
+import {
+  API_URL,
+  E2E_SHIPPING_ADDRESS,
+  clearCart,
+  createBuyer,
+  createPurchasableProduct,
+} from "../utils/purchasable";
 
 const test = base.extend({});
 
@@ -78,35 +85,28 @@ test.describe("Flujo de compra", () => {
   test("el usuario puede pagar y ver el pedido en su historial", async ({
     userPage,
   }) => {
-    // Asegurar que el carrito empieza vacío
-    await userPage.goto("/cart");
-    const clearBtn = userPage.getByRole("button", { name: /vaciar carrito/i });
-    if (await clearBtn.isVisible().catch(() => false)) {
-      await clearBtn.click();
-      await expect(
-        userPage.getByText(/tu carrito está vacío/i),
-      ).toBeVisible({ timeout: 5_000 });
-    }
+    // Cada prenda es única: al comprarla queda marcada como vendida y sale del
+    // catálogo. Por eso la prueba crea su propio producto en vez de gastar uno
+    // de los sembrados, que rompería las demás pruebas y los reintentos de CI.
+    const product = await createPurchasableProduct(userPage.request);
 
-    await userPage.goto("/products");
-    await userPage.getByRole("heading", { name: "Wool Sweater" }).click();
+    const token = await userPage.evaluate(() =>
+      localStorage.getItem("versale_token"),
+    );
+    await clearCart(userPage.request, token!);
+
+    await userPage.goto(`/products/${product.id}`);
     await userPage.getByRole("button", { name: /agregar al carrito/i }).click();
     await expect(userPage.getByText(/agregado al carrito/i)).toBeVisible({
       timeout: 10_000,
     });
 
-    const token = await userPage.evaluate(() =>
-      localStorage.getItem("versale_token"),
-    );
     await expect
       .poll(
         async () => {
-          const res = await userPage.request.get(
-            "http://127.0.0.1:3101/cart",
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            },
-          );
+          const res = await userPage.request.get(`${API_URL}/cart`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
           const cart = await res.json();
           return cart.items.length;
         },
@@ -114,14 +114,12 @@ test.describe("Flujo de compra", () => {
       )
       .toBeGreaterThan(0);
 
-    // Crear el pedido vía API para evitar flakiness de UI
-    const orderRes = await userPage.request.post(
-      "http://127.0.0.1:3101/orders",
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        data: {},
-      },
-    );
+    // Crear el pedido vía API para evitar flakiness de UI. La dirección de
+    // envío es obligatoria: el API rechaza un pedido sin ella.
+    const orderRes = await userPage.request.post(`${API_URL}/orders`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { shippingAddress: E2E_SHIPPING_ADDRESS },
+    });
     expect(orderRes.status()).toBe(201);
 
     // Verificar que aparece en el historial del usuario
@@ -129,6 +127,49 @@ test.describe("Flujo de compra", () => {
     await expect(
       userPage.getByRole("link", { name: /Pendiente/i }).first(),
     ).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("un pedido sin dirección de envío es rechazado", async ({ page }) => {
+    const product = await createPurchasableProduct(page.request);
+    const buyer = await createBuyer(page.request);
+
+    await page.request.post(`${API_URL}/cart/items`, {
+      headers: { Authorization: `Bearer ${buyer.token}` },
+      data: { productId: product.id, quantity: 1 },
+    });
+
+    const orderRes = await page.request.post(`${API_URL}/orders`, {
+      headers: { Authorization: `Bearer ${buyer.token}` },
+      data: {},
+    });
+    expect(orderRes.status()).toBe(400);
+  });
+
+  test("una prenda vendida desaparece del catálogo", async ({ page }) => {
+    const product = await createPurchasableProduct(page.request);
+    const buyer = await createBuyer(page.request);
+
+    await page.request.post(`${API_URL}/cart/items`, {
+      headers: { Authorization: `Bearer ${buyer.token}` },
+      data: { productId: product.id, quantity: 1 },
+    });
+    const orderRes = await page.request.post(`${API_URL}/orders`, {
+      headers: { Authorization: `Bearer ${buyer.token}` },
+      data: { shippingAddress: E2E_SHIPPING_ADDRESS },
+    });
+    expect(orderRes.status()).toBe(201);
+
+    // Ya no se puede volver a comprar la misma prenda física.
+    const readd = await page.request.post(`${API_URL}/cart/items`, {
+      headers: { Authorization: `Bearer ${buyer.token}` },
+      data: { productId: product.id, quantity: 1 },
+    });
+    expect(readd.status()).toBe(400);
+
+    const catalog = await page.request.get(
+      `${API_URL}/products?search=${encodeURIComponent(product.title)}`,
+    );
+    expect((await catalog.json()).meta.total).toBe(0);
   });
 
   test("el usuario puede eliminar un producto del carrito", async ({

@@ -27,7 +27,15 @@ const CONDITION_LABELS: Record<string, string> = {
   Fair: "Aceptable",
 };
 
-export function ProductDetail() {
+export function ProductDetail({
+  /** Product already resolved on the server (see `app/products/[id]/page.tsx`).
+   *  Seeds the query so the page paints without a spinner; the client still
+   *  refetches with the visitor's token, which can see more than the anonymous
+   *  server probe (own pending listing, admin). */
+  initialProduct,
+}: {
+  initialProduct?: Product;
+} = {}) {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const router = useRouter();
@@ -44,13 +52,14 @@ export function ProductDetail() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const { data, isLoading, isError } = useQuery<Product>({
+  const { data, isLoading } = useQuery<Product>({
     queryKey: ["product", id],
     queryFn: async () => {
       const response = await api.get<Product>(`/products/${id}`);
       return response.data;
     },
     enabled: Boolean(id),
+    initialData: initialProduct,
   });
 
   const addToCart = useMutation({
@@ -116,7 +125,10 @@ export function ProductDetail() {
       </PageContainer>
     );
   }
-  if (isError || !data) {
+  // Only the absence of data is a dead end: a failed refetch on top of the
+  // server-rendered product keeps showing the product rather than replacing it
+  // with an empty state.
+  if (!data) {
     return (
       <PageContainer>
         <EmptyState
