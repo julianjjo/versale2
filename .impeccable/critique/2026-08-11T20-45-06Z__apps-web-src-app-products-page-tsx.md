@@ -30,7 +30,7 @@ Method: dual-agent (A: a130afb4d74a2a672 · B: a4e2068ccb5a8e9f9)
 
 Card anatomy and Spanish/COP copy are authored for Versale, but the filter bar — six placeholder-labeled fields, no brand/category facets, no condition legend, no trust signals — is close to interchangeable with any CRUD admin list. Paired with all-placeholder imagery and a single repeating seller, today's experience reads as a scaffolded demo, not the "editorial fashion magazine" DESIGN.md commits to.
 
-**Deterministic scan**: CLI on the two target files = 0 findings. Browser scan = 31 findings; 17 attributable to `products-browser.tsx` (2 `call-caps-body` on truncated uppercase brand text, 3 `text-overflow` on the size/condition line, 12 `clipped-overflow-container` — one per rendered card's image frame clipping its "Pendiente" badge/heart button). Remaining 15 are Footer chrome, out of scope.
+**Deterministic scan**: CLI on the two target files = 0 findings. Browser scan's own summary line reported "31 anti-patterns found," but logged 32 individual findings (a known 1-off discrepancy in the detector's own counter, not a transcription error here). Of those 32: 17 are attributable to `products-browser.tsx` (2 `call-caps-body` on truncated uppercase brand text, 3 `text-overflow` on the size/condition line, 12 `clipped-overflow-container` — one per rendered card's image frame clipping its "Pendiente" badge/heart button); the remaining 15 are Footer chrome, out of scope.
 
 ## Priority Issues
 
