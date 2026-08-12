@@ -29,6 +29,10 @@ describe('OrdersService', () => {
     },
     order: {
       create: jest.fn(),
+      update: jest.fn(),
+    },
+    orderItem: {
+      findMany: jest.fn(),
     },
     product: {
       updateMany: jest.fn(),
@@ -741,21 +745,55 @@ describe('OrdersService', () => {
       expect(result).toEqual(mockOrder);
     });
 
-    it('should allow cancelling an order that has not shipped yet', async () => {
+    it('should allow cancelling an order that has not shipped yet, releasing its garments', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.PAID,
+      });
+      mockTx.orderItem.findMany.mockResolvedValue([
+        { productId: 'product1' },
+        { productId: 'product2' },
+      ]);
+      mockTx.order.update.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.CANCELLED,
+      });
+
+      const result = await service.updateOrderStatus(
+        'order1',
+        OrderStatus.CANCELLED,
+      );
+
+      expect(mockTx.order.update).toHaveBeenCalledWith({
+        where: { id: 'order1' },
+        data: { status: OrderStatus.CANCELLED },
+      });
+      // Checkout stamped `soldAt` to take the items off the market; a sale that
+      // never completes has to put them back, or an abandoned checkout destroys
+      // the listing for good.
+      expect(mockTx.product.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['product1', 'product2'] } },
+        data: { soldAt: null },
+      });
+      expect(result).toEqual({ id: 'order1', status: OrderStatus.CANCELLED });
+    });
+
+    it('should not release any garment when the transition is not a cancellation', async () => {
       mockPrismaService.client.order.findUnique.mockResolvedValue({
         id: 'order1',
         status: OrderStatus.PAID,
       });
       mockPrismaService.client.order.update.mockResolvedValue({
         id: 'order1',
-        status: OrderStatus.CANCELLED,
+        status: OrderStatus.SHIPPED,
       });
 
-      await service.updateOrderStatus('order1', OrderStatus.CANCELLED);
+      await service.updateOrderStatus('order1', OrderStatus.SHIPPED);
 
+      expect(mockTx.product.updateMany).not.toHaveBeenCalled();
       expect(mockPrismaService.client.order.update).toHaveBeenCalledWith({
         where: { id: 'order1' },
-        data: { status: OrderStatus.CANCELLED },
+        data: { status: OrderStatus.SHIPPED },
       });
     });
 

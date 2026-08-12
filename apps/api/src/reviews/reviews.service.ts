@@ -8,9 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { Role } from '../users/role.enum';
-
-const MAX_PAGE_SIZE = 100;
-const DEFAULT_PAGE_SIZE = 10;
+import { resolvePagination } from '../common/pagination';
 
 @Injectable()
 export class ReviewsService {
@@ -125,12 +123,7 @@ export class ReviewsService {
 
   async getAllReviews(query: any) {
     const { page, limit } = query ?? {};
-    const pageNum = Math.max(1, Math.trunc(Number(page)) || 1);
-    const limitNum = Math.min(
-      MAX_PAGE_SIZE,
-      Math.max(1, Math.trunc(Number(limit)) || DEFAULT_PAGE_SIZE),
-    );
-    const skip = (pageNum - 1) * limitNum;
+    const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const [reviews, total] = await Promise.all([
       this.prisma.client.review.findMany({

@@ -39,20 +39,19 @@ export async function getToken(
 }
 
 /**
- * Creates a fresh, admin-approved product owned by the seeded author, and
- * returns it ready to be bought by the seeded `user`.
+ * Creates a fresh, still-unapproved product owned by the seeded author.
  *
- * Products are one-of-a-kind: checkout stamps `soldAt` and the item leaves the
- * catalog for good. So a purchase test cannot reuse a shared seeded product —
- * it would pass once and then fail on the next run or on a CI retry. Each test
- * mints its own item instead.
+ * The seed carries exactly ONE pending listing, so a test that approves "the"
+ * pending product consumes a fixture nothing puts back: on a CI retry (or a
+ * second test wanting the same thing) the queue is empty and the assertion
+ * fails on fixture exhaustion instead of on the real regression. A test that
+ * moderates therefore mints its own listing.
  */
-export async function createPurchasableProduct(
+export async function createPendingProduct(
   request: APIRequestContext,
   overrides: Partial<{ title: string; price: number }> = {},
 ): Promise<{ id: string; title: string; price: number }> {
   const authorToken = await getToken(request, "author");
-  const adminToken = await getToken(request, "admin");
 
   // Date.now() alone is millisecond-resolution, and specs run in parallel — two
   // products can land on the same title. The sold-out spec asserts on a
@@ -80,6 +79,25 @@ export async function createPurchasableProduct(
   }
   const product = await created.json();
 
+  return { id: product.id, title, price };
+}
+
+/**
+ * Creates a fresh, admin-approved product owned by the seeded author, and
+ * returns it ready to be bought by the seeded `user`.
+ *
+ * Products are one-of-a-kind: checkout stamps `soldAt` and the item leaves the
+ * catalog for good. So a purchase test cannot reuse a shared seeded product —
+ * it would pass once and then fail on the next run or on a CI retry. Each test
+ * mints its own item instead.
+ */
+export async function createPurchasableProduct(
+  request: APIRequestContext,
+  overrides: Partial<{ title: string; price: number }> = {},
+): Promise<{ id: string; title: string; price: number }> {
+  const product = await createPendingProduct(request, overrides);
+  const adminToken = await getToken(request, "admin");
+
   const approved = await request.patch(
     `${API_URL}/products/admin/${product.id}/approve`,
     {
@@ -93,7 +111,7 @@ export async function createPurchasableProduct(
     );
   }
 
-  return { id: product.id, title, price };
+  return product;
 }
 
 /**

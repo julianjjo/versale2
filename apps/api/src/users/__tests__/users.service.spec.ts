@@ -120,6 +120,36 @@ describe('UsersService', () => {
       });
     });
 
+    it('should clamp a hostile page/limit instead of reaching Prisma', async () => {
+      mockPrismaService.client.user.findMany.mockResolvedValue([]);
+      mockPrismaService.client.user.count.mockResolvedValue(0);
+
+      // `page=-1` used to compute `skip: -20`, which Prisma rejects outright,
+      // and `limit` had no ceiling at all.
+      const result = await service.findAll({ page: '-1', limit: '999999' });
+
+      expect(mockPrismaService.client.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 100 }),
+      );
+      expect(result.meta).toEqual({
+        total: 0,
+        page: 1,
+        limit: 100,
+        pages: 0,
+      });
+    });
+
+    it('should ignore a role that is not a real enum member', async () => {
+      mockPrismaService.client.user.findMany.mockResolvedValue([]);
+      mockPrismaService.client.user.count.mockResolvedValue(0);
+
+      await service.findAll({ role: 'BOGUS' });
+
+      expect(mockPrismaService.client.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+    });
+
     it('should filter by search term across name and email', async () => {
       mockPrismaService.client.user.findMany.mockResolvedValue([]);
       mockPrismaService.client.user.count.mockResolvedValue(0);

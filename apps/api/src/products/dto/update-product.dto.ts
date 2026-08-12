@@ -1,5 +1,6 @@
 import {
   IsString,
+  IsNotEmpty,
   IsOptional,
   IsIn,
   IsInt,
@@ -9,14 +10,20 @@ import {
   MaxLength,
 } from 'class-validator';
 
+// Every field is optional, but a field that IS sent has to satisfy the same
+// rules `CreateProductDto` enforces. `@IsOptional()` only short-circuits on
+// null/undefined, so without `@IsNotEmpty()` an empty string sails through and
+// blanks a live listing.
 export class UpdateProductDto {
   @IsString({ message: 'El título debe ser un texto' })
   @IsOptional()
+  @IsNotEmpty({ message: 'El título es obligatorio' })
   @MaxLength(120, { message: 'El título no puede superar los 120 caracteres' })
   title?: string;
 
   @IsString({ message: 'La descripción debe ser un texto' })
   @IsOptional()
+  @IsNotEmpty({ message: 'La descripción es obligatoria' })
   @MaxLength(2000, {
     message: 'La descripción no puede superar los 2000 caracteres',
   })
@@ -24,6 +31,7 @@ export class UpdateProductDto {
 
   @IsString({ message: 'La categoría debe ser un texto' })
   @IsOptional()
+  @IsNotEmpty({ message: 'La categoría es obligatoria' })
   category?: string;
 
   @IsString({ message: 'La marca debe ser un texto' })

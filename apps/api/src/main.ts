@@ -5,6 +5,7 @@ const envPath = resolve(__dirname, '..', '.env');
 loadEnv({ path: envPath });
 
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -34,8 +35,24 @@ function resolveCorsOrigins(): string[] {
   return origins.length > 0 ? origins : DEFAULT_CORS_ORIGINS;
 }
 
+// How many reverse proxies sit in front of the API. The global ThrottlerGuard
+// buckets by `req.ip`; without this Express reports the proxy's address for
+// every request, so one shared bucket throttles the whole user base at once
+// while an attacker rotating source IPs is never counted. `1` covers the usual
+// single load balancer; set TRUST_PROXY_HOPS to the real hop count (or `false`
+// when the API is exposed directly).
+function resolveTrustProxy(): number | boolean {
+  const configured = process.env.TRUST_PROXY_HOPS;
+  if (configured === undefined) return 1;
+  if (configured === 'false') return false;
+
+  const hops = Number(configured);
+  return Number.isInteger(hops) && hops >= 0 ? hops : 1;
+}
+
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.set('trust proxy', resolveTrustProxy());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.enableCors({
     origin: resolveCorsOrigins(),

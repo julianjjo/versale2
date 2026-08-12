@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 
 // Every link resolves to a distinct destination that exists. The catalog has
 // no gender field, so the old Mujer/Hombre/Unisex entries all pointed at the

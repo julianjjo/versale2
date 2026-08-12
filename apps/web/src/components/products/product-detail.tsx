@@ -18,14 +18,10 @@ import {
   StarRating,
   Divider,
 } from "@/components/ui";
+import { conditionLabel } from "@/lib/product-condition";
+import { tokenStore } from "@/lib/token";
 import type { Product, Review } from "@/lib/types";
 
-const CONDITION_LABELS: Record<string, string> = {
-  New: "Nuevo",
-  "Like New": "Como nuevo",
-  Good: "Buen estado",
-  Fair: "Aceptable",
-};
 
 export function ProductDetail({
   /** Product already resolved on the server (see `app/products/[id]/page.tsx`).
@@ -52,6 +48,15 @@ export function ProductDetail({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // The server probe that produced `initialProduct` is anonymous, so for a
+  // visitor without a token it already IS the answer — treating it as fresh
+  // skips a second identical round-trip on every product view. A visitor WITH
+  // a token can see more than the probe did (their own pending listing, admin),
+  // so their copy is seeded as stale and refetched immediately.
+  const [seededAt] = useState(() =>
+    initialProduct && !tokenStore.get() ? Date.now() : 0,
+  );
+
   const {
     data,
     isLoading,
@@ -66,6 +71,10 @@ export function ProductDetail({
     },
     enabled: Boolean(id),
     initialData: initialProduct,
+    initialDataUpdatedAt: seededAt,
+    // Only governs the seeded copy; `invalidateQueries` after a review still
+    // refetches straight away.
+    staleTime: 60_000,
   });
 
   const addToCart = useMutation({
@@ -249,7 +258,7 @@ export function ProductDetail({
             <dd className="font-medium text-text-primary">{data.size}</dd>
             <dt className="text-text-muted">Condición</dt>
             <dd>
-              <Badge>{CONDITION_LABELS[data.condition] ?? data.condition}</Badge>
+              <Badge>{conditionLabel(data.condition)}</Badge>
             </dd>
             <dt className="text-text-muted">Categoría</dt>
             <dd className="font-medium text-text-primary">{data.category}</dd>

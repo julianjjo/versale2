@@ -15,14 +15,9 @@ import {
   PageContainer,
   SectionHeader,
 } from "@/components/ui";
+import { CONDITION_OPTIONS } from "@/lib/product-condition";
 
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
-const CONDITIONS: Array<{ value: string; label: string }> = [
-  { value: "New", label: "Nuevo" },
-  { value: "Like New", label: "Como nuevo" },
-  { value: "Good", label: "Buen estado" },
-  { value: "Fair", label: "Aceptable" },
-];
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const ACCEPTED_EXTENSIONS = ".jpg,.jpeg,.png,.webp";
@@ -298,7 +293,7 @@ export default function SellPage() {
               onChange={(e) => update("condition", e.target.value)}
               required
             >
-              {CONDITIONS.map((c) => (
+              {CONDITION_OPTIONS.map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.label}
                 </option>

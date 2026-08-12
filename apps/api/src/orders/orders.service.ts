@@ -9,9 +9,7 @@ import { OrderStatus } from './order-status.enum';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { MAX_ITEM_QUANTITY } from '../cart/dto/cart.dto';
 import { Role } from '../users/role.enum';
-
-const MAX_PAGE_SIZE = 100;
-const DEFAULT_PAGE_SIZE = 10;
+import { resolvePagination } from '../common/pagination';
 
 // Legal moves of the order lifecycle. DELIVERED and CANCELLED are terminal, and
 // an order can only be cancelled while it has not shipped yet.
@@ -188,12 +186,7 @@ export class OrdersService {
 
   async getAllOrders(query: any = {}) {
     const { search, page, limit } = query ?? {};
-    const pageNum = Math.max(1, Math.trunc(Number(page)) || 1);
-    const limitNum = Math.min(
-      MAX_PAGE_SIZE,
-      Math.max(1, Math.trunc(Number(limit)) || DEFAULT_PAGE_SIZE),
-    );
-    const skip = (pageNum - 1) * limitNum;
+    const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const where: any = {};
     if (search) {
@@ -281,9 +274,37 @@ export class OrdersService {
       );
     }
 
-    return this.prisma.client.order.update({
-      where: { id },
-      data: { status },
+    // Cancelling releases the garments the order had claimed. Checkout stamps
+    // `soldAt` to take a one-of-a-kind item off the market; if the sale never
+    // completes that stamp has to come back off, otherwise an abandoned
+    // checkout destroys the listing for good — gone from the catalog and the
+    // facets, and un-addable to any cart, with no way for the seller to relist.
+    if (status !== OrderStatus.CANCELLED) {
+      return this.prisma.client.order.update({
+        where: { id },
+        data: { status },
+      });
+    }
+
+    return this.prisma.client.$transaction(async (tx) => {
+      const items = await tx.orderItem.findMany({
+        where: { orderId: id },
+        select: { productId: true },
+      });
+
+      const updated = await tx.order.update({
+        where: { id },
+        data: { status },
+      });
+
+      if (items.length > 0) {
+        await tx.product.updateMany({
+          where: { id: { in: items.map((item) => item.productId) } },
+          data: { soldAt: null },
+        });
+      }
+
+      return updated;
     });
   }
 }

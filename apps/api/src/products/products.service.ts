@@ -7,9 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Role } from '../users/role.enum';
-
-const DEFAULT_PAGE_SIZE = 10;
-const MAX_PAGE_SIZE = 100;
+import { resolvePagination } from '../common/pagination';
 
 // Fields moderation actually judges: if a seller changes any of them the
 // listing has to be reviewed again before going back to the public catalog.
@@ -27,20 +25,6 @@ const MODERATED_FIELDS = [
 @Injectable()
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
-
-  private resolvePagination(page: unknown, limit: unknown) {
-    const parsedPage = Math.floor(Number(page));
-    const parsedLimit = Math.floor(Number(limit));
-
-    const pageNum =
-      Number.isFinite(parsedPage) && parsedPage >= 1 ? parsedPage : 1;
-    const limitNum =
-      Number.isFinite(parsedLimit) && parsedLimit >= 1
-        ? Math.min(parsedLimit, MAX_PAGE_SIZE)
-        : DEFAULT_PAGE_SIZE;
-
-    return { pageNum, limitNum, skip: (pageNum - 1) * limitNum };
-  }
 
   private hasModeratedChanges(
     product: Record<string, unknown>,
@@ -86,7 +70,7 @@ export class ProductsService {
       page = 1,
       limit = 10,
     } = query;
-    const { pageNum, limitNum, skip } = this.resolvePagination(page, limit);
+    const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     // Sold items are one-of-a-kind: once bought they leave the public catalog.
     const where: any = { isApproved: true, soldAt: null };
@@ -190,9 +174,12 @@ export class ProductsService {
       throw new NotFoundException(`Producto con ID ${id} no encontrado`);
     }
 
-    // A sold product is gone for everyone except its seller and admins, who
-    // still need it for order history and moderation.
-    if (!product.isApproved || product.soldAt) {
+    // Being sold removes a listing from the catalog (`findAll`/`getFacets`
+    // filter on `soldAt: null`) but NOT from the web: the buyer reaches this
+    // page from their order history, and it is the only place they can leave a
+    // review. Hiding it 404'd those links and made the review flow
+    // unreachable. Only moderation state restricts who may look.
+    if (!product.isApproved) {
       const canView =
         !!requester &&
         (requester.role === Role.ADMIN || requester.id === product.sellerId);
@@ -276,7 +263,7 @@ export class ProductsService {
 
   async findAllForAdmin(query: any) {
     const { status, page = 1, limit = 10 } = query;
-    const { pageNum, limitNum, skip } = this.resolvePagination(page, limit);
+    const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     // Admins see everything, sold items included: an approved product that has
     // been bought stays in the "aprobados" bucket, it just left the catalog.

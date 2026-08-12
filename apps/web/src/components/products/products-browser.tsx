@@ -2,6 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import {
+  CONDITION_OPTIONS,
+  conditionLabel,
+} from "@/lib/product-condition";
 import type { PaginatedResponse, Product } from "@/lib/types";
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
@@ -36,12 +40,6 @@ interface ProductsBrowserProps {
 }
 
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
-const CONDITIONS: Array<{ value: string; label: string }> = [
-  { value: "New", label: "Nuevo" },
-  { value: "Like New", label: "Como nuevo" },
-  { value: "Good", label: "Buen estado" },
-  { value: "Fair", label: "Aceptable" },
-];
 
 interface FilterFormState {
   search: string;
@@ -316,7 +314,7 @@ function ProductsBrowserContent({
             aria-label="Filtrar por condición"
           >
             <option value="">Cualquier condición</option>
-            {CONDITIONS.map((c) => (
+            {CONDITION_OPTIONS.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
               </option>
@@ -447,12 +445,6 @@ function ProductsBrowserContent({
   );
 }
 
-const CONDITION_LABELS: Record<string, string> = {
-  New: "Nuevo",
-  "Like New": "Como nuevo",
-  Good: "Buen estado",
-  Fair: "Aceptable",
-};
 
 export function ProductCard({ product }: { product: Product }) {
   return (
@@ -514,7 +506,7 @@ export function ProductCard({ product }: { product: Product }) {
           <div className="mt-1.5 flex items-center justify-between gap-2">
             <Price value={product.price} className="text-[16px] sm:text-[18px]" />
             <span className="text-[11px] text-muted">
-              Talla {product.size} · {CONDITION_LABELS[product.condition] ?? product.condition}
+              Talla {product.size} · {conditionLabel(product.condition)}
             </span>
           </div>
           {product.seller && (

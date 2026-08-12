@@ -17,16 +17,11 @@ import {
   Modal,
   Textarea,
 } from "@/components/ui";
+import { conditionLabel } from "@/lib/product-condition";
 import type { Product } from "@/lib/types";
 import { useState } from "react";
 import Link from "next/link";
 
-const CONDITION_LABELS: Record<string, string> = {
-  New: "Nuevo",
-  "Like New": "Como nuevo",
-  Good: "Buen estado",
-  Fair: "Aceptable",
-};
 
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
 
@@ -180,7 +175,7 @@ export default function AdminProductsPage() {
             const isPending = !product.isApproved && !product.rejectedAt;
             const isRejected = !product.isApproved && !!product.rejectedAt;
             return (
-              <Card key={product.id}>
+              <Card key={product.id} data-testid={`admin-product-${product.id}`}>
                 <div className="flex flex-wrap items-center gap-4">
                   <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
                     {product.images?.[0] ? (
@@ -211,7 +206,7 @@ export default function AdminProductsPage() {
                     </p>
                     <p className="mt-1 text-xs text-text-muted">
                       Condición:{" "}
-                      {CONDITION_LABELS[product.condition] ?? product.condition}
+                      {conditionLabel(product.condition)}
                     </p>
                     {isRejected && product.rejectionReason && (
                       <p className="mt-1 text-xs text-danger">

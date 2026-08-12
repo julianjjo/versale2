@@ -23,6 +23,8 @@ import {
   ORDER_STATUS_LABEL,
   ORDER_STATUS_VARIANT,
 } from "@/lib/order-status";
+import { Pager } from "@/components/admin/pager";
+import { useDebouncedSearch } from "@/lib/use-debounced-search";
 import type { Order, OrderStatus } from "@/lib/types";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -32,26 +34,18 @@ const STATUSES = ORDER_STATUSES;
 export default function AdminOrdersPage() {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<OrderStatus | "">("");
   const bulkBarRef = useRef<HTMLDivElement>(null);
   const [bulkBarHeight, setBulkBarHeight] = useState(0);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const next = searchInput.trim();
-      // Si el término no cambió (montaje, espacios al final) no reiniciamos la
-      // paginación ni borramos lo que el admin ya tenía seleccionado.
-      if (next === search) return;
-      setSearch(next);
-      setPage(1);
-      setSelected(new Set());
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchInput, search]);
+  const { searchInput, setSearchInput, search } = useDebouncedSearch(() => {
+    setPage(1);
+    // Un término nuevo muestra otra lista: lo que estaba marcado ya no está a
+    // la vista, así que la selección se descarta.
+    setSelected(new Set());
+  });
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ["admin-orders", search, page],
@@ -285,38 +279,16 @@ export default function AdminOrdersPage() {
         </div>
       )}
 
-      {/* Los límites se calculan con `page` (el estado local, que es la
-          intención del admin) y no con `meta.page`: mientras la consulta nueva
-          está en vuelo, keepPreviousData deja `meta` apuntando a la página
-          anterior, así que un segundo clic rápido se saltaba una página entera.
-          Además se bloquean los controles mientras se está trayendo la nueva. */}
-      {meta && meta.pages > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-2">
-          <Button
-            variant="secondary"
-            disabled={page <= 1 || isFetching}
-            onClick={() => {
-              setPage((p) => Math.max(1, p - 1));
-              setSelected(new Set());
-            }}
-          >
-            ‹ Anterior
-          </Button>
-          <span className="text-sm text-text-muted">
-            Página {page} de {meta.pages}
-          </span>
-          <Button
-            variant="secondary"
-            disabled={page >= meta.pages || isFetching}
-            onClick={() => {
-              setPage((p) => Math.min(meta.pages, p + 1));
-              setSelected(new Set());
-            }}
-          >
-            Siguiente ›
-          </Button>
-        </div>
-      )}
+      <Pager
+        page={page}
+        pages={meta?.pages ?? 0}
+        isFetching={isFetching}
+        onPageChange={(next) => {
+          setPage(next);
+          // Otra página, otras filas: lo marcado deja de estar a la vista.
+          setSelected(new Set());
+        }}
+      />
 
       {selected.size > 0 && (
         <div

@@ -185,12 +185,36 @@ describe('ProductsService', () => {
       );
     });
 
-    it('should throw NotFoundException for a sold product when requester is a different user', async () => {
+    // Being sold takes a listing out of the catalog, not off the web: the
+    // buyer opens this page from their order history and it is the only place
+    // they can leave a review, so it stays readable by anyone.
+    it('should return a sold product to a buyer and to an anonymous visitor', async () => {
       const productId = 'product1';
       const mockProduct = {
         id: productId,
         sellerId: 'seller1',
         isApproved: true,
+        soldAt: new Date(),
+      };
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+
+      await expect(
+        service.findOne(productId, { id: 'someoneElse', role: Role.USER }),
+      ).resolves.toEqual(mockProduct);
+      await expect(service.findOne(productId, null)).resolves.toEqual(
+        mockProduct,
+      );
+    });
+
+    it('should still hide a sold product that was never approved', async () => {
+      const productId = 'product1';
+      const mockProduct = {
+        id: productId,
+        sellerId: 'seller1',
+        isApproved: false,
         soldAt: new Date(),
       };
 

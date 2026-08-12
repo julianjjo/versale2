@@ -3,6 +3,7 @@ import {
   API_URL,
   E2E_SHIPPING_ADDRESS,
   createBuyer,
+  createPendingProduct,
   createPurchasableProduct,
   getToken,
 } from "../utils/purchasable";
@@ -31,33 +32,37 @@ test.describe("Publicación de productos y administración", () => {
   test("el administrador puede aprobar un producto pendiente", async ({
     adminPage,
   }) => {
+    // Publicación propia y sin aprobar. La semilla trae una sola pendiente y
+    // nadie la repone: aprobarla dejaba la cola vacía, así que un reintento de
+    // CI fallaba por falta de fixture en vez de por la regresión real.
+    // Además, afirmar sobre ESTA tarjeta (y no sobre un conteo global de
+    // botones "Aprobar") la aísla de los productos que las otras specs crean
+    // en paralelo.
+    const product = await createPendingProduct(adminPage.request);
+    const card = adminPage.getByTestId(`admin-product-${product.id}`);
+
     await adminPage.goto("/products");
-    await expect(
-      adminPage.getByText("Cotton T-Shirt"),
-    ).not.toBeVisible();
+    await expect(adminPage.getByText(product.title)).not.toBeVisible();
 
     await adminPage.goto("/admin");
-    await expect(
-      adminPage.getByText(/pedidos totales/i),
-    ).toBeVisible();
+    await expect(adminPage.getByText(/pedidos totales/i)).toBeVisible();
 
     await adminPage.goto("/admin/products");
-    await expect(adminPage.getByText("Cotton T-Shirt")).toBeVisible();
-    await expect(
-      adminPage.locator("text=Pendiente").first(),
-    ).toBeVisible();
+    await expect(card).toBeVisible();
+    await expect(card.getByText("Pendiente")).toBeVisible();
 
-    // Sin `if`: la prueba tiene que fallar si no hay nada que aprobar. Con el
-    // condicional anterior pasaba sin verificar nada cuando no encontraba el
-    // botón, que es justo el caso que debería delatar una regresión.
-    const approveButtons = adminPage.getByRole("button", { name: /aprobar/i });
-    const initialCount = await approveButtons.count();
-    expect(initialCount).toBeGreaterThan(0);
+    await card.getByRole("button", { name: /aprobar/i }).click();
 
-    await approveButtons.first().click();
+    await expect(card.getByText("Aprobado")).toBeVisible({ timeout: 5_000 });
     await expect(
-      adminPage.getByRole("button", { name: /aprobar/i }),
-    ).toHaveCount(initialCount - 1, { timeout: 5_000 });
+      card.getByRole("button", { name: /aprobar/i }),
+    ).toHaveCount(0);
+
+    // Aprobada de verdad: ya aparece en el catálogo público.
+    await adminPage.goto("/products");
+    await expect(adminPage.getByText(product.title)).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("cualquier usuario puede publicar un producto nuevo", async ({

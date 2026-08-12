@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProductDetail } from "../product-detail";
 import { TestProviders } from "@/test-utils/TestProviders";
+import { tokenStore } from "@/lib/token";
 import type { Product } from "@/lib/types";
 
 const pushMock = vi.fn();
@@ -79,6 +80,9 @@ describe("ProductDetail", () => {
     vi.clearAllMocks();
     authState.user = null;
     authState.isLoading = false;
+    // Whether a token is present decides if the server-seeded product is
+    // revalidated, so each test starts from a known (anonymous) state.
+    tokenStore.clear();
     vi.spyOn(window, "alert").mockImplementation(() => {});
   });
 
@@ -238,10 +242,10 @@ describe("ProductDetail", () => {
     });
   });
 
-  it("usa el producto resuelto en el servidor sin esperar a la API", async () => {
-    // The server component already resolved the product (and produced a real
-    // 404 when it was missing), so the page paints without a spinner and a
-    // failed refetch must not swap it for the "no encontrado" empty state.
+  it("usa el producto resuelto en el servidor sin volver a pedirlo si la visita es anónima", async () => {
+    // The server probe is anonymous, so for a visitor without a token its
+    // result already IS the answer — asking again is a second identical
+    // round-trip on every product view.
     vi.mocked(api.get).mockRejectedValue(new Error("Network Error"));
     render(
       <TestProviders>
@@ -251,7 +255,27 @@ describe("ProductDetail", () => {
 
     expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     await waitFor(() => {
-      expect(api.get).toHaveBeenCalled();
+      expect(screen.getByText("Classic Levi's trucker jacket in great condition")).toBeInTheDocument();
+    });
+    expect(api.get).not.toHaveBeenCalledWith("/products/p1");
+    expect(screen.queryByText(/producto no encontrado/i)).toBeNull();
+  });
+
+  it("revalida con el token del visitante y conserva el producto si esa recarga falla", async () => {
+    // A visitor WITH a token can see more than the anonymous probe did (their
+    // own pending listing, admin), so their copy is refetched — and a failed
+    // refetch must not swap the product for the "no encontrado" empty state.
+    tokenStore.set("a-token");
+    vi.mocked(api.get).mockRejectedValue(new Error("Network Error"));
+    render(
+      <TestProviders>
+        <ProductDetail initialProduct={mockProduct as unknown as Product} />
+      </TestProviders>,
+    );
+
+    expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith("/products/p1");
     });
     expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     expect(screen.queryByText(/producto no encontrado/i)).toBeNull();

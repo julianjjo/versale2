@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from './role.enum';
+import { resolvePagination } from '../common/pagination';
 import * as bcrypt from 'bcryptjs';
 
 const PUBLIC_USER_SELECT = {
@@ -40,17 +41,17 @@ export class UsersService {
   }
 
   async findAll(query: any = {}) {
-    const { search, role, page = 1, limit = 10 } = query;
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 10;
-    const skip = (pageNum - 1) * limitNum;
+    const { search, role, page, limit } = query ?? {};
+    const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const where: any = {};
     if (search) {
       const term = String(search);
       where.OR = [{ name: { contains: term } }, { email: { contains: term } }];
     }
-    if (role) {
+    // Prisma rejects a value outside the enum with an unhandled error, so an
+    // unknown `?role=` is ignored rather than passed through.
+    if (role && Object.values(Role).includes(role as Role)) {
       where.role = role;
     }
 

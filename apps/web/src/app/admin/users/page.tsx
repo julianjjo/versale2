@@ -16,9 +16,11 @@ import {
   Input,
   Select,
 } from "@/components/ui";
+import { Pager } from "@/components/admin/pager";
 import { useAuth } from "@/lib/auth";
+import { useDebouncedSearch } from "@/lib/use-debounced-search";
 import type { User } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 type RoleFilter = "" | "USER" | "ADMIN";
 
@@ -26,22 +28,11 @@ export default function AdminUsersPage() {
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
   const [error, setError] = useState<string | null>(null);
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
   const [role, setRole] = useState<RoleFilter>("");
   const [page, setPage] = useState(1);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const next = searchInput.trim();
-      // Si el término no cambió (montaje, espacios al final) no reiniciamos la
-      // paginación.
-      if (next === search) return;
-      setSearch(next);
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchInput, search]);
+  const { searchInput, setSearchInput, search } = useDebouncedSearch(() =>
+    setPage(1),
+  );
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ["admin-users", search, role, page],
@@ -60,12 +51,28 @@ export default function AdminUsersPage() {
     placeholderData: keepPreviousData,
   });
 
+  // Cuántos administradores hay EN TOTAL, no cuántos se ven en esta página.
+  // Contarlos sobre la página filtrada bloqueaba el borrado en cuanto una
+  // búsqueda devolvía un solo admin, aunque hubiera diez más.
+  const { data: totalAdmins } = useQuery({
+    queryKey: ["admin-users-admin-count"],
+    queryFn: async () => {
+      const res = await api.get<{ meta: { total: number } }>(
+        "/users?role=ADMIN&page=1&limit=1",
+      );
+      return res.data.meta.total;
+    },
+  });
+
   const remove = useMutation({
     mutationFn: async (id: string) => {
       await api.delete(`/users/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-users-admin-count"],
+      });
     },
     onError: (err) =>
       setError(extractApiError(err, "No pudimos eliminar al usuario")),
@@ -73,7 +80,7 @@ export default function AdminUsersPage() {
 
   const users = data?.data ?? [];
   const meta = data?.meta;
-  const adminCount = users.filter((u) => u.role === "ADMIN").length;
+  const adminCount = totalAdmins;
 
   return (
     <div>
@@ -131,7 +138,10 @@ export default function AdminUsersPage() {
         <div className="space-y-3" aria-busy={isFetching}>
           {users.map((u) => {
             const isSelf = u.id === currentUser?.id;
-            const isLastAdmin = u.role === "ADMIN" && adminCount <= 1;
+            // Mientras el conteo no haya llegado no bloqueamos nada: el API
+            // rechaza igual el borrado del último administrador.
+            const isLastAdmin =
+              u.role === "ADMIN" && adminCount !== undefined && adminCount <= 1;
             const blockedReason = isSelf
               ? "No puedes eliminar tu propia cuenta."
               : isLastAdmin
@@ -170,30 +180,12 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {/* Límites sobre `page` y no sobre `meta.page`: keepPreviousData deja la
-          meta anterior visible mientras llega la nueva, y con eso un doble clic
-          rápido saltaba una página. */}
-      {meta && meta.pages > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-2">
-          <Button
-            variant="secondary"
-            disabled={page <= 1 || isFetching}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            ‹ Anterior
-          </Button>
-          <span className="text-sm text-text-muted">
-            Página {page} de {meta.pages}
-          </span>
-          <Button
-            variant="secondary"
-            disabled={page >= meta.pages || isFetching}
-            onClick={() => setPage((p) => Math.min(meta.pages, p + 1))}
-          >
-            Siguiente ›
-          </Button>
-        </div>
-      )}
+      <Pager
+        page={page}
+        pages={meta?.pages ?? 0}
+        isFetching={isFetching}
+        onPageChange={setPage}
+      />
     </div>
   );
 }
