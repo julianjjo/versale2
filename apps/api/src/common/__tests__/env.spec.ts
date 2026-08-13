@@ -36,4 +36,8 @@ describe('parsePositiveIntEnv', () => {
   it('accepts a large-but-realistic value used to relax the limit for automated test runs', () => {
     expect(parsePositiveIntEnv('100000', 300)).toBe(100000);
   });
+
+  it('falls back for a fractional value — the name promises an integer limit', () => {
+    expect(parsePositiveIntEnv('300.5', 10)).toBe(10);
+  });
 });

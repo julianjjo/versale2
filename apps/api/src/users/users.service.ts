@@ -157,15 +157,24 @@ export class UsersService {
         select: PUBLIC_USER_SELECT,
       });
     } catch (error) {
-      // The findUnique-then-throw email check above only drives that early
-      // guard — two concurrent requests changing different users to the same
-      // not-yet-taken email can both pass it before either writes. The DB's
-      // unique constraint on User.email then rejects the losing write with
-      // P2002, which must still read as the same Spanish 409 instead of an
-      // unhandled 500.
       translatePrismaError(error, {
+        // The findUnique-then-throw email check above only drives that early
+        // guard — two concurrent requests changing different users to the
+        // same not-yet-taken email can both pass it before either writes. The
+        // DB's unique constraint on User.email then rejects the losing write
+        // with P2002, which must still read as the same Spanish 409 instead
+        // of an unhandled 500.
         P2002: () => {
           throw new ConflictException('Ya existe una cuenta con ese correo');
+        },
+        // A non-credential update (e.g. just `name`) skips the findUnique
+        // guard above entirely, since that guard only exists to check the
+        // current password and the new email's availability. Without it,
+        // updating an id that was deleted a moment earlier reaches Prisma's
+        // update() directly, which raises P2025 for a matched-no-row write —
+        // it must still read as the same 404 instead of an unhandled 500.
+        P2025: () => {
+          throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
         },
       });
     }
@@ -176,29 +185,38 @@ export class UsersService {
       throw new ForbiddenException('No puedes eliminar tu propia cuenta.');
     }
 
-    const target = await this.prisma.client.user.findUnique({
-      where: { id },
-      select: { id: true, role: true },
-    });
-    if (!target) {
-      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
-    }
-
-    if (target.role === Role.ADMIN) {
-      const adminCount = await this.prisma.client.user.count({
-        where: { role: Role.ADMIN },
-      });
-      if (adminCount <= 1) {
-        throw new ForbiddenException(
-          'No puedes eliminar al último administrador.',
-        );
-      }
-    }
-
     try {
-      return await this.prisma.client.user.delete({
-        where: { id },
-        select: PUBLIC_USER_SELECT,
+      // The admin-count check and the delete must happen inside one
+      // transaction. Outside of one, two concurrent deletes targeting two
+      // different admins — with exactly 2 admins left — could each read
+      // adminCount === 2 before either writes, both pass the check below,
+      // and both proceed to delete: zero admins left. Inside a transaction,
+      // the second one's count only runs once the first's delete has
+      // committed (or rolled back), so it always sees the up-to-date count.
+      return await this.prisma.client.$transaction(async (tx) => {
+        const target = await tx.user.findUnique({
+          where: { id },
+          select: { id: true, role: true },
+        });
+        if (!target) {
+          throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+        }
+
+        if (target.role === Role.ADMIN) {
+          const adminCount = await tx.user.count({
+            where: { role: Role.ADMIN },
+          });
+          if (adminCount <= 1) {
+            throw new ForbiddenException(
+              'No puedes eliminar al último administrador.',
+            );
+          }
+        }
+
+        return await tx.user.delete({
+          where: { id },
+          select: PUBLIC_USER_SELECT,
+        });
       });
     } catch (error) {
       translatePrismaError(error, {

@@ -192,4 +192,62 @@ describe("AdminProductsPage", () => {
       });
     });
   });
+
+  // Regression: deleting the last row on a page shrank `meta.pages` without
+  // `page` following it down. Pager only clamps its own button clicks and
+  // renders nothing once `pages <= 1`, so the admin was stuck looking at an
+  // empty list with no control to get back to page 1.
+  it("vuelve a la página 1 cuando una acción deja vacía la página actual", async () => {
+    const pageOneProduct = productFixture({
+      id: "p10",
+      title: "Producto página 1",
+    });
+    const pageTwoProduct = productFixture({
+      id: "p11",
+      title: "Producto página 2",
+    });
+    let deleted = false;
+
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      const page = new URLSearchParams(url.split("?")[1]).get("page");
+      if (page === "2") {
+        return {
+          data: deleted
+            ? { data: [], meta: { total: 1, page: 2, pages: 1 } }
+            : { data: [pageTwoProduct], meta: { total: 2, page: 2, pages: 2 } },
+        };
+      }
+      return {
+        data: {
+          data: [pageOneProduct],
+          meta: { total: deleted ? 1 : 2, page: 1, pages: deleted ? 1 : 2 },
+        },
+      };
+    });
+    vi.mocked(api.delete).mockImplementation(async () => {
+      deleted = true;
+      return { data: { success: true } };
+    });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("admin-product-p10");
+    await user.click(screen.getByRole("button", { name: /siguiente/i }));
+    await screen.findByTestId("admin-product-p11");
+
+    await user.click(screen.getByRole("button", { name: "Eliminar" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-product-p10")).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/página \d+ de/i)).not.toBeInTheDocument();
+
+    confirmSpy.mockRestore();
+  });
 });

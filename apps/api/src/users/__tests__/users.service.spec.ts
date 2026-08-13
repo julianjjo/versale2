@@ -48,16 +48,26 @@ describe('UsersService', () => {
   let service: UsersService;
   let prismaService: PrismaService;
 
+  const mockUserClient = {
+    create: jest.fn(),
+    findMany: jest.fn(),
+    findUnique: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    count: jest.fn(),
+  };
+
   const mockPrismaService = {
     client: {
-      user: {
-        create: jest.fn(),
-        findMany: jest.fn(),
-        findUnique: jest.fn(),
-        update: jest.fn(),
-        delete: jest.fn(),
-        count: jest.fn(),
-      },
+      user: mockUserClient,
+      // remove() runs its admin-count check and delete inside a transaction;
+      // invoking the callback with the same mocked `user` client (rather
+      // than a separate tx double) keeps every existing
+      // `mockPrismaService.client.user.*` expectation below valid unchanged.
+      $transaction: jest.fn(
+        (callback: (tx: { user: typeof mockUserClient }) => unknown) =>
+          callback({ user: mockUserClient }),
+      ),
     },
   };
 
@@ -507,6 +517,23 @@ describe('UsersService', () => {
         service.update('user1', { email: 'taken@example.com' }),
       ).rejects.toThrow(
         new ConflictException('Ya existe una cuenta con ese correo'),
+      );
+    });
+
+    // Regression: a non-credential update (just `name`, as in the first test
+    // in this describe block) skips the findUnique guard above entirely —
+    // that guard only exists to check the current password and the new
+    // email's availability. Without it, updating an id deleted a moment
+    // earlier reaches Prisma's update() directly, which raises P2025 for a
+    // matched-no-row write; it must still read as the same Spanish 404
+    // instead of an unhandled 500.
+    it('throws a Spanish NotFoundException when updating a user deleted moments earlier', async () => {
+      mockPrismaService.client.user.update.mockRejectedValue(notFoundError());
+
+      await expect(
+        service.update('user1', { name: 'Updated Name' }),
+      ).rejects.toThrow(
+        new NotFoundException('Usuario con ID user1 no encontrado'),
       );
     });
 
