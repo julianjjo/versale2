@@ -806,7 +806,9 @@ describe('OrdersService', () => {
       await expect(
         service.updateOrderStatus('order1', OrderStatus.PENDING),
       ).rejects.toThrow(
-        'No se puede cambiar el estado del pedido de DELIVERED a PENDING',
+        // Estados en español: este mensaje llega al panel de administración, y el
+        // resto de esa pantalla nunca muestra las claves del enum.
+        'No se puede cambiar el estado del pedido de Entregado a Pendiente',
       );
       expect(mockPrismaService.client.order.update).not.toHaveBeenCalled();
     });

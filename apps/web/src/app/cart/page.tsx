@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { api, extractApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
+  Badge,
   Button,
   Input,
   Card,
@@ -17,6 +18,7 @@ import {
   Price,
   Divider,
 } from "@/components/ui";
+import { MAX_ITEM_QUANTITY } from "@/lib/cart";
 import { conditionLabel } from "@/lib/product-condition";
 import type { Cart, CartItem } from "@/lib/types";
 
@@ -24,8 +26,14 @@ import type { Cart, CartItem } from "@/lib/types";
 function parseQuantity(raw: string, fallback: number): number {
   const n = Number.parseInt(raw, 10);
   if (!Number.isFinite(n) || n < 1) return fallback;
-  if (n > 99) return 99;
+  // Clamped to the same ceiling the API enforces, so the field cannot commit a
+  // value that is guaranteed to come back as a 400.
+  if (n > MAX_ITEM_QUANTITY) return MAX_ITEM_QUANTITY;
   return n;
+}
+
+function isSold(item: CartItem): boolean {
+  return Boolean(item.product?.soldAt);
 }
 
 type ShippingAddress = {
@@ -120,6 +128,25 @@ export default function CartPage() {
       setError(extractApiError(err, "No pudimos vaciar el carrito")),
   });
 
+  const removeSoldItems = useMutation({
+    mutationFn: async (itemIds: string[]) => {
+      await Promise.all(
+        itemIds.map((itemId) => api.delete(`/cart/items/${itemId}`)),
+      );
+    },
+    onSuccess: (_data, itemIds) => {
+      queryClient.invalidateQueries({ queryKey: ["cart"] });
+      setError(null);
+      setAnnouncement(
+        itemIds.length === 1
+          ? "Se quitó del carrito la prenda que ya no está disponible."
+          : `Se quitaron del carrito ${itemIds.length} prendas que ya no están disponibles.`,
+      );
+    },
+    onError: (err) =>
+      setError(extractApiError(err, "No pudimos quitar las prendas vendidas")),
+  });
+
   const checkout = useMutation({
     mutationFn: async () => {
       await api.post("/orders", { shippingAddress });
@@ -196,8 +223,13 @@ export default function CartPage() {
   }
 
   const items = data?.items ?? [];
+  // A garment someone else bought while it sat in this cart is unbuyable, and the
+  // API aborts the *whole* checkout transaction over a single such line. So it
+  // must not be counted in the total or silently block "Pagar": it is called out,
+  // excluded from the sum, and removable in one click.
+  const soldItems = items.filter(isSold);
   const total = items.reduce(
-    (sum, it) => sum + it.priceAtAdd * it.quantity,
+    (sum, it) => (isSold(it) ? sum : sum + it.priceAtAdd * it.quantity),
     0,
   );
 
@@ -217,6 +249,32 @@ export default function CartPage() {
             Reintentar
           </Button>
         </p>
+      )}
+
+      {soldItems.length > 0 && (
+        <div
+          role="alert"
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-text-primary"
+        >
+          <span>
+            {soldItems.length === 1
+              ? "Una prenda de tu carrito ya se vendió. Quítala para poder pagar."
+              : `${soldItems.length} prendas de tu carrito ya se vendieron. Quítalas para poder pagar.`}
+          </span>
+          <Button
+            variant="secondary"
+            disabled={removeSoldItems.isPending}
+            onClick={() =>
+              removeSoldItems.mutate(soldItems.map((item) => item.id))
+            }
+          >
+            {removeSoldItems.isPending
+              ? "Quitando…"
+              : soldItems.length === 1
+                ? "Quitar la prenda vendida"
+                : "Quitar las prendas vendidas"}
+          </Button>
+        </div>
       )}
 
       <SectionHeader
@@ -339,7 +397,7 @@ export default function CartPage() {
               <Button
                 variant="accent"
                 onClick={handleCheckout}
-                disabled={checkout.isPending}
+                disabled={checkout.isPending || soldItems.length > 0}
                 fullWidth
                 size="lg"
               >
@@ -374,6 +432,7 @@ function CartItemRow({
 }) {
   const [quantity, setQuantity] = useState(String(item.quantity));
   const [lastSyncedQuantity, setLastSyncedQuantity] = useState(item.quantity);
+  const sold = isSold(item);
 
   // Keep the controlled input in sync when the underlying cart item changes
   // (e.g. after a successful update or when the cart is refetched). Setting
@@ -428,14 +487,19 @@ function CartItemRow({
               {item.product.size}
             </p>
           )}
+          {sold && (
+            <Badge variant="warning" className="mt-2">
+              Ya se vendió
+            </Badge>
+          )}
         </div>
         <div className="flex flex-col items-end gap-2">
           <Input
             type="number"
             min={1}
-            max={99}
+            max={MAX_ITEM_QUANTITY}
             value={quantity}
-            disabled={isUpdating}
+            disabled={isUpdating || sold}
             onChange={(e) => setQuantity(e.target.value)}
             onBlur={commit}
             onKeyDown={(e) => {

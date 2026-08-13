@@ -17,6 +17,32 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   CANCELLED: "Cancelado",
 };
 
+// Mirrors ALLOWED_STATUS_TRANSITIONS in apps/api/src/orders/order-status.enum.ts.
+// The API is the authority — it rejects anything else with a 400 — but the admin
+// UI needs the same table so it can offer only the moves that will be accepted,
+// instead of presenting all five statuses and letting the admin discover the
+// lifecycle through error banners.
+export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  PENDING: ["PAID", "CANCELLED"],
+  PAID: ["SHIPPED", "CANCELLED"],
+  SHIPPED: ["DELIVERED"],
+  DELIVERED: [],
+  CANCELLED: [],
+};
+
+/** Statuses an order in `status` can legally move to. Empty for terminal states. */
+export function nextStatusesFor(status: OrderStatus): OrderStatus[] {
+  return ALLOWED_STATUS_TRANSITIONS[status] ?? [];
+}
+
+/** Statuses every one of `statuses` can legally move to — for bulk actions. */
+export function commonNextStatuses(statuses: OrderStatus[]): OrderStatus[] {
+  if (statuses.length === 0) return [];
+  return statuses
+    .map(nextStatusesFor)
+    .reduce((shared, next) => shared.filter((s) => next.includes(s)));
+}
+
 export const ORDER_STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
   PENDING: "warning",
   PAID: "info",

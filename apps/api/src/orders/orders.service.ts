@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { OrderStatus } from './order-status.enum';
+import { ORDER_STATUS_LABEL, OrderStatus } from './order-status.enum';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { MAX_ITEM_QUANTITY } from '../cart/dto/cart.dto';
 import { Role } from '../users/role.enum';
@@ -269,8 +269,10 @@ export class OrdersService {
     const allowed = ALLOWED_STATUS_TRANSITIONS[currentStatus] ?? [];
 
     if (!allowed.includes(status)) {
+      // The enum keys stay English, but this message reaches the admin UI, so it
+      // names the states the way every other label on that screen does.
       throw new BadRequestException(
-        `No se puede cambiar el estado del pedido de ${currentStatus} a ${status}`,
+        `No se puede cambiar el estado del pedido de ${ORDER_STATUS_LABEL[currentStatus]} a ${ORDER_STATUS_LABEL[status]}`,
       );
     }
 

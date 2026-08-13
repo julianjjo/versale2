@@ -191,8 +191,13 @@ export default function AdminProductsPage() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
+                    {/* `?preview=1` skips the anonymous server-side probe in
+                        `app/products/[id]/page.tsx`, which would answer 404 for a
+                        listing that is not public yet — i.e. for exactly the
+                        pending and rejected rows this queue exists to moderate.
+                        The client query behind it carries the admin token. */}
                     <Link
-                      href={`/products/${product.id}`}
+                      href={`/products/${product.id}?preview=1`}
                       className="block truncate font-medium text-text-primary hover:underline"
                     >
                       {product.title}

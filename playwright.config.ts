@@ -44,7 +44,12 @@ export default defineConfig({
       // Every variable this needs comes from `env` below rather than inline
       // `VAR=value` prefixes, which are POSIX-only and broke the suite on
       // Windows.
-      command: `node ${RESET_DB_SCRIPT} && npx prisma migrate deploy --schema=./prisma/schema.prisma && npx nest start`,
+      //
+      // The script path is quoted: Playwright runs webServer commands through a
+      // shell, so an unquoted absolute path word-splits on the first space and
+      // `node C:\Users\First` kills the whole `&&` chain before Nest ever starts
+      // — on exactly the Windows checkouts this command was rewritten to serve.
+      command: `node "${RESET_DB_SCRIPT}" && npx prisma migrate deploy --schema=./prisma/schema.prisma && npx nest start`,
       cwd: API_DIR,
       port: API_PORT,
       reuseExistingServer: false,

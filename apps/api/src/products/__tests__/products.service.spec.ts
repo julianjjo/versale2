@@ -316,6 +316,29 @@ describe('ProductsService', () => {
   });
 
   describe('update', () => {
+    // The buyer's order detail renders the live product row, so a seller
+    // rewriting a sold garment would change what someone else's purchase history
+    // says they bought — and the re-moderation branch would push an
+    // already-shipped item back into the pending queue, where `!isApproved` then
+    // blocks the buyer's review for good.
+    it('should refuse to let a seller edit a product that has been sold', async () => {
+      const productId = 'product1';
+      const userId = 'seller1';
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: productId,
+        title: 'Sold Jacket',
+        sellerId: userId,
+        isApproved: true,
+        soldAt: new Date(),
+      });
+
+      await expect(
+        service.update(productId, { title: 'Otra cosa' }, userId, Role.USER),
+      ).rejects.toThrow('Este producto ya fue vendido y no se puede editar');
+      expect(mockPrismaService.client.product.update).not.toHaveBeenCalled();
+    });
+
     it('should update a product and send it back for review when the seller changes moderated content', async () => {
       const productId = 'product1';
       const userId = 'seller1';
@@ -535,6 +558,24 @@ describe('ProductsService', () => {
   });
 
   describe('remove', () => {
+    // `OrderItem.productId` is ON DELETE RESTRICT, so the delete would raise a raw
+    // Prisma error; with no exception filter registered that reached the admin as
+    // a 500 behind a generic "no pudimos eliminar" banner.
+    it('should refuse to delete a product that has been sold, instead of failing at the FK', async () => {
+      const productId = 'product1';
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: productId,
+        sellerId: 'seller1',
+        soldAt: new Date(),
+      });
+
+      await expect(
+        service.remove(productId, 'seller1', Role.USER),
+      ).rejects.toThrow('Este producto ya fue vendido y no se puede eliminar');
+      expect(mockPrismaService.client.product.delete).not.toHaveBeenCalled();
+    });
+
     it('should remove a product if user is the seller', async () => {
       const productId = 'product1';
       const userId = 'seller1';

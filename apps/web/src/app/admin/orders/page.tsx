@@ -19,17 +19,16 @@ import {
   Price,
 } from "@/components/ui";
 import {
-  ORDER_STATUSES,
   ORDER_STATUS_LABEL,
   ORDER_STATUS_VARIANT,
+  commonNextStatuses,
+  nextStatusesFor,
 } from "@/lib/order-status";
 import { Pager } from "@/components/admin/pager";
 import { useDebouncedSearch } from "@/lib/use-debounced-search";
 import type { Order, OrderStatus } from "@/lib/types";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-
-const STATUSES = ORDER_STATUSES;
 
 export default function AdminOrdersPage() {
   const queryClient = useQueryClient();
@@ -71,6 +70,9 @@ export default function AdminOrdersPage() {
     mutationFn: async ({ id, status }: { id: string; status: OrderStatus }) => {
       await api.patch(`/orders/admin/${id}/status`, { status });
     },
+    // Sin esto un rechazo anterior se quedaba en pantalla incluso despues de un
+    // cambio exitoso: el banner solo se escribia, nunca se limpiaba.
+    onMutate: () => setError(null),
     onSuccess: invalidateOrders,
     onError: (err) =>
       setError(extractApiError(err, "No pudimos cambiar el estado")),
@@ -127,6 +129,16 @@ export default function AdminOrdersPage() {
   const meta = data?.meta;
   const allInViewSelected =
     orders.length > 0 && orders.every((o) => selected.has(o.id));
+
+  // La selección siempre vive dentro de la página visible (cambiar de página la
+  // limpia), así que podemos resolver el estado de cada pedido seleccionado. Solo
+  // ofrecemos los estados legales para *todos* ellos: aplicar uno que solo vale
+  // para algunos fallaba por construcción, y el resumen "Actualizamos N de M"
+  // invitaba a reintentar algo que nunca podía funcionar.
+  const selectedOrders = orders.filter((o) => selected.has(o.id));
+  const bulkOptions = commonNextStatuses(selectedOrders.map((o) => o.status));
+  const bulkStatusIsApplicable =
+    bulkStatus !== "" && bulkOptions.includes(bulkStatus);
 
   const toggleOrder = (id: string) => {
     setSelected((prev) => {
@@ -254,11 +266,23 @@ export default function AdminOrdersPage() {
                             status: e.target.value as OrderStatus,
                           })
                         }
-                        disabled={updateStatus.isPending}
+                        disabled={
+                          updateStatus.isPending ||
+                          nextStatusesFor(order.status).length === 0
+                        }
                         aria-label="Estado del pedido"
                         className="flex-1 text-sm sm:w-40 sm:flex-none"
                       >
-                        {STATUSES.map((s) => (
+                        {/* Solo los estados a los que este pedido puede pasar. El
+                            estado actual va como opción deshabilitada porque un
+                            <select> necesita su propio valor para mostrarlo. En un
+                            estado terminal (Entregado, Cancelado) no queda ninguna
+                            transición legal y el control se deshabilita, en vez de
+                            ofrecer opciones que la API siempre rechaza. */}
+                        <option value={order.status} disabled>
+                          {ORDER_STATUS_LABEL[order.status]}
+                        </option>
+                        {nextStatusesFor(order.status).map((s) => (
                           <option key={s} value={s}>
                             {ORDER_STATUS_LABEL[s]}
                           </option>
@@ -306,10 +330,14 @@ export default function AdminOrdersPage() {
               onChange={(e) => setBulkStatus(e.target.value as OrderStatus)}
               aria-label="Nuevo estado para los pedidos seleccionados"
               className="w-44 text-sm"
-              disabled={bulkUpdateStatus.isPending}
+              disabled={bulkUpdateStatus.isPending || bulkOptions.length === 0}
             >
-              <option value="">Elegir estado…</option>
-              {STATUSES.map((s) => (
+              <option value="">
+                {bulkOptions.length === 0
+                  ? "Sin cambios posibles"
+                  : "Elegir estado…"}
+              </option>
+              {bulkOptions.map((s) => (
                 <option key={s} value={s}>
                   {ORDER_STATUS_LABEL[s]}
                 </option>
@@ -317,12 +345,12 @@ export default function AdminOrdersPage() {
             </Select>
             <Button
               size="sm"
-              disabled={!bulkStatus || bulkUpdateStatus.isPending}
+              disabled={!bulkStatusIsApplicable || bulkUpdateStatus.isPending}
               onClick={() =>
-                bulkStatus &&
+                bulkStatusIsApplicable &&
                 bulkUpdateStatus.mutate({
                   ids: Array.from(selected),
-                  status: bulkStatus,
+                  status: bulkStatus as OrderStatus,
                 })
               }
             >

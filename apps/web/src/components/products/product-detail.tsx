@@ -7,7 +7,6 @@ import { useAuth } from "@/lib/auth";
 import { useRef, useState } from "react";
 import {
   Button,
-  Input,
   Textarea,
   Spinner,
   Card,
@@ -18,6 +17,7 @@ import {
   StarRating,
   Divider,
 } from "@/components/ui";
+import { MAX_ITEM_QUANTITY } from "@/lib/cart";
 import { conditionLabel } from "@/lib/product-condition";
 import { tokenStore } from "@/lib/token";
 import type { Product, Review } from "@/lib/types";
@@ -37,11 +37,6 @@ export function ProductDetail({
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, isLoading: isAuthLoading } = useAuth();
-  const [quantity, setQuantity] = useState("1");
-  const quantityNum = (() => {
-    const n = Number.parseInt(quantity, 10);
-    return Number.isFinite(n) && n > 0 ? n : 1;
-  })();
   const [rating, setRating] = useState(5);
   const ratingButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [comment, setComment] = useState("");
@@ -79,7 +74,10 @@ export function ProductDetail({
 
   const addToCart = useMutation({
     mutationFn: async () => {
-      await api.post("/cart/items", { productId: id, quantity: quantityNum });
+      await api.post("/cart/items", {
+        productId: id,
+        quantity: MAX_ITEM_QUANTITY,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] });
@@ -187,6 +185,10 @@ export function ProductDetail({
       ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
       : null;
   const isOwn = user?.id === data.sellerId;
+  // A sold listing stays readable — its buyer reaches it from order history and
+  // writes the review here — so the page has to say it is gone rather than
+  // offering an add-to-cart the API would reject.
+  const isSold = Boolean(data.soldAt);
 
   return (
     <PageContainer size="wide">
@@ -268,27 +270,13 @@ export function ProductDetail({
             </dd>
           </dl>
 
-          {!isOwn && data.isApproved ? (
+          {/* No quantity picker: each listing is a single secondhand garment, so
+              the only quantity the API accepts is `MAX_ITEM_QUANTITY`. A stepper
+              here offered 1–99 and every value above 1 came back as a 400. */}
+          {isSold ? (
+            <Badge variant="warning">Ya se vendió</Badge>
+          ) : !isOwn && data.isApproved ? (
             <div className="flex items-end gap-3 pt-2">
-              <Input
-                type="number"
-                min={1}
-                max={99}
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                onBlur={() => {
-                  // Clamp on blur: empty / non-numeric falls back to "1";
-                  // over-large values are capped to 99 to keep cart sane.
-                  const n = Number.parseInt(quantity, 10);
-                  if (!Number.isFinite(n) || n < 1) {
-                    setQuantity("1");
-                  } else if (n > 99) {
-                    setQuantity("99");
-                  }
-                }}
-                className="w-24"
-                aria-label="Cantidad"
-              />
               <Button
                 variant="accent"
                 onClick={handleAddToCart}

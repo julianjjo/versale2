@@ -289,7 +289,12 @@ describe("CartPage", () => {
     });
   });
 
-  it("anuncia en la región en vivo cuando se actualiza la cantidad de un producto", async () => {
+  // Cada prenda es única y la API rechaza cualquier cantidad mayor que 1
+  // (`MAX_ITEM_QUANTITY`), así que el campo no puede llegar a enviarla. Esta
+  // prueba antes escribía "5" y afirmaba que el PATCH salía con `quantity: 5`:
+  // pasaba solo porque `api` está mockeado, mientras que contra el servidor real
+  // devolvía 400 y el input se quedaba mostrando el valor rechazado.
+  it("recorta la cantidad al máximo de una unidad y lo anuncia en la región en vivo", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockCart });
     vi.mocked(api.patch).mockResolvedValue({ data: { success: true } });
     const user = userEvent.setup();
@@ -304,18 +309,57 @@ describe("CartPage", () => {
     });
 
     const quantityInputs = screen.getAllByLabelText(/cantidad/i);
+    // El control no ofrece un rango que el servidor no acepte.
+    expect(quantityInputs[0]!).toHaveAttribute("max", "1");
+
     await user.clear(quantityInputs[0]!);
     await user.type(quantityInputs[0]!, "5");
     await user.tab();
 
     await waitFor(() => {
-      expect(api.patch).toHaveBeenCalledWith("/cart/items/ci1", { quantity: 5 });
+      expect(api.patch).toHaveBeenCalledWith("/cart/items/ci1", { quantity: 1 });
     });
     await waitFor(() => {
       expect(screen.getByRole("status")).toHaveTextContent(
-        "Cantidad de Cotton t-shirt actualizada a 5.",
+        "Cantidad de Cotton t-shirt actualizada a 1.",
       );
     });
+  });
+
+  it("marca las prendas ya vendidas, las excluye del total y bloquea el pago", async () => {
+    const soldCart = {
+      ...mockCart,
+      items: [
+        {
+          ...mockCart.items[0]!,
+          product: {
+            ...mockCart.items[0]!.product,
+            soldAt: new Date().toISOString(),
+          },
+        },
+        mockCart.items[1]!,
+      ],
+    };
+    vi.mocked(api.get).mockResolvedValue({ data: soldCart });
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
+    });
+
+    // Sin esto la fila se veía comprable, entraba en el total y "Pagar" abortaba
+    // toda la transacción del checkout por esa única línea, sin explicar cuál.
+    expect(screen.getByText("Ya se vendió")).toBeInTheDocument();
+    expect(
+      screen.getByText(/una prenda de tu carrito ya se vendió/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /pagar/i }),
+    ).toBeDisabled();
   });
 
   it("bloquea el pago y marca los campos si la dirección está en blanco", async () => {

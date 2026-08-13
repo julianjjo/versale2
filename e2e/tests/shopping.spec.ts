@@ -46,7 +46,12 @@ test.describe("Flujo de compra", () => {
   }) => {
     await page.goto("/products");
     await page.getByRole("heading", { name: "Vintage Denim Jacket" }).click();
-    await expect(page).toHaveURL(/\/products\/.+/);
+    // Timeout explícito: `/products/[id]` se renderiza en el servidor y, con los
+    // archivos de prueba corriendo en paralelo contra `next dev`, la primera
+    // visita paga la compilación de la ruta. El presupuesto global de 5 s de
+    // `expect` alcanzaba por poco y volvía intermitente una navegación que sí
+    // funciona.
+    await expect(page).toHaveURL(/\/products\/.+/, { timeout: 15_000 });
     // Price 45 formatted in COP: $ 45 (mock price is 45, no thousands separator)
     await expect(page.getByText("$ 45")).toBeVisible();
     // Brand + category are rendered as separate elements (eyebrow + caption)

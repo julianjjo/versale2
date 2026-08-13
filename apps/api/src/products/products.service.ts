@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -224,6 +225,17 @@ export class ProductsService {
       );
     }
 
+    // A sold garment is a historical record: the buyer's order detail renders the
+    // live product row, so letting the seller rewrite it would change what
+    // someone else's purchase history says they bought. It would also send an
+    // already-shipped item back through `needsReview` below, and an unapproved
+    // product can no longer be reviewed.
+    if (product.soldAt && role !== Role.ADMIN) {
+      throw new BadRequestException(
+        'Este producto ya fue vendido y no se puede editar',
+      );
+    }
+
     // An admin editing a listing is the moderator, so their edits stand.
     // A seller touching anything moderation judged sends it back to the queue,
     // and clears any previous rejection so it lands in "pendientes" again.
@@ -255,6 +267,15 @@ export class ProductsService {
     if (product.sellerId !== userId && role !== Role.ADMIN) {
       throw new ForbiddenException(
         'No tienes autorización para eliminar este producto',
+      );
+    }
+
+    // `OrderItem.productId` is ON DELETE RESTRICT, so deleting a product that has
+    // been bought raises a raw Prisma error and, with no exception filter
+    // registered, a 500. Refuse it with a Spanish 400 instead.
+    if (product.soldAt) {
+      throw new BadRequestException(
+        'Este producto ya fue vendido y no se puede eliminar: forma parte del historial de un pedido',
       );
     }
 
