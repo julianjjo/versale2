@@ -314,6 +314,19 @@ export class ProductsService {
           'Este producto ya fue vendido y no se puede eliminar: forma parte del historial de un pedido',
         );
       }
+      // A CartItem, Review, or OrderItem (even from a cancelled order, which
+      // clears `soldAt` back to null) can still reference this product with an
+      // ON DELETE RESTRICT foreign key. Prisma raises P2003 for that instead of
+      // the P2025 above, and with no exception filter registered it reached the
+      // admin as a raw 500. Refuse it with a Spanish 400 instead.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        throw new BadRequestException(
+          'Este producto no se puede eliminar: todavía está en el carrito o las reseñas de otra persona.',
+        );
+      }
       throw error;
     }
   }
@@ -361,20 +374,44 @@ export class ProductsService {
   }
 
   async approveProduct(id: string) {
-    return this.prisma.client.product.update({
-      where: { id },
-      data: { isApproved: true, rejectedAt: null, rejectionReason: null },
-    });
+    try {
+      return await this.prisma.client.product.update({
+        where: { id },
+        data: { isApproved: true, rejectedAt: null, rejectionReason: null },
+      });
+    } catch (error) {
+      // No prior existence check here, so P2025 unambiguously means the id
+      // does not match any product. Without this catch it surfaced as a raw
+      // 500 instead of the same Spanish 404 every other method in this file
+      // throws for a missing id.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(`Producto con ID ${id} no encontrado`);
+      }
+      throw error;
+    }
   }
 
   async rejectProduct(id: string, reason?: string) {
-    return this.prisma.client.product.update({
-      where: { id },
-      data: {
-        isApproved: false,
-        rejectedAt: new Date(),
-        rejectionReason: reason ?? null,
-      },
-    });
+    try {
+      return await this.prisma.client.product.update({
+        where: { id },
+        data: {
+          isApproved: false,
+          rejectedAt: new Date(),
+          rejectionReason: reason ?? null,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(`Producto con ID ${id} no encontrado`);
+      }
+      throw error;
+    }
   }
 }

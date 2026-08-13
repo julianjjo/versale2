@@ -179,6 +179,26 @@ describe("ProductsBrowser", () => {
     });
   });
 
+  // Regression: every product card rendered a labelled, focusable "Agregar a
+  // favoritos" heart button whose only handler was `preventDefault`. There is
+  // no favourites feature anywhere in the API, so the dead control was
+  // removed (as the equivalent one already was from the site header).
+  it("no renderiza el botón de favoritos, que no tiene funcionalidad", async () => {
+    mockProductsApi({ data: mockProducts });
+    render(
+      <TestProviders>
+        <ProductsBrowser showPagination={false} />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("button", { name: /favoritos/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("enlaza cada producto a su página de detalle", async () => {
     mockProductsApi({ data: mockProducts });
     render(
@@ -243,17 +263,19 @@ describe("ProductsBrowser", () => {
       </TestProviders>,
     );
 
+    // Regression: a numbered button per page overflowed every viewport once
+    // the catalog grew past a handful of pages. The bounded Pager control
+    // (Prev / "Página X de Y" / Next) can never overflow regardless of
+    // `data.meta.pages`.
     await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: /página 1/i }),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Página 1 de 3")).toBeInTheDocument();
     });
     expect(
-      screen.getByRole("button", { name: /página 2/i }),
-    ).toBeInTheDocument();
+      screen.getByRole("button", { name: /anterior/i }),
+    ).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: /página 3/i }),
-    ).toBeInTheDocument();
+      screen.getByRole("button", { name: /siguiente/i }),
+    ).toBeEnabled();
   });
 
   it("carga las marcas y categorías disponibles como opciones de filtro", async () => {
@@ -425,11 +447,9 @@ describe("ProductsBrowser", () => {
     );
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: /página 2/i }),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Página 1 de 3")).toBeInTheDocument();
     });
-    await user.click(screen.getByRole("button", { name: /página 2/i }));
+    await user.click(screen.getByRole("button", { name: /siguiente/i }));
     expect(nav.url).toBe("/products?page=2");
 
     await waitFor(() => {

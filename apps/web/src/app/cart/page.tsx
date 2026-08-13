@@ -18,22 +18,15 @@ import {
   Price,
   Divider,
 } from "@/components/ui";
-import { MAX_ITEM_QUANTITY } from "@/lib/cart";
 import { conditionLabel } from "@/lib/product-condition";
 import type { Cart, CartItem } from "@/lib/types";
 
 
-function parseQuantity(raw: string, fallback: number): number {
-  const n = Number.parseInt(raw, 10);
-  if (!Number.isFinite(n) || n < 1) return fallback;
-  // Clamped to the same ceiling the API enforces, so the field cannot commit a
-  // value that is guaranteed to come back as a 400.
-  if (n > MAX_ITEM_QUANTITY) return MAX_ITEM_QUANTITY;
-  return n;
-}
-
-function isSold(item: CartItem): boolean {
-  return Boolean(item.product?.soldAt);
+function isUnavailable(item: CartItem): boolean {
+  // Vendida (soldAt) o devuelta a moderación por el vendedor (isApproved en
+  // false sin haberse vendido): en ambos casos esa línea ya no se puede
+  // pagar, y el API aborta toda la transacción del checkout si se intenta.
+  return Boolean(item.product?.soldAt) || item.product?.isApproved === false;
 }
 
 type ShippingAddress = {
@@ -84,27 +77,6 @@ export default function CartPage() {
       return response.data;
     },
     enabled: Boolean(user),
-  });
-
-  const updateQty = useMutation({
-    mutationFn: async ({
-      itemId,
-      quantity,
-    }: {
-      itemId: string;
-      quantity: number;
-      productTitle: string;
-    }) => {
-      await api.patch(`/cart/items/${itemId}`, { quantity });
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["cart"] });
-      setAnnouncement(
-        `Cantidad de ${variables.productTitle} actualizada a ${variables.quantity}.`,
-      );
-    },
-    onError: (err) =>
-      setError(extractApiError(err, "No pudimos actualizar el producto")),
   });
 
   const removeItem = useMutation({
@@ -230,13 +202,14 @@ export default function CartPage() {
   }
 
   const items = data?.items ?? [];
-  // A garment someone else bought while it sat in this cart is unbuyable, and the
-  // API aborts the *whole* checkout transaction over a single such line. So it
-  // must not be counted in the total or silently block "Pagar": it is called out,
+  // A garment someone else bought, or that its seller edited back into
+  // moderation, is unbuyable while it sits in this cart, and the API aborts
+  // the *whole* checkout transaction over a single such line. So it must not
+  // be counted in the total or silently block "Pagar": it is called out,
   // excluded from the sum, and removable in one click.
-  const soldItems = items.filter(isSold);
+  const unavailableItems = items.filter(isUnavailable);
   const total = items.reduce(
-    (sum, it) => (isSold(it) ? sum : sum + it.priceAtAdd * it.quantity),
+    (sum, it) => (isUnavailable(it) ? sum : sum + it.priceAtAdd * it.quantity),
     0,
   );
 
@@ -258,28 +231,28 @@ export default function CartPage() {
         </p>
       )}
 
-      {soldItems.length > 0 && (
+      {unavailableItems.length > 0 && (
         <div
           role="alert"
           className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-text-primary"
         >
           <span>
-            {soldItems.length === 1
-              ? "Una prenda de tu carrito ya se vendió. Quítala para poder pagar."
-              : `${soldItems.length} prendas de tu carrito ya se vendieron. Quítalas para poder pagar.`}
+            {unavailableItems.length === 1
+              ? "Una prenda de tu carrito ya no está disponible. Quítala para poder pagar."
+              : `${unavailableItems.length} prendas de tu carrito ya no están disponibles. Quítalas para poder pagar.`}
           </span>
           <Button
             variant="secondary"
             disabled={removeSoldItems.isPending}
             onClick={() =>
-              removeSoldItems.mutate(soldItems.map((item) => item.id))
+              removeSoldItems.mutate(unavailableItems.map((item) => item.id))
             }
           >
             {removeSoldItems.isPending
               ? "Quitando…"
-              : soldItems.length === 1
-                ? "Quitar la prenda vendida"
-                : "Quitar las prendas vendidas"}
+              : unavailableItems.length === 1
+                ? "Quitar la prenda no disponible"
+                : "Quitar las prendas no disponibles"}
           </Button>
         </div>
       )}
@@ -317,14 +290,6 @@ export default function CartPage() {
               <CartItemRow
                 key={item.id}
                 item={item}
-                isUpdating={updateQty.isPending}
-                onUpdateQuantity={(quantity) =>
-                  updateQty.mutate({
-                    itemId: item.id,
-                    quantity,
-                    productTitle: item.product?.title ?? "el producto",
-                  })
-                }
                 onRemove={() =>
                   removeItem.mutate({
                     itemId: item.id,
@@ -404,7 +369,7 @@ export default function CartPage() {
               <Button
                 variant="accent"
                 onClick={handleCheckout}
-                disabled={checkout.isPending || soldItems.length > 0}
+                disabled={checkout.isPending || unavailableItems.length > 0}
                 fullWidth
                 size="lg"
               >
@@ -426,40 +391,15 @@ export default function CartPage() {
 
 function CartItemRow({
   item,
-  isUpdating,
-  onUpdateQuantity,
   onRemove,
   isRemoving,
 }: {
   item: CartItem;
-  isUpdating: boolean;
-  onUpdateQuantity: (quantity: number) => void;
   onRemove: () => void;
   isRemoving: boolean;
 }) {
-  const [quantity, setQuantity] = useState(String(item.quantity));
-  const [lastSyncedQuantity, setLastSyncedQuantity] = useState(item.quantity);
-  const sold = isSold(item);
-
-  // Keep the controlled input in sync when the underlying cart item changes
-  // (e.g. after a successful update or when the cart is refetched). Setting
-  // state during render rather than in an effect avoids the extra
-  // effect-triggered re-render.
-  if (item.quantity !== lastSyncedQuantity) {
-    setLastSyncedQuantity(item.quantity);
-    setQuantity(String(item.quantity));
-  }
-
-  const commit = () => {
-    const next = parseQuantity(quantity, item.quantity);
-    if (next !== item.quantity) {
-      onUpdateQuantity(next);
-    } else {
-      // Reset the input text to the canonical value (e.g. when the user
-      // typed "abc" and we fall back to the previous valid quantity).
-      setQuantity(String(item.quantity));
-    }
-  };
+  const sold = Boolean(item.product?.soldAt);
+  const unavailable = isUnavailable(item);
 
   return (
     <Card>
@@ -494,30 +434,20 @@ function CartItemRow({
               {item.product.size}
             </p>
           )}
-          {sold && (
+          {unavailable && (
             <Badge variant="warning" className="mt-2">
-              Ya se vendió
+              {sold ? "Ya se vendió" : "Ya no está disponible"}
             </Badge>
           )}
         </div>
         <div className="flex flex-col items-end gap-2">
-          <Input
-            type="number"
-            min={1}
-            max={MAX_ITEM_QUANTITY}
-            value={quantity}
-            disabled={isUpdating || sold}
-            onChange={(e) => setQuantity(e.target.value)}
-            onBlur={commit}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                (e.target as HTMLInputElement).blur();
-              }
-            }}
-            className="w-20"
-            aria-label="Cantidad"
-          />
+          {/* Sin selector de cantidad: cada publicación es una prenda única,
+              así que la única cantidad posible es 1. Un control editable aquí
+              aceptaba cualquier número y lo revertía en silencio al perder el
+              foco, la misma regresión que se retiró de product-detail.tsx. */}
+          <span className="text-xs text-text-muted">
+            Cantidad: {item.quantity}
+          </span>
           <button
             onClick={onRemove}
             disabled={isRemoving}

@@ -25,6 +25,18 @@ export function Modal({
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Read inside the effect via `.current` instead of closing over `onClose`
+  // directly, so the effect below can depend on `open` alone. Its only
+  // consumer today passes an inline arrow function as `onClose`, which gets a
+  // new identity on every render; if the effect depended on it too, every
+  // unrelated re-render while the dialog is open (e.g. typing in a field
+  // inside it) would tear it down and re-run it — yanking focus back to the
+  // first focusable element mid-keystroke.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   useEffect(() => {
     if (!open) return;
     const panel = panelRef.current;
@@ -42,7 +54,7 @@ export function Modal({
     // inert, so Tab has to actually stay inside the panel.
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== "Tab") return;
@@ -75,7 +87,7 @@ export function Modal({
       document.body.style.overflow = previousOverflow;
       previouslyFocused?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

@@ -289,15 +289,12 @@ describe("CartPage", () => {
     });
   });
 
-  // Cada prenda es única y la API rechaza cualquier cantidad mayor que 1
-  // (`MAX_ITEM_QUANTITY`), así que el campo no puede llegar a enviarla. Esta
-  // prueba antes escribía "5" y afirmaba que el PATCH salía con `quantity: 5`:
-  // pasaba solo porque `api` está mockeado, mientras que contra el servidor real
-  // devolvía 400 y el input se quedaba mostrando el valor rechazado.
-  it("recorta la cantidad al máximo de una unidad y lo anuncia en la región en vivo", async () => {
+  // Cada prenda es única: no hay selector de cantidad que editar. Antes había
+  // un `<Input type="number">` con `max=1` que aceptaba cualquier valor y lo
+  // revertía en silencio al perder el foco, sin avisar al usuario. Ahora la
+  // cantidad se muestra como texto plano, sin ningún control que fingir.
+  it("muestra la cantidad como texto fijo, sin un control editable", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockCart });
-    vi.mocked(api.patch).mockResolvedValue({ data: { success: true } });
-    const user = userEvent.setup();
     render(
       <TestProviders>
         <CartPage />
@@ -308,22 +305,10 @@ describe("CartPage", () => {
       expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
     });
 
-    const quantityInputs = screen.getAllByLabelText(/cantidad/i);
-    // El control no ofrece un rango que el servidor no acepte.
-    expect(quantityInputs[0]!).toHaveAttribute("max", "1");
-
-    await user.clear(quantityInputs[0]!);
-    await user.type(quantityInputs[0]!, "5");
-    await user.tab();
-
-    await waitFor(() => {
-      expect(api.patch).toHaveBeenCalledWith("/cart/items/ci1", { quantity: 1 });
-    });
-    await waitFor(() => {
-      expect(screen.getByRole("status")).toHaveTextContent(
-        "Cantidad de Cotton t-shirt actualizada a 1.",
-      );
-    });
+    expect(
+      screen.queryByRole("spinbutton", { name: /cantidad/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText(/^Cantidad: /).length).toBe(2);
   });
 
   it("marca las prendas ya vendidas, las excluye del total y bloquea el pago", async () => {
@@ -355,11 +340,65 @@ describe("CartPage", () => {
     // toda la transacción del checkout por esa única línea, sin explicar cuál.
     expect(screen.getByText("Ya se vendió")).toBeInTheDocument();
     expect(
-      screen.getByText(/una prenda de tu carrito ya se vendió/i),
+      screen.getByText(/una prenda de tu carrito ya no está disponible/i),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /pagar/i }),
     ).toBeDisabled();
+  });
+
+  // Un vendedor puede editar una publicación ya aprobada y devolverla a
+  // moderación (isApproved:false, soldAt sigue null). Antes eso no disparaba
+  // ninguno de los tratamientos de "no disponible": seguía sumando al total y
+  // "Pagar" se quedaba habilitado, para que el checkout completo fallara en
+  // el servidor sin decir cuál línea fue la causante.
+  it("marca las prendas que volvieron a moderación como no disponibles y bloquea el pago", async () => {
+    const backToModerationCart = {
+      ...mockCart,
+      items: [
+        {
+          ...mockCart.items[0]!,
+          product: {
+            ...mockCart.items[0]!.product,
+            isApproved: false,
+          },
+        },
+        mockCart.items[1]!,
+      ],
+    };
+    vi.mocked(api.get).mockResolvedValue({ data: backToModerationCart });
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("Ya no está disponible")).toBeInTheDocument();
+    expect(
+      screen.getByText(/una prenda de tu carrito ya no está disponible/i),
+    ).toBeInTheDocument();
+    // Solo la prenda vendida (soldAt) usa el texto "Ya se vendió"; esta no se
+    // vendió, solo volvió a moderación, así que no debe verse esa etiqueta.
+    expect(screen.queryByText("Ya se vendió")).not.toBeInTheDocument();
+    // 50 (el precio del suéter): la prenda no disponible se excluye del total.
+    await waitFor(() => {
+      expect(screen.getAllByText("$ 50").length).toBeGreaterThan(0);
+    });
+    expect(
+      screen.getByRole("button", { name: /pagar/i }),
+    ).toBeDisabled();
+
+    vi.mocked(api.delete).mockResolvedValue({ data: { success: true } });
+    await userEvent.setup().click(
+      screen.getByRole("button", { name: /quitar la prenda no disponible/i }),
+    );
+    await waitFor(() => {
+      expect(api.delete).toHaveBeenCalledWith("/cart/items/ci1");
+    });
   });
 
   it("bloquea el pago y marca los campos si la dirección está en blanco", async () => {

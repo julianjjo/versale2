@@ -237,7 +237,12 @@ export default function AdminProductsPage() {
                         Aprobar
                       </Button>
                     )}
-                    {isPending && (
+                    {/* También disponible sobre una publicación ya aprobada: es la
+                        única forma de bajarla del catálogo sin borrar su
+                        historial de reseñas/pedidos, que es lo que hace
+                        "Eliminar". Se excluyen las vendidas (soldAt): son
+                        historial y no se tocan desde aquí. */}
+                    {(isPending || product.isApproved) && !product.soldAt && (
                       <Button
                         size="sm"
                         variant="secondary"

@@ -17,7 +17,14 @@ async function lookupProduct(id: string): Promise<ProductLookup> {
   try {
     const response = await fetch(
       `${API_URL}/products/${encodeURIComponent(id)}`,
-      { cache: "no-store", headers: { Accept: "application/json" } },
+      {
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+        // A hung API must not stall the whole page response: an aborted
+        // fetch throws, which the catch below already degrades to
+        // "unavailable" so the client query can offer a retry instead.
+        signal: AbortSignal.timeout(5000),
+      },
     );
     if (response.status === 404) return { status: "missing" };
     if (!response.ok) return { status: "unavailable" };

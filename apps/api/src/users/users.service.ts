@@ -1,10 +1,11 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from './role.enum';
@@ -117,7 +118,10 @@ export class UsersService {
       // password. Admins recovering another account are exempt.
       if (options.isSelfService && (wantsPasswordChange || changesEmail)) {
         if (!currentPassword) {
-          throw new UnauthorizedException(
+          // 403, not 401: the bearer token is still valid, only the supplied
+          // password is missing. A 401 here would make the web app's global
+          // interceptor treat this as an expired session and log the user out.
+          throw new ForbiddenException(
             'Debes confirmar tu contraseña actual para cambiar tu correo o tu contraseña',
           );
         }
@@ -127,7 +131,8 @@ export class UsersService {
           currentUser.password,
         );
         if (!isCurrentPasswordValid) {
-          throw new UnauthorizedException('La contraseña actual es incorrecta');
+          // Same reasoning: a wrong currentPassword is a 403, not a 401.
+          throw new ForbiddenException('La contraseña actual es incorrecta');
         }
       }
 
@@ -176,9 +181,24 @@ export class UsersService {
       }
     }
 
-    return this.prisma.client.user.delete({
-      where: { id },
-      select: PUBLIC_USER_SELECT,
-    });
+    try {
+      return await this.prisma.client.user.delete({
+        where: { id },
+        select: PUBLIC_USER_SELECT,
+      });
+    } catch (error) {
+      // Product.sellerId, Order.userId, Review.userId and Cart.userId are all
+      // ON DELETE RESTRICT, so deleting a user with any of that activity
+      // raises P2003. Without this guard it surfaces as an English 500.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        throw new BadRequestException(
+          'No se puede eliminar a este usuario: tiene productos, pedidos o reseñas asociadas.',
+        );
+      }
+      throw error;
+    }
   }
 }

@@ -1,5 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { UploadsService } from '../uploads.service';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
@@ -53,32 +56,36 @@ describe('UploadsService', () => {
   });
 
   describe('validateFiles', () => {
-    it('rejects empty list', () => {
+    it('rejects empty list with a Spanish BadRequestException, not a 500', () => {
+      expect(() => service.validateFiles([])).toThrow(BadRequestException);
       expect(() => service.validateFiles([])).toThrow(
-        InternalServerErrorException,
+        'No se proporcionaron archivos.',
       );
     });
 
-    it('rejects more than 5 files', () => {
+    it('rejects more than 5 files with a Spanish BadRequestException, not a 500', () => {
       const files = Array.from({ length: 6 }, (_, i) =>
         makeFile(`a${i}.jpg`, 'image/jpeg', 1024),
       );
+      expect(() => service.validateFiles(files)).toThrow(BadRequestException);
       expect(() => service.validateFiles(files)).toThrow(
-        InternalServerErrorException,
+        'Demasiados archivos. Máximo 5 por publicación.',
       );
     });
 
-    it('rejects oversized file', () => {
+    it('rejects oversized file with a Spanish BadRequestException, not a 500', () => {
       const file = makeFile('big.jpg', 'image/jpeg', 6 * 1024 * 1024);
+      expect(() => service.validateFiles([file])).toThrow(BadRequestException);
       expect(() => service.validateFiles([file])).toThrow(
-        InternalServerErrorException,
+        'El archivo «big.jpg» supera el límite de 5MB.',
       );
     });
 
-    it('rejects unsupported mime type', () => {
+    it('rejects unsupported mime type with a Spanish BadRequestException, not a 500', () => {
       const file = makeFile('doc.pdf', 'application/pdf', 1024);
+      expect(() => service.validateFiles([file])).toThrow(BadRequestException);
       expect(() => service.validateFiles([file])).toThrow(
-        InternalServerErrorException,
+        'El archivo «doc.pdf» tiene un formato no permitido. Se aceptan: JPG, PNG, WEBP.',
       );
     });
 

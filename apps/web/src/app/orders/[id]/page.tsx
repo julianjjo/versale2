@@ -25,7 +25,13 @@ export default function OrderDetailPage() {
   const router = useRouter();
   const { user, isLoading: isAuthLoading } = useAuth();
 
-  const { data, isLoading, isError } = useQuery<Order>({
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery<Order>({
     queryKey: ["order", params.id],
     queryFn: async () => {
       const response = await api.get<Order>(`/orders/${params.id}`);
@@ -53,6 +59,26 @@ export default function OrderDetailPage() {
           action={
             <Button onClick={() => router.push("/login")}>Iniciar sesión</Button>
           }
+        />
+      </PageContainer>
+    );
+  }
+
+  // Un 404 (el pedido no existe) y un 403 (pertenece a otra persona)
+  // terminan deliberadamente en el mismo estado, para no revelarle a quien no
+  // tiene acceso que el pedido sí existe. Cualquier otro fallo (red, timeout,
+  // 500) es temporal y merece un reintento en vez de un mensaje terminal.
+  const orderStatus = (error as { response?: { status?: number } } | null)
+    ?.response?.status;
+  const isNotFoundOrForbidden = orderStatus === 404 || orderStatus === 403;
+
+  if (isError && !isNotFoundOrForbidden) {
+    return (
+      <PageContainer>
+        <EmptyState
+          title="No pudimos cargar el pedido"
+          description="Hubo un problema al conectar con el servidor. Puede ser temporal."
+          action={<Button onClick={() => refetch()}>Reintentar</Button>}
         />
       </PageContainer>
     );

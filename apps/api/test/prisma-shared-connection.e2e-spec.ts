@@ -80,10 +80,18 @@ describe('Shared PrismaService connection across feature modules (e2e)', () => {
     for (let i = 0; i < trials; i++) {
       const suffix = `${Date.now()}-${i}-${Math.random().toString(36).slice(2)}`;
       const buyer = await prisma.client.user.create({
-        data: { email: `buyer-${suffix}@test.local`, password: 'x', name: 'Buyer' },
+        data: {
+          email: `buyer-${suffix}@test.local`,
+          password: 'x',
+          name: 'Buyer',
+        },
       });
       const seller = await prisma.client.user.create({
-        data: { email: `seller-${suffix}@test.local`, password: 'x', name: 'Seller' },
+        data: {
+          email: `seller-${suffix}@test.local`,
+          password: 'x',
+          name: 'Seller',
+        },
       });
       seededUserIds.push(buyer.id, seller.id);
 
@@ -134,7 +142,10 @@ describe('Shared PrismaService connection across feature modules (e2e)', () => {
         }
       }
 
-      if (orderResult.status === 'fulfilled' && addResult.status === 'fulfilled') {
+      if (
+        orderResult.status === 'fulfilled' &&
+        addResult.status === 'fulfilled'
+      ) {
         const order = orderResult.value;
         const cartAfter = await cartService.getCart(buyer.id);
         const productBInOrder = order.items.some(

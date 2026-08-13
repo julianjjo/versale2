@@ -95,8 +95,10 @@ describe('CreateOrderDto with the global ValidationPipe', () => {
 
     expect(
       (
-        (result as CreateOrderDto)
-          .shippingAddress as unknown as Record<string, unknown>
+        (result as CreateOrderDto).shippingAddress as unknown as Record<
+          string,
+          unknown
+        >
       ).isPaid,
     ).toBeUndefined();
   });

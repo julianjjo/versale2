@@ -18,6 +18,19 @@ function notFoundError() {
   });
 }
 
+// Simulates the error Prisma throws when a delete is blocked by an
+// ON DELETE RESTRICT foreign key — e.g. a CartItem, Review, or OrderItem
+// (even from a cancelled order) still pointing at this product.
+function foreignKeyViolationError() {
+  return new Prisma.PrismaClientKnownRequestError(
+    'Foreign key constraint violated',
+    {
+      code: 'P2003',
+      clientVersion: 'test',
+    },
+  );
+}
+
 describe('ProductsService', () => {
   let service: ProductsService;
   let prismaService: PrismaService;
@@ -634,6 +647,30 @@ describe('ProductsService', () => {
       ).rejects.toThrow('Este producto ya fue vendido y no se puede eliminar');
     });
 
+    // A CartItem, Review, or an OrderItem from a CANCELLED order (which clears
+    // `soldAt` back to null) can still hold a RESTRICT foreign key to the
+    // product even though the `soldAt` guard above sees it as "free". Without
+    // catching P2003 that reached the admin as a raw 500.
+    it('should refuse to delete a product still referenced by a cart, review, or cancelled order, instead of failing at the FK', async () => {
+      const productId = 'product1';
+      const userId = 'seller1';
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: productId,
+        sellerId: userId,
+        soldAt: null,
+      });
+      mockPrismaService.client.product.delete.mockRejectedValue(
+        foreignKeyViolationError(),
+      );
+
+      await expect(
+        service.remove(productId, userId, Role.USER),
+      ).rejects.toThrow(
+        'Este producto no se puede eliminar: todavía está en el carrito o las reseñas de otra persona.',
+      );
+    });
+
     it('should remove a product if user is the seller', async () => {
       const productId = 'product1';
       const userId = 'seller1';
@@ -980,7 +1017,10 @@ describe('ProductsService', () => {
     it('should return distinct approved brands and categories', async () => {
       mockPrismaService.client.product.findMany
         .mockResolvedValueOnce([{ brand: "Levi's" }, { brand: 'Zara' }])
-        .mockResolvedValueOnce([{ category: 'Jackets' }, { category: 'Sweaters' }]);
+        .mockResolvedValueOnce([
+          { category: 'Jackets' },
+          { category: 'Sweaters' },
+        ]);
 
       const result = await service.getFacets();
 
@@ -1162,6 +1202,21 @@ describe('ProductsService', () => {
       });
       expect(result).toEqual(mockProduct);
     });
+
+    // No prior existence check backs this update, so moderating an id that
+    // does not exist raised Prisma's raw P2025 with no exception filter
+    // registered, surfacing as a 500 instead of the Spanish 404 every other
+    // method in this file throws for a missing id.
+    it('should throw NotFoundException when approving a nonexistent product', async () => {
+      const productId = 'nonexistent';
+      mockPrismaService.client.product.update.mockRejectedValue(
+        notFoundError(),
+      );
+
+      await expect(service.approveProduct(productId)).rejects.toThrow(
+        `Producto con ID ${productId} no encontrado`,
+      );
+    });
   });
 
   describe('rejectProduct', () => {
@@ -1204,6 +1259,20 @@ describe('ProductsService', () => {
           rejectionReason: null,
         },
       });
+    });
+
+    // Mirrors the approveProduct regression above: no prior existence check
+    // backs this update either, so it must surface the same Spanish 404
+    // instead of an unhandled 500.
+    it('should throw NotFoundException when rejecting a nonexistent product', async () => {
+      const productId = 'nonexistent';
+      mockPrismaService.client.product.update.mockRejectedValue(
+        notFoundError(),
+      );
+
+      await expect(
+        service.rejectProduct(productId, 'Fotos borrosas'),
+      ).rejects.toThrow(`Producto con ID ${productId} no encontrado`);
     });
   });
 });
