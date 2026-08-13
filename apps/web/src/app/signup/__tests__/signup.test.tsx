@@ -88,6 +88,17 @@ describe("SignupPage", () => {
     });
   });
 
+  it("avisa que al crear la cuenta se aceptan los términos y la privacidad", () => {
+    renderSignup();
+    expect(screen.getByText(/al crear tu cuenta aceptas/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /términos y condiciones/i }),
+    ).toHaveAttribute("href", "/terminos");
+    expect(
+      screen.getByRole("link", { name: /política de privacidad/i }),
+    ).toHaveAttribute("href", "/privacidad");
+  });
+
   it("enlaza a la página de inicio de sesión", () => {
     renderSignup();
     expect(

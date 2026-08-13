@@ -7,7 +7,6 @@ import { useAuth } from "@/lib/auth";
 import { useRef, useState } from "react";
 import {
   Button,
-  Input,
   Textarea,
   Spinner,
   Card,
@@ -18,44 +17,67 @@ import {
   StarRating,
   Divider,
 } from "@/components/ui";
+import { MAX_ITEM_QUANTITY } from "@/lib/cart";
+import { conditionLabel } from "@/lib/product-condition";
+import { tokenStore } from "@/lib/token";
 import type { Product, Review } from "@/lib/types";
 
-const CONDITION_LABELS: Record<string, string> = {
-  New: "Nuevo",
-  "Like New": "Como nuevo",
-  Good: "Buen estado",
-  Fair: "Aceptable",
-};
 
-export function ProductDetail() {
+export function ProductDetail({
+  /** Product already resolved on the server (see `app/products/[id]/page.tsx`).
+   *  Seeds the query so the page paints without a spinner; the client still
+   *  refetches with the visitor's token, which can see more than the anonymous
+   *  server probe (own pending listing, admin). */
+  initialProduct,
+}: {
+  initialProduct?: Product;
+} = {}) {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, isLoading: isAuthLoading } = useAuth();
-  const [quantity, setQuantity] = useState("1");
-  const quantityNum = (() => {
-    const n = Number.parseInt(quantity, 10);
-    return Number.isFinite(n) && n > 0 ? n : 1;
-  })();
   const [rating, setRating] = useState(5);
   const ratingButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const { data, isLoading, isError } = useQuery<Product>({
+  // The server probe that produced `initialProduct` is anonymous, so for a
+  // visitor without a token it already IS the answer — treating it as fresh
+  // skips a second identical round-trip on every product view. A visitor WITH
+  // a token can see more than the probe did (their own pending listing, admin),
+  // so their copy is seeded as stale and refetched immediately.
+  const [seededAt] = useState(() =>
+    initialProduct && !tokenStore.get() ? Date.now() : 0,
+  );
+
+  const {
+    data,
+    isLoading,
+    isError,
+    error: loadError,
+    refetch,
+  } = useQuery<Product>({
     queryKey: ["product", id],
     queryFn: async () => {
       const response = await api.get<Product>(`/products/${id}`);
       return response.data;
     },
     enabled: Boolean(id),
+    initialData: initialProduct,
+    initialDataUpdatedAt: seededAt,
+    // Only governs the seeded copy; `invalidateQueries` after a review still
+    // refetches straight away.
+    staleTime: 60_000,
   });
 
   const addToCart = useMutation({
     mutationFn: async () => {
-      await api.post("/cart/items", { productId: id, quantity: quantityNum });
+      await api.post("/cart/items", {
+        productId: id,
+        quantity: MAX_ITEM_QUANTITY,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] });
@@ -116,7 +138,29 @@ export function ProductDetail() {
       </PageContainer>
     );
   }
-  if (isError || !data) {
+  // Un 404 sí significa que la prenda no existe; cualquier otro fallo (red,
+  // timeout, 500) es temporal. Antes ambos caían en "Producto no encontrado",
+  // que le decía al visitante que la prenda se había eliminado cuando en
+  // realidad solo había que reintentar.
+  const requestFailed =
+    (loadError as { response?: { status?: number } } | null)?.response
+      ?.status !== 404;
+
+  if (isError && !data && requestFailed) {
+    return (
+      <PageContainer>
+        <EmptyState
+          title="No pudimos cargar la prenda"
+          description="Hubo un problema al conectar con el servidor. Puede ser temporal."
+          action={<Button onClick={() => refetch()}>Reintentar</Button>}
+        />
+      </PageContainer>
+    );
+  }
+  // Only the absence of data is a dead end: a failed refetch on top of the
+  // server-rendered product keeps showing the product rather than replacing it
+  // with an empty state.
+  if (!data) {
     return (
       <PageContainer>
         <EmptyState
@@ -141,6 +185,10 @@ export function ProductDetail() {
       ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
       : null;
   const isOwn = user?.id === data.sellerId;
+  // A sold listing stays readable — its buyer reaches it from order history and
+  // writes the review here — so the page has to say it is gone rather than
+  // offering an add-to-cart the API would reject.
+  const isSold = Boolean(data.soldAt);
 
   return (
     <PageContainer size="wide">
@@ -212,7 +260,7 @@ export function ProductDetail() {
             <dd className="font-medium text-text-primary">{data.size}</dd>
             <dt className="text-text-muted">Condición</dt>
             <dd>
-              <Badge>{CONDITION_LABELS[data.condition] ?? data.condition}</Badge>
+              <Badge>{conditionLabel(data.condition)}</Badge>
             </dd>
             <dt className="text-text-muted">Categoría</dt>
             <dd className="font-medium text-text-primary">{data.category}</dd>
@@ -222,27 +270,13 @@ export function ProductDetail() {
             </dd>
           </dl>
 
-          {!isOwn && data.isApproved ? (
+          {/* No quantity picker: each listing is a single secondhand garment, so
+              the only quantity the API accepts is `MAX_ITEM_QUANTITY`. A stepper
+              here offered 1–99 and every value above 1 came back as a 400. */}
+          {isSold ? (
+            <Badge variant="warning">Ya se vendió</Badge>
+          ) : !isOwn && data.isApproved ? (
             <div className="flex items-end gap-3 pt-2">
-              <Input
-                type="number"
-                min={1}
-                max={99}
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                onBlur={() => {
-                  // Clamp on blur: empty / non-numeric falls back to "1";
-                  // over-large values are capped to 99 to keep cart sane.
-                  const n = Number.parseInt(quantity, 10);
-                  if (!Number.isFinite(n) || n < 1) {
-                    setQuantity("1");
-                  } else if (n > 99) {
-                    setQuantity("99");
-                  }
-                }}
-                className="w-24"
-                aria-label="Cantidad"
-              />
               <Button
                 variant="accent"
                 onClick={handleAddToCart}

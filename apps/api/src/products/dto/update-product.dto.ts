@@ -1,45 +1,10 @@
-import {
-  IsString,
-  IsOptional,
-  IsIn,
-  IsNumber,
-  IsPositive,
-  IsArray,
-} from 'class-validator';
+import { PartialType } from '@nestjs/swagger';
+import { CreateProductDto } from './create-product.dto';
 
-export class UpdateProductDto {
-  @IsString()
-  @IsOptional()
-  title?: string;
-
-  @IsString()
-  @IsOptional()
-  description?: string;
-
-  @IsString()
-  @IsOptional()
-  category?: string;
-
-  @IsString()
-  @IsOptional()
-  brand?: string;
-
-  @IsString()
-  @IsOptional()
-  size?: string;
-
-  @IsString()
-  @IsOptional()
-  @IsIn(['New', 'Like New', 'Good', 'Fair'])
-  condition?: string;
-
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @IsOptional()
-  @IsPositive()
-  price?: number;
-
-  @IsArray()
-  @IsString({ each: true })
-  @IsOptional()
-  images?: string[];
-}
+// Derived from CreateProductDto rather than hand-copied. PartialType is a real
+// runtime class (unlike a `Partial<T>` type annotation, which erases and would
+// leave ValidationPipe with nothing to validate), so every constraint —
+// including the `@IsNotEmpty` checks a hand-written clone silently dropped, and
+// which let `{"title": ""}` blank a live listing — still applies to whichever
+// fields the request actually sends.
+export class UpdateProductDto extends PartialType(CreateProductDto) {}

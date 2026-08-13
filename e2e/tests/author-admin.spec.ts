@@ -1,7 +1,14 @@
 import { test, expect } from "../fixtures/auth";
+import {
+  API_URL,
+  E2E_SHIPPING_ADDRESS,
+  createBuyer,
+  createPendingProduct,
+  createPurchasableProduct,
+  getToken,
+} from "../utils/purchasable";
 
 test.describe.configure({ mode: "serial" });
-import { E2E_USERS } from "../utils/seed";
 
 test.describe("Publicación de productos y administración", () => {
   test("el administrador ve el enlace Admin en el header", async ({
@@ -25,30 +32,37 @@ test.describe("Publicación de productos y administración", () => {
   test("el administrador puede aprobar un producto pendiente", async ({
     adminPage,
   }) => {
+    // Publicación propia y sin aprobar. La semilla trae una sola pendiente y
+    // nadie la repone: aprobarla dejaba la cola vacía, así que un reintento de
+    // CI fallaba por falta de fixture en vez de por la regresión real.
+    // Además, afirmar sobre ESTA tarjeta (y no sobre un conteo global de
+    // botones "Aprobar") la aísla de los productos que las otras specs crean
+    // en paralelo.
+    const product = await createPendingProduct(adminPage.request);
+    const card = adminPage.getByTestId(`admin-product-${product.id}`);
+
     await adminPage.goto("/products");
-    await expect(
-      adminPage.getByText("Cotton T-Shirt"),
-    ).not.toBeVisible();
+    await expect(adminPage.getByText(product.title)).not.toBeVisible();
 
     await adminPage.goto("/admin");
-    await expect(
-      adminPage.getByText(/pedidos totales/i),
-    ).toBeVisible();
+    await expect(adminPage.getByText(/pedidos totales/i)).toBeVisible();
 
     await adminPage.goto("/admin/products");
-    await expect(adminPage.getByText("Cotton T-Shirt")).toBeVisible();
-    await expect(
-      adminPage.locator("text=Pendiente").first(),
-    ).toBeVisible();
+    await expect(card).toBeVisible();
+    await expect(card.getByText("Pendiente")).toBeVisible();
 
-    const approveButtons = adminPage.getByRole("button", { name: /aprobar/i });
-    const initialCount = await approveButtons.count();
-    if (initialCount > 0) {
-      await approveButtons.first().click();
-      await expect(
-        adminPage.getByRole("button", { name: /aprobar/i }),
-      ).toHaveCount(initialCount - 1, { timeout: 5_000 });
-    }
+    await card.getByRole("button", { name: /aprobar/i }).click();
+
+    await expect(card.getByText("Aprobado")).toBeVisible({ timeout: 5_000 });
+    await expect(
+      card.getByRole("button", { name: /aprobar/i }),
+    ).toHaveCount(0);
+
+    // Aprobada de verdad: ya aparece en el catálogo público.
+    await adminPage.goto("/products");
+    await expect(adminPage.getByText(product.title)).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("cualquier usuario puede publicar un producto nuevo", async ({
@@ -97,62 +111,71 @@ test.describe("Publicación de productos y administración", () => {
     adminPage,
     userPage,
   }) => {
-    // Asegurar que el carrito del usuario empieza vacío
-    await userPage.goto("/cart");
-    const clearBtn = userPage.getByRole("button", { name: /vaciar carrito/i });
-    if (await clearBtn.isVisible().catch(() => false)) {
-      await clearBtn.click();
-      await expect(
-        userPage.getByText(/tu carrito está vacío/i),
-      ).toBeVisible({ timeout: 5_000 });
-    }
+    // Comprador y prenda propios: esta prueba es sobre el admin cambiando el
+    // estado, y usar la cuenta sembrada compartiría carrito con shopping.spec,
+    // que corre en paralelo.
+    const product = await createPurchasableProduct(adminPage.request);
+    const buyer = await createBuyer(adminPage.request);
 
-    await userPage.goto("/products");
-    await userPage
-      .getByRole("heading", { name: "Vintage Denim Jacket" })
-      .click();
-    await userPage.getByRole("button", { name: /agregar al carrito/i }).click();
-    await expect(userPage.getByText(/agregado al carrito/i)).toBeVisible({
-      timeout: 10_000,
+    await adminPage.request.post(`${API_URL}/cart/items`, {
+      headers: { Authorization: `Bearer ${buyer.token}` },
+      data: { productId: product.id, quantity: 1 },
     });
 
-    const token = await userPage.evaluate(() =>
-      localStorage.getItem("versale_token"),
-    );
-    await expect
-      .poll(
-        async () => {
-          const res = await userPage.request.get(
-            "http://127.0.0.1:3101/cart",
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            },
-          );
-          const cart = await res.json();
-          return cart.items.length;
-        },
-        { timeout: 10_000 },
-      )
-      .toBeGreaterThan(0);
-
-    // Crear el pedido vía API directamente para evitar flakiness de UI
-    const orderRes = await userPage.request.post(
-      "http://127.0.0.1:3101/orders",
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        data: {},
-      },
-    );
+    const orderRes = await adminPage.request.post(`${API_URL}/orders`, {
+      headers: { Authorization: `Bearer ${buyer.token}` },
+      data: { shippingAddress: E2E_SHIPPING_ADDRESS },
+    });
     expect(orderRes.status()).toBe(201);
+    const order = await orderRes.json();
 
+    // El pedido nace en PENDING y el ciclo de vida solo permite avanzar un
+    // paso: PENDING -> PAID. Saltar directo a SHIPPED ahora se rechaza.
     await adminPage.goto("/admin/orders");
     const orderRow = adminPage
-      .locator("a", { hasText: "Pedido #" })
+      .locator("a", { hasText: `Pedido #${order.id.slice(0, 8)}` })
       .first()
       .locator("..")
       .locator("..");
     const select = orderRow.locator("select");
-    await select.selectOption("SHIPPED");
-    await expect(orderRow.locator("select")).toHaveValue("SHIPPED");
+    await select.selectOption("PAID");
+    await expect(orderRow.locator("select")).toHaveValue("PAID");
+  });
+
+  test("el administrador no puede devolver un pedido a un estado anterior", async ({
+    adminPage,
+  }) => {
+    const product = await createPurchasableProduct(adminPage.request);
+    const buyer = await createBuyer(adminPage.request);
+
+    await adminPage.request.post(`${API_URL}/cart/items`, {
+      headers: { Authorization: `Bearer ${buyer.token}` },
+      data: { productId: product.id, quantity: 1 },
+    });
+    const orderRes = await adminPage.request.post(`${API_URL}/orders`, {
+      headers: { Authorization: `Bearer ${buyer.token}` },
+      data: { shippingAddress: E2E_SHIPPING_ADDRESS },
+    });
+    expect(orderRes.status()).toBe(201);
+    const order = await orderRes.json();
+
+    const adminToken = await getToken(adminPage.request, "admin");
+    const forward = await adminPage.request.patch(
+      `${API_URL}/orders/admin/${order.id}/status`,
+      {
+        headers: { Authorization: `Bearer ${adminToken}` },
+        data: { status: "PAID" },
+      },
+    );
+    expect(forward.status()).toBe(200);
+
+    const backwards = await adminPage.request.patch(
+      `${API_URL}/orders/admin/${order.id}/status`,
+      {
+        headers: { Authorization: `Bearer ${adminToken}` },
+        data: { status: "PENDING" },
+      },
+    );
+    expect(backwards.status()).toBe(400);
   });
 });

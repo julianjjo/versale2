@@ -221,6 +221,39 @@ describe("StarRating", () => {
       screen.getByLabelText(/4\.5 de 5 estrellas/i),
     ).toBeInTheDocument();
   });
+
+  it("renders five stars for an in-range value", () => {
+    render(<StarRating value={3} />);
+    const el = screen.getByRole("img", { name: "3.0 de 5 estrellas" });
+    expect(el.textContent).toBe("★".repeat(5));
+  });
+
+  // Regression: an average rating above 5 made `"★".repeat(5 - rounded)` throw
+  // `RangeError: Invalid count value` and blanked the whole product page.
+  it("no lanza y se limita a 5 estrellas con un valor fuera de rango", () => {
+    render(<StarRating value={3336} />);
+    const el = screen.getByRole("img", { name: "5.0 de 5 estrellas" });
+    expect(el.textContent).toBe("★".repeat(5));
+  });
+
+  it("no lanza con un valor negativo", () => {
+    render(<StarRating value={-7} />);
+    const el = screen.getByRole("img", { name: "0.0 de 5 estrellas" });
+    expect(el.textContent).toBe("★".repeat(5));
+  });
+
+  it("no lanza con NaN o sin valor", () => {
+    const { unmount } = render(<StarRating value={Number.NaN} />);
+    expect(
+      screen.getByRole("img", { name: "0.0 de 5 estrellas" }),
+    ).toBeInTheDocument();
+    unmount();
+
+    render(<StarRating value={undefined as unknown as number} />);
+    expect(
+      screen.getByRole("img", { name: "0.0 de 5 estrellas" }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("Divider", () => {

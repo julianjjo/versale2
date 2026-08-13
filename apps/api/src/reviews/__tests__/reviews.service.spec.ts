@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReviewsService } from '../reviews.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Role } from '../../users/role.enum';
 
 describe('ReviewsService', () => {
   let service: ReviewsService;
@@ -45,6 +46,7 @@ describe('ReviewsService', () => {
       const userId = 'user1';
       const productId = 'product1';
       const createReviewDto = {
+        productId,
         rating: 5,
         comment: 'Great product!',
       };
@@ -84,13 +86,14 @@ describe('ReviewsService', () => {
           productId,
         },
       });
-      expect(result).toEqual(mockReview);
+      expect(result).toEqual({ review: mockReview, created: true });
     });
 
     it('should throw NotFoundException if product does not exist', async () => {
       const userId = 'user1';
       const productId = 'nonexistent';
       const createReviewDto = {
+        productId,
         rating: 5,
         comment: 'Great product!',
       };
@@ -106,6 +109,7 @@ describe('ReviewsService', () => {
       const userId = 'user1';
       const productId = 'product1';
       const createReviewDto = {
+        productId,
         rating: 5,
         comment: 'Great product!',
       };
@@ -121,13 +125,29 @@ describe('ReviewsService', () => {
 
       await expect(
         service.create(createReviewDto, userId, productId),
-      ).rejects.toThrow('Product is not approved for sale');
+      ).rejects.toThrow('El producto no está aprobado para la venta');
     });
 
-    it('should update existing review if user already reviewed the product', async () => {
+    it('should throw error if the seller reviews their own product', async () => {
+      const userId = 'seller1';
+      const productId = 'product1';
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: productId,
+        isApproved: true,
+        sellerId: userId,
+      });
+
+      await expect(
+        service.create({ productId, rating: 5 }, userId, productId),
+      ).rejects.toThrow('No puedes reseñar tu propio producto');
+    });
+
+    it('should update the existing review and report it as not created when the user already reviewed the product', async () => {
       const userId = 'user1';
       const productId = 'product1';
       const createReviewDto = {
+        productId,
         rating: 4,
         comment: 'Updated review',
       };
@@ -170,7 +190,8 @@ describe('ReviewsService', () => {
           comment: createReviewDto.comment,
         },
       });
-      expect(result).toEqual(updatedReview);
+      // created: false is what lets the controller answer 200 instead of 201.
+      expect(result).toEqual({ review: updatedReview, created: false });
     });
   });
 
@@ -227,16 +248,52 @@ describe('ReviewsService', () => {
       );
       mockPrismaService.client.review.update.mockResolvedValue(updatedReview);
 
-      const result = await service.update(reviewId, updateReviewDto, userId);
+      const result = await service.update(
+        reviewId,
+        updateReviewDto,
+        userId,
+        Role.USER,
+      );
 
       expect(mockPrismaService.client.review.findUnique).toHaveBeenCalledWith({
         where: { id: reviewId },
       });
       expect(mockPrismaService.client.review.update).toHaveBeenCalledWith({
         where: { id: reviewId },
-        data: updateReviewDto,
+        data: { rating: 4, comment: 'Updated comment' },
       });
       expect(result).toEqual(updatedReview);
+    });
+
+    it('should never let userId or productId reach Prisma, even if they slip past validation', async () => {
+      const reviewId = 'review1';
+      const userId = 'user1';
+
+      mockPrismaService.client.review.findUnique.mockResolvedValue({
+        id: reviewId,
+        userId,
+        productId: 'product1',
+      });
+      mockPrismaService.client.review.update.mockResolvedValue({
+        id: reviewId,
+      });
+
+      await service.update(
+        reviewId,
+        {
+          rating: 4,
+          comment: 'ok',
+          userId: 'someoneElse',
+          productId: 'anotherProduct',
+        } as any,
+        userId,
+        Role.USER,
+      );
+
+      expect(mockPrismaService.client.review.update).toHaveBeenCalledWith({
+        where: { id: reviewId },
+        data: { rating: 4, comment: 'ok' },
+      });
     });
 
     it('should throw NotFoundException if review not found', async () => {
@@ -247,7 +304,7 @@ describe('ReviewsService', () => {
       mockPrismaService.client.review.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.update(reviewId, updateReviewDto, userId),
+        service.update(reviewId, updateReviewDto, userId, Role.USER),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -267,8 +324,33 @@ describe('ReviewsService', () => {
       );
 
       await expect(
-        service.update(reviewId, updateReviewDto, userId),
-      ).rejects.toThrow('Not authorized to update this review');
+        service.update(reviewId, updateReviewDto, userId, Role.USER),
+      ).rejects.toThrow('No tienes autorización para actualizar esta reseña');
+    });
+
+    it("should let an admin moderate another user's review", async () => {
+      const reviewId = 'review1';
+
+      mockPrismaService.client.review.findUnique.mockResolvedValue({
+        id: reviewId,
+        userId: 'someoneElse',
+      });
+      mockPrismaService.client.review.update.mockResolvedValue({
+        id: reviewId,
+        comment: 'Contenido moderado',
+      });
+
+      const result = await service.update(
+        reviewId,
+        { comment: 'Contenido moderado' },
+        'admin1',
+        Role.ADMIN,
+      );
+
+      expect(result).toEqual({
+        id: reviewId,
+        comment: 'Contenido moderado',
+      });
     });
   });
 
@@ -287,7 +369,7 @@ describe('ReviewsService', () => {
       );
       mockPrismaService.client.review.delete.mockResolvedValue(existingReview);
 
-      const result = await service.remove(reviewId, userId);
+      const result = await service.remove(reviewId, userId, Role.USER);
 
       expect(mockPrismaService.client.review.findUnique).toHaveBeenCalledWith({
         where: { id: reviewId },
@@ -304,9 +386,9 @@ describe('ReviewsService', () => {
 
       mockPrismaService.client.review.findUnique.mockResolvedValue(null);
 
-      await expect(service.remove(reviewId, userId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.remove(reviewId, userId, Role.USER),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw error if user is not the author', async () => {
@@ -323,9 +405,29 @@ describe('ReviewsService', () => {
         existingReview,
       );
 
-      await expect(service.remove(reviewId, userId)).rejects.toThrow(
-        'Not authorized to delete this review',
+      await expect(
+        service.remove(reviewId, userId, Role.USER),
+      ).rejects.toThrow('No tienes autorización para eliminar esta reseña');
+      await expect(
+        service.remove(reviewId, userId, Role.USER),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("should let an admin delete another user's abusive review", async () => {
+      const reviewId = 'review1';
+      const existingReview = { id: reviewId, userId: 'someoneElse' };
+
+      mockPrismaService.client.review.findUnique.mockResolvedValue(
+        existingReview,
       );
+      mockPrismaService.client.review.delete.mockResolvedValue(existingReview);
+
+      const result = await service.remove(reviewId, 'admin1', Role.ADMIN);
+
+      expect(mockPrismaService.client.review.delete).toHaveBeenCalledWith({
+        where: { id: reviewId },
+      });
+      expect(result).toEqual(existingReview);
     });
   });
 
@@ -366,6 +468,23 @@ describe('ReviewsService', () => {
           limit: 10, // converted to number
           pages: 1,
         },
+      });
+    });
+
+    it('should clamp an out-of-range page and limit and report the sanitized values in meta', async () => {
+      mockPrismaService.client.review.findMany.mockResolvedValue([]);
+      mockPrismaService.client.review.count.mockResolvedValue(0);
+
+      const result = await service.getAllReviews({ page: '0', limit: '99999' });
+
+      expect(mockPrismaService.client.review.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 100 }),
+      );
+      expect(result.meta).toEqual({
+        total: 0,
+        page: 1,
+        limit: 100,
+        pages: 0,
       });
     });
   });

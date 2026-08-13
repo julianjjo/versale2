@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { extractApiError } from "@/lib/api";
 import { Input, Button, Card, PageContainer, Spinner } from "@/components/ui";
+import { safeLoginRedirect } from "./safe-redirect";
 
 const LOGIN_REASON_MESSAGE: Record<string, string> = {
   cart: "Inicia sesión para agregar este producto a tu carrito.",
@@ -23,7 +24,12 @@ function LoginForm() {
 
   const next = searchParams.get("next");
   const reason = searchParams.get("reason");
-  const notice = reason ? LOGIN_REASON_MESSAGE[reason] : undefined;
+  // `reason` viene de la URL: sin verificar que la clave sea propia, valores
+  // como "__proto__" devuelven objetos heredados y React no puede renderizarlos.
+  const notice =
+    reason && Object.hasOwn(LOGIN_REASON_MESSAGE, reason)
+      ? LOGIN_REASON_MESSAGE[reason]
+      : undefined;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +37,7 @@ function LoginForm() {
     setIsLoading(true);
     try {
       await login(email, password);
-      router.push(next && next.startsWith("/") ? next : "/products");
+      router.push(safeLoginRedirect(next));
     } catch (err) {
       setError(extractApiError(err, "No pudimos iniciar sesión"));
     } finally {

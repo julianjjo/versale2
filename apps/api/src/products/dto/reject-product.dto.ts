@@ -1,8 +1,10 @@
 import { IsString, IsOptional, MaxLength } from 'class-validator';
 
 export class RejectProductDto {
-  @IsString()
+  @IsString({ message: 'El motivo del rechazo debe ser un texto' })
   @IsOptional()
-  @MaxLength(500)
+  @MaxLength(500, {
+    message: 'El motivo del rechazo no puede superar los 500 caracteres',
+  })
   reason?: string;
 }

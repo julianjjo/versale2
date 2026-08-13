@@ -41,6 +41,17 @@ export class OrdersController {
     return this.ordersService.getOrderById(id, userId, req.user.role as Role);
   }
 
+  // Admin routes live under the two-segment `admin/*` prefix, so the
+  // single-segment `@Get(':id')` above cannot capture them. Keep them grouped
+  // here and keep the `admin/` prefix: a one-segment literal would have to be
+  // declared before `:id` to win, since Nest matches in declaration order.
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('admin/stats')
+  async getOrderStats() {
+    return this.ordersService.getOrderStats();
+  }
+
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Get('admin/all')

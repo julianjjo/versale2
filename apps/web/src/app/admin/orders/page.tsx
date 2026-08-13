@@ -1,6 +1,11 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
 import {
   Spinner,
@@ -14,35 +19,34 @@ import {
   Price,
 } from "@/components/ui";
 import {
-  ORDER_STATUSES,
   ORDER_STATUS_LABEL,
   ORDER_STATUS_VARIANT,
+  commonNextStatuses,
+  nextStatusesFor,
 } from "@/lib/order-status";
+import { Pager } from "@/components/admin/pager";
+import { useDebouncedSearch } from "@/lib/use-debounced-search";
 import type { Order, OrderStatus } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-
-const STATUSES = ORDER_STATUSES;
 
 export default function AdminOrdersPage() {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<OrderStatus | "">("");
+  const bulkBarRef = useRef<HTMLDivElement>(null);
+  const [bulkBarHeight, setBulkBarHeight] = useState(0);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearch(searchInput.trim());
-      setPage(1);
-      setSelected(new Set());
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+  const { searchInput, setSearchInput, search } = useDebouncedSearch(() => {
+    setPage(1);
+    // Un término nuevo muestra otra lista: lo que estaba marcado ya no está a
+    // la vista, así que la selección se descarta.
+    setSelected(new Set());
+  });
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ["admin-orders", search, page],
     queryFn: async () => {
       const res = await api.get<{
@@ -53,6 +57,10 @@ export default function AdminOrdersPage() {
       );
       return res.data;
     },
+    // Cada término de búsqueda es una queryKey nueva: sin esto la página se
+    // quedaría sin datos y el buscador se desmontaría (perdiendo el foco y el
+    // cursor) en cada pulsación.
+    placeholderData: keepPreviousData,
   });
 
   const invalidateOrders = () =>
@@ -62,6 +70,9 @@ export default function AdminOrdersPage() {
     mutationFn: async ({ id, status }: { id: string; status: OrderStatus }) => {
       await api.patch(`/orders/admin/${id}/status`, { status });
     },
+    // Sin esto un rechazo anterior se quedaba en pantalla incluso despues de un
+    // cambio exitoso: el banner solo se escribia, nunca se limpiaba.
+    onMutate: () => setError(null),
     onSuccess: invalidateOrders,
     onError: (err) =>
       setError(extractApiError(err, "No pudimos cambiar el estado")),
@@ -75,15 +86,41 @@ export default function AdminOrdersPage() {
       ids: string[];
       status: OrderStatus;
     }) => {
-      await Promise.all(
+      // allSettled y no all: una sola falla no debe descartar las escrituras
+      // que sí funcionaron ni impedir que refresquemos la lista.
+      const results = await Promise.allSettled(
         ids.map((id) => api.patch(`/orders/admin/${id}/status`, { status })),
       );
+      const failedIds = ids.filter((_, i) => results[i].status === "rejected");
+      return { total: ids.length, failedIds };
     },
-    onSuccess: () => {
-      invalidateOrders();
-      setSelected(new Set());
-      setBulkStatus("");
+    onMutate: () => setError(null),
+    onSuccess: ({ total, failedIds }) => {
+      const failed = failedIds.length;
+      const succeeded = total - failed;
+      // Los que fallaron siguen seleccionados (y conservamos el estado elegido)
+      // para poder reintentar sin volver a marcarlos uno por uno.
+      setSelected(new Set(failedIds));
+      if (failed === 0) {
+        setBulkStatus("");
+        return;
+      }
+      setError(
+        succeeded === 0
+          ? `No pudimos actualizar ${
+              failed === 1
+                ? "el pedido seleccionado"
+                : `los ${failed} pedidos seleccionados`
+            }. Intenta de nuevo.`
+          : `Actualizamos ${succeeded} de ${total} pedidos. ${
+              failed === 1
+                ? "1 quedó sin actualizar y sigue seleccionado"
+                : `${failed} quedaron sin actualizar y siguen seleccionados`
+            }.`,
+      );
     },
+    // Pase lo que pase, la lista se recarga: nunca dejamos estados obsoletos.
+    onSettled: invalidateOrders,
     onError: (err) =>
       setError(extractApiError(err, "No pudimos actualizar los pedidos seleccionados")),
   });
@@ -92,6 +129,16 @@ export default function AdminOrdersPage() {
   const meta = data?.meta;
   const allInViewSelected =
     orders.length > 0 && orders.every((o) => selected.has(o.id));
+
+  // La selección siempre vive dentro de la página visible (cambiar de página la
+  // limpia), así que podemos resolver el estado de cada pedido seleccionado. Solo
+  // ofrecemos los estados legales para *todos* ellos: aplicar uno que solo vale
+  // para algunos fallaba por construcción, y el resumen "Actualizamos N de M"
+  // invitaba a reintentar algo que nunca podía funcionar.
+  const selectedOrders = orders.filter((o) => selected.has(o.id));
+  const bulkOptions = commonNextStatuses(selectedOrders.map((o) => o.status));
+  const bulkStatusIsApplicable =
+    bulkStatus !== "" && bulkOptions.includes(bulkStatus);
 
   const toggleOrder = (id: string) => {
     setSelected((prev) => {
@@ -115,21 +162,30 @@ export default function AdminOrdersPage() {
     });
   };
 
-  if (isLoading && !data) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-        <Spinner className="h-5 w-5" /> Cargando…
-      </div>
-    );
-  }
+  // La barra de selección es fija y en móvil se envuelve en dos o tres líneas,
+  // así que un padding fijo nunca alcanza. Medimos su alto real (incluido su
+  // propio padding) y reservamos exactamente ese espacio bajo la lista.
+  useEffect(() => {
+    const el = bulkBarRef.current;
+    if (!el) {
+      setBulkBarHeight(0);
+      return;
+    }
+    const measure = () => setBulkBarHeight(el.getBoundingClientRect().height);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [selected.size, bulkUpdateStatus.isPending]);
 
   return (
-    <div className="pb-20">
+    <div style={{ paddingBottom: bulkBarHeight }}>
       <h2 className="heading-section mb-4 text-text-primary">
         Todos los pedidos
       </h2>
 
-      <div className="mb-4">
+      <div className="mb-4 flex items-center gap-3">
         <Input
           type="search"
           placeholder="Buscar por comprador, correo o ID de pedido"
@@ -137,7 +193,13 @@ export default function AdminOrdersPage() {
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           className="max-w-md"
+          wrapperClassName="flex-1"
         />
+        {isFetching && !isLoading && (
+          <span className="inline-flex flex-shrink-0 items-center gap-1.5 text-xs text-text-muted">
+            <Spinner className="h-3.5 w-3.5" /> Actualizando…
+          </span>
+        )}
       </div>
 
       {error && (
@@ -146,12 +208,16 @@ export default function AdminOrdersPage() {
         </p>
       )}
 
-      {orders.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
+          <Spinner className="h-5 w-5" /> Cargando…
+        </div>
+      ) : orders.length === 0 ? (
         <EmptyState
           title={search ? "Ningún pedido coincide con la búsqueda" : "Aún no hay pedidos"}
         />
       ) : (
-        <>
+        <div aria-busy={isFetching}>
           <div className="mb-2 flex items-center gap-2 px-1">
             <Checkbox
               checked={allInViewSelected}
@@ -200,11 +266,23 @@ export default function AdminOrdersPage() {
                             status: e.target.value as OrderStatus,
                           })
                         }
-                        disabled={updateStatus.isPending}
+                        disabled={
+                          updateStatus.isPending ||
+                          nextStatusesFor(order.status).length === 0
+                        }
                         aria-label="Estado del pedido"
                         className="flex-1 text-sm sm:w-40 sm:flex-none"
                       >
-                        {STATUSES.map((s) => (
+                        {/* Solo los estados a los que este pedido puede pasar. El
+                            estado actual va como opción deshabilitada porque un
+                            <select> necesita su propio valor para mostrarlo. En un
+                            estado terminal (Entregado, Cancelado) no queda ninguna
+                            transición legal y el control se deshabilita, en vez de
+                            ofrecer opciones que la API siempre rechaza. */}
+                        <option value={order.status} disabled>
+                          {ORDER_STATUS_LABEL[order.status]}
+                        </option>
+                        {nextStatusesFor(order.status).map((s) => (
                           <option key={s} value={s}>
                             {ORDER_STATUS_LABEL[s]}
                           </option>
@@ -222,39 +300,25 @@ export default function AdminOrdersPage() {
               </Card>
             ))}
           </div>
-        </>
-      )}
-
-      {meta && meta.pages > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-2">
-          <Button
-            variant="secondary"
-            disabled={meta.page <= 1}
-            onClick={() => {
-              setPage((p) => p - 1);
-              setSelected(new Set());
-            }}
-          >
-            ‹ Anterior
-          </Button>
-          <span className="text-sm text-text-muted">
-            Página {meta.page} de {meta.pages}
-          </span>
-          <Button
-            variant="secondary"
-            disabled={meta.page >= meta.pages}
-            onClick={() => {
-              setPage((p) => p + 1);
-              setSelected(new Set());
-            }}
-          >
-            Siguiente ›
-          </Button>
         </div>
       )}
 
+      <Pager
+        page={page}
+        pages={meta?.pages ?? 0}
+        isFetching={isFetching}
+        onPageChange={(next) => {
+          setPage(next);
+          // Otra página, otras filas: lo marcado deja de estar a la vista.
+          setSelected(new Set());
+        }}
+      />
+
       {selected.size > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-4">
+        <div
+          ref={bulkBarRef}
+          className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-4"
+        >
           <div className="flex w-full max-w-2xl flex-wrap items-center gap-3 rounded-2xl border border-border bg-surface p-4 shadow-[0_20px_50px_-20px_rgba(26,26,26,0.35)]">
             <span className="text-sm font-medium text-text-primary">
               {selected.size === 1
@@ -266,10 +330,14 @@ export default function AdminOrdersPage() {
               onChange={(e) => setBulkStatus(e.target.value as OrderStatus)}
               aria-label="Nuevo estado para los pedidos seleccionados"
               className="w-44 text-sm"
-              disabled={bulkUpdateStatus.isPending}
+              disabled={bulkUpdateStatus.isPending || bulkOptions.length === 0}
             >
-              <option value="">Elegir estado…</option>
-              {STATUSES.map((s) => (
+              <option value="">
+                {bulkOptions.length === 0
+                  ? "Sin cambios posibles"
+                  : "Elegir estado…"}
+              </option>
+              {bulkOptions.map((s) => (
                 <option key={s} value={s}>
                   {ORDER_STATUS_LABEL[s]}
                 </option>
@@ -277,12 +345,12 @@ export default function AdminOrdersPage() {
             </Select>
             <Button
               size="sm"
-              disabled={!bulkStatus || bulkUpdateStatus.isPending}
+              disabled={!bulkStatusIsApplicable || bulkUpdateStatus.isPending}
               onClick={() =>
-                bulkStatus &&
+                bulkStatusIsApplicable &&
                 bulkUpdateStatus.mutate({
                   ids: Array.from(selected),
-                  status: bulkStatus,
+                  status: bulkStatus as OrderStatus,
                 })
               }
             >

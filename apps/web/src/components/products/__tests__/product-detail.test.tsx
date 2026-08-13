@@ -3,6 +3,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProductDetail } from "../product-detail";
 import { TestProviders } from "@/test-utils/TestProviders";
+import { tokenStore } from "@/lib/token";
+import type { Product } from "@/lib/types";
 
 const pushMock = vi.fn();
 
@@ -78,6 +80,9 @@ describe("ProductDetail", () => {
     vi.clearAllMocks();
     authState.user = null;
     authState.isLoading = false;
+    // Whether a token is present decides if the server-seeded product is
+    // revalidated, so each test starts from a known (anonymous) state.
+    tokenStore.clear();
     vi.spyOn(window, "alert").mockImplementation(() => {});
   });
 
@@ -114,7 +119,10 @@ describe("ProductDetail", () => {
   });
 
   it("muestra el estado no encontrado cuando el producto no existe", async () => {
-    vi.mocked(api.get).mockRejectedValue(new Error("Not found"));
+    // Un 404 de verdad: la prenda ya no está publicada.
+    vi.mocked(api.get).mockRejectedValue(
+      Object.assign(new Error("Not found"), { response: { status: 404 } }),
+    );
     render(
       <TestProviders>
         <ProductDetail />
@@ -124,6 +132,25 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText(/producto no encontrado/i)).toBeInTheDocument();
     });
+  });
+
+  it("ofrece reintentar cuando la carga falla por un error temporal", async () => {
+    // Sin respuesta (red caída) o un 5xx no significan que la prenda no exista,
+    // así que no debe decirse que fue eliminada.
+    vi.mocked(api.get).mockRejectedValue(new Error("Network Error"));
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/no pudimos cargar la prenda/i)).toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole("button", { name: /reintentar/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/producto no encontrado/i)).not.toBeInTheDocument();
   });
 
   it("pide inicio de sesión al agregar al carrito sin sesión", async () => {
@@ -213,6 +240,45 @@ describe("ProductDetail", () => {
         comment: "¡Buenísimo!",
       });
     });
+  });
+
+  it("usa el producto resuelto en el servidor sin volver a pedirlo si la visita es anónima", async () => {
+    // The server probe is anonymous, so for a visitor without a token its
+    // result already IS the answer — asking again is a second identical
+    // round-trip on every product view.
+    vi.mocked(api.get).mockRejectedValue(new Error("Network Error"));
+    render(
+      <TestProviders>
+        <ProductDetail initialProduct={mockProduct as unknown as Product} />
+      </TestProviders>,
+    );
+
+    expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Classic Levi's trucker jacket in great condition")).toBeInTheDocument();
+    });
+    expect(api.get).not.toHaveBeenCalledWith("/products/p1");
+    expect(screen.queryByText(/producto no encontrado/i)).toBeNull();
+  });
+
+  it("revalida con el token del visitante y conserva el producto si esa recarga falla", async () => {
+    // A visitor WITH a token can see more than the anonymous probe did (their
+    // own pending listing, admin), so their copy is refetched — and a failed
+    // refetch must not swap the product for the "no encontrado" empty state.
+    tokenStore.set("a-token");
+    vi.mocked(api.get).mockRejectedValue(new Error("Network Error"));
+    render(
+      <TestProviders>
+        <ProductDetail initialProduct={mockProduct as unknown as Product} />
+      </TestProviders>,
+    );
+
+    expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith("/products/p1");
+    });
+    expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    expect(screen.queryByText(/producto no encontrado/i)).toBeNull();
   });
 
   it("navega la calificación con el teclado (roving tabindex)", async () => {

@@ -1,16 +1,53 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Role } from '../users/role.enum';
+import { resolvePagination } from '../common/pagination';
+
+// Fields moderation actually judges: if a seller changes any of them the
+// listing has to be reviewed again before going back to the public catalog.
+const MODERATED_FIELDS = [
+  'title',
+  'description',
+  'price',
+  'category',
+  'brand',
+  'condition',
+  'size',
+  'images',
+] as const;
 
 @Injectable()
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
+
+  private hasModeratedChanges(
+    product: Record<string, unknown>,
+    updateProductDto: UpdateProductDto,
+  ) {
+    const update = updateProductDto as Record<string, unknown>;
+
+    return MODERATED_FIELDS.some((field) => {
+      const next = update[field];
+      if (next === undefined) {
+        return false;
+      }
+      if (field === 'images') {
+        return (
+          JSON.stringify(next ?? null) !==
+          JSON.stringify(product[field] ?? null)
+        );
+      }
+      return next !== product[field];
+    });
+  }
 
   async create(createProductDto: CreateProductDto, sellerId: string) {
     const { images, ...rest } = createProductDto;
@@ -35,11 +72,10 @@ export class ProductsService {
       page = 1,
       limit = 10,
     } = query;
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 10;
-    const skip = (pageNum - 1) * limitNum;
+    const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
-    const where: any = { isApproved: true };
+    // Sold items are one-of-a-kind: once bought they leave the public catalog.
+    const where: any = { isApproved: true, soldAt: null };
 
     if (search) {
       const term = String(search);
@@ -88,9 +124,9 @@ export class ProductsService {
       data: products,
       meta: {
         total,
-        page: Number(page),
-        limit: Number(limit),
-        pages: Math.ceil(total / limit),
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum),
       },
     };
   }
@@ -98,13 +134,13 @@ export class ProductsService {
   async getFacets() {
     const [brands, categories] = await Promise.all([
       this.prisma.client.product.findMany({
-        where: { isApproved: true, brand: { not: null } },
+        where: { isApproved: true, soldAt: null, brand: { not: null } },
         select: { brand: true },
         distinct: ['brand'],
         orderBy: { brand: 'asc' },
       }),
       this.prisma.client.product.findMany({
-        where: { isApproved: true },
+        where: { isApproved: true, soldAt: null },
         select: { category: true },
         distinct: ['category'],
         orderBy: { category: 'asc' },
@@ -140,6 +176,11 @@ export class ProductsService {
       throw new NotFoundException(`Producto con ID ${id} no encontrado`);
     }
 
+    // Being sold removes a listing from the catalog (`findAll`/`getFacets`
+    // filter on `soldAt: null`) but NOT from the web: the buyer reaches this
+    // page from their order history, and it is the only place they can leave a
+    // review. Hiding it 404'd those links and made the review flow
+    // unreachable. Only moderation state restricts who may look.
     if (!product.isApproved) {
       const canView =
         !!requester &&
@@ -185,11 +226,52 @@ export class ProductsService {
       );
     }
 
-    return this.prisma.client.product.update({
-      where: { id },
-      data: { ...updateProductDto },
-      include: { seller: { select: { id: true, name: true } } },
-    });
+    // A sold garment is a historical record: the buyer's order detail renders the
+    // live product row, so letting the seller rewrite it would change what
+    // someone else's purchase history says they bought. It would also send an
+    // already-shipped item back through `needsReview` below, and an unapproved
+    // product can no longer be reviewed. The read above is only for the 404/403
+    // checks — the write itself re-asserts `soldAt: null` for non-admins so a
+    // checkout that claims the product between the read and the write still
+    // gets rejected instead of silently overwriting a sold listing.
+    if (product.soldAt && role !== Role.ADMIN) {
+      throw new BadRequestException(
+        'Este producto ya fue vendido y no se puede editar',
+      );
+    }
+
+    // An admin editing a listing is the moderator, so their edits stand.
+    // A seller touching anything moderation judged sends it back to the queue,
+    // and clears any previous rejection so it lands in "pendientes" again.
+    const needsReview =
+      role !== Role.ADMIN &&
+      this.hasModeratedChanges(product, updateProductDto);
+
+    try {
+      return await this.prisma.client.product.update({
+        where: {
+          id,
+          ...(role !== Role.ADMIN ? { soldAt: null } : {}),
+        },
+        data: {
+          ...updateProductDto,
+          ...(needsReview
+            ? { isApproved: false, rejectedAt: null, rejectionReason: null }
+            : {}),
+        },
+        include: { seller: { select: { id: true, name: true } } },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new BadRequestException(
+          'Este producto ya fue vendido y no se puede editar',
+        );
+      }
+      throw error;
+    }
   }
 
   async remove(id: string, userId: string, role: Role) {
@@ -207,15 +289,41 @@ export class ProductsService {
       );
     }
 
-    return this.prisma.client.product.delete({ where: { id } });
+    // `OrderItem.productId` is ON DELETE RESTRICT, so deleting a product that has
+    // been bought raises a raw Prisma error and, with no exception filter
+    // registered, a 500. Refuse it with a Spanish 400 instead. As with update()
+    // above, the read here only drives that early check — the delete itself
+    // re-asserts `soldAt: null` so a checkout racing this request still can't
+    // reach the foreign-key failure this guard exists to prevent.
+    if (product.soldAt) {
+      throw new BadRequestException(
+        'Este producto ya fue vendido y no se puede eliminar: forma parte del historial de un pedido',
+      );
+    }
+
+    try {
+      return await this.prisma.client.product.delete({
+        where: { id, soldAt: null },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new BadRequestException(
+          'Este producto ya fue vendido y no se puede eliminar: forma parte del historial de un pedido',
+        );
+      }
+      throw error;
+    }
   }
 
   async findAllForAdmin(query: any) {
     const { status, page = 1, limit = 10 } = query;
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 10;
-    const skip = (pageNum - 1) * limitNum;
+    const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
+    // Admins see everything, sold items included: an approved product that has
+    // been bought stays in the "aprobados" bucket, it just left the catalog.
     const where: any = {};
     if (status === 'pending') {
       where.isApproved = false;

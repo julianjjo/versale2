@@ -1,6 +1,11 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
 import {
   Spinner,
@@ -11,9 +16,11 @@ import {
   Input,
   Select,
 } from "@/components/ui";
+import { Pager } from "@/components/admin/pager";
 import { useAuth } from "@/lib/auth";
+import { useDebouncedSearch } from "@/lib/use-debounced-search";
 import type { User } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 type RoleFilter = "" | "USER" | "ADMIN";
 
@@ -21,20 +28,13 @@ export default function AdminUsersPage() {
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
   const [error, setError] = useState<string | null>(null);
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
   const [role, setRole] = useState<RoleFilter>("");
   const [page, setPage] = useState(1);
+  const { searchInput, setSearchInput, search } = useDebouncedSearch(() =>
+    setPage(1),
+  );
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearch(searchInput.trim());
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
-
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ["admin-users", search, role, page],
     queryFn: async () => {
       const res = await api.get<{
@@ -45,6 +45,23 @@ export default function AdminUsersPage() {
       );
       return res.data;
     },
+    // Cada término de búsqueda es una queryKey nueva: sin esto la página se
+    // quedaría sin datos y el buscador se desmontaría (perdiendo el foco y el
+    // cursor) en cada pulsación.
+    placeholderData: keepPreviousData,
+  });
+
+  // Cuántos administradores hay EN TOTAL, no cuántos se ven en esta página.
+  // Contarlos sobre la página filtrada bloqueaba el borrado en cuanto una
+  // búsqueda devolvía un solo admin, aunque hubiera diez más.
+  const { data: totalAdmins } = useQuery({
+    queryKey: ["admin-users-admin-count"],
+    queryFn: async () => {
+      const res = await api.get<{ meta: { total: number } }>(
+        "/users?role=ADMIN&page=1&limit=1",
+      );
+      return res.data.meta.total;
+    },
   });
 
   const remove = useMutation({
@@ -53,22 +70,17 @@ export default function AdminUsersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-users-admin-count"],
+      });
     },
     onError: (err) =>
       setError(extractApiError(err, "No pudimos eliminar al usuario")),
   });
 
-  if (isLoading && !data) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-        <Spinner className="h-5 w-5" /> Cargando…
-      </div>
-    );
-  }
-
   const users = data?.data ?? [];
   const meta = data?.meta;
-  const adminCount = users.filter((u) => u.role === "ADMIN").length;
+  const adminCount = totalAdmins;
 
   return (
     <div>
@@ -97,6 +109,11 @@ export default function AdminUsersPage() {
           <option value="USER">Usuario</option>
           <option value="ADMIN">Administrador</option>
         </Select>
+        {isFetching && !isLoading && (
+          <span className="inline-flex flex-shrink-0 items-center gap-1.5 self-center text-xs text-text-muted">
+            <Spinner className="h-3.5 w-3.5" /> Actualizando…
+          </span>
+        )}
       </div>
 
       {error && (
@@ -105,7 +122,11 @@ export default function AdminUsersPage() {
         </p>
       )}
 
-      {users.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
+          <Spinner className="h-5 w-5" /> Cargando…
+        </div>
+      ) : users.length === 0 ? (
         <EmptyState
           title={
             search || role
@@ -114,10 +135,13 @@ export default function AdminUsersPage() {
           }
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3" aria-busy={isFetching}>
           {users.map((u) => {
             const isSelf = u.id === currentUser?.id;
-            const isLastAdmin = u.role === "ADMIN" && adminCount <= 1;
+            // Mientras el conteo no haya llegado no bloqueamos nada: el API
+            // rechaza igual el borrado del último administrador.
+            const isLastAdmin =
+              u.role === "ADMIN" && adminCount !== undefined && adminCount <= 1;
             const blockedReason = isSelf
               ? "No puedes eliminar tu propia cuenta."
               : isLastAdmin
@@ -156,27 +180,12 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {meta && meta.pages > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-2">
-          <Button
-            variant="secondary"
-            disabled={meta.page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            ‹ Anterior
-          </Button>
-          <span className="text-sm text-text-muted">
-            Página {meta.page} de {meta.pages}
-          </span>
-          <Button
-            variant="secondary"
-            disabled={meta.page >= meta.pages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Siguiente ›
-          </Button>
-        </div>
-      )}
+      <Pager
+        page={page}
+        pages={meta?.pages ?? 0}
+        isFetching={isFetching}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

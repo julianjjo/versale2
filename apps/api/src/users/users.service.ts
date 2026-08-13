@@ -1,11 +1,14 @@
 import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from './role.enum';
+import { resolvePagination } from '../common/pagination';
 import * as bcrypt from 'bcryptjs';
 
 const PUBLIC_USER_SELECT = {
@@ -38,17 +41,17 @@ export class UsersService {
   }
 
   async findAll(query: any = {}) {
-    const { search, role, page = 1, limit = 10 } = query;
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 10;
-    const skip = (pageNum - 1) * limitNum;
+    const { search, role, page, limit } = query ?? {};
+    const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const where: any = {};
     if (search) {
       const term = String(search);
       where.OR = [{ name: { contains: term } }, { email: { contains: term } }];
     }
-    if (role) {
+    // Prisma rejects a value outside the enum with an unhandled error, so an
+    // unknown `?role=` is ignored rather than passed through.
+    if (role && Object.values(Role).includes(role as Role)) {
       where.role = role;
     }
 
@@ -81,19 +84,67 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
     }
 
     return user;
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto) {
-    const data: UpdateUserDto = {
-      ...updateUserDto,
-    };
+  async update(
+    id: string,
+    updateUserDto: UpdateUserDto,
+    options: { isSelfService?: boolean } = {},
+  ) {
+    const { currentPassword, ...data } = updateUserDto;
+    const nextEmail = data.email;
+    const wantsPasswordChange = data.password !== undefined;
+    const wantsEmailChange = nextEmail !== undefined;
+
+    if (wantsPasswordChange || wantsEmailChange) {
+      const currentUser = await this.prisma.client.user.findUnique({
+        where: { id },
+        select: { email: true, password: true },
+      });
+      if (!currentUser) {
+        throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+      }
+
+      const changesEmail =
+        nextEmail !== undefined && nextEmail !== currentUser.email;
+
+      // A borrowed session must not be able to take over the account: when the
+      // owner changes their own credentials they have to prove the current
+      // password. Admins recovering another account are exempt.
+      if (options.isSelfService && (wantsPasswordChange || changesEmail)) {
+        if (!currentPassword) {
+          throw new UnauthorizedException(
+            'Debes confirmar tu contraseña actual para cambiar tu correo o tu contraseña',
+          );
+        }
+
+        const isCurrentPasswordValid = await bcrypt.compare(
+          currentPassword,
+          currentUser.password,
+        );
+        if (!isCurrentPasswordValid) {
+          throw new UnauthorizedException('La contraseña actual es incorrecta');
+        }
+      }
+
+      if (changesEmail) {
+        const existingUser = await this.prisma.client.user.findUnique({
+          where: { email: nextEmail },
+        });
+        if (existingUser) {
+          throw new ConflictException('Ya existe una cuenta con ese correo');
+        }
+      }
+    }
+
     if (data.password) {
       data.password = await bcrypt.hash(data.password, 10);
     }
+
     return this.prisma.client.user.update({
       where: { id },
       data,
@@ -111,7 +162,7 @@ export class UsersService {
       select: { id: true, role: true },
     });
     if (!target) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
     }
 
     if (target.role === Role.ADMIN) {
@@ -125,6 +176,9 @@ export class UsersService {
       }
     }
 
-    return this.prisma.client.user.delete({ where: { id } });
+    return this.prisma.client.user.delete({
+      where: { id },
+      select: PUBLIC_USER_SELECT,
+    });
   }
 }

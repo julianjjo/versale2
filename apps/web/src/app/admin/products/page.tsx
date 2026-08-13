@@ -1,6 +1,11 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
 import {
   Spinner,
@@ -12,16 +17,11 @@ import {
   Modal,
   Textarea,
 } from "@/components/ui";
+import { conditionLabel } from "@/lib/product-condition";
 import type { Product } from "@/lib/types";
 import { useState } from "react";
 import Link from "next/link";
 
-const CONDITION_LABELS: Record<string, string> = {
-  New: "Nuevo",
-  "Like New": "Como nuevo",
-  Good: "Buen estado",
-  Fair: "Aceptable",
-};
 
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
 
@@ -47,7 +47,7 @@ export default function AdminProductsPage() {
   const [rejectTarget, setRejectTarget] = useState<Product | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ["admin-products", status, page],
     queryFn: async () => {
       const res = await api.get<{
@@ -56,6 +56,9 @@ export default function AdminProductsPage() {
       }>(`/products/admin/all?status=${status}&page=${page}&limit=20`);
       return res.data;
     },
+    // Cada pestaña y página es una queryKey nueva: mantenemos la lista anterior
+    // a la vista para no vaciar la pantalla en cada cambio de filtro.
+    placeholderData: keepPreviousData,
   });
 
   const { data: pendingCount } = useQuery({
@@ -120,24 +123,38 @@ export default function AdminProductsPage() {
         Todas las publicaciones
       </h2>
 
-      <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Filtrar por estado">
-        {STATUS_TABS.map((tab) => (
-          <button
-            key={tab.value}
-            type="button"
-            role="tab"
-            aria-selected={status === tab.value}
-            onClick={() => setTab(tab.value)}
-            className={`filter-pill ${status === tab.value ? "is-active" : ""}`}
-          >
-            {tab.label}
-            {tab.value === "pending" && !!pendingCount && (
-              <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 text-[10px] font-semibold text-paper">
-                {pendingCount}
-              </span>
-            )}
-          </button>
-        ))}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        {/* Filtros, no pestañas: son botones que filtran una sola lista, sin
+            paneles asociados ni navegación por flechas. Declarar role="tab" sin
+            el patrón completo le promete al lector de pantalla una interacción
+            que no existe, así que se quedan como botones con aria-pressed. */}
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-label="Filtrar por estado"
+        >
+          {STATUS_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              aria-pressed={status === tab.value}
+              onClick={() => setTab(tab.value)}
+              className={`filter-pill ${status === tab.value ? "is-active" : ""}`}
+            >
+              {tab.label}
+              {tab.value === "pending" && !!pendingCount && (
+                <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 text-[10px] font-semibold text-paper">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        {isFetching && !isLoading && (
+          <span className="inline-flex flex-shrink-0 items-center gap-1.5 text-xs text-text-muted">
+            <Spinner className="h-3.5 w-3.5" /> Actualizando…
+          </span>
+        )}
       </div>
 
       {error && (
@@ -153,12 +170,12 @@ export default function AdminProductsPage() {
       ) : products.length === 0 ? (
         <EmptyState title={EMPTY_STATE_COPY[status]} />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3" aria-busy={isFetching}>
           {products.map((product, index) => {
             const isPending = !product.isApproved && !product.rejectedAt;
             const isRejected = !product.isApproved && !!product.rejectedAt;
             return (
-              <Card key={product.id}>
+              <Card key={product.id} data-testid={`admin-product-${product.id}`}>
                 <div className="flex flex-wrap items-center gap-4">
                   <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
                     {product.images?.[0] ? (
@@ -174,8 +191,13 @@ export default function AdminProductsPage() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
+                    {/* `?preview=1` skips the anonymous server-side probe in
+                        `app/products/[id]/page.tsx`, which would answer 404 for a
+                        listing that is not public yet — i.e. for exactly the
+                        pending and rejected rows this queue exists to moderate.
+                        The client query behind it carries the admin token. */}
                     <Link
-                      href={`/products/${product.id}`}
+                      href={`/products/${product.id}?preview=1`}
                       className="block truncate font-medium text-text-primary hover:underline"
                     >
                       {product.title}
@@ -189,7 +211,7 @@ export default function AdminProductsPage() {
                     </p>
                     <p className="mt-1 text-xs text-text-muted">
                       Condición:{" "}
-                      {CONDITION_LABELS[product.condition] ?? product.condition}
+                      {conditionLabel(product.condition)}
                     </p>
                     {isRejected && product.rejectionReason && (
                       <p className="mt-1 text-xs text-danger">
@@ -245,22 +267,25 @@ export default function AdminProductsPage() {
         </div>
       )}
 
+      {/* Límites sobre `page` y no sobre `meta.page`: keepPreviousData deja la
+          meta anterior visible mientras llega la nueva, y con eso un doble clic
+          rápido saltaba una página. */}
       {meta && meta.pages > 1 && (
         <div className="mt-6 flex items-center justify-center gap-2">
           <Button
             variant="secondary"
-            disabled={meta.page <= 1}
-            onClick={() => setPage((p) => p - 1)}
+            disabled={page <= 1 || isFetching}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             ‹ Anterior
           </Button>
           <span className="text-sm text-text-muted">
-            Página {meta.page} de {meta.pages}
+            Página {page} de {meta.pages}
           </span>
           <Button
             variant="secondary"
-            disabled={meta.page >= meta.pages}
-            onClick={() => setPage((p) => p + 1)}
+            disabled={page >= meta.pages || isFetching}
+            onClick={() => setPage((p) => Math.min(meta.pages, p + 1))}
           >
             Siguiente ›
           </Button>
@@ -277,8 +302,9 @@ export default function AdminProductsPage() {
         title={`Rechazar "${rejectTarget?.title ?? ""}"`}
       >
         <p className="text-sm text-text-muted">
-          El vendedor verá este motivo y podrá editar y volver a enviar la
-          publicación.
+          El motivo queda guardado como nota interna: se ve en la pestaña
+          “Rechazados” de este panel. Hoy el vendedor no recibe ninguna
+          notificación del rechazo.
         </p>
         <Textarea
           className="mt-3"

@@ -1,7 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from '../users.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 
 describe('UsersService', () => {
@@ -115,6 +120,36 @@ describe('UsersService', () => {
       });
     });
 
+    it('should clamp a hostile page/limit instead of reaching Prisma', async () => {
+      mockPrismaService.client.user.findMany.mockResolvedValue([]);
+      mockPrismaService.client.user.count.mockResolvedValue(0);
+
+      // `page=-1` used to compute `skip: -20`, which Prisma rejects outright,
+      // and `limit` had no ceiling at all.
+      const result = await service.findAll({ page: '-1', limit: '999999' });
+
+      expect(mockPrismaService.client.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 100 }),
+      );
+      expect(result.meta).toEqual({
+        total: 0,
+        page: 1,
+        limit: 100,
+        pages: 0,
+      });
+    });
+
+    it('should ignore a role that is not a real enum member', async () => {
+      mockPrismaService.client.user.findMany.mockResolvedValue([]);
+      mockPrismaService.client.user.count.mockResolvedValue(0);
+
+      await service.findAll({ role: 'BOGUS' });
+
+      expect(mockPrismaService.client.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+    });
+
     it('should filter by search term across name and email', async () => {
       mockPrismaService.client.user.findMany.mockResolvedValue([]);
       mockPrismaService.client.user.count.mockResolvedValue(0);
@@ -193,26 +228,32 @@ describe('UsersService', () => {
   });
 
   describe('update', () => {
-    it('should update a user without password change', async () => {
-      const userId = 'user1';
-      const updateUserDto = {
-        name: 'Updated Name',
-        email: 'updated@example.com',
-      };
+    const storedUser = {
+      email: 'user1@example.com',
+      password: 'stored_hash',
+    };
 
-      const mockUpdatedUser = {
-        id: userId,
-        ...updateUserDto,
-        role: 'USER',
-        isVerified: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+    const mockUpdatedUser = {
+      id: 'user1',
+      email: 'user1@example.com',
+      name: 'User 1',
+      role: 'USER',
+      isVerified: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    it('should update a user without touching credentials', async () => {
+      const userId = 'user1';
+      const updateUserDto = { name: 'Updated Name' };
 
       mockPrismaService.client.user.update.mockResolvedValue(mockUpdatedUser);
 
-      const result = await service.update(userId, updateUserDto);
+      const result = await service.update(userId, updateUserDto, {
+        isSelfService: true,
+      });
 
+      expect(mockPrismaService.client.user.findUnique).not.toHaveBeenCalled();
       expect(mockPrismaService.client.user.update).toHaveBeenCalledWith({
         where: { id: userId },
         data: updateUserDto,
@@ -240,16 +281,7 @@ describe('UsersService', () => {
         .spyOn(bcrypt, 'hash')
         .mockImplementation(() => Promise.resolve(hashedPassword));
 
-      const mockUpdatedUser = {
-        id: userId,
-        email: 'user1@example.com',
-        name: 'User 1',
-        role: 'USER',
-        isVerified: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
+      mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
       mockPrismaService.client.user.update.mockResolvedValue(mockUpdatedUser);
 
       const result = await service.update(userId, updateUserDto);
@@ -270,10 +302,143 @@ describe('UsersService', () => {
       });
       expect(result).toEqual(mockUpdatedUser);
     });
+
+    it('rejects a self-service password change without the current password', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
+
+      await expect(
+        service.update(
+          'user1',
+          { password: 'newpassword123' },
+          { isSelfService: true },
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockPrismaService.client.user.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a self-service password change when the current password is wrong', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
+      jest
+        .spyOn(bcrypt, 'compare')
+        .mockImplementation(() => Promise.resolve(false));
+
+      await expect(
+        service.update(
+          'user1',
+          { password: 'newpassword123', currentPassword: 'wrongpassword' },
+          { isSelfService: true },
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(bcrypt.compare).toHaveBeenCalledWith(
+        'wrongpassword',
+        storedUser.password,
+      );
+      expect(mockPrismaService.client.user.update).not.toHaveBeenCalled();
+    });
+
+    it('changes the password when the current password matches and never persists currentPassword', async () => {
+      jest
+        .spyOn(bcrypt, 'compare')
+        .mockImplementation(() => Promise.resolve(true));
+      jest
+        .spyOn(bcrypt, 'hash')
+        .mockImplementation(() => Promise.resolve('new_hashed_password'));
+
+      mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
+      mockPrismaService.client.user.update.mockResolvedValue(mockUpdatedUser);
+
+      await service.update(
+        'user1',
+        { password: 'newpassword123', currentPassword: 'currentpassword' },
+        { isSelfService: true },
+      );
+
+      expect(mockPrismaService.client.user.update).toHaveBeenCalledWith({
+        where: { id: 'user1' },
+        data: { password: 'new_hashed_password' },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          isVerified: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+    });
+
+    it('rejects a self-service email change without the current password', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
+
+      await expect(
+        service.update(
+          'user1',
+          { email: 'attacker@example.com' },
+          { isSelfService: true },
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockPrismaService.client.user.update).not.toHaveBeenCalled();
+    });
+
+    it('does not ask for the current password when the email is unchanged', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
+      mockPrismaService.client.user.update.mockResolvedValue(mockUpdatedUser);
+
+      await expect(
+        service.update(
+          'user1',
+          { name: 'Updated Name', email: storedUser.email },
+          { isSelfService: true },
+        ),
+      ).resolves.toEqual(mockUpdatedUser);
+      expect(mockPrismaService.client.user.update).toHaveBeenCalled();
+    });
+
+    it('lets an admin reset another account without its current password', async () => {
+      jest
+        .spyOn(bcrypt, 'hash')
+        .mockImplementation(() => Promise.resolve('admin_reset_hash'));
+      mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
+      mockPrismaService.client.user.update.mockResolvedValue(mockUpdatedUser);
+
+      await service.update('user1', { password: 'resetpassword123' });
+
+      expect(mockPrismaService.client.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'user1' },
+          data: { password: 'admin_reset_hash' },
+        }),
+      );
+    });
+
+    it('throws a Spanish ConflictException when the new email is already taken', async () => {
+      mockPrismaService.client.user.findUnique
+        .mockResolvedValueOnce(storedUser)
+        .mockResolvedValueOnce({ id: 'user2', email: 'taken@example.com' });
+
+      await expect(
+        service.update('user1', { email: 'taken@example.com' }),
+      ).rejects.toThrow(
+        new ConflictException('Ya existe una cuenta con ese correo'),
+      );
+      expect(mockPrismaService.client.user.update).not.toHaveBeenCalled();
+    });
+
+    it('throws a Spanish NotFoundException when the user no longer exists', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.update('nonexistent', { email: 'new@example.com' }),
+      ).rejects.toThrow(
+        new NotFoundException('Usuario con ID nonexistent no encontrado'),
+      );
+      expect(mockPrismaService.client.user.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('remove', () => {
-    it('should remove a regular user', async () => {
+    it('should remove a regular user without leaking credential columns', async () => {
       const userId = 'user1';
       const requesterId = 'admin1';
       const mockDeletedUser = {
@@ -292,6 +457,15 @@ describe('UsersService', () => {
 
       expect(mockPrismaService.client.user.delete).toHaveBeenCalledWith({
         where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          isVerified: true,
+          createdAt: true,
+          updatedAt: true,
+        },
       });
       expect(result).toEqual(mockDeletedUser);
     });
@@ -348,9 +522,9 @@ describe('UsersService', () => {
 
       const result = await service.remove(targetId, requesterId);
 
-      expect(mockPrismaService.client.user.delete).toHaveBeenCalledWith({
-        where: { id: targetId },
-      });
+      expect(mockPrismaService.client.user.delete).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: targetId } }),
+      );
       expect(result).toEqual(mockDeletedUser);
     });
   });

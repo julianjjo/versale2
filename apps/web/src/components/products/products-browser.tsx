@@ -2,9 +2,14 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import {
+  CONDITION_OPTIONS,
+  conditionLabel,
+} from "@/lib/product-condition";
 import type { PaginatedResponse, Product } from "@/lib/types";
-import { useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Spinner,
   EmptyState,
@@ -35,12 +40,6 @@ interface ProductsBrowserProps {
 }
 
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
-const CONDITIONS: Array<{ value: string; label: string }> = [
-  { value: "New", label: "Nuevo" },
-  { value: "Like New", label: "Como nuevo" },
-  { value: "Good", label: "Buen estado" },
-  { value: "Fair", label: "Aceptable" },
-];
 
 interface FilterFormState {
   search: string;
@@ -82,20 +81,129 @@ function mergeFacetOptions(fetched: string[] | undefined, current: string): stri
   return current && !options.includes(current) ? [current, ...options] : options;
 }
 
-export function ProductsBrowser({
+function parseAmount(raw: string | null): number | undefined {
+  if (!raw) return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+
+function parsePage(raw: string | null): number | undefined {
+  if (!raw) return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : undefined;
+}
+
+// The query string is the source of truth for the applied filters, so a
+// catalog view can be shared, bookmarked and restored with Back/Forward.
+// `limit` never travels in the URL — it's a layout decision of the host page,
+// not something the visitor picks.
+function filtersFromQuery(
+  params: URLSearchParams,
+  limit: number,
+  base?: ProductFilters,
+): ProductFilters {
+  const filters: ProductFilters = { page: 1, limit, ...base };
+  const search = params.get("search")?.trim();
+  if (search) filters.search = search;
+  const minPrice = parseAmount(params.get("minPrice"));
+  if (minPrice !== undefined) filters.minPrice = minPrice;
+  const maxPrice = parseAmount(params.get("maxPrice"));
+  if (maxPrice !== undefined) filters.maxPrice = maxPrice;
+  for (const key of ["size", "brand", "category", "condition"] as const) {
+    const value = params.get(key)?.trim();
+    if (value) filters[key] = value;
+  }
+  filters.page = parsePage(params.get("page")) ?? filters.page ?? 1;
+  return filters;
+}
+
+function queryFromFilters(filters: ProductFilters): string {
+  const params = new URLSearchParams();
+  if (filters.search) params.set("search", filters.search);
+  if (filters.minPrice != null) params.set("minPrice", String(filters.minPrice));
+  if (filters.maxPrice != null) params.set("maxPrice", String(filters.maxPrice));
+  if (filters.size) params.set("size", filters.size);
+  if (filters.condition) params.set("condition", filters.condition);
+  if (filters.brand) params.set("brand", filters.brand);
+  if (filters.category) params.set("category", filters.category);
+  if ((filters.page ?? 1) > 1) params.set("page", String(filters.page));
+  return params.toString();
+}
+
+function ProductsLoading() {
+  return (
+    <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
+      <Spinner className="h-5 w-5" /> Cargando productos…
+    </div>
+  );
+}
+
+// `useSearchParams` needs a Suspense boundary in the App Router. Keeping it
+// here (instead of in every page that renders the browser) means the home page
+// and the marketplace both get one without changing their own layout.
+export function ProductsBrowser(props: ProductsBrowserProps) {
+  return (
+    <Suspense fallback={<ProductsLoading />}>
+      <ProductsBrowserContent {...props} />
+    </Suspense>
+  );
+}
+
+function ProductsBrowserContent({
   initialFilters,
   limit = 12,
   showFilters = true,
   showPagination = true,
 }: ProductsBrowserProps) {
-  const [filters, setFilters] = useState<ProductFilters>({
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Embedded uses (the home page grid) show a fixed slice of the catalog and
+  // must not rewrite the URL of the page hosting them; only the browsable
+  // marketplace view owns the query string.
+  const ownsUrl = showFilters || showPagination;
+  const query = searchParams?.toString() ?? "";
+
+  const urlFilters = useMemo(
+    () => filtersFromQuery(new URLSearchParams(query), limit, initialFilters),
+    [query, limit, initialFilters],
+  );
+  const [localFilters, setLocalFilters] = useState<ProductFilters>(() => ({
     page: 1,
     limit,
     ...initialFilters,
-  });
-  const [form, setForm] = useState<FilterFormState>(() =>
-    toFormState(initialFilters),
-  );
+  }));
+  const filters = ownsUrl ? urlFilters : localFilters;
+
+  const appliedForm = toFormState(filters);
+  const appliedSignature = JSON.stringify(appliedForm);
+  const [form, setForm] = useState<FilterFormState>(appliedForm);
+  const [syncedSignature, setSyncedSignature] = useState(appliedSignature);
+  // The applied filters can change from outside the form — a shared link, the
+  // Back/Forward buttons, "Limpiar filtros". Re-seed the visible fields when
+  // that happens (a page change alone never touches the draft).
+  if (syncedSignature !== appliedSignature) {
+    setSyncedSignature(appliedSignature);
+    setForm(appliedForm);
+  }
+
+  const applyFilters = (next: ProductFilters) => {
+    if (!ownsUrl) {
+      setLocalFilters(next);
+      return;
+    }
+    const nextQuery = queryFromFilters(next);
+    // Re-applying the same filters would only pile up history entries and turn
+    // Back into a trap.
+    if (nextQuery === query) return;
+    // Nothing here fires per keystroke — filters land only when the form is
+    // submitted or the page changes, so each entry in the history is a
+    // deliberate step the visitor expects Back to undo.
+    router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+      scroll: false,
+    });
+  };
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["products", filters],
@@ -127,7 +235,7 @@ export function ProductsBrowser({
 
   const clearFilters = () => {
     setForm(EMPTY_FORM);
-    setFilters({ page: 1, limit });
+    applyFilters({ page: 1, limit });
   };
 
   return (
@@ -137,8 +245,8 @@ export function ProductsBrowser({
           className="mb-6 grid grid-cols-1 gap-3 rounded-2xl border border-border bg-surface-muted p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4"
           onSubmit={(e) => {
             e.preventDefault();
-            setFilters((f) => ({
-              ...f,
+            applyFilters({
+              ...filters,
               search: form.search || undefined,
               minPrice: form.minPrice ? Number(form.minPrice) : undefined,
               maxPrice: form.maxPrice ? Number(form.maxPrice) : undefined,
@@ -147,7 +255,7 @@ export function ProductsBrowser({
               category: form.category || undefined,
               condition: form.condition || undefined,
               page: 1,
-            }));
+            });
           }}
         >
           <Input
@@ -206,7 +314,7 @@ export function ProductsBrowser({
             aria-label="Filtrar por condición"
           >
             <option value="">Cualquier condición</option>
-            {CONDITIONS.map((c) => (
+            {CONDITION_OPTIONS.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
               </option>
@@ -293,10 +401,10 @@ export function ProductsBrowser({
           <Button
             variant="secondary"
             onClick={() =>
-              setFilters((f) => ({
-                ...f,
-                page: Math.max(1, (f.page ?? 1) - 1),
-              }))
+              applyFilters({
+                ...filters,
+                page: Math.max(1, (filters.page ?? 1) - 1),
+              })
             }
             disabled={(filters.page ?? 1) <= 1}
             aria-label="Página anterior"
@@ -306,7 +414,7 @@ export function ProductsBrowser({
           {Array.from({ length: data.meta.pages }, (_, i) => i + 1).map((p) => (
             <button
               key={p}
-              onClick={() => setFilters((f) => ({ ...f, page: p }))}
+              onClick={() => applyFilters({ ...filters, page: p })}
               aria-current={p === data.meta.page ? "page" : undefined}
               aria-label={`Página ${p}`}
               className={`inline-flex h-11 min-w-11 items-center justify-center rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary ${
@@ -321,10 +429,10 @@ export function ProductsBrowser({
           <Button
             variant="secondary"
             onClick={() =>
-              setFilters((f) => ({
-                ...f,
-                page: Math.min(data.meta.pages, (f.page ?? 1) + 1),
-              }))
+              applyFilters({
+                ...filters,
+                page: Math.min(data.meta.pages, (filters.page ?? 1) + 1),
+              })
             }
             disabled={(filters.page ?? 1) >= data.meta.pages}
             aria-label="Página siguiente"
@@ -337,12 +445,6 @@ export function ProductsBrowser({
   );
 }
 
-const CONDITION_LABELS: Record<string, string> = {
-  New: "Nuevo",
-  "Like New": "Como nuevo",
-  Good: "Buen estado",
-  Fair: "Aceptable",
-};
 
 export function ProductCard({ product }: { product: Product }) {
   return (
@@ -404,7 +506,7 @@ export function ProductCard({ product }: { product: Product }) {
           <div className="mt-1.5 flex items-center justify-between gap-2">
             <Price value={product.price} className="text-[16px] sm:text-[18px]" />
             <span className="text-[11px] text-muted">
-              Talla {product.size} · {CONDITION_LABELS[product.condition] ?? product.condition}
+              Talla {product.size} · {conditionLabel(product.condition)}
             </span>
           </div>
           {product.seller && (

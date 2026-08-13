@@ -34,7 +34,9 @@ export class UsersController {
     @Body() updateUserDto: UpdateUserDto,
   ) {
     const userId = req.user.id;
-    return this.usersService.update(userId, updateUserDto);
+    return this.usersService.update(userId, updateUserDto, {
+      isSelfService: true,
+    });
   }
 
   @UseGuards(RolesGuard)

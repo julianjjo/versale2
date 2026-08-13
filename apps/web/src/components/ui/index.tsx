@@ -1,9 +1,11 @@
-"use client";
-
+// Deliberately NOT a "use client" module: the presentational primitives here
+// (PageContainer, EmptyState, Card, Badge, Price…) are imported by server
+// components such as `app/not-found.tsx` and `layout/static-page.tsx`, and a
+// client boundary at the barrel would ship the whole kit to the browser for
+// pages that are static prose. Components that genuinely need effects live in
+// their own "use client" file and are re-exported below.
 import {
-  useEffect,
   useId,
-  useRef,
   type ReactNode,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
@@ -316,55 +318,7 @@ export function EmptyState({
   );
 }
 
-export function Modal({
-  open,
-  onClose,
-  title,
-  children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: ReactNode;
-}) {
-  const titleId = useId();
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    panelRef.current?.focus();
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-ink/40"
-        aria-hidden="true"
-        onClick={onClose}
-      />
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        tabIndex={-1}
-        className="relative w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-[0_20px_50px_-20px_rgba(26,26,26,0.25)] focus:outline-none"
-      >
-        <h2 id={titleId} className="heading-card text-text-primary">
-          {title}
-        </h2>
-        <div className="mt-4">{children}</div>
-      </div>
-    </div>
-  );
-}
+export { Modal } from "./modal";
 
 export function Card({
   children,
@@ -495,6 +449,8 @@ export function Price({
   );
 }
 
+const MAX_STARS = 5;
+
 export function StarRating({
   value,
   size = "sm",
@@ -504,18 +460,26 @@ export function StarRating({
   size?: "sm" | "md";
   className?: string;
 }) {
-  const rounded = Math.round(value);
+  // Shared primitive: it has to be total. `String.repeat` throws a RangeError
+  // on a negative count, so a rating outside 0..5 (an average pulled from bad
+  // data, NaN, undefined) used to blow up `"★".repeat(5 - rounded)` and take
+  // the whole page down with it. Clamp first, render second — the worst case
+  // is now a wrong-looking rating, never a blank page.
+  const safeValue = Number.isFinite(value)
+    ? Math.min(MAX_STARS, Math.max(0, value))
+    : 0;
+  const filled = Math.round(safeValue);
   return (
     <span
       role="img"
-      aria-label={`${value.toFixed(1)} de 5 estrellas`}
+      aria-label={`${safeValue.toFixed(1)} de ${MAX_STARS} estrellas`}
       className={`inline-flex items-center gap-0.5 ${className} ${
         size === "md" ? "text-base" : "text-sm"
       }`}
     >
-      <span aria-hidden="true">{"★".repeat(rounded)}</span>
+      <span aria-hidden="true">{"★".repeat(filled)}</span>
       <span aria-hidden="true" className="text-border">
-        {"★".repeat(5 - rounded)}
+        {"★".repeat(MAX_STARS - filled)}
       </span>
     </span>
   );

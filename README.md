@@ -90,6 +90,36 @@ npx prisma migrate reset       # drops, recreates, re-seeds dev.db
 npm run seed                   # re-add the admin + demo users
 ```
 
+> **If your `dev.db` was created with `prisma db push`**, `migrate deploy` cannot
+> be applied to it. A pushed database has no `_prisma_migrations` ledger, so
+> `deploy` replays the migrations from the very first one and fails with
+> `table "User" already exists` — and a failed migration stays marked as failed,
+> which blocks every later run until it is resolved.
+>
+> The simplest fix, since `dev.db` holds nothing but seed data, is to recreate it
+> from the migrations:
+>
+> ```bash
+> cd apps/api
+> rm -f dev.db dev.db-journal
+> npx prisma migrate deploy
+> npm run seed
+> ```
+>
+> To keep the existing data instead, baseline the ledger by marking every
+> migration already contained in the pushed schema as applied, then deploy the
+> rest:
+>
+> ```bash
+> cd apps/api
+> npx prisma migrate resolve --applied 20260606184402_init
+> # …repeat for each migration the pushed schema already includes…
+> npx prisma migrate deploy
+> ```
+>
+> Prefer `prisma migrate dev` over `db push` from here on: it keeps the ledger in
+> step with the schema, which is what lets `deploy` work everywhere.
+
 See [Seeded users](#seeded-users) for credentials and the production admin flow.
 
 ### 4. Start development servers
