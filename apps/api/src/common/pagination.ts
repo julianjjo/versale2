@@ -15,15 +15,18 @@ export interface Pagination {
 
 function toPositiveInt(value: unknown): number | undefined {
   const parsed = Math.trunc(Number(value));
-  return Number.isFinite(parsed) && parsed >= 1 ? parsed : undefined;
+  return Number.isSafeInteger(parsed) && parsed >= 1 ? parsed : undefined;
 }
 
 export function resolvePagination(page: unknown, limit: unknown): Pagination {
-  const pageNum = toPositiveInt(page) ?? 1;
   const limitNum = Math.min(
     toPositiveInt(limit) ?? DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,
   );
+  // Clamp the page so `skip` never leaves the safe integer range, even when
+  // a caller passes an astronomically large `page` value.
+  const maxPage = Math.floor(Number.MAX_SAFE_INTEGER / limitNum) + 1;
+  const pageNum = Math.min(toPositiveInt(page) ?? 1, maxPage);
 
   return { pageNum, limitNum, skip: (pageNum - 1) * limitNum };
 }

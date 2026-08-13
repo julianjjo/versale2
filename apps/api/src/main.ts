@@ -38,16 +38,19 @@ function resolveCorsOrigins(): string[] {
 // How many reverse proxies sit in front of the API. The global ThrottlerGuard
 // buckets by `req.ip`; without this Express reports the proxy's address for
 // every request, so one shared bucket throttles the whole user base at once
-// while an attacker rotating source IPs is never counted. `1` covers the usual
-// single load balancer; set TRUST_PROXY_HOPS to the real hop count (or `false`
-// when the API is exposed directly).
+// while an attacker rotating source IPs is never counted. Trusting a proxy
+// hop is opt-in: an unset or invalid value must fail closed to `false`,
+// otherwise a direct-access deployment would accept a client-supplied
+// `X-Forwarded-For` as `req.ip` and let an attacker bypass IP throttling.
+// Set TRUST_PROXY_HOPS to the real hop count once the API sits behind a
+// trusted reverse proxy.
 function resolveTrustProxy(): number | boolean {
   const configured = process.env.TRUST_PROXY_HOPS;
-  if (configured === undefined) return 1;
+  if (configured === undefined) return false;
   if (configured === 'false') return false;
 
   const hops = Number(configured);
-  return Number.isInteger(hops) && hops >= 0 ? hops : 1;
+  return Number.isInteger(hops) && hops >= 0 ? hops : false;
 }
 
 async function bootstrap() {
