@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -229,7 +230,10 @@ export class ProductsService {
     // live product row, so letting the seller rewrite it would change what
     // someone else's purchase history says they bought. It would also send an
     // already-shipped item back through `needsReview` below, and an unapproved
-    // product can no longer be reviewed.
+    // product can no longer be reviewed. The read above is only for the 404/403
+    // checks — the write itself re-asserts `soldAt: null` for non-admins so a
+    // checkout that claims the product between the read and the write still
+    // gets rejected instead of silently overwriting a sold listing.
     if (product.soldAt && role !== Role.ADMIN) {
       throw new BadRequestException(
         'Este producto ya fue vendido y no se puede editar',
@@ -243,16 +247,31 @@ export class ProductsService {
       role !== Role.ADMIN &&
       this.hasModeratedChanges(product, updateProductDto);
 
-    return this.prisma.client.product.update({
-      where: { id },
-      data: {
-        ...updateProductDto,
-        ...(needsReview
-          ? { isApproved: false, rejectedAt: null, rejectionReason: null }
-          : {}),
-      },
-      include: { seller: { select: { id: true, name: true } } },
-    });
+    try {
+      return await this.prisma.client.product.update({
+        where: {
+          id,
+          ...(role !== Role.ADMIN ? { soldAt: null } : {}),
+        },
+        data: {
+          ...updateProductDto,
+          ...(needsReview
+            ? { isApproved: false, rejectedAt: null, rejectionReason: null }
+            : {}),
+        },
+        include: { seller: { select: { id: true, name: true } } },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new BadRequestException(
+          'Este producto ya fue vendido y no se puede editar',
+        );
+      }
+      throw error;
+    }
   }
 
   async remove(id: string, userId: string, role: Role) {
@@ -272,14 +291,31 @@ export class ProductsService {
 
     // `OrderItem.productId` is ON DELETE RESTRICT, so deleting a product that has
     // been bought raises a raw Prisma error and, with no exception filter
-    // registered, a 500. Refuse it with a Spanish 400 instead.
+    // registered, a 500. Refuse it with a Spanish 400 instead. As with update()
+    // above, the read here only drives that early check — the delete itself
+    // re-asserts `soldAt: null` so a checkout racing this request still can't
+    // reach the foreign-key failure this guard exists to prevent.
     if (product.soldAt) {
       throw new BadRequestException(
         'Este producto ya fue vendido y no se puede eliminar: forma parte del historial de un pedido',
       );
     }
 
-    return this.prisma.client.product.delete({ where: { id } });
+    try {
+      return await this.prisma.client.product.delete({
+        where: { id, soldAt: null },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new BadRequestException(
+          'Este producto ya fue vendido y no se puede eliminar: forma parte del historial de un pedido',
+        );
+      }
+      throw error;
+    }
   }
 
   async findAllForAdmin(query: any) {

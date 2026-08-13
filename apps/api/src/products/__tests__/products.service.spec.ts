@@ -3,9 +3,20 @@ import { validate } from 'class-validator';
 import { ProductsService } from '../products.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
 import { Role } from '../../users/role.enum';
+
+// Simulates the error Prisma throws when `update`/`delete`'s extra `where`
+// filter (e.g. `soldAt: null`) matches no row — the shape a concurrent
+// checkout would trigger between this service's read and its write.
+function notFoundError() {
+  return new Prisma.PrismaClientKnownRequestError('No record found', {
+    code: 'P2025',
+    clientVersion: 'test',
+  });
+}
 
 describe('ProductsService', () => {
   let service: ProductsService;
@@ -384,7 +395,7 @@ describe('ProductsService', () => {
         where: { id: productId },
       });
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId },
+        where: { id: productId, soldAt: null },
         data: {
           ...updateProductDto,
           isApproved: false,
@@ -396,6 +407,30 @@ describe('ProductsService', () => {
         },
       });
       expect(result).toEqual(updatedProduct);
+    });
+
+    // The initial `findUnique` read only drives the 404/403/soldAt checks. If a
+    // checkout claims the product after that read but before this write, the
+    // conditional `soldAt: null` filter on the update matches no row and Prisma
+    // raises P2025 — this must still surface as the same "already sold" error,
+    // not a raw 500.
+    it('should reject a concurrent checkout that sells the product between the read and the write', async () => {
+      const productId = 'product1';
+      const userId = 'seller1';
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: productId,
+        sellerId: userId,
+        isApproved: true,
+        soldAt: null,
+      });
+      mockPrismaService.client.product.update.mockRejectedValue(
+        notFoundError(),
+      );
+
+      await expect(
+        service.update(productId, { title: 'Otra cosa' }, userId, Role.USER),
+      ).rejects.toThrow('Este producto ya fue vendido y no se puede editar');
     });
 
     it('should not reset the approval when the seller sends the same values', async () => {
@@ -432,7 +467,7 @@ describe('ProductsService', () => {
       await service.update(productId, updateProductDto, userId, Role.USER);
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId },
+        where: { id: productId, soldAt: null },
         data: updateProductDto,
         include: {
           seller: { select: { id: true, name: true } },
@@ -474,7 +509,7 @@ describe('ProductsService', () => {
       await service.update(productId, updateProductDto, userId, Role.USER);
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId },
+        where: { id: productId, soldAt: null },
         data: {
           ...updateProductDto,
           isApproved: false,
@@ -576,6 +611,29 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.delete).not.toHaveBeenCalled();
     });
 
+    // Mirrors the update() regression above: the initial read only drives the
+    // 404/403/soldAt checks, so a checkout that claims the product afterward
+    // makes the conditional `soldAt: null` delete match no row. Prisma raises
+    // P2025 for that, and it must still read as the same "already sold" error
+    // instead of an unhandled exception.
+    it('should reject a concurrent checkout that sells the product between the read and the delete', async () => {
+      const productId = 'product1';
+      const userId = 'seller1';
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: productId,
+        sellerId: userId,
+        soldAt: null,
+      });
+      mockPrismaService.client.product.delete.mockRejectedValue(
+        notFoundError(),
+      );
+
+      await expect(
+        service.remove(productId, userId, Role.USER),
+      ).rejects.toThrow('Este producto ya fue vendido y no se puede eliminar');
+    });
+
     it('should remove a product if user is the seller', async () => {
       const productId = 'product1';
       const userId = 'seller1';
@@ -598,7 +656,7 @@ describe('ProductsService', () => {
         where: { id: productId },
       });
       expect(mockPrismaService.client.product.delete).toHaveBeenCalledWith({
-        where: { id: productId },
+        where: { id: productId, soldAt: null },
       });
       expect(result).toEqual(existingProduct);
     });
@@ -653,7 +711,7 @@ describe('ProductsService', () => {
       const result = await service.remove(productId, adminId, Role.ADMIN);
 
       expect(mockPrismaService.client.product.delete).toHaveBeenCalledWith({
-        where: { id: productId },
+        where: { id: productId, soldAt: null },
       });
       expect(result).toEqual(existingProduct);
     });

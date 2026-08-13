@@ -130,12 +130,15 @@ export default function CartPage() {
 
   const removeSoldItems = useMutation({
     mutationFn: async (itemIds: string[]) => {
-      await Promise.all(
+      const results = await Promise.allSettled(
         itemIds.map((itemId) => api.delete(`/cart/items/${itemId}`)),
       );
+      const failed = results.find((result) => result.status === "rejected");
+      if (failed) {
+        throw (failed as PromiseRejectedResult).reason;
+      }
     },
     onSuccess: (_data, itemIds) => {
-      queryClient.invalidateQueries({ queryKey: ["cart"] });
       setError(null);
       setAnnouncement(
         itemIds.length === 1
@@ -145,6 +148,10 @@ export default function CartPage() {
     },
     onError: (err) =>
       setError(extractApiError(err, "No pudimos quitar las prendas vendidas")),
+    // A partial failure still removed some items, so the cached cart has to be
+    // refreshed either way — otherwise it keeps showing garments that were
+    // already deleted and blocks the user from retrying checkout.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["cart"] }),
   });
 
   const checkout = useMutation({
