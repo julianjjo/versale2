@@ -5,11 +5,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from './role.enum';
 import { resolvePagination } from '../common/pagination';
+import { translatePrismaError } from '../common/prisma-error';
 import * as bcrypt from 'bcryptjs';
 
 const PUBLIC_USER_SELECT = {
@@ -150,11 +150,25 @@ export class UsersService {
       data.password = await bcrypt.hash(data.password, 10);
     }
 
-    return this.prisma.client.user.update({
-      where: { id },
-      data,
-      select: PUBLIC_USER_SELECT,
-    });
+    try {
+      return await this.prisma.client.user.update({
+        where: { id },
+        data,
+        select: PUBLIC_USER_SELECT,
+      });
+    } catch (error) {
+      // The findUnique-then-throw email check above only drives that early
+      // guard — two concurrent requests changing different users to the same
+      // not-yet-taken email can both pass it before either writes. The DB's
+      // unique constraint on User.email then rejects the losing write with
+      // P2002, which must still read as the same Spanish 409 instead of an
+      // unhandled 500.
+      translatePrismaError(error, {
+        P2002: () => {
+          throw new ConflictException('Ya existe una cuenta con ese correo');
+        },
+      });
+    }
   }
 
   async remove(id: string, requesterId: string) {
@@ -187,18 +201,25 @@ export class UsersService {
         select: PUBLIC_USER_SELECT,
       });
     } catch (error) {
-      // Product.sellerId, Order.userId, Review.userId and Cart.userId are all
-      // ON DELETE RESTRICT, so deleting a user with any of that activity
-      // raises P2003. Without this guard it surfaces as an English 500.
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2003'
-      ) {
-        throw new BadRequestException(
-          'No se puede eliminar a este usuario: tiene productos, pedidos, reseñas o un carrito asociados.',
-        );
-      }
-      throw error;
+      translatePrismaError(error, {
+        // The findUnique above only drives the 404/admin-count checks — a
+        // second concurrent delete of the same target (a double-click before
+        // the button disables, or two admin sessions) makes this delete
+        // match no row. Prisma raises P2025 for that; it must still read as
+        // the same 404 instead of an unhandled 500.
+        P2025: () => {
+          throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+        },
+        // Product.sellerId, Order.userId, Review.userId and Cart.userId are
+        // all ON DELETE RESTRICT, so deleting a user with any of that
+        // activity raises P2003. Without this handler it surfaces as an
+        // English 500.
+        P2003: () => {
+          throw new BadRequestException(
+            'No se puede eliminar a este usuario: tiene productos, pedidos, reseñas o un carrito asociados.',
+          );
+        },
+      });
     }
   }
 }

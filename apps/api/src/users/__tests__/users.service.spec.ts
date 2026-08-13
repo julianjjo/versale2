@@ -23,6 +23,27 @@ function foreignKeyRestrictError() {
   );
 }
 
+// Simulates the error Prisma throws when a write's `where` filter matches no
+// row — e.g. a second concurrent delete of the same, already-deleted user.
+function notFoundError() {
+  return new Prisma.PrismaClientKnownRequestError('No record found', {
+    code: 'P2025',
+    clientVersion: 'test',
+  });
+}
+
+// Simulates the error Prisma throws when a unique constraint is violated —
+// e.g. two concurrent requests racing to claim the same not-yet-taken email.
+function uniqueConstraintError() {
+  return new Prisma.PrismaClientKnownRequestError(
+    'Unique constraint failed on the fields: (`email`)',
+    {
+      code: 'P2002',
+      clientVersion: 'test',
+    },
+  );
+}
+
 describe('UsersService', () => {
   let service: UsersService;
   let prismaService: PrismaService;
@@ -468,6 +489,35 @@ describe('UsersService', () => {
       );
       expect(mockPrismaService.client.user.update).not.toHaveBeenCalled();
     });
+
+    // Regression: the email-uniqueness check above is a plain findUnique, not
+    // a transaction — two concurrent requests changing different users to the
+    // same not-yet-taken email can both pass it before either writes. The
+    // losing write then hits the DB's unique constraint and must still read
+    // as the same Spanish 409 instead of an unhandled 500.
+    it('throws a Spanish ConflictException when a concurrent request claims the email first', async () => {
+      mockPrismaService.client.user.findUnique
+        .mockResolvedValueOnce(storedUser)
+        .mockResolvedValueOnce(null);
+      mockPrismaService.client.user.update.mockRejectedValue(
+        uniqueConstraintError(),
+      );
+
+      await expect(
+        service.update('user1', { email: 'taken@example.com' }),
+      ).rejects.toThrow(
+        new ConflictException('Ya existe una cuenta con ese correo'),
+      );
+    });
+
+    it('re-throws an unrelated update error unchanged', async () => {
+      const unrelatedError = new Error('boom');
+      mockPrismaService.client.user.update.mockRejectedValue(unrelatedError);
+
+      await expect(
+        service.update('user1', { name: 'Updated Name' }),
+      ).rejects.toThrow(unrelatedError);
+    });
   });
 
   describe('remove', () => {
@@ -557,6 +607,26 @@ describe('UsersService', () => {
         new BadRequestException(
           'No se puede eliminar a este usuario: tiene productos, pedidos, reseñas o un carrito asociados.',
         ),
+      );
+    });
+
+    // Regression: a second concurrent DELETE on the same target (a
+    // double-click before the button disables, or two admin sessions) makes
+    // this delete match no row. Prisma raises P2025 for that; it must still
+    // read as the same 404 as a target that was never found, instead of an
+    // unhandled 500.
+    it('throws a Spanish NotFoundException when a concurrent request already deleted the target', async () => {
+      const targetId = 'seller1';
+      const requesterId = 'admin1';
+
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        id: targetId,
+        role: 'USER',
+      });
+      mockPrismaService.client.user.delete.mockRejectedValue(notFoundError());
+
+      await expect(service.remove(targetId, requesterId)).rejects.toThrow(
+        new NotFoundException(`Usuario con ID ${targetId} no encontrado`),
       );
     });
 

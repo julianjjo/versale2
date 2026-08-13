@@ -35,7 +35,8 @@ const authState: {
 };
 
 vi.mock("@/lib/auth", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
+  const actual =
+    await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
   return {
     ...actual,
     useAuth: () => authState,
@@ -43,7 +44,14 @@ vi.mock("@/lib/auth", async () => {
 });
 
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...rest }: { children: React.ReactNode; href: string }) => (
+  default: ({
+    children,
+    href,
+    ...rest
+  }: {
+    children: React.ReactNode;
+    href: string;
+  }) => (
     <a href={href} {...rest}>
       {children}
     </a>
@@ -285,7 +293,9 @@ describe("CartPage", () => {
     await user.click(removeButtons[0]!);
 
     await waitFor(() => {
-      expect(status).toHaveTextContent("Cotton t-shirt se eliminó del carrito.");
+      expect(status).toHaveTextContent(
+        "Cotton t-shirt se eliminó del carrito.",
+      );
     });
   });
 
@@ -342,9 +352,12 @@ describe("CartPage", () => {
     expect(
       screen.getByText(/una prenda de tu carrito ya no está disponible/i),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /pagar/i })).toBeDisabled();
+    // Un producto vendido sigue siendo visible en su propia página (findOne()
+    // no lo oculta), así que el título sigue siendo un enlace navegable.
     expect(
-      screen.getByRole("button", { name: /pagar/i }),
-    ).toBeDisabled();
+      screen.getByRole("link", { name: "Cotton t-shirt" }),
+    ).toBeInTheDocument();
   });
 
   // Un vendedor puede editar una publicación ya aprobada y devolverla a
@@ -384,18 +397,26 @@ describe("CartPage", () => {
     // Solo la prenda vendida (soldAt) usa el texto "Ya se vendió"; esta no se
     // vendió, solo volvió a moderación, así que no debe verse esa etiqueta.
     expect(screen.queryByText("Ya se vendió")).not.toBeInTheDocument();
+    // La API oculta un producto no aprobado a cualquiera que no sea su
+    // vendedor o un admin, así que un enlace a su página devolvería un 404
+    // para este comprador: el título deja de ser un enlace mientras está en
+    // moderación.
+    expect(
+      screen.queryByRole("link", { name: "Cotton t-shirt" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
     // 50 (el precio del suéter): la prenda no disponible se excluye del total.
     await waitFor(() => {
       expect(screen.getAllByText("$ 50").length).toBeGreaterThan(0);
     });
-    expect(
-      screen.getByRole("button", { name: /pagar/i }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: /pagar/i })).toBeDisabled();
 
     vi.mocked(api.delete).mockResolvedValue({ data: { success: true } });
-    await userEvent.setup().click(
-      screen.getByRole("button", { name: /quitar la prenda no disponible/i }),
-    );
+    await userEvent
+      .setup()
+      .click(
+        screen.getByRole("button", { name: /quitar la prenda no disponible/i }),
+      );
     await waitFor(() => {
       expect(api.delete).toHaveBeenCalledWith("/cart/items/ci1");
     });

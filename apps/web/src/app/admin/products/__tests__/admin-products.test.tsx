@@ -17,7 +17,9 @@ vi.mock("@/lib/api", () => ({
 
 import { api } from "@/lib/api";
 
-function productFixture(overrides: Partial<Product> & { id: string; title: string }): Product {
+function productFixture(
+  overrides: Partial<Product> & { id: string; title: string },
+): Product {
   return {
     description: "Descripción",
     category: "Tops",
@@ -39,7 +41,10 @@ function productFixture(overrides: Partial<Product> & { id: string; title: strin
 }
 
 function paginated(products: Product[]) {
-  return { data: products, meta: { total: products.length, page: 1, pages: 1 } };
+  return {
+    data: products,
+    meta: { total: products.length, page: 1, pages: 1 },
+  };
 }
 
 describe("AdminProductsPage", () => {
@@ -124,6 +129,32 @@ describe("AdminProductsPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  // The API already refuses to approve a sold product; the button shouldn't
+  // be offered for one either. Covers a rejected-and-sold row, the state a
+  // stale-race approve/reject click against a sold product would leave.
+  it("no muestra Aprobar para una publicación rechazada y ya vendida", async () => {
+    const rejectedAndSold = productFixture({
+      id: "p6",
+      title: "Bufanda vendida",
+      isApproved: false,
+      rejectedAt: new Date("2026-01-15T10:00:00Z").toISOString(),
+      soldAt: new Date("2026-02-01T10:00:00Z").toISOString(),
+    });
+    vi.mocked(api.get).mockResolvedValue({
+      data: paginated([rejectedAndSold]),
+    });
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    const card = await screen.findByTestId("admin-product-p6");
+    expect(
+      within(card).queryByRole("button", { name: "Aprobar" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("reutiliza el mismo diálogo para rechazar una publicación ya aprobada", async () => {
     const approved = productFixture({
       id: "p5",
@@ -144,7 +175,9 @@ describe("AdminProductsPage", () => {
 
     const dialog = screen.getByRole("dialog");
     expect(
-      within(dialog).getByRole("heading", { name: /rechazar "falda aprobada"/i }),
+      within(dialog).getByRole("heading", {
+        name: /rechazar "falda aprobada"/i,
+      }),
     ).toBeInTheDocument();
 
     await user.type(

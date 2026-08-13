@@ -17,11 +17,11 @@ import {
   Modal,
   Textarea,
 } from "@/components/ui";
+import { Pager } from "@/components/admin/pager";
 import { conditionLabel } from "@/lib/product-condition";
 import type { Product } from "@/lib/types";
 import { useState } from "react";
 import Link from "next/link";
-
 
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
 
@@ -73,7 +73,9 @@ export default function AdminProductsPage() {
 
   const invalidateProducts = () => {
     queryClient.invalidateQueries({ queryKey: ["admin-products"] });
-    queryClient.invalidateQueries({ queryKey: ["admin-products-pending-count"] });
+    queryClient.invalidateQueries({
+      queryKey: ["admin-products-pending-count"],
+    });
   };
 
   const approve = useMutation({
@@ -175,7 +177,10 @@ export default function AdminProductsPage() {
             const isPending = !product.isApproved && !product.rejectedAt;
             const isRejected = !product.isApproved && !!product.rejectedAt;
             return (
-              <Card key={product.id} data-testid={`admin-product-${product.id}`}>
+              <Card
+                key={product.id}
+                data-testid={`admin-product-${product.id}`}
+              >
                 <div className="flex flex-wrap items-center gap-4">
                   <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
                     {product.images?.[0] ? (
@@ -210,8 +215,7 @@ export default function AdminProductsPage() {
                       Vendedor: {product.seller?.name ?? "—"}
                     </p>
                     <p className="mt-1 text-xs text-text-muted">
-                      Condición:{" "}
-                      {conditionLabel(product.condition)}
+                      Condición: {conditionLabel(product.condition)}
                     </p>
                     {isRejected && product.rejectionReason && (
                       <p className="mt-1 text-xs text-danger">
@@ -227,7 +231,10 @@ export default function AdminProductsPage() {
                     ) : (
                       <Badge variant="warning">Pendiente</Badge>
                     )}
-                    {(isPending || isRejected) && (
+                    {/* Se excluyen las vendidas (soldAt): la API ya rechaza
+                        aprobar un producto vendido, así que el botón tampoco
+                        se ofrece para uno. */}
+                    {(isPending || isRejected) && !product.soldAt && (
                       <Button
                         size="sm"
                         variant="accent"
@@ -272,30 +279,12 @@ export default function AdminProductsPage() {
         </div>
       )}
 
-      {/* Límites sobre `page` y no sobre `meta.page`: keepPreviousData deja la
-          meta anterior visible mientras llega la nueva, y con eso un doble clic
-          rápido saltaba una página. */}
-      {meta && meta.pages > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-2">
-          <Button
-            variant="secondary"
-            disabled={page <= 1 || isFetching}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            ‹ Anterior
-          </Button>
-          <span className="text-sm text-text-muted">
-            Página {page} de {meta.pages}
-          </span>
-          <Button
-            variant="secondary"
-            disabled={page >= meta.pages || isFetching}
-            onClick={() => setPage((p) => Math.min(meta.pages, p + 1))}
-          >
-            Siguiente ›
-          </Button>
-        </div>
-      )}
+      <Pager
+        page={page}
+        pages={meta?.pages ?? 0}
+        isFetching={isFetching}
+        onPageChange={setPage}
+      />
 
       <Modal
         open={!!rejectTarget}

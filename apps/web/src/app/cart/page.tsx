@@ -21,12 +21,26 @@ import {
 import { conditionLabel } from "@/lib/product-condition";
 import type { Cart, CartItem } from "@/lib/types";
 
+function isSold(item: CartItem): boolean {
+  return Boolean(item.product?.soldAt);
+}
 
 function isUnavailable(item: CartItem): boolean {
   // Vendida (soldAt) o devuelta a moderación por el vendedor (isApproved en
   // false sin haberse vendido): en ambos casos esa línea ya no se puede
   // pagar, y el API aborta toda la transacción del checkout si se intenta.
-  return Boolean(item.product?.soldAt) || item.product?.isApproved === false;
+  return isSold(item) || item.product?.isApproved === false;
+}
+
+// La API oculta un producto no aprobado a cualquiera que no sea su vendedor o
+// un admin (ver el comentario sobre `canView` en products.service#findOne),
+// así que un comprador que lo tiene en el carrito no puede abrirlo aunque
+// siga ahí — la página del producto le devolvería un 404. Uno vendido sí
+// sigue siendo visible (esa es la excepción que existe justamente para que el
+// comprador pueda dejar una reseña), así que solo se enlaza cuando no está en
+// moderación.
+function isProductPageViewable(item: CartItem): boolean {
+  return item.product?.isApproved !== false;
 }
 
 type ShippingAddress = {
@@ -70,17 +84,23 @@ export default function CartPage() {
     });
   };
 
-  const { data, isLoading, isLoadingError, isRefetchError, refetch } = useQuery<Cart>({
-    queryKey: ["cart"],
-    queryFn: async () => {
-      const response = await api.get<Cart>("/cart");
-      return response.data;
-    },
-    enabled: Boolean(user),
-  });
+  const { data, isLoading, isLoadingError, isRefetchError, refetch } =
+    useQuery<Cart>({
+      queryKey: ["cart"],
+      queryFn: async () => {
+        const response = await api.get<Cart>("/cart");
+        return response.data;
+      },
+      enabled: Boolean(user),
+    });
 
   const removeItem = useMutation({
-    mutationFn: async ({ itemId }: { itemId: string; productTitle: string }) => {
+    mutationFn: async ({
+      itemId,
+    }: {
+      itemId: string;
+      productTitle: string;
+    }) => {
       await api.delete(`/cart/items/${itemId}`);
     },
     onSuccess: (_data, variables) => {
@@ -137,7 +157,8 @@ export default function CartPage() {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       router.push("/orders");
     },
-    onError: (err) => setError(extractApiError(err, "No pudimos procesar el pago")),
+    onError: (err) =>
+      setError(extractApiError(err, "No pudimos procesar el pago")),
   });
 
   const handleCheckout = () => {
@@ -174,7 +195,9 @@ export default function CartPage() {
           title="Inicia sesión"
           description="Necesitas una cuenta para ver tu carrito."
           action={
-            <Button onClick={() => router.push("/login")}>Iniciar sesión</Button>
+            <Button onClick={() => router.push("/login")}>
+              Iniciar sesión
+            </Button>
           }
         />
       </PageContainer>
@@ -247,7 +270,9 @@ export default function CartPage() {
             variant="secondary"
             disabled={removeUnavailableItems.isPending}
             onClick={() =>
-              removeUnavailableItems.mutate(unavailableItems.map((item) => item.id))
+              removeUnavailableItems.mutate(
+                unavailableItems.map((item) => item.id),
+              )
             }
           >
             {removeUnavailableItems.isPending
@@ -325,7 +350,9 @@ export default function CartPage() {
                   <Input
                     label="Departamento"
                     value={shippingAddress.state}
-                    onChange={(e) => updateAddressField("state", e.target.value)}
+                    onChange={(e) =>
+                      updateAddressField("state", e.target.value)
+                    }
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -337,7 +364,9 @@ export default function CartPage() {
                   <Input
                     label="País"
                     value={shippingAddress.country}
-                    onChange={(e) => updateAddressField("country", e.target.value)}
+                    onChange={(e) =>
+                      updateAddressField("country", e.target.value)
+                    }
                     error={addressErrors.country}
                     required
                   />
@@ -400,8 +429,10 @@ function CartItemRow({
   onRemove: () => void;
   isRemoving: boolean;
 }) {
-  const sold = Boolean(item.product?.soldAt);
+  const sold = isSold(item);
   const unavailable = isUnavailable(item);
+  const viewable = isProductPageViewable(item);
+  const title = item.product?.title ?? item.productId;
 
   return (
     <Card>
@@ -420,12 +451,18 @@ function CartItemRow({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <Link
-            href={`/products/${item.productId}`}
-            className="block truncate font-medium text-text-primary hover:underline"
-          >
-            {item.product?.title ?? item.productId}
-          </Link>
+          {viewable ? (
+            <Link
+              href={`/products/${item.productId}`}
+              className="block truncate font-medium text-text-primary hover:underline"
+            >
+              {title}
+            </Link>
+          ) : (
+            <p className="block truncate font-medium text-text-primary">
+              {title}
+            </p>
+          )}
           <Price
             value={item.priceAtAdd}
             className="mt-1 text-xs text-text-muted"
