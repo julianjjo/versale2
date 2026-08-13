@@ -195,7 +195,7 @@ export class UsersService {
         error.code === 'P2003'
       ) {
         throw new BadRequestException(
-          'No se puede eliminar a este usuario: tiene productos, pedidos o reseñas asociadas.',
+          'No se puede eliminar a este usuario: tiene productos, pedidos, reseñas o un carrito asociados.',
         );
       }
       throw error;

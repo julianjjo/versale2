@@ -100,6 +100,20 @@ describe("ProductPage", () => {
     );
   });
 
+  // The assertion above only proves *some* AbortSignal is passed — it would
+  // still pass if the timeout were accidentally changed to 5ms or 5000s.
+  // Spying on the real AbortSignal.timeout pins down the literal duration
+  // without needing fake timers to fire Node's native timeout internals,
+  // which vitest's fake-timer implementation does not intercept.
+  it("usa un timeout de 5 segundos exactos, no cualquier señal de cancelación", async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+    fetchMock.mockResolvedValue(jsonResponse(200, mockProduct));
+    await renderPage("p1");
+
+    expect(timeoutSpy).toHaveBeenCalledWith(5000);
+    timeoutSpy.mockRestore();
+  });
+
   it("no responde 404 cuando la verificación anónima se agota por timeout", async () => {
     fetchMock.mockRejectedValue(
       new DOMException("The operation timed out.", "TimeoutError"),

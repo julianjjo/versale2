@@ -100,7 +100,7 @@ export default function CartPage() {
       setError(extractApiError(err, "No pudimos vaciar el carrito")),
   });
 
-  const removeSoldItems = useMutation({
+  const removeUnavailableItems = useMutation({
     mutationFn: async (itemIds: string[]) => {
       const results = await Promise.allSettled(
         itemIds.map((itemId) => api.delete(`/cart/items/${itemId}`)),
@@ -119,7 +119,9 @@ export default function CartPage() {
       );
     },
     onError: (err) =>
-      setError(extractApiError(err, "No pudimos quitar las prendas vendidas")),
+      setError(
+        extractApiError(err, "No pudimos quitar las prendas no disponibles"),
+      ),
     // A partial failure still removed some items, so the cached cart has to be
     // refreshed either way — otherwise it keeps showing garments that were
     // already deleted and blocks the user from retrying checkout.
@@ -243,12 +245,12 @@ export default function CartPage() {
           </span>
           <Button
             variant="secondary"
-            disabled={removeSoldItems.isPending}
+            disabled={removeUnavailableItems.isPending}
             onClick={() =>
-              removeSoldItems.mutate(unavailableItems.map((item) => item.id))
+              removeUnavailableItems.mutate(unavailableItems.map((item) => item.id))
             }
           >
-            {removeSoldItems.isPending
+            {removeUnavailableItems.isPending
               ? "Quitando…"
               : unavailableItems.length === 1
                 ? "Quitar la prenda no disponible"

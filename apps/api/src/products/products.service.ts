@@ -324,7 +324,7 @@ export class ProductsService {
         error.code === 'P2003'
       ) {
         throw new BadRequestException(
-          'Este producto no se puede eliminar: todavía está en el carrito o las reseñas de otra persona.',
+          'Este producto no se puede eliminar: todavía está en un carrito, en las reseñas de otra persona o en un pedido.',
         );
       }
       throw error;

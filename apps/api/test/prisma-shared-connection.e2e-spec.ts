@@ -124,8 +124,19 @@ describe('Shared PrismaService connection across feature modules (e2e)', () => {
       await cartService.addItem(buyer.id, productA.id, 1);
 
       // Race: fire checkout and a concurrent add-to-cart for product B together.
+      // A real shipping address is required — createOrder rejects a missing
+      // one before ever reaching the $transaction below, which would silently
+      // skip the race assertion on every trial instead of exercising it.
       const [orderResult, addResult] = await Promise.allSettled([
-        ordersService.createOrder(buyer.id, {}),
+        ordersService.createOrder(buyer.id, {
+          shippingAddress: {
+            street: 'Calle 72 #10-34',
+            city: 'Bogotá',
+            state: 'Cundinamarca',
+            zip: '110221',
+            country: 'Colombia',
+          },
+        }),
         cartService.addItem(buyer.id, productB.id, 1),
       ]);
 
