@@ -42,25 +42,34 @@ export default function OrderDetailPage() {
   });
 
   const cancelOrder = useMutation({
-    mutationFn: async (id: string) => {
-      await api.patch(`/orders/${id}/cancel`);
+    // This page only ever cancels the order it's already showing — no need
+    // to thread an id through the mutation when `params.id` is right there.
+    mutationFn: async () => {
+      await api.patch(`/orders/${params.id}/cancel`);
     },
-    onSuccess: (_data, id) => {
+    // Awaited, not fire-and-forget: `isPending` (which the button's
+    // `disabled` and spinner key off) flips back to `false` as soon as this
+    // resolves. Without awaiting, it flipped the instant the PATCH itself
+    // resolved — before `["order", params.id]` had actually refetched — so
+    // the button could re-render enabled with the pre-cancel status for one
+    // more paint, open to a fast double-click sending a second cancel at an
+    // order that's already CANCELLED.
+    onSuccess: async () => {
       // Cancelling releases the garments back to the catalog, so every cache
-      // that could be showing them (the catalog itself, each item's own
-      // product page, and the seller's "Mis productos" view) needs to drop
-      // its stale copy too — not just this order and the buyer's own list.
-      queryClient.invalidateQueries({ queryKey: ["order", id] });
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-order-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["mis-productos"] });
-      for (const item of data?.items ?? []) {
-        queryClient.invalidateQueries({
-          queryKey: ["product", item.productId],
-        });
-      }
+      // that could be showing them (the catalog itself, each product's own
+      // page, and the admin dashboards) needs to drop its stale copy too —
+      // not just this order and the buyer's own list. `["product"]` and
+      // `["products"]` prefix-match every per-item and catalog-filter entry,
+      // so no per-item loop is needed here.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["order", params.id] }),
+        queryClient.invalidateQueries({ queryKey: ["orders"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-orders"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-orders-recent"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-order-stats"] }),
+        queryClient.invalidateQueries({ queryKey: ["products"] }),
+        queryClient.invalidateQueries({ queryKey: ["product"] }),
+      ]);
     },
     onError: (err) =>
       setCancelError(extractApiError(err, "No pudimos cancelar el pedido")),
@@ -160,7 +169,7 @@ export default function OrderDetailPage() {
             onClick={() => {
               setCancelError(null);
               if (confirm("¿Cancelar este pedido? Esta acción no se puede deshacer.")) {
-                cancelOrder.mutate(data.id);
+                cancelOrder.mutate();
               }
             }}
           >

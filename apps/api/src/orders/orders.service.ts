@@ -10,6 +10,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { MAX_ITEM_QUANTITY } from '../cart/dto/cart.dto';
 import { Role } from '../users/role.enum';
 import { resolvePagination } from '../common/pagination';
+import { translatePrismaError } from '../common/prisma-error';
 
 // Legal moves of the order lifecycle. DELIVERED and CANCELLED are terminal, and
 // an order can only be cancelled while it has not shipped yet.
@@ -259,6 +260,7 @@ export class OrdersService {
   async updateOrderStatus(id: string, status: OrderStatus) {
     const order = await this.prisma.client.order.findUnique({
       where: { id },
+      select: { id: true, status: true },
     });
 
     if (!order) {
@@ -277,6 +279,7 @@ export class OrdersService {
   async cancelOwnOrder(userId: string, id: string) {
     const order = await this.prisma.client.order.findUnique({
       where: { id },
+      select: { id: true, userId: true, status: true },
     });
 
     if (!order) {
@@ -307,16 +310,34 @@ export class OrdersService {
       );
     }
 
+    // The `status: currentStatus` clause makes this a compare-and-swap: an
+    // admin shipping an order and its own buyer cancelling it can both read
+    // the same pre-write status and both pass the legality check above, so
+    // the write itself has to be the thing that lets only one of them
+    // through — otherwise whichever request commits last wins silently,
+    // either relisting a garment that already shipped or leaving a
+    // cancelled order marked SHIPPED with its garment already released.
+    const conflictMessage =
+      'Este pedido cambió de estado mientras se procesaba tu solicitud. Actualiza la página e inténtalo de nuevo.';
+
     // Cancelling releases the garments the order had claimed. Checkout stamps
     // `soldAt` to take a one-of-a-kind item off the market; if the sale never
     // completes that stamp has to come back off, otherwise an abandoned
     // checkout destroys the listing for good — gone from the catalog and the
     // facets, and un-addable to any cart, with no way for the seller to relist.
     if (status !== OrderStatus.CANCELLED) {
-      return this.prisma.client.order.update({
-        where: { id: order.id },
-        data: { status },
-      });
+      try {
+        return await this.prisma.client.order.update({
+          where: { id: order.id, status: currentStatus },
+          data: { status },
+        });
+      } catch (error) {
+        translatePrismaError(error, {
+          P2025: () => {
+            throw new BadRequestException(conflictMessage);
+          },
+        });
+      }
     }
 
     return this.prisma.client.$transaction(async (tx) => {
@@ -325,10 +346,18 @@ export class OrdersService {
         select: { productId: true },
       });
 
-      const updated = await tx.order.update({
-        where: { id: order.id },
-        data: { status },
-      });
+      const updated = await tx.order
+        .update({
+          where: { id: order.id, status: currentStatus },
+          data: { status },
+        })
+        .catch((error) => {
+          translatePrismaError(error, {
+            P2025: () => {
+              throw new BadRequestException(conflictMessage);
+            },
+          });
+        });
 
       if (items.length > 0) {
         await tx.product.updateMany({
