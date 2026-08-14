@@ -4,6 +4,7 @@ import {
   Post,
   Delete,
   Param,
+  Query,
   UseGuards,
   Req,
 } from '@nestjs/common';
@@ -17,8 +18,8 @@ export class FavoritesController {
   constructor(private favoritesService: FavoritesService) {}
 
   @Get()
-  async getFavorites(@Req() req: AuthRequest) {
-    return this.favoritesService.findAll(req.user.id);
+  async getFavorites(@Req() req: AuthRequest, @Query() query: any) {
+    return this.favoritesService.findAll(req.user.id, query);
   }
 
   @Post(':productId')
