@@ -19,7 +19,7 @@ import {
   Divider,
 } from "@/components/ui";
 import { conditionLabel } from "@/lib/product-condition";
-import type { Cart, CartItem } from "@/lib/types";
+import type { Cart, CartItem, Order } from "@/lib/types";
 
 function isSold(item: CartItem): boolean {
   return Boolean(item.product?.soldAt);
@@ -93,6 +93,44 @@ export default function CartPage() {
       },
       enabled: Boolean(user),
     });
+
+  // Same queryKey the orders list/detail pages use, so this is already warm
+  // (no extra request) for anyone who just checked their order history.
+  // Purely a convenience: a failure here just means the "usar la anterior"
+  // shortcut doesn't appear, so it isn't allowed to affect cart loading state.
+  const { data: previousOrders } = useQuery<Order[]>({
+    queryKey: ["orders"],
+    queryFn: async () => {
+      const response = await api.get<Order[]>("/orders");
+      return response.data;
+    },
+    enabled: Boolean(user),
+  });
+
+  // `getUserOrders` sorts newest first, so the first order with a non-empty
+  // address is the most recent one the buyer actually shipped something to.
+  // Guarded with `Array.isArray` (not just optional chaining) so that this
+  // being a soft-fail convenience holds even if `/orders` ever answered with
+  // something other than an array — a bug there degrades to "no shortcut",
+  // not a crashed cart page.
+  const lastShippingAddress = (
+    Array.isArray(previousOrders) ? previousOrders : []
+  ).find(
+    (order) =>
+      order.shippingAddress && Object.keys(order.shippingAddress).length > 0,
+  )?.shippingAddress as Partial<ShippingAddress> | undefined;
+
+  const useLastShippingAddress = () => {
+    if (!lastShippingAddress) return;
+    setShippingAddress({
+      street: lastShippingAddress.street ?? "",
+      city: lastShippingAddress.city ?? "",
+      state: lastShippingAddress.state ?? "",
+      zip: lastShippingAddress.zip ?? "",
+      country: lastShippingAddress.country ?? "",
+    });
+    setAddressErrors({});
+  };
 
   const removeItem = useMutation({
     mutationFn: async ({
@@ -330,7 +368,18 @@ export default function CartPage() {
 
           <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
             <Card>
-              <h2 className="heading-card mb-3">Dirección de envío</h2>
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="heading-card">Dirección de envío</h2>
+                {lastShippingAddress && (
+                  <button
+                    type="button"
+                    onClick={useLastShippingAddress}
+                    className="text-xs font-medium text-terracotta underline-offset-4 hover:underline"
+                  >
+                    Usar la de tu pedido anterior
+                  </button>
+                )}
+              </div>
               <div className="space-y-3">
                 <Input
                   label="Calle y número"

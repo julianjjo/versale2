@@ -192,9 +192,17 @@ describe("CartPage", () => {
   });
 
   it("recupera la vista del carrito al reintentar después de un error de carga", async () => {
-    vi.mocked(api.get)
-      .mockRejectedValueOnce(new Error("Network error"))
-      .mockResolvedValueOnce({ data: mockCart });
+    // The page now also fetches `/orders` (for the "usar dirección anterior"
+    // shortcut) alongside `/cart` on mount, so a plain call-order-based mock
+    // chain would consume its rejected/resolved slots across both queries
+    // instead of isolating the cart's own retry.
+    let cartCalls = 0;
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/orders") return { data: [] };
+      cartCalls += 1;
+      if (cartCalls === 1) throw new Error("Network error");
+      return { data: mockCart };
+    });
     const user = userEvent.setup();
     render(
       <TestProviders>
@@ -501,6 +509,72 @@ describe("CartPage", () => {
       });
     });
     expect(pushMock).toHaveBeenCalledWith("/orders");
+  });
+
+  it("rellena la dirección con la del pedido anterior al hacer click en el acceso rápido", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/orders") {
+        return {
+          data: [
+            {
+              id: "order1",
+              userId: "u1",
+              status: "DELIVERED",
+              totalAmount: 30000,
+              shippingAddress: {
+                street: "Carrera 15 # 88-64",
+                city: "Bogotá",
+                state: "Cundinamarca",
+                zip: "110221",
+                country: "Colombia",
+              },
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              items: [],
+            },
+          ],
+        };
+      }
+      return { data: mockCart };
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    const shortcut = await screen.findByRole("button", {
+      name: /usar la de tu pedido anterior/i,
+    });
+    await user.click(shortcut);
+
+    expect(screen.getByLabelText("Calle y número")).toHaveValue(
+      "Carrera 15 # 88-64",
+    );
+    expect(screen.getByLabelText("Ciudad")).toHaveValue("Bogotá");
+    expect(screen.getByLabelText("Departamento")).toHaveValue("Cundinamarca");
+    expect(screen.getByLabelText("Código postal")).toHaveValue("110221");
+    expect(screen.getByLabelText("País")).toHaveValue("Colombia");
+  });
+
+  it("no muestra el acceso rápido cuando no hay pedidos anteriores", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/orders") return { data: [] };
+      return { data: mockCart };
+    });
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("button", { name: /usar la de tu pedido anterior/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("muestra un error si el pago falla", async () => {
