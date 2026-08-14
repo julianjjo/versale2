@@ -60,6 +60,7 @@ describe('AuthService', () => {
         password: hashedPassword,
         name,
         role: 'USER',
+        tokenVersion: 0,
       });
 
       mockJwtService.sign.mockReturnValue('fake-jwt-token');
@@ -82,6 +83,7 @@ describe('AuthService', () => {
         sub: '1',
         email,
         role: 'USER',
+        tokenVersion: 0,
       });
       expect(result).toEqual({
         access_token: 'fake-jwt-token',
@@ -194,6 +196,7 @@ describe('AuthService', () => {
         password: hashedPassword,
         name: 'Test User',
         role: 'USER',
+        tokenVersion: 0,
       };
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(user);
@@ -212,6 +215,7 @@ describe('AuthService', () => {
         sub: '1',
         email,
         role: 'USER',
+        tokenVersion: 0,
       });
       expect(result).toEqual({
         access_token: 'fake-jwt-token',
@@ -417,6 +421,8 @@ describe('AuthService', () => {
           password: hashedPassword,
           resetToken: null,
           resetTokenExpires: null,
+          // Invalidates every JWT issued before the reset.
+          tokenVersion: { increment: 1 },
         },
       });
       // The token is looked up by its hash, never the raw value.
