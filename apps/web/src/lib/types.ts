@@ -87,6 +87,7 @@ export interface Review {
   comment: string | null;
   createdAt: string;
   user?: { id: string; name: string };
+  product?: { id: string; title: string };
 }
 
 export interface Favorite {

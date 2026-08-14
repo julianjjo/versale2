@@ -66,14 +66,37 @@ export default function AdminOverview() {
     },
   });
 
+  const {
+    data: reviewsOverview,
+    isLoading: reviewsLoading,
+    isError: reviewsError,
+  } = useQuery({
+    queryKey: ["admin-reviews-count"],
+    queryFn: async () => {
+      const res = await api.get<{ meta: { total: number } }>(
+        "/reviews/admin/all?limit=1",
+      );
+      return res.data;
+    },
+  });
+
   const pendingProducts = products?.meta.total ?? 0;
   const totalUsers = usersOverview?.meta.total ?? 0;
   const totalOrders = orderStats?.totalOrders ?? 0;
   const confirmedRevenue = orderStats?.confirmedRevenue ?? 0;
   const pendingRevenue = orderStats?.pendingRevenue ?? 0;
+  // Distinto de "0 reseñas": si la consulta falló no sabemos el total real,
+  // así que la tarjeta lo dice en vez de mostrar un cero engañoso.
+  const totalReviews = reviewsError
+    ? "—"
+    : (reviewsOverview?.meta.total ?? 0);
 
   const loading =
-    productsLoading || statsLoading || ordersLoading || usersLoading;
+    productsLoading ||
+    statsLoading ||
+    ordersLoading ||
+    usersLoading ||
+    reviewsLoading;
 
   if (loading) {
     return (
@@ -112,6 +135,11 @@ export default function AdminOverview() {
               </>
             ) : undefined
           }
+        />
+        <StatCard
+          label="Reseñas totales"
+          value={totalReviews}
+          href="/admin/reviews"
         />
       </div>
 
