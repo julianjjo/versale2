@@ -57,6 +57,8 @@ const REQUIRED_ADDRESS_FIELDS: Array<keyof ShippingAddress> = [
   "country",
 ];
 
+const INCOMPLETE_ADDRESS_ERROR = "Completa la dirección de envío para continuar.";
+
 export default function CartPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -151,7 +153,13 @@ export default function CartPage() {
       country: addressFieldValue(lastShippingAddress.country),
     });
     setAddressErrors({});
-    setError(null);
+    // Only clears the stale "complete the address" banner this shortcut just
+    // made untrue — `error` is a single shared banner for the whole page, so
+    // blindly nulling it here would also dismiss an unrelated failure (e.g.
+    // "No pudimos eliminar el producto") that happens to be showing at the
+    // same time.
+    setError((prev) => (prev === INCOMPLETE_ADDRESS_ERROR ? null : prev));
+    setAnnouncement("Se completó la dirección con la de tu pedido anterior.");
   };
 
   const removeItem = useMutation({
@@ -230,7 +238,7 @@ export default function CartPage() {
     }
     if (Object.keys(errors).length > 0) {
       setAddressErrors(errors);
-      setError("Completa la dirección de envío para continuar.");
+      setError(INCOMPLETE_ADDRESS_ERROR);
       return;
     }
     setAddressErrors({});
@@ -398,8 +406,13 @@ export default function CartPage() {
                     onClick={applyLastShippingAddress}
                     // design.md: plain terracotta on paper is ~3.6:1, under
                     // the 4.5:1 normal-text threshold at 11-13px — use
-                    // terracotta-deep (~5.3:1) at this size instead.
-                    className="text-xs font-medium text-terracotta-deep underline-offset-4 hover:underline"
+                    // terracotta-deep (~5.3:1) at this size instead. The
+                    // focus ring matches the shared Button component's
+                    // tokens: a bare underlined-text button gets no visible
+                    // default focus indicator otherwise, and its styling is
+                    // otherwise identical to a plain navigational link even
+                    // though clicking it overwrites form fields in place.
+                    className="rounded-sm text-xs font-medium text-terracotta-deep underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                   >
                     Usar la de tu pedido anterior
                   </button>

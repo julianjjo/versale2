@@ -708,6 +708,109 @@ describe("CartPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("anuncia en la región en vivo cuando se usa el acceso rápido de dirección anterior", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/orders") {
+        return {
+          data: [
+            {
+              id: "order1",
+              userId: "u1",
+              status: "DELIVERED",
+              totalAmount: 30000,
+              shippingAddress: {
+                street: "Carrera 15 # 88-64",
+                city: "Bogotá",
+                state: "Cundinamarca",
+                zip: "110221",
+                country: "Colombia",
+              },
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              items: [],
+            },
+          ],
+        };
+      }
+      return { data: mockCart };
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    const shortcut = await screen.findByRole("button", {
+      name: /usar la de tu pedido anterior/i,
+    });
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("");
+
+    await user.click(shortcut);
+
+    await waitFor(() => {
+      expect(status).toHaveTextContent(
+        "Se completó la dirección con la de tu pedido anterior.",
+      );
+    });
+  });
+
+  it("no pisa un error no relacionado al usar el acceso rápido de dirección anterior", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/orders") {
+        return {
+          data: [
+            {
+              id: "order1",
+              userId: "u1",
+              status: "DELIVERED",
+              totalAmount: 30000,
+              shippingAddress: {
+                street: "Carrera 15 # 88-64",
+                city: "Bogotá",
+                state: "Cundinamarca",
+                zip: "110221",
+                country: "Colombia",
+              },
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              items: [],
+            },
+          ],
+        };
+      }
+      return { data: mockCart };
+    });
+    vi.mocked(api.delete).mockRejectedValue(new Error("No pudimos eliminar el producto"));
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
+    });
+
+    const removeButtons = screen.getAllByRole("button", { name: /eliminar/i });
+    await user.click(removeButtons[0]!);
+    expect(
+      await screen.findByText("No pudimos eliminar el producto"),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /usar la de tu pedido anterior/i }),
+    );
+
+    // The shortcut only ever clears its own stale "complete the address"
+    // banner — a different, unrelated failure has to stay visible.
+    expect(
+      screen.getByText("No pudimos eliminar el producto"),
+    ).toBeInTheDocument();
+  });
+
   it("no muestra el acceso rápido cuando no hay pedidos anteriores", async () => {
     vi.mocked(api.get).mockImplementation(async (url: string) => {
       if (url === "/orders") return { data: [] };
