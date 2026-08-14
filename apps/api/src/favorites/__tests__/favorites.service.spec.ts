@@ -1,7 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { FavoritesService } from '../favorites.service';
+import {
+  FavoritesService,
+  FAVORITE_PRODUCT_SELECT,
+} from '../favorites.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProductsService } from '../../products/products.service';
 
@@ -64,12 +67,20 @@ describe('FavoritesService', () => {
         where: { userId },
         orderBy: { createdAt: 'desc' },
         include: {
-          product: {
-            include: { seller: { select: { id: true, name: true } } },
-          },
+          product: { select: FAVORITE_PRODUCT_SELECT },
         },
       });
       expect(result).toEqual(mockFavorites);
+    });
+
+    // Regression: findAll used to `include` the full product row, which
+    // carries moderation-internal fields (rejectionReason/rejectedAt) that
+    // ProductsService#findOne never shows to anyone but the seller or an
+    // admin — a product favorited while approved and later rejected must
+    // not leak those fields to the buyer who favorited it.
+    it('should never select moderation-internal product fields', () => {
+      expect(FAVORITE_PRODUCT_SELECT).not.toHaveProperty('rejectionReason');
+      expect(FAVORITE_PRODUCT_SELECT).not.toHaveProperty('rejectedAt');
     });
   });
 
@@ -99,9 +110,7 @@ describe('FavoritesService', () => {
         update: {},
         create: { userId, productId },
         include: {
-          product: {
-            include: { seller: { select: { id: true, name: true } } },
-          },
+          product: { select: FAVORITE_PRODUCT_SELECT },
         },
       });
       expect(result).toEqual(mockFavorite);

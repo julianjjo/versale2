@@ -7,6 +7,30 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ProductsService } from '../products/products.service';
 import { translatePrismaError } from '../common/prisma-error';
 
+// A product a buyer favorited while approved can later be rejected by
+// moderation — the Favorite row survives, so `findAll` still resolves it.
+// `rejectionReason`/`rejectedAt` are moderation-internal (ProductsService's
+// `findOne` only ever shows them to the product's own seller or an admin),
+// so this select leaves them out entirely rather than exposing them to
+// whichever buyer happened to bookmark the listing before it was rejected.
+export const FAVORITE_PRODUCT_SELECT = {
+  id: true,
+  title: true,
+  description: true,
+  category: true,
+  brand: true,
+  size: true,
+  condition: true,
+  price: true,
+  sellerId: true,
+  isApproved: true,
+  soldAt: true,
+  createdAt: true,
+  updatedAt: true,
+  images: true,
+  seller: { select: { id: true, name: true } },
+} as const;
+
 @Injectable()
 export class FavoritesService {
   constructor(
@@ -19,9 +43,7 @@ export class FavoritesService {
       where: { userId },
       orderBy: { createdAt: 'desc' },
       include: {
-        product: {
-          include: { seller: { select: { id: true, name: true } } },
-        },
+        product: { select: FAVORITE_PRODUCT_SELECT },
       },
     });
   }
@@ -54,9 +76,7 @@ export class FavoritesService {
       update: {},
       create: { userId, productId },
       include: {
-        product: {
-          include: { seller: { select: { id: true, name: true } } },
-        },
+        product: { select: FAVORITE_PRODUCT_SELECT },
       },
     });
   }
