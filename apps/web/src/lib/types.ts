@@ -88,6 +88,14 @@ export interface Review {
   user?: { id: string; name: string };
 }
 
+export interface Favorite {
+  id: string;
+  userId: string;
+  productId: string;
+  createdAt: string;
+  product?: Product;
+}
+
 export interface AuthResponse {
   access_token: string;
   user: User;

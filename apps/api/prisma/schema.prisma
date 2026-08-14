@@ -25,6 +25,7 @@ model User {
   orders        Order[]
   cart          Cart?
   reviews       Review[]
+  favorites     Favorite[]
 }
 
 enum Role {
@@ -53,6 +54,7 @@ model Product {
   reviews       Review[]
   images        Json?    // Changed to Json type (SQLite compatible), nullable
   cartItems     CartItem[] @relation("CartItemProduct")
+  favoritedBy   Favorite[]
 
   // The public catalog always filters on isApproved + soldAt and sorts by
   // createdAt desc, so this covers the hottest query in the product end to end.
@@ -136,4 +138,18 @@ model Review {
 
   // Every product page loads its reviews newest-first.
   @@index([productId, createdAt])
+}
+
+model Favorite {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields:[userId], references:[id])
+  productId     String
+  product       Product  @relation(fields:[productId], references:[id])
+  createdAt     DateTime @default(now())
+
+  // A user can favorite a given product only once.
+  @@unique([userId, productId])
+  // The favorites page always loads "this user's favorites, newest first".
+  @@index([userId, createdAt])
 }

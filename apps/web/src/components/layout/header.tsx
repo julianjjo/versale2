@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui";
+import { HeartIcon } from "@/components/products/favorite-button";
 
 export function Header() {
   const router = useRouter();
@@ -121,6 +122,18 @@ export function Header() {
               </span>
             </NavLink>
           )}
+          {/* Icon-only at every desktop width: the tablet band (md–lg) is
+              already tuned to its widest cluster (see the comment on the
+              outer <nav>), so a new item here can't afford the same
+              icon-then-text toggle "Mis publicaciones" gets without
+              reintroducing the overflow that pattern was built to avoid. */}
+          {user && (
+            <NavLink href="/favoritos" ariaLabel="Favoritos">
+              <span aria-hidden="true">
+                <HeartIcon />
+              </span>
+            </NavLink>
+          )}
           {user?.role === "ADMIN" && (
             <Link
               href="/admin"
@@ -131,9 +144,9 @@ export function Header() {
           )}
         </nav>
 
-        {/* No Buscar/Favoritos icon buttons: neither did anything. Search
-            lives in the catalog filters behind "Explorar", and there is no
-            favourites feature in the data model at all. */}
+        {/* No Buscar icon button: it wouldn't do anything. Search lives in
+            the catalog filters behind "Explorar". Favoritos has its own nav
+            icon above instead of living here. */}
         <div className="hidden items-center gap-2 md:flex">
           {!isLoading &&
             (user ? (
@@ -253,6 +266,11 @@ export function Header() {
               {user && (
                 <MobileLink href="/mis-productos" onClick={closeMenu}>
                   Mis publicaciones
+                </MobileLink>
+              )}
+              {user && (
+                <MobileLink href="/favoritos" onClick={closeMenu}>
+                  Favoritos
                 </MobileLink>
               )}
               {user && (
