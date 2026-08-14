@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui";
-import { HeartIcon } from "@/components/products/favorite-button";
 
 export function Header() {
   const router = useRouter();
@@ -93,9 +92,15 @@ export function Header() {
         {/* The inline nav runs from `md` so the supported tablet viewport keeps
             it, but the widest authenticated cluster (4 links + Admin badge +
             name chip + Cerrar sesión) used to need ~833px and pushed 768px into
-            horizontal scroll. Between md and lg it runs condensed: tighter gaps
-            and an initial-only profile link, so every destination stays
-            reachable without overflowing. */}
+            horizontal scroll. Rather than keep shrinking individual links to
+            icon-only between md and lg (a per-feature patch that ran out of
+            headroom), secondary destinations (Mis publicaciones, Favoritos,
+            Mi perfil) live in the "Más" overflow menu below that width — see
+            MoreMenu. At `lg` there's room for the full cluster, so the
+            overflow menu hides and those destinations render inline/full-text
+            instead. Add future secondary links to MoreMenu's `items`, not
+            this row — that keeps this row's width fixed regardless of how
+            many destinations get added later. */}
         <nav
           aria-label="Navegación principal"
           className="hidden items-center gap-5 md:flex lg:gap-9"
@@ -104,34 +109,15 @@ export function Header() {
           {user && <NavLink href="/cart">Carrito</NavLink>}
           {user && <NavLink href="/orders">Pedidos</NavLink>}
           {user && <NavLink href="/sell">Vender</NavLink>}
-          {/* Same fix as the profile chip below: icon-only between md and lg
-              (the tablet band already tuned to its widest cluster — a 5th
-              full-text link there reintroduces the horizontal-scroll
-              regression this file's history fixed), full label from lg up.
-              A prior version hid this link entirely below lg while the
-              mobile-menu trigger also hides at md, leaving md–lg with no
-              path to the page at all — the icon closes that gap instead of
-              opening one. */}
+          {/* Full text only at `lg`+; below that it lives in the "Más" menu. */}
           {user && (
-            <NavLink href="/mis-productos" ariaLabel="Mis publicaciones">
-              <span aria-hidden="true" className="lg:hidden">
-                <TagIcon />
-              </span>
-              <span aria-hidden="true" className="hidden lg:inline">
-                Mis publicaciones
-              </span>
+            <NavLink href="/mis-productos" className="hidden lg:inline">
+              Mis publicaciones
             </NavLink>
           )}
-          {/* Icon-only at every desktop width: the tablet band (md–lg) is
-              already tuned to its widest cluster (see the comment on the
-              outer <nav>), so a new item here can't afford the same
-              icon-then-text toggle "Mis publicaciones" gets without
-              reintroducing the overflow that pattern was built to avoid. */}
           {user && (
-            <NavLink href="/favoritos" ariaLabel="Favoritos">
-              <span aria-hidden="true">
-                <HeartIcon />
-              </span>
+            <NavLink href="/favoritos" className="hidden lg:inline">
+              Favoritos
             </NavLink>
           )}
           {user?.role === "ADMIN" && (
@@ -142,31 +128,33 @@ export function Header() {
               Admin
             </Link>
           )}
+          {user && (
+            <MoreMenu
+              items={[
+                { href: "/mis-productos", label: "Mis publicaciones" },
+                { href: "/favoritos", label: "Favoritos" },
+                { href: "/profile", label: `Mi perfil (${user.name})` },
+              ]}
+            />
+          )}
         </nav>
 
         {/* No Buscar icon button: it wouldn't do anything. Search lives in
-            the catalog filters behind "Explorar". Favoritos has its own nav
-            icon above instead of living here. */}
+            the catalog filters behind "Explorar". */}
         <div className="hidden items-center gap-2 md:flex">
           {!isLoading &&
             (user ? (
               <>
-                {/* Below lg the full name is what tips the row into overflow,
-                    so tablet gets an initial-only chip. It keeps its accessible
-                    name either way, so /profile is still reachable and still
-                    announced as the user's profile. */}
+                {/* Full name only at `lg`+, where the row has room; below
+                    that, "Mi perfil" lives in the "Más" menu instead (see
+                    MoreMenu in the nav above). */}
                 <Link
                   href="/profile"
                   aria-label={`Perfil de ${user.name}`}
                   title={user.name}
-                  className="rounded-full border border-border px-3 py-1.5 text-sm font-medium text-text-primary transition-colors hover:bg-surface-muted lg:px-4"
+                  className="hidden rounded-full border border-border px-4 py-1.5 text-sm font-medium text-text-primary transition-colors hover:bg-surface-muted lg:inline-block"
                 >
-                  <span aria-hidden="true" className="lg:hidden">
-                    {user.name.trim().charAt(0).toUpperCase()}
-                  </span>
-                  <span aria-hidden="true" className="hidden lg:inline">
-                    {user.name}
-                  </span>
+                  {user.name}
                 </Link>
                 <Button
                   size="sm"
@@ -356,6 +344,73 @@ function NavLink({
   );
 }
 
+function MoreMenu({
+  items,
+}: {
+  items: { href: string; label: React.ReactNode }[];
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!containerRef.current?.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isOpen]);
+
+  return (
+    <div ref={containerRef} className="relative lg:hidden">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        aria-controls="header-more-menu"
+        className="flex items-center gap-1 px-1 py-1 text-sm font-medium text-text-primary transition-opacity hover:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+      >
+        Más
+        <ChevronDownIcon
+          className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
+        />
+      </button>
+      {isOpen && (
+        <div
+          id="header-more-menu"
+          className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-2xl border border-border bg-surface py-1 shadow-lg"
+        >
+          {items.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setIsOpen(false)}
+              className="block px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-surface-muted"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MobileLink({
   href,
   onClick,
@@ -435,11 +490,11 @@ function CartIcon() {
   );
 }
 
-function TagIcon() {
+function ChevronDownIcon({ className = "" }: { className?: string }) {
   return (
     <svg
-      width="20"
-      height="20"
+      width="14"
+      height="14"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -447,9 +502,9 @@ function TagIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
+      className={className}
     >
-      <path d="M20.59 13.41 13 21l-9-9V4h8l9 9a2 2 0 0 1 0 3.41z" />
-      <circle cx="7.5" cy="8.5" r="1.5" fill="currentColor" stroke="none" />
+      <polyline points="6 9 12 15 18 9" />
     </svg>
   );
 }
