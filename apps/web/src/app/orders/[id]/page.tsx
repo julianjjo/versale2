@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, extractApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
   Spinner,
@@ -15,7 +16,11 @@ import {
   Price,
   Divider,
 } from "@/components/ui";
-import { ORDER_STATUS_LABEL, ORDER_STATUS_VARIANT } from "@/lib/order-status";
+import {
+  ORDER_STATUS_LABEL,
+  ORDER_STATUS_VARIANT,
+  nextStatusesFor,
+} from "@/lib/order-status";
 import { conditionLabel } from "@/lib/product-condition";
 import { isTerminalError } from "@/lib/http-error";
 import type { Order } from "@/lib/types";
@@ -23,7 +28,10 @@ import type { Order } from "@/lib/types";
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user, isLoading: isAuthLoading } = useAuth();
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancelSuccess, setCancelSuccess] = useState(false);
 
   const { data, isLoading, isError, error, refetch } = useQuery<Order>({
     queryKey: ["order", params.id],
@@ -32,6 +40,49 @@ export default function OrderDetailPage() {
       return response.data;
     },
     enabled: Boolean(user && params.id),
+  });
+
+  const cancelOrder = useMutation({
+    // This page only ever cancels the order it's already showing — no need
+    // to thread an id through the mutation when `params.id` is right there.
+    mutationFn: async () => {
+      await api.patch(`/orders/${params.id}/cancel`);
+    },
+    // Awaited, not fire-and-forget: `isPending` (which the button's
+    // `disabled` and spinner key off) flips back to `false` as soon as this
+    // resolves. Without awaiting, it flipped the instant the PATCH itself
+    // resolved — before `["order", params.id]` had actually refetched — so
+    // the button could re-render enabled with the pre-cancel status for one
+    // more paint, open to a fast double-click sending a second cancel at an
+    // order that's already CANCELLED.
+    onSuccess: async () => {
+      // Cancelling releases the garments back to the catalog, so every cache
+      // that could be showing them (the catalog itself, each product's own
+      // page, and the admin dashboards) needs to drop its stale copy too —
+      // not just this order and the buyer's own list. `["product"]` and
+      // `["products"]` prefix-match every per-item and catalog-filter entry,
+      // so no per-item loop is needed here.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["order", params.id] }),
+        queryClient.invalidateQueries({ queryKey: ["orders"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-orders"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-orders-recent"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-order-stats"] }),
+        queryClient.invalidateQueries({ queryKey: ["products"] }),
+        queryClient.invalidateQueries({ queryKey: ["product"] }),
+      ]);
+      setCancelSuccess(true);
+    },
+    // A conflict (the compare-and-swap in transitionStatus rejecting a status
+    // that moved since this page last read it — e.g. an admin just shipped
+    // it) means the badge and the still-visible Cancelar button are showing
+    // a status that's no longer real. Refetching here is what makes the
+    // button correctly disappear on its own instead of inviting a retry
+    // that will just fail the same way again.
+    onError: (err) => {
+      setCancelError(extractApiError(err, "No pudimos cancelar el pedido"));
+      queryClient.invalidateQueries({ queryKey: ["order", params.id] });
+    },
   });
 
   if (isAuthLoading || isLoading) {
@@ -95,6 +146,11 @@ export default function OrderDetailPage() {
   }
 
   const shipping = data.shippingAddress as Record<string, string> | null;
+  // Only the order's own buyer can cancel it (the API 403s anyone else), and
+  // only while it's still legal to move to CANCELLED — i.e. PENDING or PAID,
+  // never once it has shipped.
+  const canCancel =
+    data.userId === user.id && nextStatusesFor(data.status).includes("CANCELLED");
 
   return (
     <PageContainer size="default">
@@ -113,6 +169,46 @@ export default function OrderDetailPage() {
           {ORDER_STATUS_LABEL[data.status]}
         </Badge>
       </div>
+
+      {(canCancel || cancelError || cancelSuccess) && (
+        <div className="-mt-3 mb-6 flex flex-col items-start gap-2">
+          {canCancel && (
+            <Button
+              variant="danger"
+              size="sm"
+              disabled={cancelOrder.isPending}
+              onClick={() => {
+                setCancelError(null);
+                if (confirm("¿Cancelar este pedido? Esta acción no se puede deshacer.")) {
+                  cancelOrder.mutate();
+                }
+              }}
+            >
+              {cancelOrder.isPending ? (
+                <Spinner className="h-4 w-4" />
+              ) : (
+                "Cancelar pedido"
+              )}
+            </Button>
+          )}
+          {/* Neither message is nested inside `canCancel` above: a failed
+              cancel due to a conflict (someone else changed the order's
+              status first) refetches the real status, which can immediately
+              flip `canCancel` to false — the explanation of *why* the button
+              disappeared has to outlive the button itself, same as the
+              success confirmation on a cancel that worked. */}
+          {cancelError && (
+            <p className="text-sm text-danger" role="alert">
+              {cancelError}
+            </p>
+          )}
+          {cancelSuccess && (
+            <p role="status" className="text-sm text-success">
+              Pedido cancelado.
+            </p>
+          )}
+        </div>
+      )}
 
       {data.status === "DELIVERED" && (
         <p

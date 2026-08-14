@@ -49,7 +49,10 @@ const mockOrder = {
 vi.mock("@/lib/api", () => ({
   api: {
     get: vi.fn(),
+    patch: vi.fn(),
   },
+  extractApiError: (err: unknown, fallback: string) =>
+    err instanceof Error ? err.message : fallback,
 }));
 
 import { api } from "@/lib/api";
@@ -160,5 +163,228 @@ describe("OrderDetailPage", () => {
       </TestProviders>,
     );
     expect(screen.getByText(/inicia sesión/i)).toBeInTheDocument();
+  });
+
+  it("ofrece Cancelar pedido cuando está pendiente", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: mockOrder });
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    expect(
+      await screen.findByRole("button", { name: /cancelar pedido/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("ofrece Cancelar pedido cuando ya está pagado, porque todavía no se envió", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: { ...mockOrder, status: "PAID" },
+    });
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    expect(
+      await screen.findByRole("button", { name: /cancelar pedido/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("no ofrece Cancelar pedido una vez enviado", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: { ...mockOrder, status: "SHIPPED" },
+    });
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    await screen.findByText("#order1");
+    expect(
+      screen.queryByRole("button", { name: /cancelar pedido/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("no ofrece Cancelar pedido para un pedido ya cancelado", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: { ...mockOrder, status: "CANCELLED" },
+    });
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    await screen.findByText("#order1");
+    expect(
+      screen.queryByRole("button", { name: /cancelar pedido/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("cancela el pedido tras confirmar", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: mockOrder });
+    vi.mocked(api.patch).mockResolvedValue({ data: { success: true } });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    try {
+      const cancelButton = await screen.findByRole("button", {
+        name: /cancelar pedido/i,
+      });
+      await user.click(cancelButton);
+
+      await waitFor(() => {
+        expect(api.patch).toHaveBeenCalledWith("/orders/order1/cancel");
+      });
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it("confirma la cancelación con un mensaje accesible una vez que el pedido queda cancelado", async () => {
+    vi.mocked(api.get)
+      .mockResolvedValueOnce({ data: mockOrder })
+      .mockResolvedValue({ data: { ...mockOrder, status: "CANCELLED" } });
+    vi.mocked(api.patch).mockResolvedValue({ data: { success: true } });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    try {
+      const cancelButton = await screen.findByRole("button", {
+        name: /cancelar pedido/i,
+      });
+      await user.click(cancelButton);
+
+      // The confirmation has to survive the button's own unmount: `canCancel`
+      // flips to false the moment the refetch reports CANCELLED, and that's
+      // exactly the render where a screen-reader user needs to hear the
+      // outcome of the click they just made.
+      expect(await screen.findByRole("status")).toHaveTextContent(
+        /pedido cancelado/i,
+      );
+      expect(
+        screen.queryByRole("button", { name: /cancelar pedido/i }),
+      ).not.toBeInTheDocument();
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it("refresca el pedido cuando la cancelación falla por un conflicto de estado", async () => {
+    vi.mocked(api.get)
+      .mockResolvedValueOnce({ data: mockOrder })
+      .mockResolvedValue({ data: { ...mockOrder, status: "SHIPPED" } });
+    vi.mocked(api.patch).mockRejectedValue(
+      Object.assign(new Error("Este pedido cambió de estado"), {
+        response: { status: 400 },
+      }),
+    );
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    try {
+      const cancelButton = await screen.findByRole("button", {
+        name: /cancelar pedido/i,
+      });
+      await user.click(cancelButton);
+
+      await screen.findByText("Este pedido cambió de estado");
+      // The badge now reflects the real (post-conflict) status, and the
+      // button that just failed correctly stops offering the same action.
+      await waitFor(() => {
+        expect(
+          screen.queryByRole("button", { name: /cancelar pedido/i }),
+        ).not.toBeInTheDocument();
+      });
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it("no cancela el pedido si el usuario no confirma el diálogo", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: mockOrder });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    try {
+      const cancelButton = await screen.findByRole("button", {
+        name: /cancelar pedido/i,
+      });
+      await user.click(cancelButton);
+
+      expect(api.patch).not.toHaveBeenCalled();
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it("muestra un error si la cancelación falla en el servidor", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: mockOrder });
+    vi.mocked(api.patch).mockRejectedValue(
+      Object.assign(new Error("Ya fue enviado"), { response: { status: 400 } }),
+    );
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    try {
+      const cancelButton = await screen.findByRole("button", {
+        name: /cancelar pedido/i,
+      });
+      await user.click(cancelButton);
+
+      expect(await screen.findByText("Ya fue enviado")).toBeInTheDocument();
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it("no ofrece Cancelar pedido cuando el pedido visto es de otra persona", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: { ...mockOrder, userId: "otherUser" },
+    });
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    await screen.findByText("#order1");
+    expect(
+      screen.queryByRole("button", { name: /cancelar pedido/i }),
+    ).not.toBeInTheDocument();
   });
 });
