@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   Button,
@@ -15,6 +15,7 @@ import {
   Price,
   StarRating,
   Divider,
+  Modal,
 } from "../index";
 
 describe("Button", () => {
@@ -260,5 +261,94 @@ describe("Divider", () => {
   it("renders an hr", () => {
     const { container } = render(<Divider />);
     expect(container.querySelector("hr")).toBeInTheDocument();
+  });
+});
+
+describe("Modal", () => {
+  it("no renderiza nada cuando open es false", () => {
+    render(
+      <Modal open={false} onClose={() => {}} title="Título">
+        <p>Contenido</p>
+      </Modal>,
+    );
+    expect(screen.queryByText("Contenido")).not.toBeInTheDocument();
+  });
+
+  it("enfoca el primer elemento enfocable del panel al abrirse", async () => {
+    render(
+      <Modal open={true} onClose={() => {}} title="Título">
+        <input aria-label="Motivo" />
+        <button>Cancelar</button>
+      </Modal>,
+    );
+    await waitFor(() => {
+      expect(screen.getByLabelText("Motivo")).toHaveFocus();
+    });
+  });
+
+  // Regresión: el efecto de foco dependía de `[open, onClose]`. El único
+  // consumidor (el diálogo de rechazo en admin/products) pasa un `onClose`
+  // como arrow function inline, con una identidad nueva en cada render de esa
+  // página — así que cualquier re-render ajeno mientras el diálogo estaba
+  // abierto (escribir en un campo controlado dentro de él, un refetch de
+  // react-query terminando en segundo plano) desmontaba y volvía a montar el
+  // efecto, y su cleanup mandaba el foco fuera del diálogo antes de que el
+  // setup lo devolviera al primer elemento enfocable — arrastrando el foco
+  // lejos de donde el usuario lo había dejado con Tab.
+  it("no le quita el foco al usuario en un re-render con un onClose de identidad nueva", async () => {
+    const { rerender } = render(
+      <Modal open={true} onClose={() => {}} title="Título">
+        <input aria-label="Motivo" />
+        <button>Cancelar</button>
+      </Modal>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Motivo")).toHaveFocus();
+    });
+
+    const user = userEvent.setup();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Cancelar" })).toHaveFocus();
+
+    // Misma llamada, pero con un `onClose` de identidad nueva: así es como se
+    // ve, desde el punto de vista del Modal, un re-render de una página que
+    // pasa `onClose={() => ...}` inline.
+    rerender(
+      <Modal open={true} onClose={() => {}} title="Título">
+        <input aria-label="Motivo" />
+        <button>Cancelar</button>
+      </Modal>,
+    );
+
+    expect(screen.getByRole("button", { name: "Cancelar" })).toHaveFocus();
+  });
+
+  it("Escape llama siempre a la versión más reciente de onClose", async () => {
+    const onCloseFirst = vi.fn();
+    const onCloseLatest = vi.fn();
+    const { rerender } = render(
+      <Modal open={true} onClose={onCloseFirst} title="Título">
+        <button>Cancelar</button>
+      </Modal>,
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Cancelar" })).toHaveFocus();
+    });
+
+    // Re-render con un `onClose` distinto, sin cambiar `open`: el efecto no se
+    // vuelve a montar, pero el handler de Escape debe seguir viendo la última
+    // función pasada, no la que capturó al montar.
+    rerender(
+      <Modal open={true} onClose={onCloseLatest} title="Título">
+        <button>Cancelar</button>
+      </Modal>,
+    );
+
+    const user = userEvent.setup();
+    await user.keyboard("{Escape}");
+
+    expect(onCloseLatest).toHaveBeenCalledTimes(1);
+    expect(onCloseFirst).not.toHaveBeenCalled();
   });
 });

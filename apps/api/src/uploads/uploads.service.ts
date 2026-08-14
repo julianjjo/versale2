@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -62,22 +63,22 @@ export class UploadsService implements OnModuleInit {
 
   validateFiles(files: Express.Multer.File[]): void {
     if (!files || files.length === 0) {
-      throw new InternalServerErrorException('No files provided');
+      throw new BadRequestException('No se proporcionaron archivos.');
     }
     if (files.length > MAX_FILE_COUNT) {
-      throw new InternalServerErrorException(
-        `Too many files. Max ${MAX_FILE_COUNT} per upload.`,
+      throw new BadRequestException(
+        `Demasiados archivos. Máximo ${MAX_FILE_COUNT} por publicación.`,
       );
     }
     for (const file of files) {
       if (file.size > MAX_FILE_SIZE_BYTES) {
-        throw new InternalServerErrorException(
-          `File "${file.originalname}" exceeds 5MB limit.`,
+        throw new BadRequestException(
+          `El archivo «${file.originalname}» supera el límite de ${MAX_FILE_SIZE_BYTES / (1024 * 1024)}MB.`,
         );
       }
       if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
-        throw new InternalServerErrorException(
-          `File "${file.originalname}" has unsupported type. Allowed: JPG, PNG, WEBP.`,
+        throw new BadRequestException(
+          `El archivo «${file.originalname}» tiene un formato no permitido. Se aceptan: JPG, PNG, WEBP.`,
         );
       }
     }

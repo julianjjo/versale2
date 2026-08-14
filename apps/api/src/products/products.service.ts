@@ -4,12 +4,12 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Role } from '../users/role.enum';
 import { resolvePagination } from '../common/pagination';
+import { translatePrismaError } from '../common/prisma-error';
 
 // Fields moderation actually judges: if a seller changes any of them the
 // listing has to be reviewed again before going back to the public catalog.
@@ -262,15 +262,13 @@ export class ProductsService {
         include: { seller: { select: { id: true, name: true } } },
       });
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2025'
-      ) {
-        throw new BadRequestException(
-          'Este producto ya fue vendido y no se puede editar',
-        );
-      }
-      throw error;
+      translatePrismaError(error, {
+        P2025: () => {
+          throw new BadRequestException(
+            'Este producto ya fue vendido y no se puede editar',
+          );
+        },
+      });
     }
   }
 
@@ -306,15 +304,23 @@ export class ProductsService {
         where: { id, soldAt: null },
       });
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2025'
-      ) {
-        throw new BadRequestException(
-          'Este producto ya fue vendido y no se puede eliminar: forma parte del historial de un pedido',
-        );
-      }
-      throw error;
+      translatePrismaError(error, {
+        P2025: () => {
+          throw new BadRequestException(
+            'Este producto ya fue vendido y no se puede eliminar: forma parte del historial de un pedido',
+          );
+        },
+        // A CartItem, Review, or OrderItem (even from a cancelled order, which
+        // clears `soldAt` back to null) can still reference this product with
+        // an ON DELETE RESTRICT foreign key. Prisma raises P2003 for that
+        // instead of the P2025 above, and with no handler registered it
+        // reached the admin as a raw 500. Refuse it with a Spanish 400.
+        P2003: () => {
+          throw new BadRequestException(
+            'Este producto no se puede eliminar: todavía está en un carrito, en las reseñas de otra persona o en un pedido.',
+          );
+        },
+      });
     }
   }
 
@@ -361,20 +367,79 @@ export class ProductsService {
   }
 
   async approveProduct(id: string) {
-    return this.prisma.client.product.update({
+    const product = await this.prisma.client.product.findUnique({
       where: { id },
-      data: { isApproved: true, rejectedAt: null, rejectionReason: null },
     });
+
+    if (!product) {
+      throw new NotFoundException(`Producto con ID ${id} no encontrado`);
+    }
+
+    // A sold product is a historical record (see remove()/update() above): the
+    // buyer's order detail keeps rendering it, so flipping `isApproved` on it
+    // would hide it from that buyer (findOne()'s canView check only admits
+    // admin/seller) and break their own "Escribir reseña" link. The read here
+    // only drives this check — the write itself re-asserts `soldAt: null` so
+    // a checkout racing this request still can't approve a product out from
+    // under the buyer who just bought it.
+    if (product.soldAt) {
+      throw new BadRequestException(
+        'Este producto ya fue vendido y no se puede aprobar: forma parte del historial de un pedido',
+      );
+    }
+
+    try {
+      return await this.prisma.client.product.update({
+        where: { id, soldAt: null },
+        data: { isApproved: true, rejectedAt: null, rejectionReason: null },
+      });
+    } catch (error) {
+      translatePrismaError(error, {
+        P2025: () => {
+          throw new BadRequestException(
+            'Este producto ya fue vendido y no se puede aprobar: forma parte del historial de un pedido',
+          );
+        },
+      });
+    }
   }
 
   async rejectProduct(id: string, reason?: string) {
-    return this.prisma.client.product.update({
+    const product = await this.prisma.client.product.findUnique({
       where: { id },
-      data: {
-        isApproved: false,
-        rejectedAt: new Date(),
-        rejectionReason: reason ?? null,
-      },
     });
+
+    if (!product) {
+      throw new NotFoundException(`Producto con ID ${id} no encontrado`);
+    }
+
+    // Same reasoning as approveProduct(): rejecting flips `isApproved` to
+    // false, which findOne()'s canView check then hides from everyone but an
+    // admin or the seller — including a buyer who bought this product and
+    // reaches it from their own order history to leave a review.
+    if (product.soldAt) {
+      throw new BadRequestException(
+        'Este producto ya fue vendido y no se puede rechazar: forma parte del historial de un pedido',
+      );
+    }
+
+    try {
+      return await this.prisma.client.product.update({
+        where: { id, soldAt: null },
+        data: {
+          isApproved: false,
+          rejectedAt: new Date(),
+          rejectionReason: reason ?? null,
+        },
+      });
+    } catch (error) {
+      translatePrismaError(error, {
+        P2025: () => {
+          throw new BadRequestException(
+            'Este producto ya fue vendido y no se puede rechazar: forma parte del historial de un pedido',
+          );
+        },
+      });
+    }
   }
 }

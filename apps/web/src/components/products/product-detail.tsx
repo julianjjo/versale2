@@ -19,9 +19,9 @@ import {
 } from "@/components/ui";
 import { MAX_ITEM_QUANTITY } from "@/lib/cart";
 import { conditionLabel } from "@/lib/product-condition";
+import { isTerminalError } from "@/lib/http-error";
 import { tokenStore } from "@/lib/token";
 import type { Product, Review } from "@/lib/types";
-
 
 export function ProductDetail({
   /** Product already resolved on the server (see `app/products/[id]/page.tsx`).
@@ -142,9 +142,7 @@ export function ProductDetail({
   // timeout, 500) es temporal. Antes ambos caían en "Producto no encontrado",
   // que le decía al visitante que la prenda se había eliminado cuando en
   // realidad solo había que reintentar.
-  const requestFailed =
-    (loadError as { response?: { status?: number } } | null)?.response
-      ?.status !== 404;
+  const requestFailed = !isTerminalError(loadError, [404]);
 
   if (isError && !data && requestFailed) {
     return (

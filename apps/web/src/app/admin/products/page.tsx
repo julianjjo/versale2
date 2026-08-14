@@ -17,11 +17,11 @@ import {
   Modal,
   Textarea,
 } from "@/components/ui";
+import { Pager } from "@/components/admin/pager";
 import { conditionLabel } from "@/lib/product-condition";
 import type { Product } from "@/lib/types";
 import { useState } from "react";
 import Link from "next/link";
-
 
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
 
@@ -43,6 +43,9 @@ export default function AdminProductsPage() {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<StatusFilter>("all");
   const [page, setPage] = useState(1);
+  const [lastSeenPages, setLastSeenPages] = useState<number | undefined>(
+    undefined,
+  );
   const [error, setError] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Product | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -73,7 +76,9 @@ export default function AdminProductsPage() {
 
   const invalidateProducts = () => {
     queryClient.invalidateQueries({ queryKey: ["admin-products"] });
-    queryClient.invalidateQueries({ queryKey: ["admin-products-pending-count"] });
+    queryClient.invalidateQueries({
+      queryKey: ["admin-products-pending-count"],
+    });
   };
 
   const approve = useMutation({
@@ -111,6 +116,18 @@ export default function AdminProductsPage() {
 
   const products = data?.data ?? [];
   const meta = data?.meta;
+
+  // Approving, rejecting, or deleting the last item on a page shrinks
+  // `meta.pages` without `page` following it down — Pager only clamps its
+  // own button clicks, and renders nothing once `pages <= 1`, leaving no way
+  // back from a now-empty page except switching status tabs. Clamped inline
+  // during render (React's documented pattern for "adjust state when a prop
+  // changes") rather than in a useEffect, which would setState after an
+  // extra committed render instead of before this one paints.
+  if (meta && meta.pages !== lastSeenPages) {
+    setLastSeenPages(meta.pages);
+    setPage((currentPage) => Math.min(currentPage, Math.max(1, meta.pages)));
+  }
 
   const setTab = (next: StatusFilter) => {
     setStatus(next);
@@ -175,7 +192,10 @@ export default function AdminProductsPage() {
             const isPending = !product.isApproved && !product.rejectedAt;
             const isRejected = !product.isApproved && !!product.rejectedAt;
             return (
-              <Card key={product.id} data-testid={`admin-product-${product.id}`}>
+              <Card
+                key={product.id}
+                data-testid={`admin-product-${product.id}`}
+              >
                 <div className="flex flex-wrap items-center gap-4">
                   <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
                     {product.images?.[0] ? (
@@ -210,8 +230,7 @@ export default function AdminProductsPage() {
                       Vendedor: {product.seller?.name ?? "—"}
                     </p>
                     <p className="mt-1 text-xs text-text-muted">
-                      Condición:{" "}
-                      {conditionLabel(product.condition)}
+                      Condición: {conditionLabel(product.condition)}
                     </p>
                     {isRejected && product.rejectionReason && (
                       <p className="mt-1 text-xs text-danger">
@@ -227,7 +246,10 @@ export default function AdminProductsPage() {
                     ) : (
                       <Badge variant="warning">Pendiente</Badge>
                     )}
-                    {(isPending || isRejected) && (
+                    {/* Se excluyen las vendidas (soldAt): la API ya rechaza
+                        aprobar un producto vendido, así que el botón tampoco
+                        se ofrece para uno. */}
+                    {(isPending || isRejected) && !product.soldAt && (
                       <Button
                         size="sm"
                         variant="accent"
@@ -237,7 +259,12 @@ export default function AdminProductsPage() {
                         Aprobar
                       </Button>
                     )}
-                    {isPending && (
+                    {/* También disponible sobre una publicación ya aprobada: es la
+                        única forma de bajarla del catálogo sin borrar su
+                        historial de reseñas/pedidos, que es lo que hace
+                        "Eliminar". Se excluyen las vendidas (soldAt): son
+                        historial y no se tocan desde aquí. */}
+                    {(isPending || product.isApproved) && !product.soldAt && (
                       <Button
                         size="sm"
                         variant="secondary"
@@ -267,30 +294,12 @@ export default function AdminProductsPage() {
         </div>
       )}
 
-      {/* Límites sobre `page` y no sobre `meta.page`: keepPreviousData deja la
-          meta anterior visible mientras llega la nueva, y con eso un doble clic
-          rápido saltaba una página. */}
-      {meta && meta.pages > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-2">
-          <Button
-            variant="secondary"
-            disabled={page <= 1 || isFetching}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            ‹ Anterior
-          </Button>
-          <span className="text-sm text-text-muted">
-            Página {page} de {meta.pages}
-          </span>
-          <Button
-            variant="secondary"
-            disabled={page >= meta.pages || isFetching}
-            onClick={() => setPage((p) => Math.min(meta.pages, p + 1))}
-          >
-            Siguiente ›
-          </Button>
-        </div>
-      )}
+      <Pager
+        page={page}
+        pages={meta?.pages ?? 0}
+        isFetching={isFetching}
+        onPageChange={setPage}
+      />
 
       <Modal
         open={!!rejectTarget}

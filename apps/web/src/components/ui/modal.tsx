@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useId, useRef, type ReactNode } from "react";
 
 // Lives apart from the `ui` barrel so that importing `PageContainer` or
 // `EmptyState` from a server component (the 404 page, every static page) does
@@ -25,6 +25,21 @@ export function Modal({
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // An Effect Event instead of closing over `onClose` directly, so the effect
+  // below can depend on `open` alone. Its only consumer today passes an
+  // inline arrow function as `onClose`, which gets a new identity on every
+  // render; if the effect depended on it too, every unrelated re-render while
+  // the dialog is open (e.g. typing in a field inside it) would tear it down
+  // and re-run it — yanking focus back to the first focusable element
+  // mid-keystroke. Unlike a ref synced from a separate passive effect, an
+  // Effect Event always sees the latest `onClose` as of the last render, with
+  // no window where a keydown between commit and that effect's flush would
+  // still reach a stale closure — e.g. one that captured `reject.isPending`
+  // as `false` from just before the reject mutation started.
+  const handleClose = useEffectEvent(() => {
+    onClose();
+  });
+
   useEffect(() => {
     if (!open) return;
     const panel = panelRef.current;
@@ -42,7 +57,7 @@ export function Modal({
     // inert, so Tab has to actually stay inside the panel.
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        handleClose();
         return;
       }
       if (e.key !== "Tab") return;
@@ -75,7 +90,7 @@ export function Modal({
       document.body.style.overflow = previousOverflow;
       previouslyFocused?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

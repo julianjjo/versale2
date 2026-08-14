@@ -19,6 +19,7 @@ import {
   Select,
   Badge,
 } from "@/components/ui";
+import { Pager } from "@/components/admin/pager";
 
 export interface ProductFilters {
   search?: string;
@@ -394,51 +395,12 @@ function ProductsBrowserContent({
       </div>
 
       {showPagination && data && data.meta.pages > 1 && (
-        <nav
-          className="mt-8 flex items-center justify-center gap-1"
-          aria-label="Paginación"
-        >
-          <Button
-            variant="secondary"
-            onClick={() =>
-              applyFilters({
-                ...filters,
-                page: Math.max(1, (filters.page ?? 1) - 1),
-              })
-            }
-            disabled={(filters.page ?? 1) <= 1}
-            aria-label="Página anterior"
-          >
-            ‹
-          </Button>
-          {Array.from({ length: data.meta.pages }, (_, i) => i + 1).map((p) => (
-            <button
-              key={p}
-              onClick={() => applyFilters({ ...filters, page: p })}
-              aria-current={p === data.meta.page ? "page" : undefined}
-              aria-label={`Página ${p}`}
-              className={`inline-flex h-11 min-w-11 items-center justify-center rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary ${
-                p === data.meta.page
-                  ? "bg-secondary text-text-inverse"
-                  : "border border-border bg-surface text-text-primary hover:bg-surface-muted"
-              }`}
-            >
-              {p}
-            </button>
-          ))}
-          <Button
-            variant="secondary"
-            onClick={() =>
-              applyFilters({
-                ...filters,
-                page: Math.min(data.meta.pages, (filters.page ?? 1) + 1),
-              })
-            }
-            disabled={(filters.page ?? 1) >= data.meta.pages}
-            aria-label="Página siguiente"
-          >
-            ›
-          </Button>
+        <nav aria-label="Paginación">
+          <Pager
+            page={filters.page ?? 1}
+            pages={data.meta.pages}
+            onPageChange={(p) => applyFilters({ ...filters, page: p })}
+          />
         </nav>
       )}
     </div>
@@ -475,24 +437,6 @@ export function ProductCard({ product }: { product: Product }) {
               Pendiente
             </Badge>
           )}
-          <button
-            type="button"
-            aria-label="Agregar a favoritos"
-            className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-paper/95 transition-all hover:scale-110 hover:bg-paper"
-            onClick={(e) => e.preventDefault()}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="16"
-              height="16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden
-            >
-              <path d="M19 14c1.5-1.4 3-3.3 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.2 1.5 4.1 3 5.5l7 7Z" />
-            </svg>
-          </button>
         </div>
         <div className="flex flex-1 flex-col gap-1">
           <h3 className="truncate font-sans text-sm font-medium leading-tight text-ink">

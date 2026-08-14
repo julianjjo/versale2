@@ -9,14 +9,17 @@ import { OrdersModule } from './orders/orders.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { parsePositiveIntEnv } from './common/env';
 
 // Rate limits are tracked per IP and per endpoint. The default ceiling is
 // generous enough for normal browsing and the automated suites; the auth
 // endpoints opt into a much stricter limit (see AuthController).
 // Overridable via THROTTLE_LIMIT so a test run can raise it from a single IP.
 export const DEFAULT_THROTTLE_TTL = minutes(1);
-export const DEFAULT_THROTTLE_LIMIT =
-  Number(process.env.THROTTLE_LIMIT) || 300;
+export const DEFAULT_THROTTLE_LIMIT = parsePositiveIntEnv(
+  process.env.THROTTLE_LIMIT,
+  300,
+);
 
 @Module({
   imports: [

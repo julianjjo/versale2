@@ -2,27 +2,72 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from '../users.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+
+// Simulates the error Prisma throws when a foreign key with ON DELETE
+// RESTRICT blocks a delete — e.g. deleting a user who still has products,
+// orders, reviews or a cart pointing at them.
+function foreignKeyRestrictError() {
+  return new Prisma.PrismaClientKnownRequestError(
+    'Foreign key constraint failed',
+    {
+      code: 'P2003',
+      clientVersion: 'test',
+    },
+  );
+}
+
+// Simulates the error Prisma throws when a write's `where` filter matches no
+// row — e.g. a second concurrent delete of the same, already-deleted user.
+function notFoundError() {
+  return new Prisma.PrismaClientKnownRequestError('No record found', {
+    code: 'P2025',
+    clientVersion: 'test',
+  });
+}
+
+// Simulates the error Prisma throws when a unique constraint is violated —
+// e.g. two concurrent requests racing to claim the same not-yet-taken email.
+function uniqueConstraintError() {
+  return new Prisma.PrismaClientKnownRequestError(
+    'Unique constraint failed on the fields: (`email`)',
+    {
+      code: 'P2002',
+      clientVersion: 'test',
+    },
+  );
+}
 
 describe('UsersService', () => {
   let service: UsersService;
   let prismaService: PrismaService;
 
+  const mockUserClient = {
+    create: jest.fn(),
+    findMany: jest.fn(),
+    findUnique: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    count: jest.fn(),
+  };
+
   const mockPrismaService = {
     client: {
-      user: {
-        create: jest.fn(),
-        findMany: jest.fn(),
-        findUnique: jest.fn(),
-        update: jest.fn(),
-        delete: jest.fn(),
-        count: jest.fn(),
-      },
+      user: mockUserClient,
+      // remove() runs its admin-count check and delete inside a transaction;
+      // invoking the callback with the same mocked `user` client (rather
+      // than a separate tx double) keeps every existing
+      // `mockPrismaService.client.user.*` expectation below valid unchanged.
+      $transaction: jest.fn(
+        (callback: (tx: { user: typeof mockUserClient }) => unknown) =>
+          callback({ user: mockUserClient }),
+      ),
     },
   };
 
@@ -303,20 +348,22 @@ describe('UsersService', () => {
       expect(result).toEqual(mockUpdatedUser);
     });
 
-    it('rejects a self-service password change without the current password', async () => {
+    it('rejects a self-service password change without the current password with a 403, not a 401', async () => {
       mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
 
+      // A 401 here would make the web app's global interceptor treat this as
+      // an expired session and force-navigate to /login, wiping the form.
       await expect(
         service.update(
           'user1',
           { password: 'newpassword123' },
           { isSelfService: true },
         ),
-      ).rejects.toThrow(UnauthorizedException);
+      ).rejects.toThrow(ForbiddenException);
       expect(mockPrismaService.client.user.update).not.toHaveBeenCalled();
     });
 
-    it('rejects a self-service password change when the current password is wrong', async () => {
+    it('rejects a self-service password change when the current password is wrong with a 403, not a 401', async () => {
       mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
       jest
         .spyOn(bcrypt, 'compare')
@@ -328,7 +375,7 @@ describe('UsersService', () => {
           { password: 'newpassword123', currentPassword: 'wrongpassword' },
           { isSelfService: true },
         ),
-      ).rejects.toThrow(UnauthorizedException);
+      ).rejects.toThrow(ForbiddenException);
       expect(bcrypt.compare).toHaveBeenCalledWith(
         'wrongpassword',
         storedUser.password,
@@ -368,7 +415,7 @@ describe('UsersService', () => {
       });
     });
 
-    it('rejects a self-service email change without the current password', async () => {
+    it('rejects a self-service email change without the current password with a 403, not a 401', async () => {
       mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
 
       await expect(
@@ -377,8 +424,25 @@ describe('UsersService', () => {
           { email: 'attacker@example.com' },
           { isSelfService: true },
         ),
-      ).rejects.toThrow(UnauthorizedException);
+      ).rejects.toThrow(ForbiddenException);
       expect(mockPrismaService.client.user.update).not.toHaveBeenCalled();
+    });
+
+    it('keeps the exact Spanish message when the current password is wrong', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
+      jest
+        .spyOn(bcrypt, 'compare')
+        .mockImplementation(() => Promise.resolve(false));
+
+      await expect(
+        service.update(
+          'user1',
+          { password: 'newpassword123', currentPassword: 'wrongpassword' },
+          { isSelfService: true },
+        ),
+      ).rejects.toThrow(
+        new ForbiddenException('La contraseña actual es incorrecta'),
+      );
     });
 
     it('does not ask for the current password when the email is unchanged', async () => {
@@ -435,6 +499,52 @@ describe('UsersService', () => {
       );
       expect(mockPrismaService.client.user.update).not.toHaveBeenCalled();
     });
+
+    // Regression: the email-uniqueness check above is a plain findUnique, not
+    // a transaction — two concurrent requests changing different users to the
+    // same not-yet-taken email can both pass it before either writes. The
+    // losing write then hits the DB's unique constraint and must still read
+    // as the same Spanish 409 instead of an unhandled 500.
+    it('throws a Spanish ConflictException when a concurrent request claims the email first', async () => {
+      mockPrismaService.client.user.findUnique
+        .mockResolvedValueOnce(storedUser)
+        .mockResolvedValueOnce(null);
+      mockPrismaService.client.user.update.mockRejectedValue(
+        uniqueConstraintError(),
+      );
+
+      await expect(
+        service.update('user1', { email: 'taken@example.com' }),
+      ).rejects.toThrow(
+        new ConflictException('Ya existe una cuenta con ese correo'),
+      );
+    });
+
+    // Regression: a non-credential update (just `name`, as in the first test
+    // in this describe block) skips the findUnique guard above entirely —
+    // that guard only exists to check the current password and the new
+    // email's availability. Without it, updating an id deleted a moment
+    // earlier reaches Prisma's update() directly, which raises P2025 for a
+    // matched-no-row write; it must still read as the same Spanish 404
+    // instead of an unhandled 500.
+    it('throws a Spanish NotFoundException when updating a user deleted moments earlier', async () => {
+      mockPrismaService.client.user.update.mockRejectedValue(notFoundError());
+
+      await expect(
+        service.update('user1', { name: 'Updated Name' }),
+      ).rejects.toThrow(
+        new NotFoundException('Usuario con ID user1 no encontrado'),
+      );
+    });
+
+    it('re-throws an unrelated update error unchanged', async () => {
+      const unrelatedError = new Error('boom');
+      mockPrismaService.client.user.update.mockRejectedValue(unrelatedError);
+
+      await expect(
+        service.update('user1', { name: 'Updated Name' }),
+      ).rejects.toThrow(unrelatedError);
+    });
   });
 
   describe('remove', () => {
@@ -473,9 +583,9 @@ describe('UsersService', () => {
     it('should throw NotFoundException if the target user does not exist', async () => {
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.remove('nonexistent', 'admin1'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.remove('nonexistent', 'admin1')).rejects.toThrow(
+        NotFoundException,
+      );
       expect(mockPrismaService.client.user.delete).not.toHaveBeenCalled();
     });
 
@@ -506,6 +616,61 @@ describe('UsersService', () => {
         where: { role: 'ADMIN' },
       });
       expect(mockPrismaService.client.user.delete).not.toHaveBeenCalled();
+    });
+
+    it('throws a Spanish BadRequestException when the user has related products, orders, reviews or a cart', async () => {
+      const targetId = 'seller1';
+      const requesterId = 'admin1';
+
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        id: targetId,
+        role: 'USER',
+      });
+      mockPrismaService.client.user.delete.mockRejectedValue(
+        foreignKeyRestrictError(),
+      );
+
+      await expect(service.remove(targetId, requesterId)).rejects.toThrow(
+        new BadRequestException(
+          'No se puede eliminar a este usuario: tiene productos, pedidos, reseñas o un carrito asociados.',
+        ),
+      );
+    });
+
+    // Regression: a second concurrent DELETE on the same target (a
+    // double-click before the button disables, or two admin sessions) makes
+    // this delete match no row. Prisma raises P2025 for that; it must still
+    // read as the same 404 as a target that was never found, instead of an
+    // unhandled 500.
+    it('throws a Spanish NotFoundException when a concurrent request already deleted the target', async () => {
+      const targetId = 'seller1';
+      const requesterId = 'admin1';
+
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        id: targetId,
+        role: 'USER',
+      });
+      mockPrismaService.client.user.delete.mockRejectedValue(notFoundError());
+
+      await expect(service.remove(targetId, requesterId)).rejects.toThrow(
+        new NotFoundException(`Usuario con ID ${targetId} no encontrado`),
+      );
+    });
+
+    it('re-throws an unrelated delete error unchanged', async () => {
+      const targetId = 'seller1';
+      const requesterId = 'admin1';
+      const unrelatedError = new Error('boom');
+
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        id: targetId,
+        role: 'USER',
+      });
+      mockPrismaService.client.user.delete.mockRejectedValue(unrelatedError);
+
+      await expect(service.remove(targetId, requesterId)).rejects.toThrow(
+        unrelatedError,
+      );
     });
 
     it('should allow deleting an admin when other admins remain', async () => {

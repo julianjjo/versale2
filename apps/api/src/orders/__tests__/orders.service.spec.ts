@@ -228,9 +228,9 @@ describe('OrdersService', () => {
         ],
       });
 
-      await expect(
-        service.createOrder(userId, createOrderDto),
-      ).rejects.toThrow('El producto Camisa de lino ya fue vendido');
+      await expect(service.createOrder(userId, createOrderDto)).rejects.toThrow(
+        'El producto Camisa de lino ya fue vendido',
+      );
       expect(mockTx.order.create).not.toHaveBeenCalled();
       expect(mockTx.cartItem.deleteMany).not.toHaveBeenCalled();
     });
@@ -261,9 +261,9 @@ describe('OrdersService', () => {
       // The compare-and-swap matched no row: another checkout got there first.
       mockTx.product.updateMany.mockResolvedValue({ count: 0 });
 
-      await expect(
-        service.createOrder(userId, createOrderDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.createOrder(userId, createOrderDto)).rejects.toThrow(
+        BadRequestException,
+      );
       // The throw rolls the transaction back, so the cart is never emptied.
       expect(mockTx.cartItem.deleteMany).not.toHaveBeenCalled();
     });
@@ -291,9 +291,9 @@ describe('OrdersService', () => {
         ],
       });
 
-      await expect(
-        service.createOrder(userId, createOrderDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.createOrder(userId, createOrderDto)).rejects.toThrow(
+        BadRequestException,
+      );
       expect(mockTx.order.create).not.toHaveBeenCalled();
     });
 
@@ -361,9 +361,9 @@ describe('OrdersService', () => {
         items: [],
       });
 
-      await expect(
-        service.createOrder(userId, createOrderDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.createOrder(userId, createOrderDto)).rejects.toThrow(
+        BadRequestException,
+      );
       expect(mockPrismaService.client.$transaction).toHaveBeenCalledTimes(1);
       expect(mockTx.order.create).not.toHaveBeenCalled();
       expect(mockTx.cartItem.deleteMany).not.toHaveBeenCalled();
@@ -373,9 +373,9 @@ describe('OrdersService', () => {
       const userId = 'user1';
       mockTx.cart.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.createOrder(userId, createOrderDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.createOrder(userId, createOrderDto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException if the product on a cart item is missing', async () => {
@@ -396,9 +396,9 @@ describe('OrdersService', () => {
 
       mockTx.cart.findUnique.mockResolvedValue(mockCart);
 
-      await expect(
-        service.createOrder(userId, createOrderDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.createOrder(userId, createOrderDto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException if product not approved', async () => {
@@ -426,9 +426,9 @@ describe('OrdersService', () => {
 
       mockTx.cart.findUnique.mockResolvedValue(mockCart);
 
-      await expect(
-        service.createOrder(userId, createOrderDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.createOrder(userId, createOrderDto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException if user tries to buy their own product', async () => {
@@ -456,9 +456,9 @@ describe('OrdersService', () => {
 
       mockTx.cart.findUnique.mockResolvedValue(mockCart);
 
-      await expect(
-        service.createOrder(userId, createOrderDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.createOrder(userId, createOrderDto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException for an invalid (non-positive) quantity', async () => {
@@ -486,9 +486,9 @@ describe('OrdersService', () => {
 
       mockTx.cart.findUnique.mockResolvedValue(mockCart);
 
-      await expect(
-        service.createOrder(userId, createOrderDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.createOrder(userId, createOrderDto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -604,7 +604,11 @@ describe('OrdersService', () => {
       mockPrismaService.client.order.findMany.mockResolvedValue([]);
       mockPrismaService.client.order.count.mockResolvedValue(0);
 
-      await service.getAllOrders({ search: 'ana@example.com', page: '2', limit: '5' });
+      await service.getAllOrders({
+        search: 'ana@example.com',
+        page: '2',
+        limit: '5',
+      });
 
       expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
         where: {
@@ -659,9 +663,17 @@ describe('OrdersService', () => {
 
     it('should count PAID, SHIPPED and DELIVERED as confirmed revenue and PENDING as pending', async () => {
       mockPrismaService.client.order.groupBy.mockResolvedValue([
-        { status: OrderStatus.PENDING, _sum: { totalAmount: 50000 }, _count: 2 },
+        {
+          status: OrderStatus.PENDING,
+          _sum: { totalAmount: 50000 },
+          _count: 2,
+        },
         { status: OrderStatus.PAID, _sum: { totalAmount: 120000 }, _count: 3 },
-        { status: OrderStatus.SHIPPED, _sum: { totalAmount: 80000 }, _count: 1 },
+        {
+          status: OrderStatus.SHIPPED,
+          _sum: { totalAmount: 80000 },
+          _count: 1,
+        },
         {
           status: OrderStatus.DELIVERED,
           _sum: { totalAmount: 200000 },

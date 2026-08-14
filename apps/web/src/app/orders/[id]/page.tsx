@@ -17,15 +17,15 @@ import {
 } from "@/components/ui";
 import { ORDER_STATUS_LABEL, ORDER_STATUS_VARIANT } from "@/lib/order-status";
 import { conditionLabel } from "@/lib/product-condition";
+import { isTerminalError } from "@/lib/http-error";
 import type { Order } from "@/lib/types";
-
 
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { user, isLoading: isAuthLoading } = useAuth();
 
-  const { data, isLoading, isError } = useQuery<Order>({
+  const { data, isLoading, isError, error, refetch } = useQuery<Order>({
     queryKey: ["order", params.id],
     queryFn: async () => {
       const response = await api.get<Order>(`/orders/${params.id}`);
@@ -51,8 +51,28 @@ export default function OrderDetailPage() {
           title="Inicia sesión"
           description="Necesitas una cuenta para ver este pedido."
           action={
-            <Button onClick={() => router.push("/login")}>Iniciar sesión</Button>
+            <Button onClick={() => router.push("/login")}>
+              Iniciar sesión
+            </Button>
           }
+        />
+      </PageContainer>
+    );
+  }
+
+  // Un 404 (el pedido no existe) y un 403 (pertenece a otra persona)
+  // terminan deliberadamente en el mismo estado, para no revelarle a quien no
+  // tiene acceso que el pedido sí existe. Cualquier otro fallo (red, timeout,
+  // 500) es temporal y merece un reintento en vez de un mensaje terminal.
+  const isNotFoundOrForbidden = isTerminalError(error, [404, 403]);
+
+  if (isError && !isNotFoundOrForbidden) {
+    return (
+      <PageContainer>
+        <EmptyState
+          title="No pudimos cargar el pedido"
+          description="Hubo un problema al conectar con el servidor. Puede ser temporal."
+          action={<Button onClick={() => refetch()}>Reintentar</Button>}
         />
       </PageContainer>
     );
@@ -99,9 +119,7 @@ export default function OrderDetailPage() {
           role="status"
           className="mb-4 rounded-md border border-success/30 bg-success/10 px-4 py-3 text-sm text-text-primary"
         >
-          <span className="font-semibold text-success">
-            Pedido entregado.
-          </span>{" "}
+          <span className="font-semibold text-success">Pedido entregado.</span>{" "}
           Cuéntanos qué te pareció cada prenda: busca &ldquo;Escribir
           reseña&rdquo; junto al producto.
         </p>

@@ -386,9 +386,9 @@ describe('ReviewsService', () => {
 
       mockPrismaService.client.review.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.remove(reviewId, userId, Role.USER),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.remove(reviewId, userId, Role.USER)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw error if user is not the author', async () => {
@@ -405,12 +405,12 @@ describe('ReviewsService', () => {
         existingReview,
       );
 
-      await expect(
-        service.remove(reviewId, userId, Role.USER),
-      ).rejects.toThrow('No tienes autorización para eliminar esta reseña');
-      await expect(
-        service.remove(reviewId, userId, Role.USER),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.remove(reviewId, userId, Role.USER)).rejects.toThrow(
+        'No tienes autorización para eliminar esta reseña',
+      );
+      await expect(service.remove(reviewId, userId, Role.USER)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it("should let an admin delete another user's abusive review", async () => {

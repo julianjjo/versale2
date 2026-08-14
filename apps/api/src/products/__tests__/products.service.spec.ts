@@ -18,6 +18,19 @@ function notFoundError() {
   });
 }
 
+// Simulates the error Prisma throws when a delete is blocked by an
+// ON DELETE RESTRICT foreign key — e.g. a CartItem, Review, or OrderItem
+// (even from a cancelled order) still pointing at this product.
+function foreignKeyViolationError() {
+  return new Prisma.PrismaClientKnownRequestError(
+    'Foreign key constraint violated',
+    {
+      code: 'P2003',
+      clientVersion: 'test',
+    },
+  );
+}
+
 describe('ProductsService', () => {
   let service: ProductsService;
   let prismaService: PrismaService;
@@ -634,6 +647,30 @@ describe('ProductsService', () => {
       ).rejects.toThrow('Este producto ya fue vendido y no se puede eliminar');
     });
 
+    // A CartItem, Review, or an OrderItem from a CANCELLED order (which clears
+    // `soldAt` back to null) can still hold a RESTRICT foreign key to the
+    // product even though the `soldAt` guard above sees it as "free". Without
+    // catching P2003 that reached the admin as a raw 500.
+    it('should refuse to delete a product still referenced by a cart, review, or cancelled order, instead of failing at the FK', async () => {
+      const productId = 'product1';
+      const userId = 'seller1';
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: productId,
+        sellerId: userId,
+        soldAt: null,
+      });
+      mockPrismaService.client.product.delete.mockRejectedValue(
+        foreignKeyViolationError(),
+      );
+
+      await expect(
+        service.remove(productId, userId, Role.USER),
+      ).rejects.toThrow(
+        'Este producto no se puede eliminar: todavía está en un carrito, en las reseñas de otra persona o en un pedido.',
+      );
+    });
+
     it('should remove a product if user is the seller', async () => {
       const productId = 'product1';
       const userId = 'seller1';
@@ -980,7 +1017,10 @@ describe('ProductsService', () => {
     it('should return distinct approved brands and categories', async () => {
       mockPrismaService.client.product.findMany
         .mockResolvedValueOnce([{ brand: "Levi's" }, { brand: 'Zara' }])
-        .mockResolvedValueOnce([{ category: 'Jackets' }, { category: 'Sweaters' }]);
+        .mockResolvedValueOnce([
+          { category: 'Jackets' },
+          { category: 'Sweaters' },
+        ]);
 
       const result = await service.getFacets();
 
@@ -1152,15 +1192,67 @@ describe('ProductsService', () => {
         isApproved: true,
       };
 
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: productId,
+        soldAt: null,
+      });
       mockPrismaService.client.product.update.mockResolvedValue(mockProduct);
 
       const result = await service.approveProduct(productId);
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId },
+        where: { id: productId, soldAt: null },
         data: { isApproved: true, rejectedAt: null, rejectionReason: null },
       });
       expect(result).toEqual(mockProduct);
+    });
+
+    it('should throw NotFoundException when approving a nonexistent product', async () => {
+      const productId = 'nonexistent';
+      mockPrismaService.client.product.findUnique.mockResolvedValue(null);
+
+      await expect(service.approveProduct(productId)).rejects.toThrow(
+        `Producto con ID ${productId} no encontrado`,
+      );
+      expect(mockPrismaService.client.product.update).not.toHaveBeenCalled();
+    });
+
+    // Regression: previously neither approveProduct() nor rejectProduct()
+    // re-asserted `soldAt: null`, unlike update()/remove() in this same file —
+    // so admin/products' new "Rechazar on an approved listing" UI path (which
+    // this same PR introduced) could silently un-approve a product that had
+    // already been sold, hiding it from its buyer via findOne()'s canView gate.
+    it('should refuse to approve a product that has already been sold', async () => {
+      const productId = 'product1';
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: productId,
+        soldAt: new Date(),
+      });
+
+      await expect(service.approveProduct(productId)).rejects.toThrow(
+        'Este producto ya fue vendido y no se puede aprobar',
+      );
+      expect(mockPrismaService.client.product.update).not.toHaveBeenCalled();
+    });
+
+    // Mirrors remove()'s concurrent-checkout test: the initial read only
+    // drives the check above, so a checkout that sells the product afterward
+    // makes the conditional `soldAt: null` update match no row. Prisma raises
+    // P2025 for that, and it must still read as "already sold" rather than an
+    // unhandled exception.
+    it('should reject a concurrent checkout that sells the product between the read and the write', async () => {
+      const productId = 'product1';
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: productId,
+        soldAt: null,
+      });
+      mockPrismaService.client.product.update.mockRejectedValue(
+        notFoundError(),
+      );
+
+      await expect(service.approveProduct(productId)).rejects.toThrow(
+        'Este producto ya fue vendido y no se puede aprobar',
+      );
     });
   });
 
@@ -1173,12 +1265,16 @@ describe('ProductsService', () => {
         rejectionReason: 'Fotos borrosas',
       };
 
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: productId,
+        soldAt: null,
+      });
       mockPrismaService.client.product.update.mockResolvedValue(mockProduct);
 
       const result = await service.rejectProduct(productId, 'Fotos borrosas');
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId },
+        where: { id: productId, soldAt: null },
         data: {
           isApproved: false,
           rejectedAt: expect.any(Date),
@@ -1190,6 +1286,10 @@ describe('ProductsService', () => {
 
     it('should reject a product without a reason', async () => {
       const productId = 'product1';
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: productId,
+        soldAt: null,
+      });
       mockPrismaService.client.product.update.mockResolvedValue({
         id: productId,
       });
@@ -1197,13 +1297,55 @@ describe('ProductsService', () => {
       await service.rejectProduct(productId);
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId },
+        where: { id: productId, soldAt: null },
         data: {
           isApproved: false,
           rejectedAt: expect.any(Date),
           rejectionReason: null,
         },
       });
+    });
+
+    it('should throw NotFoundException when rejecting a nonexistent product', async () => {
+      const productId = 'nonexistent';
+      mockPrismaService.client.product.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.rejectProduct(productId, 'Fotos borrosas'),
+      ).rejects.toThrow(`Producto con ID ${productId} no encontrado`);
+      expect(mockPrismaService.client.product.update).not.toHaveBeenCalled();
+    });
+
+    // Regression: this is the path admin/products' new "Rechazar on an
+    // approved listing" button reaches. Without the soldAt guard, an admin
+    // acting on a stale (already-sold) row could un-approve it with no
+    // pushback, hiding it from its buyer.
+    it('should refuse to reject a product that has already been sold', async () => {
+      const productId = 'product1';
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: productId,
+        soldAt: new Date(),
+      });
+
+      await expect(
+        service.rejectProduct(productId, 'Fotos borrosas'),
+      ).rejects.toThrow('Este producto ya fue vendido y no se puede rechazar');
+      expect(mockPrismaService.client.product.update).not.toHaveBeenCalled();
+    });
+
+    it('should reject a concurrent checkout that sells the product between the read and the write', async () => {
+      const productId = 'product1';
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: productId,
+        soldAt: null,
+      });
+      mockPrismaService.client.product.update.mockRejectedValue(
+        notFoundError(),
+      );
+
+      await expect(
+        service.rejectProduct(productId, 'Fotos borrosas'),
+      ).rejects.toThrow('Este producto ya fue vendido y no se puede rechazar');
     });
   });
 });
