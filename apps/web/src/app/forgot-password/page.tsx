@@ -7,8 +7,9 @@ import { Input, Button, Card, PageContainer } from "@/components/ui";
 
 interface ForgotPasswordResponse {
   message: string;
-  // Only present outside production — no email provider is wired up yet, so
-  // the API hands the token back directly for local/dev testing.
+  // Only present when the API opts in via AUTH_EXPOSE_RESET_TOKEN (off by
+  // default) — no email provider is wired up yet, so that flag lets a local
+  // dev environment get the token back directly for testing.
   resetToken?: string;
 }
 

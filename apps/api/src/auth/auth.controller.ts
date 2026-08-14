@@ -19,6 +19,17 @@ export const AUTH_THROTTLE_LIMIT = parsePositiveIntEnv(
   30,
 );
 
+// forgot-password has a different threat model than login/signup: it isn't
+// guarding stolen-credential stuffing, it's guarding against inbox-bombing a
+// victim with reset requests or using response timing/volume to probe which
+// emails are registered. Each handler gets its own counter regardless (the
+// throttler keys on class+handler+IP), so this only needs its own, tighter
+// limit — not a separate decorator mechanism.
+export const FORGOT_PASSWORD_THROTTLE_LIMIT = parsePositiveIntEnv(
+  process.env.FORGOT_PASSWORD_THROTTLE_LIMIT,
+  10,
+);
+
 @Throttle({
   default: { ttl: AUTH_THROTTLE_TTL, limit: AUTH_THROTTLE_LIMIT },
 })
@@ -41,6 +52,9 @@ export class AuthController {
     return this.authService.login(loginDto.email, loginDto.password);
   }
 
+  @Throttle({
+    default: { ttl: AUTH_THROTTLE_TTL, limit: FORGOT_PASSWORD_THROTTLE_LIMIT },
+  })
   @HttpCode(HttpStatus.OK)
   @Post('forgot-password')
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
