@@ -334,7 +334,11 @@ describe('UsersService', () => {
       expect(bcrypt.hash).toHaveBeenCalledWith('newpassword123', 10);
       expect(mockPrismaService.client.user.update).toHaveBeenCalledWith({
         where: { id: userId },
-        data: { password: hashedPassword },
+        data: {
+          password: hashedPassword,
+          // A password change must invalidate every JWT issued before it.
+          tokenVersion: { increment: 1 },
+        },
         select: {
           id: true,
           email: true,
@@ -402,7 +406,10 @@ describe('UsersService', () => {
 
       expect(mockPrismaService.client.user.update).toHaveBeenCalledWith({
         where: { id: 'user1' },
-        data: { password: 'new_hashed_password' },
+        data: {
+          password: 'new_hashed_password',
+          tokenVersion: { increment: 1 },
+        },
         select: {
           id: true,
           email: true,
@@ -503,9 +510,34 @@ describe('UsersService', () => {
       expect(mockPrismaService.client.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'user1' },
-          data: { password: 'admin_reset_hash' },
+          data: {
+            password: 'admin_reset_hash',
+            tokenVersion: { increment: 1 },
+          },
         }),
       );
+    });
+
+    // Regression: a name-only update must not bump tokenVersion — only an
+    // actual credential change should invalidate existing sessions.
+    it('does not bump tokenVersion when no password is being changed', async () => {
+      mockPrismaService.client.user.update.mockResolvedValue(mockUpdatedUser);
+
+      await service.update('user1', { name: 'Updated Name' });
+
+      expect(mockPrismaService.client.user.update).toHaveBeenCalledWith({
+        where: { id: 'user1' },
+        data: { name: 'Updated Name' },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          isVerified: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
     });
 
     it('throws a Spanish ConflictException when the new email is already taken', async () => {
