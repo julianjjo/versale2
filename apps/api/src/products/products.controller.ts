@@ -36,6 +36,13 @@ export class ProductsController {
     return this.productsService.getFacets();
   }
 
+  // Declared before ':id' so 'mine' is never swallowed by the id param route.
+  @UseGuards(JwtAuthGuard)
+  @Get('mine')
+  async findAllMine(@Query() query: any, @Req() req: AuthRequest) {
+    return this.productsService.findAllMine(req.user.id, query);
+  }
+
   @UseGuards(OptionalJwtAuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: string, @Req() req: Request) {

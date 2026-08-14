@@ -1059,6 +1059,134 @@ describe('ProductsService', () => {
     });
   });
 
+  describe('findAllMine', () => {
+    it('should scope the query to the given sellerId with no status filter', async () => {
+      const mockProducts = [
+        {
+          id: 'product1',
+          title: 'Test Product',
+          sellerId: 'seller1',
+          isApproved: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+
+      mockPrismaService.client.product.findMany.mockResolvedValue(mockProducts);
+      mockPrismaService.client.product.count.mockResolvedValue(1);
+
+      const result = await service.findAllMine('seller1', {
+        page: '2',
+        limit: '5',
+      });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith({
+        where: { sellerId: 'seller1' },
+        skip: 5,
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          seller: { select: { id: true, name: true } },
+          _count: { select: { reviews: true } },
+        },
+      });
+      expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
+        where: { sellerId: 'seller1' },
+      });
+      expect(result).toEqual({
+        data: mockProducts,
+        meta: { total: 1, page: 2, limit: 5, pages: 1 },
+      });
+    });
+
+    it('should filter to pending listings (not approved, not rejected, not sold)', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAllMine('seller1', { status: 'pending' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            sellerId: 'seller1',
+            isApproved: false,
+            rejectedAt: null,
+            soldAt: null,
+          },
+        }),
+      );
+    });
+
+    it('should filter to approved listings that are not sold', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAllMine('seller1', { status: 'approved' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { sellerId: 'seller1', isApproved: true, soldAt: null },
+        }),
+      );
+    });
+
+    it('should filter to rejected listings', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAllMine('seller1', { status: 'rejected' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            sellerId: 'seller1',
+            isApproved: false,
+            rejectedAt: { not: null },
+          },
+        }),
+      );
+    });
+
+    it('should filter to sold listings regardless of approval state', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAllMine('seller1', { status: 'sold' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { sellerId: 'seller1', soldAt: { not: null } },
+        }),
+      );
+    });
+
+    it("should not leak another seller's listings", async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAllMine('seller2', {});
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { sellerId: 'seller2' } }),
+      );
+    });
+
+    it('should clamp pagination the same way as the other listing endpoints', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      const result = await service.findAllMine('seller1', {
+        page: '-3',
+        limit: '999999',
+      });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 100 }),
+      );
+      expect(result.meta).toEqual({ total: 0, page: 1, limit: 100, pages: 0 });
+    });
+  });
+
   describe('findAllForAdmin', () => {
     it('should return paginated products for admin (including not approved) with no status filter', async () => {
       const query = {
