@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { ProductsService } from '../products/products.service';
 import { translatePrismaError } from '../common/prisma-error';
+import { resolvePagination } from '../common/pagination';
 
 // A product a buyer favorited while approved can later be rejected by
 // moderation — the Favorite row survives, so `findAll` still resolves it.
@@ -38,14 +39,32 @@ export class FavoritesService {
     private productsService: ProductsService,
   ) {}
 
-  async findAll(userId: string) {
-    return this.prisma.client.favorite.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        product: { select: FAVORITE_PRODUCT_SELECT },
+  async findAll(userId: string, query: any) {
+    const { page = 1, limit = 10 } = query;
+    const { pageNum, limitNum, skip } = resolvePagination(page, limit);
+
+    const [favorites, total] = await Promise.all([
+      this.prisma.client.favorite.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum,
+        include: {
+          product: { select: FAVORITE_PRODUCT_SELECT },
+        },
+      }),
+      this.prisma.client.favorite.count({ where: { userId } }),
+    ]);
+
+    return {
+      data: favorites,
+      meta: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum),
       },
-    });
+    };
   }
 
   async addFavorite(userId: string, productId: string) {

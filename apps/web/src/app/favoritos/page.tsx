@@ -69,7 +69,7 @@ export default function FavoritosPage() {
   // `Favorite.product` is typed optional (the join could in principle come
   // back empty), so this narrows defensively before handing the array to
   // `ProductCard`, which requires a `Product`.
-  const products = (data ?? [])
+  const products = (data?.data ?? [])
     .map((favorite) => favorite.product)
     .filter((product): product is Product => Boolean(product));
 

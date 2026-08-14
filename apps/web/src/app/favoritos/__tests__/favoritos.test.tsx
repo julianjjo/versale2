@@ -103,7 +103,12 @@ describe("FavoritosPage", () => {
   });
 
   it("renderiza los productos favoritos del usuario", async () => {
-    vi.mocked(api.get).mockResolvedValue({ data: mockFavorites });
+    vi.mocked(api.get).mockResolvedValue({
+      data: {
+        data: mockFavorites,
+        meta: { total: 1, page: 1, limit: 100, pages: 1 },
+      },
+    });
     render(
       <TestProviders>
         <FavoritosPage />
@@ -113,11 +118,13 @@ describe("FavoritosPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
-    expect(api.get).toHaveBeenCalledWith("/favorites");
+    expect(api.get).toHaveBeenCalledWith("/favorites?limit=100");
   });
 
   it("muestra un estado vacío cuando no hay favoritos", async () => {
-    vi.mocked(api.get).mockResolvedValue({ data: [] });
+    vi.mocked(api.get).mockResolvedValue({
+      data: { data: [], meta: { total: 0, page: 1, limit: 100, pages: 0 } },
+    });
     const user = userEvent.setup();
     render(
       <TestProviders>
@@ -154,10 +161,13 @@ describe("FavoritosPage", () => {
 
   it("omite favoritos cuyo producto ya no está disponible", async () => {
     vi.mocked(api.get).mockResolvedValue({
-      data: [
-        { id: "fav2", userId: "u1", productId: "gone", createdAt: "" },
-        ...mockFavorites,
-      ],
+      data: {
+        data: [
+          { id: "fav2", userId: "u1", productId: "gone", createdAt: "" },
+          ...mockFavorites,
+        ],
+        meta: { total: 2, page: 1, limit: 100, pages: 1 },
+      },
     });
     render(
       <TestProviders>

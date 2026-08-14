@@ -30,19 +30,23 @@ describe('FavoritesController', () => {
   });
 
   describe('getFavorites', () => {
-    it('should call favoritesService.findAll with userId from request', async () => {
+    it('should call favoritesService.findAll with userId and query from request', async () => {
       const userId = 'user1';
       const mockReq = {
         user: { id: userId, email: 'test@example.com', role: 'USER' },
       } as AuthRequest;
+      const query = { page: '2', limit: '5' };
 
-      const mockFavorites = [{ id: 'fav1', userId, productId: 'product1' }];
-      mockFavoritesService.findAll.mockResolvedValue(mockFavorites);
+      const mockResult = {
+        data: [{ id: 'fav1', userId, productId: 'product1' }],
+        meta: { total: 1, page: 2, limit: 5, pages: 1 },
+      };
+      mockFavoritesService.findAll.mockResolvedValue(mockResult);
 
-      const result = await controller.getFavorites(mockReq);
+      const result = await controller.getFavorites(mockReq, query);
 
-      expect(favoritesService.findAll).toHaveBeenCalledWith(userId);
-      expect(result).toEqual(mockFavorites);
+      expect(favoritesService.findAll).toHaveBeenCalledWith(userId, query);
+      expect(result).toEqual(mockResult);
     });
   });
 

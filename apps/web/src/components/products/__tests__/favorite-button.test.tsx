@@ -63,7 +63,9 @@ describe("FavoriteButton", () => {
 
   it("muestra 'Agregar a favoritos' y lo agrega cuando aún no es favorito", async () => {
     authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
-    vi.mocked(api.get).mockResolvedValue({ data: [] });
+    vi.mocked(api.get).mockResolvedValue({
+      data: { data: [], meta: { total: 0, page: 1, limit: 100, pages: 0 } },
+    });
     vi.mocked(api.post).mockResolvedValue({ data: { id: "fav1" } });
     const user = userEvent.setup();
     render(
@@ -88,7 +90,10 @@ describe("FavoriteButton", () => {
   it("muestra 'Quitar de favoritos' y lo elimina cuando ya es favorito", async () => {
     authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
     vi.mocked(api.get).mockResolvedValue({
-      data: [{ id: "fav1", userId: "u1", productId: "p1", createdAt: "" }],
+      data: {
+        data: [{ id: "fav1", userId: "u1", productId: "p1", createdAt: "" }],
+        meta: { total: 1, page: 1, limit: 100, pages: 1 },
+      },
     });
     vi.mocked(api.delete).mockResolvedValue({ data: { success: true } });
     const user = userEvent.setup();
@@ -144,7 +149,9 @@ describe("FavoriteButton", () => {
 
   it("anuncia un error cuando falla agregar a favoritos", async () => {
     authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
-    vi.mocked(api.get).mockResolvedValue({ data: [] });
+    vi.mocked(api.get).mockResolvedValue({
+      data: { data: [], meta: { total: 0, page: 1, limit: 100, pages: 0 } },
+    });
     vi.mocked(api.post).mockRejectedValue(new Error("Network error"));
     const user = userEvent.setup();
     render(
