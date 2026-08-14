@@ -124,6 +124,26 @@ describe("MisProductosPage", () => {
     );
   });
 
+  it("muestra un error, no el estado vacío, cuando la lista falla al cargar", async () => {
+    vi.mocked(api.get).mockRejectedValue(new Error("network down"));
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    expect(
+      await screen.findByText(/no pudimos cargar tus publicaciones/i),
+    ).toBeInTheDocument();
+    // A failed fetch must not be confused with "you have nothing published" —
+    // `data` is undefined in both cases, so this has to check `isError`, not
+    // just `products.length`.
+    expect(
+      screen.queryByText(/aún no has publicado ningún producto/i),
+    ).not.toBeInTheDocument();
+  });
+
   it("muestra el motivo del rechazo cuando la publicación fue rechazada", async () => {
     const rejected = productFixture({
       id: "p2",

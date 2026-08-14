@@ -94,7 +94,7 @@ function MisProductosList() {
   });
   const [editError, setEditError] = useState<string | null>(null);
 
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading, isFetching, isError } = useQuery({
     queryKey: ["mis-productos", status, page],
     queryFn: async () => {
       const res = await api.get<{
@@ -265,6 +265,16 @@ function MisProductosList() {
       {isLoading ? (
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
           <Spinner className="h-5 w-5" /> Cargando…
+        </div>
+      ) : isError ? (
+        // Distinct from the empty state below: a failed request must not read
+        // as "no tienes publicaciones" — `data` stays undefined either way,
+        // and `products.length === 0` alone can't tell the two apart.
+        <div
+          role="alert"
+          className="rounded-md border border-danger/30 bg-danger/5 p-4 text-sm text-danger"
+        >
+          No pudimos cargar tus publicaciones. Intenta de nuevo.
         </div>
       ) : products.length === 0 ? (
         <EmptyState
