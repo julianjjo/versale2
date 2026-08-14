@@ -1,11 +1,11 @@
-import { IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
+import { IsPassword } from '../../common/password-validation';
 
 export class ResetPasswordDto {
   @IsString({ message: 'El token debe ser un texto' })
   @IsNotEmpty({ message: 'El token es obligatorio' })
   token!: string;
 
-  @IsString({ message: 'La contraseña debe ser un texto' })
-  @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
+  @IsPassword()
   password!: string;
 }
