@@ -3,9 +3,9 @@ import {
   IsNotEmpty,
   IsString,
   MaxLength,
-  MinLength,
   ValidateIf,
 } from 'class-validator';
+import { IsPassword } from '../../common/password-validation';
 
 export class UpdateUserDto {
   @IsString({ message: 'El nombre debe ser un texto' })
@@ -21,8 +21,7 @@ export class UpdateUserDto {
   @ValidateIf((_object, value) => value !== undefined)
   email?: string;
 
-  @IsString({ message: 'La contraseña debe ser un texto' })
-  @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
+  @IsPassword()
   @ValidateIf((_object, value) => value !== undefined)
   password?: string;
 
