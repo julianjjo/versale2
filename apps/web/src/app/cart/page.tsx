@@ -94,8 +94,8 @@ export default function CartPage() {
       enabled: Boolean(user),
     });
 
-  // Same queryKey the orders list/detail pages use, so this is already warm
-  // (no extra request) for anyone who just checked their order history.
+  // Same queryKey the orders list page uses, so this is already warm (no
+  // extra request) for anyone who just checked their order history.
   // Purely a convenience: a failure here just means the "usar la anterior"
   // shortcut doesn't appear, so it isn't allowed to affect cart loading state.
   const { data: previousOrders } = useQuery<Order[]>({
@@ -107,29 +107,51 @@ export default function CartPage() {
     enabled: Boolean(user),
   });
 
-  // `getUserOrders` sorts newest first, so the first order with a non-empty
-  // address is the most recent one the buyer actually shipped something to.
-  // Guarded with `Array.isArray` (not just optional chaining) so that this
-  // being a soft-fail convenience holds even if `/orders` ever answered with
-  // something other than an array — a bug there degrades to "no shortcut",
-  // not a crashed cart page.
+  // Only a `string`, never `undefined`/`null`/some other JSON type — the
+  // column backing `shippingAddress` is a raw, untyped `Json` field, so a
+  // write path other than checkout's own DTO (an admin tool, a migration)
+  // could in principle store a non-string value in it.
+  function addressFieldValue(value: unknown): string {
+    return typeof value === "string" ? value : "";
+  }
+
+  // `getUserOrders` sorts newest first, so the first order whose required
+  // fields (street/city/country — the same ones `REQUIRED_ADDRESS_FIELDS`
+  // enforces on submit) are non-blank strings is the most recent one the
+  // buyer actually shipped something to. Checking those specific fields
+  // (not just "the object has *some* key") matters because the API only
+  // validates that `shippingAddress` is a non-empty object, never that its
+  // fields are the right type or that the required ones are present — so a
+  // half-populated or wrong-typed address could otherwise pass this check
+  // and silently blank out fields the buyer had already filled in.
+  // `Array.isArray` guards the same untyped-response-shape risk: a failure
+  // here degrades to "no shortcut", not a crashed cart page.
   const lastShippingAddress = (
     Array.isArray(previousOrders) ? previousOrders : []
-  ).find(
-    (order) =>
-      order.shippingAddress && Object.keys(order.shippingAddress).length > 0,
-  )?.shippingAddress as Partial<ShippingAddress> | undefined;
+  ).find((order) => {
+    const address = order.shippingAddress as
+      | Record<string, unknown>
+      | null
+      | undefined;
+    return (
+      !!address &&
+      REQUIRED_ADDRESS_FIELDS.every(
+        (field) => addressFieldValue(address[field]).trim() !== "",
+      )
+    );
+  })?.shippingAddress as Record<string, unknown> | undefined;
 
-  const useLastShippingAddress = () => {
+  const applyLastShippingAddress = () => {
     if (!lastShippingAddress) return;
     setShippingAddress({
-      street: lastShippingAddress.street ?? "",
-      city: lastShippingAddress.city ?? "",
-      state: lastShippingAddress.state ?? "",
-      zip: lastShippingAddress.zip ?? "",
-      country: lastShippingAddress.country ?? "",
+      street: addressFieldValue(lastShippingAddress.street),
+      city: addressFieldValue(lastShippingAddress.city),
+      state: addressFieldValue(lastShippingAddress.state),
+      zip: addressFieldValue(lastShippingAddress.zip),
+      country: addressFieldValue(lastShippingAddress.country),
     });
     setAddressErrors({});
+    setError(null);
   };
 
   const removeItem = useMutation({
@@ -373,8 +395,11 @@ export default function CartPage() {
                 {lastShippingAddress && (
                   <button
                     type="button"
-                    onClick={useLastShippingAddress}
-                    className="text-xs font-medium text-terracotta underline-offset-4 hover:underline"
+                    onClick={applyLastShippingAddress}
+                    // design.md: plain terracotta on paper is ~3.6:1, under
+                    // the 4.5:1 normal-text threshold at 11-13px — use
+                    // terracotta-deep (~5.3:1) at this size instead.
+                    className="text-xs font-medium text-terracotta-deep underline-offset-4 hover:underline"
                   >
                     Usar la de tu pedido anterior
                   </button>
