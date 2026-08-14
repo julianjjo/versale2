@@ -74,6 +74,7 @@ describe('AuthService', () => {
           email,
           password: hashedPassword,
           name,
+          verificationToken: expect.any(String),
         },
       });
       expect(mockJwtService.sign).toHaveBeenCalledWith({
@@ -90,6 +91,59 @@ describe('AuthService', () => {
           role: 'USER',
         },
       });
+    });
+
+    it('should not include the raw verification token in the response by default', async () => {
+      delete process.env.AUTH_EXPOSE_VERIFICATION_TOKEN;
+      const email = 'test@example.com';
+
+      jest
+        .spyOn(bcrypt, 'hash')
+        .mockImplementation(() => Promise.resolve('hashed'));
+      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
+      mockPrismaService.client.user.create.mockResolvedValue({
+        id: '1',
+        email,
+        password: 'hashed',
+        name: 'Test User',
+        role: 'USER',
+      });
+      mockJwtService.sign.mockReturnValue('fake-jwt-token');
+
+      const result = await service.signup(email, 'password123', 'Test User');
+
+      expect(result).not.toHaveProperty('verificationToken');
+    });
+
+    it('should include the raw verification token in the response when explicitly opted in', async () => {
+      const originalFlag = process.env.AUTH_EXPOSE_VERIFICATION_TOKEN;
+      process.env.AUTH_EXPOSE_VERIFICATION_TOKEN = 'true';
+      const email = 'test@example.com';
+
+      jest
+        .spyOn(bcrypt, 'hash')
+        .mockImplementation(() => Promise.resolve('hashed'));
+      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
+      mockPrismaService.client.user.create.mockResolvedValue({
+        id: '1',
+        email,
+        password: 'hashed',
+        name: 'Test User',
+        role: 'USER',
+      });
+      mockJwtService.sign.mockReturnValue('fake-jwt-token');
+
+      const result = await service.signup(email, 'password123', 'Test User');
+
+      expect(result.verificationToken).toEqual(expect.any(String));
+      // The hashed value written to the DB must never equal the raw token
+      // handed back to the caller.
+      const writtenToken =
+        mockPrismaService.client.user.create.mock.calls[0][0].data
+          .verificationToken;
+      expect(result.verificationToken).not.toBe(writtenToken);
+
+      process.env.AUTH_EXPOSE_VERIFICATION_TOKEN = originalFlag;
     });
 
     it('should throw error if user already exists', async () => {
@@ -388,6 +442,42 @@ describe('AuthService', () => {
 
       expect(first.status).toBe('fulfilled');
       expect(second.status).toBe('rejected');
+    });
+  });
+
+  describe('verifyEmail', () => {
+    it('should mark the user verified and clear the token on a valid token', async () => {
+      mockPrismaService.client.user.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      const result = await service.verifyEmail('a-valid-token');
+
+      expect(mockPrismaService.client.user.updateMany).toHaveBeenCalledWith({
+        where: { verificationToken: expect.any(String) },
+        data: { isVerified: true, verificationToken: null },
+      });
+      // Looked up by the hash, never the raw token.
+      const lookupHash =
+        mockPrismaService.client.user.updateMany.mock.calls[0][0].where
+          .verificationToken;
+      expect(lookupHash).not.toBe('a-valid-token');
+      expect(result).toEqual({
+        message: 'Tu correo se verificó correctamente',
+      });
+    });
+
+    it('should reject an unknown or already-used token', async () => {
+      mockPrismaService.client.user.updateMany.mockResolvedValue({
+        count: 0,
+      });
+
+      await expect(service.verifyEmail('bad-token')).rejects.toThrow(
+        'El enlace de verificación no es válido o ya fue usado',
+      );
+      await expect(service.verifyEmail('bad-token')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

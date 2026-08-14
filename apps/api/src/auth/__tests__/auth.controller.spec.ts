@@ -11,6 +11,7 @@ describe('AuthController', () => {
     login: jest.fn(),
     forgotPassword: jest.fn(),
     resetPassword: jest.fn(),
+    verifyEmail: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -119,6 +120,20 @@ describe('AuthController', () => {
         dto.token,
         dto.password,
       );
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('verifyEmail', () => {
+    it('should call authService.verifyEmail and return the result', async () => {
+      const dto = { token: 'verification-token' };
+      const mockResult = { message: 'Tu correo se verificó correctamente' };
+
+      mockAuthService.verifyEmail.mockResolvedValue(mockResult);
+
+      const result = await controller.verifyEmail(dto);
+
+      expect(authService.verifyEmail).toHaveBeenCalledWith(dto.token);
       expect(result).toEqual(mockResult);
     });
   });

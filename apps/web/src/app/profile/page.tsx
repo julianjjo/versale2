@@ -127,6 +127,11 @@ function ProfileForm({
             {user.role === "ADMIN" ? "Administrador" : "Usuario"}
           </Badge>
         </div>
+        <div className="mt-2">
+          <Badge variant={user.isVerified ? "success" : "warning"}>
+            {user.isVerified ? "Correo verificado" : "Correo sin verificar"}
+          </Badge>
+        </div>
         <button
           onClick={logout}
           className="mt-3 text-sm font-medium text-danger transition-colors hover:text-danger/80"
