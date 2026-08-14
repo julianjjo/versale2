@@ -324,6 +324,55 @@ export class ProductsService {
     }
   }
 
+  async findAllMine(sellerId: string, query: any) {
+    const { status, page = 1, limit = 10 } = query;
+    const { pageNum, limitNum, skip } = resolvePagination(page, limit);
+
+    // A seller's own dashboard has one more bucket than the admin queue:
+    // "vendido" (soldAt set) sits outside isApproved/rejectedAt entirely, and
+    // an approved-but-sold listing must stop showing up under "aprobados"
+    // here even though admin's findAllForAdmin still counts it there (that
+    // view tracks moderation history, this one tracks what's sellable).
+    const where: any = { sellerId };
+    if (status === 'pending') {
+      where.isApproved = false;
+      where.rejectedAt = null;
+      where.soldAt = null;
+    } else if (status === 'approved') {
+      where.isApproved = true;
+      where.soldAt = null;
+    } else if (status === 'rejected') {
+      where.isApproved = false;
+      where.rejectedAt = { not: null };
+    } else if (status === 'sold') {
+      where.soldAt = { not: null };
+    }
+
+    const [products, total] = await Promise.all([
+      this.prisma.client.product.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          seller: { select: { id: true, name: true } },
+          _count: { select: { reviews: true } },
+        },
+      }),
+      this.prisma.client.product.count({ where }),
+    ]);
+
+    return {
+      data: products,
+      meta: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum),
+      },
+    };
+  }
+
   async findAllForAdmin(query: any) {
     const { status, page = 1, limit = 10 } = query;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);

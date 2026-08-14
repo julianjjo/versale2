@@ -103,6 +103,24 @@ export function Header() {
           {user && <NavLink href="/cart">Carrito</NavLink>}
           {user && <NavLink href="/orders">Pedidos</NavLink>}
           {user && <NavLink href="/sell">Vender</NavLink>}
+          {/* Same fix as the profile chip below: icon-only between md and lg
+              (the tablet band already tuned to its widest cluster — a 5th
+              full-text link there reintroduces the horizontal-scroll
+              regression this file's history fixed), full label from lg up.
+              A prior version hid this link entirely below lg while the
+              mobile-menu trigger also hides at md, leaving md–lg with no
+              path to the page at all — the icon closes that gap instead of
+              opening one. */}
+          {user && (
+            <NavLink href="/mis-productos" ariaLabel="Mis publicaciones">
+              <span aria-hidden="true" className="lg:hidden">
+                <TagIcon />
+              </span>
+              <span aria-hidden="true" className="hidden lg:inline">
+                Mis publicaciones
+              </span>
+            </NavLink>
+          )}
           {user?.role === "ADMIN" && (
             <Link
               href="/admin"
@@ -233,6 +251,11 @@ export function Header() {
                 </MobileLink>
               )}
               {user && (
+                <MobileLink href="/mis-productos" onClick={closeMenu}>
+                  Mis publicaciones
+                </MobileLink>
+              )}
+              {user && (
                 <MobileLink href="/profile" onClick={closeMenu}>
                   Mi perfil ({user.name})
                 </MobileLink>
@@ -289,11 +312,22 @@ export function Header() {
   );
 }
 
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+function NavLink({
+  href,
+  children,
+  className = "",
+  ariaLabel,
+}: {
+  href: string;
+  children: React.ReactNode;
+  className?: string;
+  ariaLabel?: string;
+}) {
   return (
     <Link
       href={href}
-      className="group relative px-1 py-1 text-sm font-medium text-text-primary transition-opacity hover:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+      aria-label={ariaLabel}
+      className={`group relative px-1 py-1 text-sm font-medium text-text-primary transition-opacity hover:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${className}`}
     >
       {children}
       <span
@@ -379,6 +413,25 @@ function CartIcon() {
       <circle cx="9" cy="21" r="1" />
       <circle cx="20" cy="21" r="1" />
       <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+    </svg>
+  );
+}
+
+function TagIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M20.59 13.41 13 21l-9-9V4h8l9 9a2 2 0 0 1 0 3.41z" />
+      <circle cx="7.5" cy="8.5" r="1.5" fill="currentColor" stroke="none" />
     </svg>
   );
 }
