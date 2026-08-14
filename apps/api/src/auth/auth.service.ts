@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { BCRYPT_SALT_ROUNDS } from '../common/bcrypt';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { User } from '@prisma/client';
@@ -17,7 +18,6 @@ const FORGOT_PASSWORD_MESSAGE =
   'Si el correo existe, enviaremos instrucciones para restablecer la contraseña';
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
-const BCRYPT_SALT_ROUNDS = 10;
 
 export type AuthenticatedUser = Omit<User, 'password'>;
 
@@ -38,11 +38,28 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+    const verificationToken = crypto.randomBytes(32).toString('hex');
     const user = await this.prisma.client.user.create({
-      data: { email, password: hashedPassword, name },
+      data: {
+        email,
+        password: hashedPassword,
+        name,
+        // Stored hashed: a database leak alone must not hand out a live,
+        // directly-usable verification token for every unverified account.
+        verificationToken: hashOpaqueToken(verificationToken),
+      },
     });
 
-    return this.generateToken(user);
+    return {
+      ...this.generateToken(user),
+      // No email provider is wired up yet. Outside this explicit opt-in the
+      // token never leaves the server, so a misconfigured non-production
+      // deployment can't leak it just because some other env var wasn't set
+      // to exactly "production".
+      ...(process.env.AUTH_EXPOSE_VERIFICATION_TOKEN === 'true'
+        ? { verificationToken }
+        : {}),
+    };
   }
 
   async login(email: string, password: string) {
@@ -76,7 +93,7 @@ export class AuthService {
         // directly-usable reset tokens. The raw token — the only form that
         // hashes back to this value — is what actually goes out to the
         // caller below.
-        resetToken: hashResetToken(resetToken),
+        resetToken: hashOpaqueToken(resetToken),
         resetTokenExpires: new Date(Date.now() + RESET_TOKEN_TTL_MS),
       },
     });
@@ -105,7 +122,7 @@ export class AuthService {
     // to slip through.
     const { count } = await this.prisma.client.user.updateMany({
       where: {
-        resetToken: hashResetToken(token),
+        resetToken: hashOpaqueToken(token),
         resetTokenExpires: { gt: new Date() },
       },
       data: {
@@ -122,6 +139,25 @@ export class AuthService {
     }
 
     return { message: 'Tu contraseña se actualizó correctamente' };
+  }
+
+  async verifyEmail(token: string) {
+    // A single conditional update instead of a read-then-write: an unknown
+    // or already-consumed token (verificationToken is cleared on success, so
+    // replaying it matches nothing) both resolve through the same `count`
+    // check below, with no separate existence read to race against.
+    const { count } = await this.prisma.client.user.updateMany({
+      where: { verificationToken: hashOpaqueToken(token) },
+      data: { isVerified: true, verificationToken: null },
+    });
+
+    if (count === 0) {
+      throw new BadRequestException(
+        'El enlace de verificación no es válido o ya fue usado',
+      );
+    }
+
+    return { message: 'Tu correo se verificó correctamente' };
   }
 
   private generateToken(user: User) {
@@ -156,11 +192,12 @@ export class AuthService {
   }
 }
 
-function hashResetToken(token: string): string {
-  // Deterministic (unlike bcrypt) on purpose: it has to be looked up by
-  // exact match, and the token itself already carries 256 bits of entropy
-  // from crypto.randomBytes, so this only needs to defeat "the plaintext DB
-  // value is directly usable" — not resist offline guessing the way a
-  // password hash does.
+// Shared by both the password-reset and email-verification tokens: both are
+// opaque, single-use secrets that must be looked up by exact match, and
+// each already carries 256 bits of entropy from crypto.randomBytes, so this
+// only needs to defeat "the plaintext DB value is directly usable" — not
+// resist offline guessing the way a password hash does. Deterministic
+// (unlike bcrypt) on purpose, since the lookup is by exact match.
+function hashOpaqueToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
 }

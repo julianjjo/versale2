@@ -15,6 +15,7 @@ const authState = {
     email: "alice@versale.local",
     name: "Alice",
     role: "USER" as const,
+    isVerified: false,
   },
   isLoading: false,
   login: async () => {},
@@ -49,6 +50,18 @@ function renderPage() {
 describe("ProfilePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    authState.user.isVerified = false;
+  });
+
+  it("muestra 'Correo sin verificar' cuando el usuario no está verificado", () => {
+    renderPage();
+    expect(screen.getByText(/correo sin verificar/i)).toBeInTheDocument();
+  });
+
+  it("muestra 'Correo verificado' cuando el usuario está verificado", () => {
+    authState.user.isVerified = true;
+    renderPage();
+    expect(screen.getByText(/correo verificado/i)).toBeInTheDocument();
   });
 
   it("envía currentPassword al cambiar la contraseña", async () => {

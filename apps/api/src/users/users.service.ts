@@ -10,6 +10,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from './role.enum';
 import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
+import { BCRYPT_SALT_ROUNDS } from '../common/bcrypt';
 import * as bcrypt from 'bcryptjs';
 
 const PUBLIC_USER_SELECT = {
@@ -31,7 +32,10 @@ export class UsersService {
     name: string;
     password: string;
   }) {
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    const hashedPassword = await bcrypt.hash(
+      createUserDto.password,
+      BCRYPT_SALT_ROUNDS,
+    );
     return this.prisma.client.user.create({
       data: {
         email: createUserDto.email,
@@ -100,6 +104,7 @@ export class UsersService {
     const nextEmail = data.email;
     const wantsPasswordChange = data.password !== undefined;
     const wantsEmailChange = nextEmail !== undefined;
+    let changesEmail = false;
 
     if (wantsPasswordChange || wantsEmailChange) {
       const currentUser = await this.prisma.client.user.findUnique({
@@ -110,8 +115,7 @@ export class UsersService {
         throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
       }
 
-      const changesEmail =
-        nextEmail !== undefined && nextEmail !== currentUser.email;
+      changesEmail = nextEmail !== undefined && nextEmail !== currentUser.email;
 
       // A borrowed session must not be able to take over the account: when the
       // owner changes their own credentials they have to prove the current
@@ -147,13 +151,22 @@ export class UsersService {
     }
 
     if (data.password) {
-      data.password = await bcrypt.hash(data.password, 10);
+      data.password = await bcrypt.hash(data.password, BCRYPT_SALT_ROUNDS);
     }
+
+    // A verification only ever proved ownership of the *old* address — a new
+    // one hasn't been proven yet. Without this, the profile badge kept
+    // showing "Correo verificado" for an email that was never actually
+    // verified, and any still-unconsumed token from before the change could
+    // later re-verify that new, unproven address.
+    const emailChangeResetsVerification = changesEmail
+      ? { isVerified: false, verificationToken: null }
+      : {};
 
     try {
       return await this.prisma.client.user.update({
         where: { id },
-        data,
+        data: { ...data, ...emailChangeResetsVerification },
         select: PUBLIC_USER_SELECT,
       });
     } catch (error) {
