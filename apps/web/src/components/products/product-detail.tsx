@@ -22,6 +22,7 @@ import { conditionLabel } from "@/lib/product-condition";
 import { isTerminalError } from "@/lib/http-error";
 import { tokenStore } from "@/lib/token";
 import type { Product, Review } from "@/lib/types";
+import { FavoriteButton } from "@/components/products/favorite-button";
 
 export function ProductDetail({
   /** Product already resolved on the server (see `app/products/[id]/page.tsx`).
@@ -224,12 +225,19 @@ export function ProductDetail({
         </div>
         <div className="space-y-4">
           <div>
-            <p className="text-eyebrow">
-              {data.brand ? data.brand : "Versale"}
-            </p>
-            <h1 className="heading-section mt-1 text-text-primary">
-              {data.title}
-            </h1>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-eyebrow">
+                  {data.brand ? data.brand : "Versale"}
+                </p>
+                <h1 className="heading-section mt-1 text-text-primary">
+                  {data.title}
+                </h1>
+              </div>
+              {!isOwn && (
+                <FavoriteButton productId={data.id} className="flex-shrink-0" />
+              )}
+            </div>
             <p className="mt-1 text-sm text-text-muted">{data.category}</p>
             {averageRating !== null && (
               <div className="mt-2 flex items-center gap-2">

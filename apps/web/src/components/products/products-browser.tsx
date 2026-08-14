@@ -20,6 +20,7 @@ import {
   Badge,
 } from "@/components/ui";
 import { Pager } from "@/components/admin/pager";
+import { FavoriteButton } from "@/components/products/favorite-button";
 
 export interface ProductFilters {
   search?: string;
@@ -437,6 +438,10 @@ export function ProductCard({ product }: { product: Product }) {
               Pendiente
             </Badge>
           )}
+          <FavoriteButton
+            productId={product.id}
+            className="absolute right-3 top-3 z-10"
+          />
         </div>
         <div className="flex flex-1 flex-col gap-1">
           <h3 className="truncate font-sans text-sm font-medium leading-tight text-ink">

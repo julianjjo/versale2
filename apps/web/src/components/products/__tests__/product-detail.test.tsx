@@ -68,12 +68,22 @@ vi.mock("@/lib/api", () => ({
   api: {
     get: vi.fn(),
     post: vi.fn(),
+    delete: vi.fn(),
   },
   extractApiError: (err: unknown) =>
     err instanceof Error ? err.message : "Request failed",
 }));
 
 import { api } from "@/lib/api";
+
+// A logged-in, non-owner visit renders the favorite heart, which fires its
+// own GET /favorites alongside the product fetch. Tests that only care about
+// the product response can use this so that call doesn't collide with a
+// blanket `mockResolvedValue`/`mockRejectedValue` on every `api.get` call.
+function mockProductGet(product: unknown) {
+  return async (url: string) =>
+    url === "/favorites" ? { data: [] } : { data: product };
+}
 
 describe("ProductDetail", () => {
   beforeEach(() => {
@@ -173,7 +183,7 @@ describe("ProductDetail", () => {
 
   it("agrega al carrito cuando el usuario está autenticado", async () => {
     authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
-    vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
     vi.mocked(api.post).mockResolvedValue({ data: { id: "ci1" } });
     const user = userEvent.setup();
     render(
@@ -214,11 +224,60 @@ describe("ProductDetail", () => {
     });
     expect(screen.queryByRole("button", { name: /agregar al carrito/i })).toBeNull();
     expect(screen.getByText(/esta es tu publicación/i)).toBeInTheDocument();
+    // Favoriting your own listing makes no sense, same reasoning as hiding
+    // "Agregar al carrito" above.
+    expect(
+      screen.queryByRole("button", { name: /favoritos/i }),
+    ).toBeNull();
+  });
+
+  it("pide inicio de sesión al agregar a favoritos sin sesión", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    });
+    await user.click(
+      screen.getByRole("button", { name: /agregar a favoritos/i }),
+    );
+    expect(pushMock).toHaveBeenCalledWith(
+      "/login?next=%2Fproducts%2Fp1&reason=favorite",
+    );
+    expect(api.post).not.toHaveBeenCalledWith("/favorites/p1");
+  });
+
+  it("agrega el producto a favoritos cuando el usuario está autenticado", async () => {
+    authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    vi.mocked(api.post).mockResolvedValue({ data: { id: "fav1" } });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    });
+    await user.click(
+      screen.getByRole("button", { name: /agregar a favoritos/i }),
+    );
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith("/favorites/p1");
+    });
   });
 
   it("publica una reseña desde el formulario", async () => {
     authState.user = { id: "u2", email: "u2@b.c", name: "Charlie", role: "USER" };
-    vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
     vi.mocked(api.post).mockResolvedValue({ data: { id: "r2" } });
     const user = userEvent.setup();
     render(
@@ -283,7 +342,7 @@ describe("ProductDetail", () => {
 
   it("navega la calificación con el teclado (roving tabindex)", async () => {
     authState.user = { id: "u2", email: "u2@b.c", name: "Charlie", role: "USER" };
-    vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
     const user = userEvent.setup();
     render(
       <TestProviders>

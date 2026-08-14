@@ -179,12 +179,13 @@ describe("ProductsBrowser", () => {
     });
   });
 
-  // Regression: every product card rendered a labelled, focusable "Agregar a
-  // favoritos" heart button whose only handler was `preventDefault`. There is
-  // no favourites feature anywhere in the API, so the dead control was
-  // removed (as the equivalent one already was from the site header).
-  it("no renderiza el botón de favoritos, que no tiene funcionalidad", async () => {
+  // The favorites feature now has a real API behind it (see
+  // apps/api/src/favorites), so every card gets a working heart button
+  // instead of the dead one that was previously removed from here and from
+  // the site header.
+  it("redirige a iniciar sesión al hacer click en favoritos sin sesión", async () => {
     mockProductsApi({ data: mockProducts });
+    const user = userEvent.setup();
     render(
       <TestProviders>
         <ProductsBrowser showPagination={false} />
@@ -194,9 +195,14 @@ describe("ProductsBrowser", () => {
     await waitFor(() => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
-    expect(
-      screen.queryByRole("button", { name: /favoritos/i }),
-    ).not.toBeInTheDocument();
+
+    const favoriteButtons = screen.getAllByRole("button", {
+      name: /agregar a favoritos/i,
+    });
+    expect(favoriteButtons.length).toBeGreaterThan(0);
+    await user.click(favoriteButtons[0]);
+
+    expect(nav.url).toBe("/login?next=%2Fproducts%2Fp1&reason=favorite");
   });
 
   it("enlaza cada producto a su página de detalle", async () => {
