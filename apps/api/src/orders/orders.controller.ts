@@ -41,6 +41,11 @@ export class OrdersController {
     return this.ordersService.getOrderById(id, userId, req.user.role as Role);
   }
 
+  @Patch(':id/cancel')
+  async cancelOrder(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.ordersService.cancelOwnOrder(id, req.user.id);
+  }
+
   // Admin routes live under the two-segment `admin/*` prefix, so the
   // single-segment `@Get(':id')` above cannot capture them. Keep them grouped
   // here and keep the `admin/` prefix: a one-segment literal would have to be

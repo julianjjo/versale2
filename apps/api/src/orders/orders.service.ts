@@ -276,11 +276,6 @@ export class OrdersService {
       );
     }
 
-    // Cancelling releases the garments the order had claimed. Checkout stamps
-    // `soldAt` to take a one-of-a-kind item off the market; if the sale never
-    // completes that stamp has to come back off, otherwise an abandoned
-    // checkout destroys the listing for good — gone from the catalog and the
-    // facets, and un-addable to any cart, with no way for the seller to relist.
     if (status !== OrderStatus.CANCELLED) {
       return this.prisma.client.order.update({
         where: { id },
@@ -288,15 +283,53 @@ export class OrdersService {
       });
     }
 
+    return this.cancelAndReleaseProducts(id);
+  }
+
+  // A buyer can only cancel their own order, and only while it's still
+  // PENDING — once an order moves to PAID the seller may already be
+  // preparing it, and there's no refund flow to unwind that here. Admins
+  // keep the wider PENDING/PAID → CANCELLED transition via updateOrderStatus.
+  async cancelOwnOrder(id: string, userId: string) {
+    const order = await this.prisma.client.order.findUnique({
+      where: { id },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`No se encontró el pedido con ID ${id}`);
+    }
+
+    if (order.userId !== userId) {
+      throw new ForbiddenException(
+        'No tienes autorización para cancelar este pedido',
+      );
+    }
+
+    const currentStatus = order.status as OrderStatus;
+    if (currentStatus !== OrderStatus.PENDING) {
+      throw new BadRequestException(
+        `Solo puedes cancelar un pedido mientras está ${ORDER_STATUS_LABEL[OrderStatus.PENDING]}`,
+      );
+    }
+
+    return this.cancelAndReleaseProducts(id);
+  }
+
+  // Cancelling releases the garments the order had claimed. Checkout stamps
+  // `soldAt` to take a one-of-a-kind item off the market; if the sale never
+  // completes that stamp has to come back off, otherwise an abandoned
+  // checkout destroys the listing for good — gone from the catalog and the
+  // facets, and un-addable to any cart, with no way for the seller to relist.
+  private async cancelAndReleaseProducts(orderId: string) {
     return this.prisma.client.$transaction(async (tx) => {
       const items = await tx.orderItem.findMany({
-        where: { orderId: id },
+        where: { orderId },
         select: { productId: true },
       });
 
       const updated = await tx.order.update({
-        where: { id },
-        data: { status },
+        where: { id: orderId },
+        data: { status: OrderStatus.CANCELLED },
       });
 
       if (items.length > 0) {

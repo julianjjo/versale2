@@ -25,6 +25,7 @@ describe('OrdersController', () => {
     getAllOrders: jest.fn(),
     getOrderStats: jest.fn(),
     updateOrderStatus: jest.fn(),
+    cancelOwnOrder: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -213,6 +214,27 @@ describe('OrdersController', () => {
     });
   });
 
+  describe('cancelOrder', () => {
+    it('should call ordersService.cancelOwnOrder with id and userId from request', async () => {
+      const userId = 'user1';
+      const orderId = 'order1';
+      const mockReq = {
+        user: { id: userId, email: 'test@example.com', role: 'USER' },
+      } as AuthRequest;
+
+      const mockResult = { id: orderId, status: OrderStatus.CANCELLED };
+      mockOrdersService.cancelOwnOrder.mockResolvedValue(mockResult);
+
+      const result = await controller.cancelOrder(mockReq, orderId);
+
+      expect(ordersService.cancelOwnOrder).toHaveBeenCalledWith(
+        orderId,
+        userId,
+      );
+      expect(result).toEqual(mockResult);
+    });
+  });
+
   // Nest matches routes in declaration order and `@Get(':id')` is declared
   // before the admin routes, so assert against the real router that the literal
   // admin/* paths are not swallowed by the wildcard param.
@@ -225,7 +247,17 @@ describe('OrdersController', () => {
         providers: [{ provide: OrdersService, useValue: mockOrdersService }],
       })
         .overrideGuard(JwtAuthGuard)
-        .useValue({ canActivate: () => true })
+        .useValue({
+          canActivate: (context: {
+            switchToHttp: () => { getRequest: () => AuthRequest };
+          }) => {
+            // The real guard also attaches the authenticated user; routes
+            // that need `req.user` (cancelOrder) require a stand-in here.
+            const req = context.switchToHttp().getRequest();
+            req.user = { id: 'user1', email: 'test@example.com', role: 'USER' };
+            return true;
+          },
+        })
         .overrideGuard(RolesGuard)
         .useValue({ canActivate: () => true })
         .compile();
@@ -268,6 +300,38 @@ describe('OrdersController', () => {
 
       expect(res.body).toEqual(page);
       expect(mockOrdersService.getOrderById).not.toHaveBeenCalled();
+    });
+
+    // `PATCH :id/cancel` and `PATCH admin/:id/status` differ in segment count
+    // (2 vs 3), so they can't collide — this pins that down against the real
+    // router instead of just trusting the analysis.
+    it('routes PATCH /orders/:id/cancel to cancelOrder, not the admin status handler', async () => {
+      const cancelled = { id: 'order1', status: OrderStatus.CANCELLED };
+      mockOrdersService.cancelOwnOrder.mockResolvedValue(cancelled);
+
+      const res = await request(app.getHttpServer())
+        .patch('/orders/order1/cancel')
+        .expect(200);
+
+      expect(res.body).toEqual(cancelled);
+      expect(mockOrdersService.cancelOwnOrder).toHaveBeenCalledWith(
+        'order1',
+        'user1',
+      );
+      expect(mockOrdersService.updateOrderStatus).not.toHaveBeenCalled();
+    });
+
+    it('still routes PATCH /orders/admin/:id/status to updateOrderStatus', async () => {
+      const updated = { id: 'order1', status: OrderStatus.PAID };
+      mockOrdersService.updateOrderStatus.mockResolvedValue(updated);
+
+      const res = await request(app.getHttpServer())
+        .patch('/orders/admin/order1/status')
+        .send({ status: OrderStatus.PAID })
+        .expect(200);
+
+      expect(res.body).toEqual(updated);
+      expect(mockOrdersService.cancelOwnOrder).not.toHaveBeenCalled();
     });
   });
 });

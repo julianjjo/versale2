@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import OrderDetailPage from "../page";
 import { TestProviders } from "@/test-utils/TestProviders";
@@ -49,7 +49,11 @@ const mockOrder = {
 vi.mock("@/lib/api", () => ({
   api: {
     get: vi.fn(),
+    patch: vi.fn(),
   },
+  extractApiError: (err: unknown, fallback: string) =>
+    (err as { response?: { data?: { message?: string } } })?.response?.data
+      ?.message ?? fallback,
 }));
 
 import { api } from "@/lib/api";
@@ -160,5 +164,109 @@ describe("OrderDetailPage", () => {
       </TestProviders>,
     );
     expect(screen.getByText(/inicia sesión/i)).toBeInTheDocument();
+  });
+
+  it("muestra el botón de cancelar solo cuando el pedido está pendiente", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: { ...mockOrder, status: "PAID" as const },
+    });
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("#order1")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("button", { name: /cancelar pedido/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("cancela el pedido tras confirmar en el modal", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: mockOrder });
+    vi.mocked(api.patch).mockResolvedValue({ data: {} });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("#order1")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /cancelar pedido/i }));
+    const dialog = await screen.findByRole("dialog", {
+      name: /cancelar pedido/i,
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: /sí, cancelar pedido/i }),
+    );
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/orders/order1/cancel");
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
+
+  it("cierra el modal sin cancelar al hacer click en Volver", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: mockOrder });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("#order1")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /cancelar pedido/i }));
+    const dialog = await screen.findByRole("dialog", {
+      name: /cancelar pedido/i,
+    });
+    await user.click(within(dialog).getByRole("button", { name: /volver/i }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
+  it("muestra un error cuando falla la cancelación", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: mockOrder });
+    vi.mocked(api.patch).mockRejectedValue(
+      Object.assign(new Error("failed"), {
+        response: { data: { message: "Solo puedes cancelar un pedido mientras está Pendiente" } },
+      }),
+    );
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("#order1")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /cancelar pedido/i }));
+    const dialog = await screen.findByRole("dialog", {
+      name: /cancelar pedido/i,
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: /sí, cancelar pedido/i }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/solo puedes cancelar un pedido mientras está pendiente/i),
+      ).toBeInTheDocument();
+    });
   });
 });

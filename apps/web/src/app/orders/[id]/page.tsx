@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, extractApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
   Spinner,
@@ -11,6 +12,7 @@ import {
   EmptyState,
   Badge,
   Button,
+  Modal,
   PageContainer,
   Price,
   Divider,
@@ -23,7 +25,10 @@ import type { Order } from "@/lib/types";
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user, isLoading: isAuthLoading } = useAuth();
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const { data, isLoading, isError, error, refetch } = useQuery<Order>({
     queryKey: ["order", params.id],
@@ -32,6 +37,19 @@ export default function OrderDetailPage() {
       return response.data;
     },
     enabled: Boolean(user && params.id),
+  });
+
+  const cancelOrder = useMutation({
+    mutationFn: async () => {
+      await api.patch(`/orders/${params.id}/cancel`);
+    },
+    onSuccess: () => {
+      setConfirmingCancel(false);
+      queryClient.invalidateQueries({ queryKey: ["order", params.id] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    },
+    onError: (err) =>
+      setCancelError(extractApiError(err, "No pudimos cancelar el pedido")),
   });
 
   if (isAuthLoading || isLoading) {
@@ -105,14 +123,27 @@ export default function OrderDetailPage() {
         ← Volver a mis pedidos
       </Link>
 
-      <div className="mb-6 flex items-center justify-between gap-3">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl text-text-primary sm:text-[28px]">
           Pedido <span className="tabular-nums">#{data.id.slice(0, 8)}</span>
         </h1>
-        <Badge variant={ORDER_STATUS_VARIANT[data.status]}>
-          {ORDER_STATUS_LABEL[data.status]}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant={ORDER_STATUS_VARIANT[data.status]}>
+            {ORDER_STATUS_LABEL[data.status]}
+          </Badge>
+          {data.status === "PENDING" && (
+            <Button variant="ghost" onClick={() => setConfirmingCancel(true)}>
+              Cancelar pedido
+            </Button>
+          )}
+        </div>
       </div>
+
+      {cancelError && (
+        <p role="alert" className="mb-4 text-sm text-danger">
+          {cancelError}
+        </p>
+      )}
 
       {data.status === "DELIVERED" && (
         <p
@@ -231,6 +262,40 @@ export default function OrderDetailPage() {
           </div>
         </dl>
       </Card>
+
+      <Modal
+        open={confirmingCancel}
+        onClose={() => {
+          if (cancelOrder.isPending) return;
+          setConfirmingCancel(false);
+        }}
+        title="Cancelar pedido"
+      >
+        <p className="text-sm text-text-muted">
+          ¿Seguro que quieres cancelar este pedido? Esta acción no se puede
+          deshacer.
+        </p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => setConfirmingCancel(false)}
+            disabled={cancelOrder.isPending}
+          >
+            Volver
+          </Button>
+          <Button
+            variant="danger"
+            disabled={cancelOrder.isPending}
+            onClick={() => cancelOrder.mutate()}
+          >
+            {cancelOrder.isPending ? (
+              <Spinner className="h-4 w-4" />
+            ) : (
+              "Sí, cancelar pedido"
+            )}
+          </Button>
+        </div>
+      </Modal>
     </PageContainer>
   );
 }

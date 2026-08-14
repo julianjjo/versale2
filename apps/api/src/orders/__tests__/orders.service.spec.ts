@@ -858,4 +858,80 @@ describe('OrdersService', () => {
       expect(mockPrismaService.client.order.update).not.toHaveBeenCalled();
     });
   });
+
+  describe('cancelOwnOrder', () => {
+    it('should cancel a pending order belonging to the caller, releasing its garments', async () => {
+      const userId = 'user1';
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        userId,
+        status: OrderStatus.PENDING,
+      });
+      mockTx.orderItem.findMany.mockResolvedValue([{ productId: 'product1' }]);
+      mockTx.order.update.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.CANCELLED,
+      });
+
+      const result = await service.cancelOwnOrder('order1', userId);
+
+      expect(mockTx.order.update).toHaveBeenCalledWith({
+        where: { id: 'order1' },
+        data: { status: OrderStatus.CANCELLED },
+      });
+      expect(mockTx.product.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['product1'] } },
+        data: { soldAt: null },
+      });
+      expect(result).toEqual({ id: 'order1', status: OrderStatus.CANCELLED });
+    });
+
+    it('should throw NotFoundException for an unknown order id', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.cancelOwnOrder('nonexistent', 'user1'),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockTx.order.update).not.toHaveBeenCalled();
+    });
+
+    it("should refuse to cancel another user's order", async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        userId: 'someoneElse',
+        status: OrderStatus.PENDING,
+      });
+
+      await expect(service.cancelOwnOrder('order1', 'user1')).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(mockTx.order.update).not.toHaveBeenCalled();
+    });
+
+    it('should refuse to cancel an order that already moved past PENDING', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        userId: 'user1',
+        status: OrderStatus.PAID,
+      });
+
+      await expect(service.cancelOwnOrder('order1', 'user1')).rejects.toThrow(
+        'Solo puedes cancelar un pedido mientras está Pendiente',
+      );
+      expect(mockTx.order.update).not.toHaveBeenCalled();
+    });
+
+    it('should refuse to cancel an order that is already cancelled', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        userId: 'user1',
+        status: OrderStatus.CANCELLED,
+      });
+
+      await expect(service.cancelOwnOrder('order1', 'user1')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockTx.order.update).not.toHaveBeenCalled();
+    });
+  });
 });
