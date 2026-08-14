@@ -17,6 +17,7 @@ import { AuthRequest } from '../types/request.types';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
+import { ReplyReviewDto } from './dto/reply-review.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -61,6 +62,16 @@ export class ReviewsController {
   ) {
     const userId = req.user.id;
     return this.reviewsService.update(id, body, userId, req.user.role as Role);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/reply')
+  async replyToReview(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() body: ReplyReviewDto,
+  ) {
+    return this.reviewsService.replyToReview(id, req.user.id, body.reply);
   }
 
   @UseGuards(JwtAuthGuard)

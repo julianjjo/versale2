@@ -68,6 +68,7 @@ vi.mock("@/lib/api", () => ({
   api: {
     get: vi.fn(),
     post: vi.fn(),
+    patch: vi.fn(),
     delete: vi.fn(),
   },
   extractApiError: (err: unknown) =>
@@ -372,5 +373,122 @@ describe("ProductDetail", () => {
     await user.keyboard("{End}");
     expect(stars[4]).toHaveFocus();
     expect(stars[4]).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("no muestra el botón Responder a un visitante que no es el vendedor", async () => {
+    authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Love it!")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("button", { name: /responder/i }),
+    ).toBeNull();
+  });
+
+  it("el vendedor puede publicar una respuesta a una reseña", async () => {
+    authState.user = { id: "s1", email: "seller@b.c", name: "Alice", role: "USER" };
+    vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
+    vi.mocked(api.patch).mockResolvedValue({ data: { id: "r1" } });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Love it!")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /^responder$/i }));
+    await user.type(
+      screen.getByLabelText(/tu respuesta/i),
+      "¡Gracias por tu compra!",
+    );
+    await user.click(
+      screen.getByRole("button", { name: /guardar respuesta/i }),
+    );
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/reviews/r1/reply", {
+        reply: "¡Gracias por tu compra!",
+      });
+    });
+  });
+
+  it("muestra la respuesta del vendedor y permite editarla", async () => {
+    authState.user = { id: "s1", email: "seller@b.c", name: "Alice", role: "USER" };
+    const productWithReply = {
+      ...mockProduct,
+      reviews: [
+        {
+          ...mockProduct.reviews[0],
+          sellerReply: "Gracias, vuelve pronto",
+        },
+      ],
+    };
+    vi.mocked(api.get).mockResolvedValue({ data: productWithReply });
+    vi.mocked(api.patch).mockResolvedValue({ data: { id: "r1" } });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Gracias, vuelve pronto")).toBeInTheDocument();
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: /editar respuesta/i }),
+    );
+    const textarea = screen.getByLabelText(/tu respuesta/i);
+    expect(textarea).toHaveValue("Gracias, vuelve pronto");
+
+    await user.clear(textarea);
+    await user.type(textarea, "Respuesta corregida");
+    await user.click(
+      screen.getByRole("button", { name: /guardar respuesta/i }),
+    );
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/reviews/r1/reply", {
+        reply: "Respuesta corregida",
+      });
+    });
+  });
+
+  it("un visitante que no es el vendedor sí ve la respuesta ya publicada", async () => {
+    authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
+    const productWithReply = {
+      ...mockProduct,
+      reviews: [
+        {
+          ...mockProduct.reviews[0],
+          sellerReply: "Gracias, vuelve pronto",
+        },
+      ],
+    };
+    vi.mocked(api.get).mockImplementation(mockProductGet(productWithReply));
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Gracias, vuelve pronto")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("button", { name: /editar respuesta/i }),
+    ).toBeNull();
   });
 });

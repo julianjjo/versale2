@@ -43,6 +43,8 @@ export function ProductDetail({
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
 
   // The server probe that produced `initialProduct` is anonymous, so for a
   // visitor without a token it already IS the answer — treating it as fresh
@@ -108,6 +110,21 @@ export function ProductDetail({
       setError(extractApiError(err, "No pudimos publicar la reseña")),
   });
 
+  const replyToReview = useMutation({
+    mutationFn: async (reviewId: string) => {
+      await api.patch(`/reviews/${reviewId}/reply`, { reply: replyText });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product", id] });
+      setReplyingTo(null);
+      setReplyText("");
+      setSuccess("Respuesta publicada");
+      setTimeout(() => setSuccess(null), 3000);
+    },
+    onError: (err) =>
+      setError(extractApiError(err, "No pudimos publicar la respuesta")),
+  });
+
   const loginRedirect = (reason: "cart" | "review") =>
     `/login?next=${encodeURIComponent(`/products/${id}`)}&reason=${reason}`;
 
@@ -128,6 +145,12 @@ export function ProductDetail({
       return;
     }
     createReview.mutate();
+  };
+
+  const handleReplySubmit = (e: React.FormEvent, reviewId: string) => {
+    e.preventDefault();
+    setError(null);
+    replyToReview.mutate(reviewId);
   };
 
   if (isLoading) {
@@ -333,6 +356,64 @@ export function ProductDetail({
                 <p className="mt-2 text-xs text-text-muted">
                   {new Date(review.createdAt).toLocaleDateString("es-CO")}
                 </p>
+
+                {review.sellerReply && (
+                  <div className="mt-3 rounded-md border border-border bg-surface-muted p-3">
+                    <p className="text-xs font-semibold text-text-primary">
+                      Respuesta del vendedor
+                    </p>
+                    <p className="mt-1 text-sm text-text-primary">
+                      {review.sellerReply}
+                    </p>
+                  </div>
+                )}
+
+                {isOwn &&
+                  (replyingTo === review.id ? (
+                    <form
+                      onSubmit={(e) => handleReplySubmit(e, review.id)}
+                      className="mt-3 space-y-2"
+                    >
+                      <Textarea
+                        label="Tu respuesta"
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        rows={2}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={replyToReview.isPending}
+                        >
+                          {replyToReview.isPending
+                            ? "Guardando…"
+                            : "Guardar respuesta"}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setReplyingTo(null)}
+                          disabled={replyToReview.isPending}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </form>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="mt-3"
+                      onClick={() => {
+                        setReplyingTo(review.id);
+                        setReplyText(review.sellerReply ?? "");
+                      }}
+                    >
+                      {review.sellerReply ? "Editar respuesta" : "Responder"}
+                    </Button>
+                  ))}
               </Card>
             ))}
           </div>

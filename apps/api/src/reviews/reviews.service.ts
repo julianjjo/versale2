@@ -103,6 +103,30 @@ export class ReviewsService {
     });
   }
 
+  async replyToReview(id: string, sellerId: string, reply: string) {
+    const review = await this.prisma.client.review.findUnique({
+      where: { id },
+      include: { product: { select: { sellerId: true } } },
+    });
+
+    if (!review) {
+      throw new NotFoundException(`No se encontró la reseña con ID ${id}`);
+    }
+
+    // Only the product's own seller responds to feedback on it — not any
+    // seller, and not the reviewer themselves editing their own review text.
+    if (review.product.sellerId !== sellerId) {
+      throw new ForbiddenException(
+        'Solo el vendedor del producto puede responder esta reseña',
+      );
+    }
+
+    return this.prisma.client.review.update({
+      where: { id },
+      data: { sellerReply: reply, sellerRepliedAt: new Date() },
+    });
+  }
+
   async remove(id: string, userId: string, role: Role) {
     const review = await this.prisma.client.review.findUnique({
       where: { id },

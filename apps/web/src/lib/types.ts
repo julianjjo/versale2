@@ -86,6 +86,8 @@ export interface Review {
   rating: number;
   comment: string | null;
   createdAt: string;
+  sellerReply?: string | null;
+  sellerRepliedAt?: string | null;
   user?: { id: string; name: string };
   product?: { id: string; title: string };
 }

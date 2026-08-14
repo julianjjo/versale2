@@ -354,6 +354,89 @@ describe('ReviewsService', () => {
     });
   });
 
+  describe('replyToReview', () => {
+    it("should let the product's seller reply to a review", async () => {
+      const reviewId = 'review1';
+      const sellerId = 'seller1';
+
+      mockPrismaService.client.review.findUnique.mockResolvedValue({
+        id: reviewId,
+        product: { sellerId },
+      });
+      mockPrismaService.client.review.update.mockResolvedValue({
+        id: reviewId,
+        sellerReply: 'Gracias por tu compra',
+      });
+
+      const result = await service.replyToReview(
+        reviewId,
+        sellerId,
+        'Gracias por tu compra',
+      );
+
+      expect(mockPrismaService.client.review.findUnique).toHaveBeenCalledWith({
+        where: { id: reviewId },
+        include: { product: { select: { sellerId: true } } },
+      });
+      expect(mockPrismaService.client.review.update).toHaveBeenCalledWith({
+        where: { id: reviewId },
+        data: {
+          sellerReply: 'Gracias por tu compra',
+          sellerRepliedAt: expect.any(Date),
+        },
+      });
+      expect(result).toEqual({
+        id: reviewId,
+        sellerReply: 'Gracias por tu compra',
+      });
+    });
+
+    it('should let the seller edit an existing reply', async () => {
+      const reviewId = 'review1';
+      const sellerId = 'seller1';
+
+      mockPrismaService.client.review.findUnique.mockResolvedValue({
+        id: reviewId,
+        product: { sellerId },
+        sellerReply: 'Respuesta anterior',
+      });
+      mockPrismaService.client.review.update.mockResolvedValue({
+        id: reviewId,
+        sellerReply: 'Respuesta corregida',
+      });
+
+      const result = await service.replyToReview(
+        reviewId,
+        sellerId,
+        'Respuesta corregida',
+      );
+
+      expect(result.sellerReply).toBe('Respuesta corregida');
+    });
+
+    it('should reject a reply from someone who is not the product\'s seller', async () => {
+      const reviewId = 'review1';
+
+      mockPrismaService.client.review.findUnique.mockResolvedValue({
+        id: reviewId,
+        product: { sellerId: 'seller1' },
+      });
+
+      await expect(
+        service.replyToReview(reviewId, 'someoneElse', 'No autorizado'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrismaService.client.review.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when the review does not exist', async () => {
+      mockPrismaService.client.review.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.replyToReview('nonexistent', 'seller1', 'Hola'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
   describe('remove', () => {
     it('should remove a review if user is the author', async () => {
       const reviewId = 'review1';

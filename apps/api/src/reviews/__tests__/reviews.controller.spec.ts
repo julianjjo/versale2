@@ -16,6 +16,7 @@ describe('ReviewsController', () => {
     update: jest.fn(),
     remove: jest.fn(),
     getAllReviews: jest.fn(),
+    replyToReview: jest.fn(),
   };
 
   const createMockRes = () =>
@@ -136,6 +137,29 @@ describe('ReviewsController', () => {
         body,
         userId,
         Role.USER,
+      );
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('replyToReview', () => {
+    it("should call reviewsService.replyToReview with id, the caller's id and the reply text", async () => {
+      const sellerId = 'seller1';
+      const reviewId = 'review1';
+      const body = { reply: 'Gracias por tu compra' };
+      const mockReq = {
+        user: { id: sellerId, email: 'seller@example.com', role: 'USER' },
+      } as AuthRequest;
+
+      const mockResult = { id: reviewId, sellerReply: body.reply };
+      mockReviewsService.replyToReview.mockResolvedValue(mockResult);
+
+      const result = await controller.replyToReview(mockReq, reviewId, body);
+
+      expect(reviewsService.replyToReview).toHaveBeenCalledWith(
+        reviewId,
+        sellerId,
+        body.reply,
       );
       expect(result).toEqual(mockResult);
     });
