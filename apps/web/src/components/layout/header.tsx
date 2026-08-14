@@ -103,6 +103,16 @@ export function Header() {
           {user && <NavLink href="/cart">Carrito</NavLink>}
           {user && <NavLink href="/orders">Pedidos</NavLink>}
           {user && <NavLink href="/sell">Vender</NavLink>}
+          {/* lg-only: the md-lg tablet band is already tuned to its widest
+              authenticated cluster (see comment above on `nav`'s className);
+              a 5th link there reintroduces the horizontal-scroll regression
+              this file's history fixed. Below md it still surfaces in the
+              mobile menu, where a vertical list has no width ceiling. */}
+          {user && (
+            <NavLink href="/mis-productos" className="hidden lg:inline">
+              Mis productos
+            </NavLink>
+          )}
           {user?.role === "ADMIN" && (
             <Link
               href="/admin"
@@ -233,6 +243,11 @@ export function Header() {
                 </MobileLink>
               )}
               {user && (
+                <MobileLink href="/mis-productos" onClick={closeMenu}>
+                  Mis productos
+                </MobileLink>
+              )}
+              {user && (
                 <MobileLink href="/profile" onClick={closeMenu}>
                   Mi perfil ({user.name})
                 </MobileLink>
@@ -289,11 +304,19 @@ export function Header() {
   );
 }
 
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+function NavLink({
+  href,
+  children,
+  className = "",
+}: {
+  href: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
     <Link
       href={href}
-      className="group relative px-1 py-1 text-sm font-medium text-text-primary transition-opacity hover:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+      className={`group relative px-1 py-1 text-sm font-medium text-text-primary transition-opacity hover:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${className}`}
     >
       {children}
       <span

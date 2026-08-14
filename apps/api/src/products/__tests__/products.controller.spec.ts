@@ -18,6 +18,7 @@ describe('ProductsController', () => {
     update: jest.fn(),
     remove: jest.fn(),
     findAllForAdmin: jest.fn(),
+    findAllMine: jest.fn(),
     approveProduct: jest.fn(),
     rejectProduct: jest.fn(),
   };
@@ -274,6 +275,29 @@ describe('ProductsController', () => {
       const result = await controller.findAllForAdmin(query);
 
       expect(productsService.findAllForAdmin).toHaveBeenCalledWith(query);
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('findAllMine', () => {
+    it("should call productsService.findAllMine with the requester's id and query", async () => {
+      const query = { status: 'pending', page: '1', limit: '10' };
+      const mockResult = {
+        data: [],
+        meta: { total: 0, page: 1, limit: 10, pages: 0 },
+      };
+      const mockReq = {
+        user: { id: 'seller1', role: 'USER' },
+      } as unknown as AuthRequest;
+
+      mockProductsService.findAllMine.mockResolvedValue(mockResult);
+
+      const result = await controller.findAllMine(query, mockReq);
+
+      expect(productsService.findAllMine).toHaveBeenCalledWith(
+        'seller1',
+        query,
+      );
       expect(result).toEqual(mockResult);
     });
   });

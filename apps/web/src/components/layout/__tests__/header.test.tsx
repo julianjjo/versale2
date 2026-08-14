@@ -95,6 +95,9 @@ describe("Header", () => {
       "href",
       "/sell",
     );
+    expect(
+      screen.getByRole("link", { name: /^mis productos$/i }),
+    ).toHaveAttribute("href", "/mis-productos");
     expect(screen.getByText("Alice")).toBeInTheDocument();
   });
 
