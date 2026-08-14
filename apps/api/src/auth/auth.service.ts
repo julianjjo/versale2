@@ -129,6 +129,10 @@ export class AuthService {
         password: hashedPassword,
         resetToken: null,
         resetTokenExpires: null,
+        // Bumping this invalidates every JWT issued before the reset —
+        // otherwise a token stolen before the owner "secures" their account
+        // here would keep working indefinitely.
+        tokenVersion: { increment: 1 },
       },
     });
 
@@ -161,7 +165,12 @@ export class AuthService {
   }
 
   private generateToken(user: User) {
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      tokenVersion: user.tokenVersion,
+    };
     return {
       access_token: this.jwtService.sign(payload),
       user: {

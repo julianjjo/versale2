@@ -19,6 +19,7 @@ model User {
   verificationToken String? @unique
   resetToken    String? @unique
   resetTokenExpires DateTime?
+  tokenVersion  Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   products      Product[]

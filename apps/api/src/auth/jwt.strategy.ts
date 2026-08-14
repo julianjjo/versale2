@@ -27,6 +27,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Token inválido');
     }
 
+    // Tokens signed before this check existed carry no tokenVersion at all —
+    // treat that as version 0 so they keep working until the first reset.
+    // Once a password reset/change bumps the stored version, every token
+    // still carrying the old (or missing) version is rejected, even if its
+    // signature and expiry are otherwise valid.
+    const tokenVersion = payload.tokenVersion ?? 0;
+    if (tokenVersion !== user.tokenVersion) {
+      throw new UnauthorizedException('Token inválido');
+    }
+
     // Return an object with the user's id (to match the expectation in controllers)
     return { id: user.id, email: user.email, role: user.role };
   }
