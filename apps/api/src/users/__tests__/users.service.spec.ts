@@ -459,6 +459,38 @@ describe('UsersService', () => {
       expect(mockPrismaService.client.user.update).toHaveBeenCalled();
     });
 
+    // Regression: a verification only ever proved ownership of the *old*
+    // address. Without this, the profile page's "Correo verificado" badge
+    // kept showing for an email that was never actually verified once the
+    // user changed it.
+    it('resets isVerified and clears the verification token when the email actually changes', async () => {
+      jest
+        .spyOn(bcrypt, 'compare')
+        .mockImplementation(() => Promise.resolve(true));
+      mockPrismaService.client.user.findUnique
+        // First call: the requester's own record, for the current-password check.
+        .mockResolvedValueOnce(storedUser)
+        // Second call: nobody else already has the new email.
+        .mockResolvedValueOnce(null);
+      mockPrismaService.client.user.update.mockResolvedValue(mockUpdatedUser);
+
+      await service.update(
+        'user1',
+        { email: 'new@example.com', currentPassword: 'currentpassword' },
+        { isSelfService: true },
+      );
+
+      expect(mockPrismaService.client.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            email: 'new@example.com',
+            isVerified: false,
+            verificationToken: null,
+          }),
+        }),
+      );
+    });
+
     it('lets an admin reset another account without its current password', async () => {
       jest
         .spyOn(bcrypt, 'hash')

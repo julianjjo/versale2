@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useRef } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { api, extractApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -13,30 +13,33 @@ function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
   const { refresh } = useAuth();
-  const hasSubmitted = useRef(false);
+  // Gated on a click, not fired on mere page load: corporate email-security
+  // scanners and chat link-unfurlers issue a real GET/navigation to a link
+  // before a human ever opens it, and the token is single-use — auto-firing
+  // here let those automated visits silently burn it, leaving the real user
+  // stuck on "El enlace no es válido o ya fue usado" for a link they never
+  // clicked.
+  const [confirmed, setConfirmed] = useState(false);
 
-  const verifyEmail = useMutation({
-    mutationFn: async () => {
+  // Mirrors the established "run once when a param is present" idiom (see
+  // the order detail page's `enabled: Boolean(user && params.id)`) instead
+  // of a mutation fired imperatively from an effect — react-query's own
+  // per-key caching is what keeps this from re-submitting the token, no
+  // manual ref guard needed.
+  const { isError, error, isSuccess } = useQuery({
+    queryKey: ["verify-email", token],
+    queryFn: async () => {
       await api.post("/auth/verify-email", { token });
-    },
-    onSuccess: () => {
       // A visitor who followed this link while already signed in has a
       // cached profile that still shows isVerified: false — refresh it so
-      // the badge on /profile (and anywhere else that reads it) is correct
-      // immediately, without waiting for their next full page load.
-      refresh();
+      // the badge on /profile is correct immediately, without waiting for
+      // their next full page load.
+      await refresh();
+      return true;
     },
+    enabled: Boolean(token) && confirmed,
+    retry: false,
   });
-
-  useEffect(() => {
-    if (!token || hasSubmitted.current) return;
-    hasSubmitted.current = true;
-    verifyEmail.mutate();
-    // Runs once per token value; `verifyEmail` itself is a fresh object
-    // every render and would otherwise re-trigger this on every mutation
-    // state change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
 
   if (!token) {
     return (
@@ -57,17 +60,14 @@ function VerifyEmailContent() {
     );
   }
 
-  if (verifyEmail.isError) {
+  if (isError) {
     return (
       <Card>
         <h1 className="heading-section text-text-primary">
           No pudimos verificar tu correo
         </h1>
         <p className="mt-1 text-sm text-danger" role="alert">
-          {extractApiError(
-            verifyEmail.error,
-            "El enlace no es válido o ya fue usado",
-          )}
+          {extractApiError(error, "El enlace no es válido o ya fue usado")}
         </p>
         <p className="mt-4 text-sm">
           <Link
@@ -81,7 +81,7 @@ function VerifyEmailContent() {
     );
   }
 
-  if (verifyEmail.isSuccess) {
+  if (isSuccess) {
     return (
       <Card>
         <h1 className="heading-section text-text-primary">
@@ -98,6 +98,28 @@ function VerifyEmailContent() {
           onClick={() => router.push("/profile")}
         >
           Ir a tu perfil
+        </Button>
+      </Card>
+    );
+  }
+
+  if (!confirmed) {
+    return (
+      <Card>
+        <h1 className="heading-section text-text-primary">
+          Verifica tu correo
+        </h1>
+        <p className="mt-1 text-sm text-text-muted">
+          Confirma para terminar de verificar tu correo electrónico.
+        </p>
+        <Button
+          className="mt-6"
+          variant="accent"
+          fullWidth
+          size="lg"
+          onClick={() => setConfirmed(true)}
+        >
+          Verificar mi correo
         </Button>
       </Card>
     );

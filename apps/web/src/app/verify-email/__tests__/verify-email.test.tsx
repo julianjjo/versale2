@@ -70,9 +70,28 @@ describe("VerifyEmailPage", () => {
     expect(api.post).not.toHaveBeenCalled();
   });
 
-  it("envía el token automáticamente y muestra éxito", async () => {
-    vi.mocked(api.post).mockResolvedValue({ data: { message: "ok" } });
+  // Regression: auto-submitting the token as soon as the page loaded meant
+  // a corporate email-security scanner or chat link-unfurler visiting the
+  // link before the real user did would silently consume the single-use
+  // token. Requiring a click defeats automated visits that don't interact
+  // with the page.
+  it("no envía el token hasta que el usuario confirma", async () => {
     renderPage();
+
+    expect(
+      screen.getByRole("heading", { name: /verifica tu correo/i }),
+    ).toBeInTheDocument();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it("envía el token al confirmar y muestra éxito", async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: { message: "ok" } });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      screen.getByRole("button", { name: /verificar mi correo/i }),
+    );
 
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith("/auth/verify-email", {
@@ -87,7 +106,12 @@ describe("VerifyEmailPage", () => {
 
   it("solo envía el token una vez", async () => {
     vi.mocked(api.post).mockResolvedValue({ data: { message: "ok" } });
+    const user = userEvent.setup();
     renderPage();
+
+    await user.click(
+      screen.getByRole("button", { name: /verificar mi correo/i }),
+    );
 
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledTimes(1);
@@ -104,7 +128,12 @@ describe("VerifyEmailPage", () => {
         },
       },
     });
+    const user = userEvent.setup();
     renderPage();
+
+    await user.click(
+      screen.getByRole("button", { name: /verificar mi correo/i }),
+    );
 
     expect(
       await screen.findByText(
@@ -119,6 +148,9 @@ describe("VerifyEmailPage", () => {
     const user = userEvent.setup();
     renderPage();
 
+    await user.click(
+      screen.getByRole("button", { name: /verificar mi correo/i }),
+    );
     await user.click(
       await screen.findByRole("button", { name: /ir a tu perfil/i }),
     );
