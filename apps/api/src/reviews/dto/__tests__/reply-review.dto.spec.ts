@@ -14,6 +14,12 @@ describe('ReplyReviewDto with the global ValidationPipe', () => {
     );
   });
 
+  it('rejects a whitespace-only reply', async () => {
+    await expect(pipe.transform({ reply: '   ' }, metadata)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
   it('rejects a missing reply', async () => {
     await expect(pipe.transform({}, metadata)).rejects.toThrow(
       BadRequestException,
