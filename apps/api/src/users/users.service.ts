@@ -234,7 +234,7 @@ export class UsersService {
         // English 500.
         P2003: () => {
           throw new BadRequestException(
-            'No se puede eliminar a este usuario: tiene productos, pedidos, reseñas o un carrito asociados.',
+            'No se puede eliminar a este usuario: tiene productos, pedidos, reseñas, favoritos o un carrito asociados.',
           );
         },
       });

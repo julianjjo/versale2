@@ -667,7 +667,7 @@ describe('ProductsService', () => {
       await expect(
         service.remove(productId, userId, Role.USER),
       ).rejects.toThrow(
-        'Este producto no se puede eliminar: todavía está en un carrito, en las reseñas de otra persona o en un pedido.',
+        'Este producto no se puede eliminar: todavía está en un carrito, en las reseñas o favoritos de otra persona, o en un pedido.',
       );
     });
 

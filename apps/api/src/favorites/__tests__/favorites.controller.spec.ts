@@ -1,0 +1,90 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { FavoritesController } from '../favorites.controller';
+import { FavoritesService } from '../favorites.service';
+import { AuthRequest } from '../../types/request.types';
+
+describe('FavoritesController', () => {
+  let controller: FavoritesController;
+  let favoritesService: FavoritesService;
+
+  const mockFavoritesService = {
+    findAll: jest.fn(),
+    addFavorite: jest.fn(),
+    removeFavorite: jest.fn(),
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [FavoritesController],
+      providers: [
+        { provide: FavoritesService, useValue: mockFavoritesService },
+      ],
+    }).compile();
+
+    controller = module.get<FavoritesController>(FavoritesController);
+    favoritesService = module.get<FavoritesService>(FavoritesService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('getFavorites', () => {
+    it('should call favoritesService.findAll with userId from request', async () => {
+      const userId = 'user1';
+      const mockReq = {
+        user: { id: userId, email: 'test@example.com', role: 'USER' },
+      } as AuthRequest;
+
+      const mockFavorites = [{ id: 'fav1', userId, productId: 'product1' }];
+      mockFavoritesService.findAll.mockResolvedValue(mockFavorites);
+
+      const result = await controller.getFavorites(mockReq);
+
+      expect(favoritesService.findAll).toHaveBeenCalledWith(userId);
+      expect(result).toEqual(mockFavorites);
+    });
+  });
+
+  describe('addFavorite', () => {
+    it('should call favoritesService.addFavorite with userId and productId', async () => {
+      const userId = 'user1';
+      const productId = 'product1';
+      const mockReq = {
+        user: { id: userId, email: 'test@example.com', role: 'USER' },
+      } as AuthRequest;
+
+      const mockResult = { id: 'fav1', userId, productId };
+      mockFavoritesService.addFavorite.mockResolvedValue(mockResult);
+
+      const result = await controller.addFavorite(mockReq, productId);
+
+      expect(favoritesService.addFavorite).toHaveBeenCalledWith(
+        userId,
+        productId,
+      );
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('removeFavorite', () => {
+    it('should call favoritesService.removeFavorite with userId and productId', async () => {
+      const userId = 'user1';
+      const productId = 'product1';
+      const mockReq = {
+        user: { id: userId, email: 'test@example.com', role: 'USER' },
+      } as AuthRequest;
+
+      const mockResult = { success: true };
+      mockFavoritesService.removeFavorite.mockResolvedValue(mockResult);
+
+      const result = await controller.removeFavorite(mockReq, productId);
+
+      expect(favoritesService.removeFavorite).toHaveBeenCalledWith(
+        userId,
+        productId,
+      );
+      expect(result).toEqual(mockResult);
+    });
+  });
+});

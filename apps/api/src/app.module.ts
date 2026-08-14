@@ -8,6 +8,7 @@ import { CartModule } from './cart/cart.module';
 import { OrdersModule } from './orders/orders.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { ReviewsModule } from './reviews/reviews.module';
+import { FavoritesModule } from './favorites/favorites.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { parsePositiveIntEnv } from './common/env';
 
@@ -42,6 +43,7 @@ export const DEFAULT_THROTTLE_LIMIT = parsePositiveIntEnv(
     OrdersModule,
     UploadsModule,
     ReviewsModule,
+    FavoritesModule,
   ],
   providers: [
     {

@@ -632,7 +632,7 @@ describe('UsersService', () => {
 
       await expect(service.remove(targetId, requesterId)).rejects.toThrow(
         new BadRequestException(
-          'No se puede eliminar a este usuario: tiene productos, pedidos, reseñas o un carrito asociados.',
+          'No se puede eliminar a este usuario: tiene productos, pedidos, reseñas, favoritos o un carrito asociados.',
         ),
       );
     });
