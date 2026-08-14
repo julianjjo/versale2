@@ -121,4 +121,45 @@ describe("FavoriteButton", () => {
     await screen.findByRole("button", { name: /agregar a favoritos/i });
     expect(api.get).not.toHaveBeenCalled();
   });
+
+  // Regression: AuthProvider starts as `{ user: null, isLoading: true }`
+  // while it verifies a persisted token. Treating that window as "logged
+  // out" wrongly sent an already-authenticated visitor to /login.
+  it("no redirige a iniciar sesión mientras la autenticación está cargando", async () => {
+    authState.isLoading = true;
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <FavoriteButton productId="p1" />
+      </TestProviders>,
+    );
+
+    const button = screen.getByRole("button", { name: /agregar a favoritos/i });
+    expect(button).toBeDisabled();
+    await user.click(button);
+
+    expect(pushMock).not.toHaveBeenCalled();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it("anuncia un error cuando falla agregar a favoritos", async () => {
+    authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
+    vi.mocked(api.get).mockResolvedValue({ data: [] });
+    vi.mocked(api.post).mockRejectedValue(new Error("Network error"));
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <FavoriteButton productId="p1" />
+      </TestProviders>,
+    );
+
+    const button = await screen.findByRole("button", {
+      name: /agregar a favoritos/i,
+    });
+    await user.click(button);
+
+    expect(
+      await screen.findByRole("alert"),
+    ).toHaveTextContent(/no pudimos agregar/i);
+  });
 });

@@ -12,6 +12,27 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+type AuthUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: "USER" | "ADMIN";
+};
+
+const authState: { user: AuthUser | null; isLoading: boolean } = {
+  user: null,
+  isLoading: false,
+};
+
+vi.mock("@/lib/auth", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
+  return {
+    ...actual,
+    useAuth: () => authState,
+  };
+});
+
 // Minimal App Router stand-in: `push` swaps the URL and notifies the
 // subscribers of `useSearchParams`, so the component reacts to navigation the
 // same way it does in the browser (shared link, Back/Forward, filter apply).
@@ -114,6 +135,9 @@ function mockProductsApi(productsResponse: unknown) {
     if (url === "/products/facets") {
       return { data: mockFacets };
     }
+    if (url === "/favorites") {
+      return { data: [] };
+    }
     return productsResponse as { data: unknown };
   });
 }
@@ -122,6 +146,8 @@ describe("ProductsBrowser", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     nav.reset();
+    authState.user = null;
+    authState.isLoading = false;
   });
 
   it("renderiza el formulario de filtros", async () => {
@@ -203,6 +229,29 @@ describe("ProductsBrowser", () => {
     await user.click(favoriteButtons[0]);
 
     expect(nav.url).toBe("/login?next=%2Fproducts%2Fp1&reason=favorite");
+  });
+
+  // Regression: the API and the product detail page both refuse to let a
+  // seller favorite their own listing; the catalog grid used to have no
+  // equivalent check at all.
+  it("oculta el botón de favoritos en la tarjeta del propio vendedor", async () => {
+    authState.user = { id: "s1", email: "a@b.c", name: "Alice", role: "USER" };
+    mockProductsApi({ data: mockProducts });
+    render(
+      <TestProviders>
+        <ProductsBrowser showPagination={false} />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    });
+
+    // p1 (sellerId "s1") is the logged-in seller's own listing; p2
+    // (sellerId "s2") belongs to someone else and keeps its heart button.
+    expect(
+      screen.getAllByRole("button", { name: /agregar a favoritos|quitar de favoritos/i }),
+    ).toHaveLength(1);
   });
 
   it("enlaza cada producto a su página de detalle", async () => {

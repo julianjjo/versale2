@@ -1,8 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { FavoritesService } from '../favorites.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProductsService } from '../../products/products.service';
+
+// Simulates the error Prisma throws when `delete`'s compound-key `where`
+// matches no row — the shape two concurrent unfavorite calls would trigger.
+function notFoundError() {
+  return new Prisma.PrismaClientKnownRequestError('No record found', {
+    code: 'P2025',
+    clientVersion: 'test',
+  });
+}
 
 describe('FavoritesService', () => {
   let service: FavoritesService;
@@ -12,7 +22,6 @@ describe('FavoritesService', () => {
       favorite: {
         findMany: jest.fn(),
         upsert: jest.fn(),
-        findUnique: jest.fn(),
         delete: jest.fn(),
       },
     },
@@ -65,10 +74,18 @@ describe('FavoritesService', () => {
   });
 
   describe('addFavorite', () => {
+    const approvedProduct = (overrides = {}) => ({
+      id: 'product1',
+      title: 'Test Product',
+      sellerId: 'seller1',
+      isApproved: true,
+      ...overrides,
+    });
+
     it('should verify the product exists then upsert the favorite', async () => {
       const userId = 'user1';
       const productId = 'product1';
-      const mockProduct = { id: productId, title: 'Test Product' };
+      const mockProduct = approvedProduct({ id: productId });
       const mockFavorite = { id: 'fav1', userId, productId };
 
       mockProductsService.findRaw.mockResolvedValue(mockProduct);
@@ -107,7 +124,7 @@ describe('FavoritesService', () => {
     it('should be idempotent when the product is already a favorite', async () => {
       const userId = 'user1';
       const productId = 'product1';
-      const mockProduct = { id: productId, title: 'Test Product' };
+      const mockProduct = approvedProduct({ id: productId });
       const mockFavorite = { id: 'fav1', userId, productId };
 
       mockProductsService.findRaw.mockResolvedValue(mockProduct);
@@ -122,25 +139,60 @@ describe('FavoritesService', () => {
       expect(first).toEqual(mockFavorite);
       expect(second).toEqual(mockFavorite);
     });
+
+    // Regression: a guessed or leaked productId for a pending/rejected
+    // listing used to be favoritable even though the catalog and product
+    // page both hide it from anyone but its seller or an admin.
+    it('should refuse to favorite a product that is not approved', async () => {
+      const userId = 'user1';
+      const productId = 'product1';
+
+      mockProductsService.findRaw.mockResolvedValue(
+        approvedProduct({ id: productId, isApproved: false }),
+      );
+
+      await expect(service.addFavorite(userId, productId)).rejects.toThrow(
+        'Este producto no está disponible para agregar a favoritos',
+      );
+      await expect(service.addFavorite(userId, productId)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPrismaService.client.favorite.upsert).not.toHaveBeenCalled();
+    });
+
+    it('should refuse to let a seller favorite their own product', async () => {
+      const userId = 'seller1';
+      const productId = 'product1';
+
+      mockProductsService.findRaw.mockResolvedValue(
+        approvedProduct({ id: productId, sellerId: userId }),
+      );
+
+      await expect(service.addFavorite(userId, productId)).rejects.toThrow(
+        'No puedes agregar tu propio producto a favoritos',
+      );
+      await expect(service.addFavorite(userId, productId)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPrismaService.client.favorite.upsert).not.toHaveBeenCalled();
+    });
   });
 
   describe('removeFavorite', () => {
-    it('should delete the favorite when it exists', async () => {
+    it('should delete the favorite by its compound key', async () => {
       const userId = 'user1';
       const productId = 'product1';
-      const mockFavorite = { id: 'fav1', userId, productId };
 
-      mockPrismaService.client.favorite.findUnique.mockResolvedValue(
-        mockFavorite,
-      );
+      mockPrismaService.client.favorite.delete.mockResolvedValue({
+        id: 'fav1',
+        userId,
+        productId,
+      });
 
       const result = await service.removeFavorite(userId, productId);
 
-      expect(mockPrismaService.client.favorite.findUnique).toHaveBeenCalledWith(
-        { where: { userId_productId: { userId, productId } } },
-      );
       expect(mockPrismaService.client.favorite.delete).toHaveBeenCalledWith({
-        where: { id: 'fav1' },
+        where: { userId_productId: { userId, productId } },
       });
       expect(result).toEqual({ success: true });
     });
@@ -149,7 +201,9 @@ describe('FavoritesService', () => {
       const userId = 'user1';
       const productId = 'product1';
 
-      mockPrismaService.client.favorite.findUnique.mockResolvedValue(null);
+      mockPrismaService.client.favorite.delete.mockRejectedValue(
+        notFoundError(),
+      );
 
       await expect(service.removeFavorite(userId, productId)).rejects.toThrow(
         'Este producto no está en tus favoritos',
@@ -157,23 +211,25 @@ describe('FavoritesService', () => {
       await expect(service.removeFavorite(userId, productId)).rejects.toThrow(
         NotFoundException,
       );
-      expect(mockPrismaService.client.favorite.delete).not.toHaveBeenCalled();
     });
 
-    it('should not remove a favorite belonging to another user', async () => {
-      // The compound unique key is scoped to (userId, productId), so a lookup
-      // for someone else's userId can never resolve to this user's favorite.
+    // Regression: two concurrent unfavorite calls (two tabs, a retried
+    // request) both pass the compound-key delete; the second one used to hit
+    // an unhandled Prisma P2025 instead of the same clean 404.
+    it('should turn a concurrent double-delete into the same 404 instead of an unhandled error', async () => {
       const userId = 'user1';
       const productId = 'product1';
 
-      mockPrismaService.client.favorite.findUnique.mockResolvedValue(null);
+      mockPrismaService.client.favorite.delete
+        .mockResolvedValueOnce({ id: 'fav1', userId, productId })
+        .mockRejectedValueOnce(notFoundError());
 
-      await expect(service.removeFavorite(userId, productId)).rejects.toThrow(
-        NotFoundException,
-      );
-      expect(mockPrismaService.client.favorite.findUnique).toHaveBeenCalledWith(
-        { where: { userId_productId: { userId, productId } } },
-      );
+      await expect(
+        service.removeFavorite(userId, productId),
+      ).resolves.toEqual({ success: true });
+      await expect(
+        service.removeFavorite(userId, productId),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

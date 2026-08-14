@@ -66,9 +66,9 @@ export default function FavoritosPage() {
     );
   }
 
-  // A favorited product can later be rejected or deleted by its seller; the
-  // API still returns the bookmark row, just with `product` left out of the
-  // include, so this filters out any favorite that no longer resolves.
+  // `Favorite.product` is typed optional (the join could in principle come
+  // back empty), so this narrows defensively before handing the array to
+  // `ProductCard`, which requires a `Product`.
   const products = (data ?? [])
     .map((favorite) => favorite.product)
     .filter((product): product is Product => Boolean(product));

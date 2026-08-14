@@ -317,7 +317,7 @@ export class ProductsService {
         // reached the admin as a raw 500. Refuse it with a Spanish 400.
         P2003: () => {
           throw new BadRequestException(
-            'Este producto no se puede eliminar: todavía está en un carrito, en las reseñas de otra persona o en un pedido.',
+            'Este producto no se puede eliminar: todavía está en un carrito, en las reseñas o favoritos de otra persona, o en un pedido.',
           );
         },
       });
