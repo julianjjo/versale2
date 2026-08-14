@@ -117,6 +117,14 @@ describe("LoginPage", () => {
     expect(link).toHaveAttribute("href", "/signup");
   });
 
+  it("enlaza a la página de recuperar contraseña", () => {
+    renderLogin();
+    const link = screen.getByRole("link", {
+      name: /olvidaste tu contraseña/i,
+    });
+    expect(link).toHaveAttribute("href", "/forgot-password");
+  });
+
   it("explica por qué llegó aquí cuando viene de agregar al carrito", () => {
     mockSearchParams = new URLSearchParams("reason=cart");
     renderLogin();

@@ -3,7 +3,7 @@ import { AuthService } from '../auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -15,6 +15,7 @@ describe('AuthService', () => {
       user: {
         findUnique: jest.fn(),
         create: jest.fn(),
+        updateMany: jest.fn(),
       },
     },
   };
@@ -243,6 +244,150 @@ describe('AuthService', () => {
       const result = await service.validateUser(email, password);
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('forgotPassword', () => {
+    const originalExposeFlag = process.env.AUTH_EXPOSE_RESET_TOKEN;
+
+    afterEach(() => {
+      process.env.AUTH_EXPOSE_RESET_TOKEN = originalExposeFlag;
+    });
+
+    it('should write a hashed reset token via a single conditional update, and return the raw token when the flag is on', async () => {
+      process.env.AUTH_EXPOSE_RESET_TOKEN = 'true';
+      const email = 'test@example.com';
+
+      mockPrismaService.client.user.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      const result = await service.forgotPassword(email);
+
+      expect(mockPrismaService.client.user.updateMany).toHaveBeenCalledWith({
+        where: { email },
+        data: {
+          // Stored hashed, never the raw token.
+          resetToken: expect.any(String),
+          resetTokenExpires: expect.any(Date),
+        },
+      });
+      const writtenToken =
+        mockPrismaService.client.user.updateMany.mock.calls[0][0].data
+          .resetToken;
+      expect(result.message).toBe(
+        'Si el correo existe, enviaremos instrucciones para restablecer la contraseña',
+      );
+      expect(result.resetToken).toEqual(expect.any(String));
+      // The value returned to the caller must be the raw token, not the
+      // hash that was actually persisted.
+      expect(result.resetToken).not.toBe(writtenToken);
+    });
+
+    // Defaults to OFF: a misconfigured non-production deployment must not
+    // leak a full-account-takeover token just because an env var was left
+    // unset.
+    it('should not include the reset token in the response when the flag is unset', async () => {
+      delete process.env.AUTH_EXPOSE_RESET_TOKEN;
+      mockPrismaService.client.user.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      const result = await service.forgotPassword('test@example.com');
+
+      expect(result).toEqual({
+        message:
+          'Si el correo existe, enviaremos instrucciones para restablecer la contraseña',
+      });
+    });
+
+    // Must respond identically whether or not the email is registered —
+    // otherwise the endpoint becomes an account-enumeration oracle. Running
+    // the same `updateMany` query either way (it just matches zero rows)
+    // instead of a read-then-write also keeps the two cases from differing
+    // in timing or query shape.
+    it('should return the same generic message and omit the token when the email does not exist', async () => {
+      process.env.AUTH_EXPOSE_RESET_TOKEN = 'true';
+      mockPrismaService.client.user.updateMany.mockResolvedValue({
+        count: 0,
+      });
+
+      const result = await service.forgotPassword('missing@example.com');
+
+      expect(result).toEqual({
+        message:
+          'Si el correo existe, enviaremos instrucciones para restablecer la contraseña',
+      });
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('should hash the new password and atomically consume a valid, unexpired token', async () => {
+      const token = 'valid-token';
+      const newPassword = 'newPassword123';
+      const hashedPassword = 'hashed_new_password';
+
+      jest
+        .spyOn(bcrypt, 'hash')
+        .mockImplementation(() => Promise.resolve(hashedPassword));
+      mockPrismaService.client.user.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      const result = await service.resetPassword(token, newPassword);
+
+      expect(bcrypt.hash).toHaveBeenCalledWith(newPassword, 10);
+      expect(mockPrismaService.client.user.updateMany).toHaveBeenCalledWith({
+        where: {
+          resetToken: expect.any(String),
+          resetTokenExpires: { gt: expect.any(Date) },
+        },
+        data: {
+          password: hashedPassword,
+          resetToken: null,
+          resetTokenExpires: null,
+        },
+      });
+      // The token is looked up by its hash, never the raw value.
+      const lookupHash =
+        mockPrismaService.client.user.updateMany.mock.calls[0][0].where
+          .resetToken;
+      expect(lookupHash).not.toBe(token);
+      expect(result).toEqual({
+        message: 'Tu contraseña se actualizó correctamente',
+      });
+    });
+
+    it('should reject an unknown or expired token in one step (no matching row)', async () => {
+      mockPrismaService.client.user.updateMany.mockResolvedValue({
+        count: 0,
+      });
+
+      await expect(
+        service.resetPassword('bad-token', 'newPassword123'),
+      ).rejects.toThrow(
+        'El enlace para restablecer la contraseña no es válido o expiró',
+      );
+      await expect(
+        service.resetPassword('bad-token', 'newPassword123'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    // Regression: two concurrent submissions of the same token used to both
+    // pass a separate findUnique check before either write landed. With a
+    // single atomic updateMany, only the first can match and consume it.
+    it('should let only one of two concurrent submissions of the same token succeed', async () => {
+      mockPrismaService.client.user.updateMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 0 });
+
+      const [first, second] = await Promise.allSettled([
+        service.resetPassword('shared-token', 'passwordOne'),
+        service.resetPassword('shared-token', 'passwordTwo'),
+      ]);
+
+      expect(first.status).toBe('fulfilled');
+      expect(second.status).toBe('rejected');
     });
   });
 });

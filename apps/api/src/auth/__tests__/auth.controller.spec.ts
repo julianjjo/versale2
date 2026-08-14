@@ -9,6 +9,8 @@ describe('AuthController', () => {
   const mockAuthService = {
     signup: jest.fn(),
     login: jest.fn(),
+    forgotPassword: jest.fn(),
+    resetPassword: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -80,6 +82,42 @@ describe('AuthController', () => {
       expect(authService.login).toHaveBeenCalledWith(
         loginDto.email,
         loginDto.password,
+      );
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('forgotPassword', () => {
+    it('should call authService.forgotPassword and return the result', async () => {
+      const dto = { email: 'test@example.com' };
+      const mockResult = {
+        message:
+          'Si el correo existe, enviaremos instrucciones para restablecer la contraseña',
+      };
+
+      mockAuthService.forgotPassword.mockResolvedValue(mockResult);
+
+      const result = await controller.forgotPassword(dto);
+
+      expect(authService.forgotPassword).toHaveBeenCalledWith(dto.email);
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('should call authService.resetPassword and return the result', async () => {
+      const dto = { token: 'reset-token', password: 'newPassword123' };
+      const mockResult = {
+        message: 'Tu contraseña se actualizó correctamente',
+      };
+
+      mockAuthService.resetPassword.mockResolvedValue(mockResult);
+
+      const result = await controller.resetPassword(dto);
+
+      expect(authService.resetPassword).toHaveBeenCalledWith(
+        dto.token,
+        dto.password,
       );
       expect(result).toEqual(mockResult);
     });
