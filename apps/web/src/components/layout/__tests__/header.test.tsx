@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Header } from "../header";
 import { TestProviders } from "@/test-utils/TestProviders";
@@ -98,6 +98,9 @@ describe("Header", () => {
     expect(
       screen.getByRole("link", { name: /^mis publicaciones$/i }),
     ).toHaveAttribute("href", "/mis-productos");
+    expect(
+      screen.getByRole("link", { name: /^favoritos$/i }),
+    ).toHaveAttribute("href", "/favoritos");
     expect(screen.getByText("Alice")).toBeInTheDocument();
   });
 
@@ -176,5 +179,59 @@ describe("Header", () => {
     ).toBeInTheDocument();
     const dialog = screen.getByRole("dialog", { name: /navegación móvil/i });
     expect(dialog).toBeInTheDocument();
+  });
+
+  it('el menú "Más" del nav de escritorio expone Mis publicaciones, Favoritos y Mi perfil, y se cierra tras seleccionar', async () => {
+    authState.user = {
+      id: "u1",
+      email: "a@b.c",
+      name: "Alice",
+      role: "USER",
+    };
+    const user = userEvent.setup();
+    const { container } = render(
+      <TestProviders>
+        <Header />
+      </TestProviders>,
+    );
+    const moreTrigger = screen.getByRole("button", { name: /^más$/i });
+    expect(moreTrigger).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(moreTrigger);
+    expect(moreTrigger).toHaveAttribute("aria-expanded", "true");
+    const panel = within(container.querySelector("#header-more-menu")!);
+    const misPublicaciones = panel.getByRole("link", {
+      name: /^mis publicaciones$/i,
+    });
+    expect(misPublicaciones).toHaveAttribute("href", "/mis-productos");
+    const favoritos = panel.getByRole("link", { name: /^favoritos$/i });
+    expect(favoritos).toHaveAttribute("href", "/favoritos");
+    const miPerfil = panel.getByRole("link", { name: /mi perfil \(alice\)/i });
+    expect(miPerfil).toHaveAttribute("href", "/profile");
+
+    await user.click(miPerfil);
+    expect(moreTrigger).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it('el menú "Más" se cierra con Escape y devuelve el foco al disparador', async () => {
+    authState.user = {
+      id: "u1",
+      email: "a@b.c",
+      name: "Alice",
+      role: "USER",
+    };
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <Header />
+      </TestProviders>,
+    );
+    const moreTrigger = screen.getByRole("button", { name: /^más$/i });
+    await user.click(moreTrigger);
+    expect(moreTrigger).toHaveAttribute("aria-expanded", "true");
+
+    await user.keyboard("{Escape}");
+    expect(moreTrigger).toHaveAttribute("aria-expanded", "false");
+    expect(moreTrigger).toHaveFocus();
   });
 });
