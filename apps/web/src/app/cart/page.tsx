@@ -19,7 +19,7 @@ import {
   Divider,
 } from "@/components/ui";
 import { conditionLabel } from "@/lib/product-condition";
-import type { Cart, CartItem } from "@/lib/types";
+import type { Cart, CartItem, Order } from "@/lib/types";
 
 function isSold(item: CartItem): boolean {
   return Boolean(item.product?.soldAt);
@@ -57,6 +57,8 @@ const REQUIRED_ADDRESS_FIELDS: Array<keyof ShippingAddress> = [
   "country",
 ];
 
+const INCOMPLETE_ADDRESS_ERROR = "Completa la dirección de envío para continuar.";
+
 export default function CartPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -93,6 +95,72 @@ export default function CartPage() {
       },
       enabled: Boolean(user),
     });
+
+  // Same queryKey the orders list page uses, so this is already warm (no
+  // extra request) for anyone who just checked their order history.
+  // Purely a convenience: a failure here just means the "usar la anterior"
+  // shortcut doesn't appear, so it isn't allowed to affect cart loading state.
+  const { data: previousOrders } = useQuery<Order[]>({
+    queryKey: ["orders"],
+    queryFn: async () => {
+      const response = await api.get<Order[]>("/orders");
+      return response.data;
+    },
+    enabled: Boolean(user),
+  });
+
+  // Only a `string`, never `undefined`/`null`/some other JSON type — the
+  // column backing `shippingAddress` is a raw, untyped `Json` field, so a
+  // write path other than checkout's own DTO (an admin tool, a migration)
+  // could in principle store a non-string value in it.
+  function addressFieldValue(value: unknown): string {
+    return typeof value === "string" ? value : "";
+  }
+
+  // `getUserOrders` sorts newest first, so the first order whose required
+  // fields (street/city/country — the same ones `REQUIRED_ADDRESS_FIELDS`
+  // enforces on submit) are non-blank strings is the most recent one the
+  // buyer actually shipped something to. Checking those specific fields
+  // (not just "the object has *some* key") matters because the API only
+  // validates that `shippingAddress` is a non-empty object, never that its
+  // fields are the right type or that the required ones are present — so a
+  // half-populated or wrong-typed address could otherwise pass this check
+  // and silently blank out fields the buyer had already filled in.
+  // `Array.isArray` guards the same untyped-response-shape risk: a failure
+  // here degrades to "no shortcut", not a crashed cart page.
+  const lastShippingAddress = (
+    Array.isArray(previousOrders) ? previousOrders : []
+  ).find((order) => {
+    const address = order.shippingAddress as
+      | Record<string, unknown>
+      | null
+      | undefined;
+    return (
+      !!address &&
+      REQUIRED_ADDRESS_FIELDS.every(
+        (field) => addressFieldValue(address[field]).trim() !== "",
+      )
+    );
+  })?.shippingAddress as Record<string, unknown> | undefined;
+
+  const applyLastShippingAddress = () => {
+    if (!lastShippingAddress) return;
+    setShippingAddress({
+      street: addressFieldValue(lastShippingAddress.street),
+      city: addressFieldValue(lastShippingAddress.city),
+      state: addressFieldValue(lastShippingAddress.state),
+      zip: addressFieldValue(lastShippingAddress.zip),
+      country: addressFieldValue(lastShippingAddress.country),
+    });
+    setAddressErrors({});
+    // Only clears the stale "complete the address" banner this shortcut just
+    // made untrue — `error` is a single shared banner for the whole page, so
+    // blindly nulling it here would also dismiss an unrelated failure (e.g.
+    // "No pudimos eliminar el producto") that happens to be showing at the
+    // same time.
+    setError((prev) => (prev === INCOMPLETE_ADDRESS_ERROR ? null : prev));
+    setAnnouncement("Se completó la dirección con la de tu pedido anterior.");
+  };
 
   const removeItem = useMutation({
     mutationFn: async ({
@@ -170,7 +238,7 @@ export default function CartPage() {
     }
     if (Object.keys(errors).length > 0) {
       setAddressErrors(errors);
-      setError("Completa la dirección de envío para continuar.");
+      setError(INCOMPLETE_ADDRESS_ERROR);
       return;
     }
     setAddressErrors({});
@@ -330,7 +398,26 @@ export default function CartPage() {
 
           <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
             <Card>
-              <h2 className="heading-card mb-3">Dirección de envío</h2>
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="heading-card">Dirección de envío</h2>
+                {lastShippingAddress && (
+                  <button
+                    type="button"
+                    onClick={applyLastShippingAddress}
+                    // design.md: plain terracotta on paper is ~3.6:1, under
+                    // the 4.5:1 normal-text threshold at 11-13px — use
+                    // terracotta-deep (~5.3:1) at this size instead. The
+                    // focus ring matches the shared Button component's
+                    // tokens: a bare underlined-text button gets no visible
+                    // default focus indicator otherwise, and its styling is
+                    // otherwise identical to a plain navigational link even
+                    // though clicking it overwrites form fields in place.
+                    className="rounded-sm text-xs font-medium text-terracotta-deep underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                  >
+                    Usar la de tu pedido anterior
+                  </button>
+                )}
+              </div>
               <div className="space-y-3">
                 <Input
                   label="Calle y número"

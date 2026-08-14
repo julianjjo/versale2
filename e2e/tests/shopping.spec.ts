@@ -134,6 +134,56 @@ test.describe("Flujo de compra", () => {
     ).toBeVisible({ timeout: 10_000 });
   });
 
+  test("el comprador puede reutilizar la dirección de su pedido anterior al pagar de nuevo", async ({
+    page,
+  }) => {
+    const firstProduct = await createPurchasableProduct(page.request);
+    const secondProduct = await createPurchasableProduct(page.request);
+    const buyer = await createBuyer(page.request);
+
+    await page.request.post(`${API_URL}/cart/items`, {
+      headers: { Authorization: `Bearer ${buyer.token}` },
+      data: { productId: firstProduct.id, quantity: 1 },
+    });
+    const firstOrderRes = await page.request.post(`${API_URL}/orders`, {
+      headers: { Authorization: `Bearer ${buyer.token}` },
+      data: { shippingAddress: E2E_SHIPPING_ADDRESS },
+    });
+    expect(firstOrderRes.status()).toBe(201);
+
+    await page.request.post(`${API_URL}/cart/items`, {
+      headers: { Authorization: `Bearer ${buyer.token}` },
+      data: { productId: secondProduct.id, quantity: 1 },
+    });
+
+    await page.goto("/login");
+    await page.getByLabel("Correo electrónico").fill(buyer.email);
+    await page.getByLabel("Contraseña").fill(buyer.password);
+    await page
+      .getByRole("main")
+      .getByRole("button", { name: /iniciar sesión/i })
+      .click();
+    await page.waitForURL(/\/products/, { timeout: 10_000 });
+
+    await page.goto("/cart");
+    await page
+      .getByRole("button", { name: /usar la de tu pedido anterior/i })
+      .click();
+
+    await expect(page.getByLabel("Calle y número")).toHaveValue(
+      E2E_SHIPPING_ADDRESS.street,
+    );
+    await expect(page.getByLabel("Ciudad")).toHaveValue(
+      E2E_SHIPPING_ADDRESS.city,
+    );
+    await expect(page.getByLabel("País")).toHaveValue(
+      E2E_SHIPPING_ADDRESS.country,
+    );
+
+    await page.getByRole("button", { name: /^pagar$/i }).click();
+    await page.waitForURL(/\/orders/, { timeout: 10_000 });
+  });
+
   test("un pedido sin dirección de envío es rechazado", async ({ page }) => {
     const product = await createPurchasableProduct(page.request);
     const buyer = await createBuyer(page.request);

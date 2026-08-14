@@ -192,9 +192,17 @@ describe("CartPage", () => {
   });
 
   it("recupera la vista del carrito al reintentar después de un error de carga", async () => {
-    vi.mocked(api.get)
-      .mockRejectedValueOnce(new Error("Network error"))
-      .mockResolvedValueOnce({ data: mockCart });
+    // The page now also fetches `/orders` (for the "usar dirección anterior"
+    // shortcut) alongside `/cart` on mount, so a plain call-order-based mock
+    // chain would consume its rejected/resolved slots across both queries
+    // instead of isolating the cart's own retry.
+    let cartCalls = 0;
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/orders") return { data: [] };
+      cartCalls += 1;
+      if (cartCalls === 1) throw new Error("Network error");
+      return { data: mockCart };
+    });
     const user = userEvent.setup();
     render(
       <TestProviders>
@@ -501,6 +509,325 @@ describe("CartPage", () => {
       });
     });
     expect(pushMock).toHaveBeenCalledWith("/orders");
+  });
+
+  it("rellena la dirección con la del pedido anterior al hacer click en el acceso rápido", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/orders") {
+        return {
+          data: [
+            {
+              id: "order1",
+              userId: "u1",
+              status: "DELIVERED",
+              totalAmount: 30000,
+              shippingAddress: {
+                street: "Carrera 15 # 88-64",
+                city: "Bogotá",
+                state: "Cundinamarca",
+                zip: "110221",
+                country: "Colombia",
+              },
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              items: [],
+            },
+          ],
+        };
+      }
+      return { data: mockCart };
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    const shortcut = await screen.findByRole("button", {
+      name: /usar la de tu pedido anterior/i,
+    });
+    await user.click(shortcut);
+
+    expect(screen.getByLabelText("Calle y número")).toHaveValue(
+      "Carrera 15 # 88-64",
+    );
+    expect(screen.getByLabelText("Ciudad")).toHaveValue("Bogotá");
+    expect(screen.getByLabelText("Departamento")).toHaveValue("Cundinamarca");
+    expect(screen.getByLabelText("Código postal")).toHaveValue("110221");
+    expect(screen.getByLabelText("País")).toHaveValue("Colombia");
+  });
+
+  it("no ofrece un pedido anterior cuyo campo obligatorio 'país' está vacío", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/orders") {
+        return {
+          data: [
+            {
+              id: "order1",
+              userId: "u1",
+              status: "DELIVERED",
+              totalAmount: 30000,
+              shippingAddress: {
+                street: "Carrera 15 # 88-64",
+                city: "Bogotá",
+                state: "",
+                zip: "",
+                country: "",
+              },
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              items: [],
+            },
+          ],
+        };
+      }
+      return { data: mockCart };
+    });
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("button", { name: /usar la de tu pedido anterior/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("coacciona a texto un campo no-string en vez de romper el pago, y omite el resto", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/orders") {
+        return {
+          data: [
+            {
+              id: "order1",
+              userId: "u1",
+              status: "DELIVERED",
+              totalAmount: 30000,
+              shippingAddress: {
+                // `zip` llega como número: un dato mal tipado no debe romper
+                // el pago ni terminar renderizado como "[object Object]".
+                street: "Carrera 15 # 88-64",
+                city: "Bogotá",
+                state: "Cundinamarca",
+                zip: 110221,
+                country: "Colombia",
+              },
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              items: [],
+            },
+          ],
+        };
+      }
+      return { data: mockCart };
+    });
+    vi.mocked(api.post).mockResolvedValue({ data: { id: "order2" } });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    const shortcut = await screen.findByRole("button", {
+      name: /usar la de tu pedido anterior/i,
+    });
+    await user.click(shortcut);
+
+    expect(screen.getByLabelText("Código postal")).toHaveValue("");
+    expect(screen.getByLabelText("Calle y número")).toHaveValue(
+      "Carrera 15 # 88-64",
+    );
+
+    await user.click(screen.getByRole("button", { name: /^pagar$/i }));
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith("/orders", {
+        shippingAddress: {
+          street: "Carrera 15 # 88-64",
+          city: "Bogotá",
+          state: "Cundinamarca",
+          zip: "",
+          country: "Colombia",
+        },
+      });
+    });
+  });
+
+  it("limpia el banner de error al usar el acceso rápido de dirección anterior", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/orders") {
+        return {
+          data: [
+            {
+              id: "order1",
+              userId: "u1",
+              status: "DELIVERED",
+              totalAmount: 30000,
+              shippingAddress: {
+                street: "Carrera 15 # 88-64",
+                city: "Bogotá",
+                state: "Cundinamarca",
+                zip: "110221",
+                country: "Colombia",
+              },
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              items: [],
+            },
+          ],
+        };
+      }
+      return { data: mockCart };
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: /^pagar$/i }));
+    expect(
+      await screen.findByText(/completa la dirección de envío/i),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /usar la de tu pedido anterior/i }),
+    );
+
+    expect(
+      screen.queryByText(/completa la dirección de envío/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("anuncia en la región en vivo cuando se usa el acceso rápido de dirección anterior", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/orders") {
+        return {
+          data: [
+            {
+              id: "order1",
+              userId: "u1",
+              status: "DELIVERED",
+              totalAmount: 30000,
+              shippingAddress: {
+                street: "Carrera 15 # 88-64",
+                city: "Bogotá",
+                state: "Cundinamarca",
+                zip: "110221",
+                country: "Colombia",
+              },
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              items: [],
+            },
+          ],
+        };
+      }
+      return { data: mockCart };
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    const shortcut = await screen.findByRole("button", {
+      name: /usar la de tu pedido anterior/i,
+    });
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("");
+
+    await user.click(shortcut);
+
+    await waitFor(() => {
+      expect(status).toHaveTextContent(
+        "Se completó la dirección con la de tu pedido anterior.",
+      );
+    });
+  });
+
+  it("no pisa un error no relacionado al usar el acceso rápido de dirección anterior", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/orders") {
+        return {
+          data: [
+            {
+              id: "order1",
+              userId: "u1",
+              status: "DELIVERED",
+              totalAmount: 30000,
+              shippingAddress: {
+                street: "Carrera 15 # 88-64",
+                city: "Bogotá",
+                state: "Cundinamarca",
+                zip: "110221",
+                country: "Colombia",
+              },
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              items: [],
+            },
+          ],
+        };
+      }
+      return { data: mockCart };
+    });
+    vi.mocked(api.delete).mockRejectedValue(new Error("No pudimos eliminar el producto"));
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
+    });
+
+    const removeButtons = screen.getAllByRole("button", { name: /eliminar/i });
+    await user.click(removeButtons[0]!);
+    expect(
+      await screen.findByText("No pudimos eliminar el producto"),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /usar la de tu pedido anterior/i }),
+    );
+
+    // The shortcut only ever clears its own stale "complete the address"
+    // banner — a different, unrelated failure has to stay visible.
+    expect(
+      screen.getByText("No pudimos eliminar el producto"),
+    ).toBeInTheDocument();
+  });
+
+  it("no muestra el acceso rápido cuando no hay pedidos anteriores", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/orders") return { data: [] };
+      return { data: mockCart };
+    });
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("button", { name: /usar la de tu pedido anterior/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("muestra un error si el pago falla", async () => {
