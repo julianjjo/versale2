@@ -251,6 +251,78 @@ describe("OrderDetailPage", () => {
     }
   });
 
+  it("confirma la cancelación con un mensaje accesible una vez que el pedido queda cancelado", async () => {
+    vi.mocked(api.get)
+      .mockResolvedValueOnce({ data: mockOrder })
+      .mockResolvedValue({ data: { ...mockOrder, status: "CANCELLED" } });
+    vi.mocked(api.patch).mockResolvedValue({ data: { success: true } });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    try {
+      const cancelButton = await screen.findByRole("button", {
+        name: /cancelar pedido/i,
+      });
+      await user.click(cancelButton);
+
+      // The confirmation has to survive the button's own unmount: `canCancel`
+      // flips to false the moment the refetch reports CANCELLED, and that's
+      // exactly the render where a screen-reader user needs to hear the
+      // outcome of the click they just made.
+      expect(await screen.findByRole("status")).toHaveTextContent(
+        /pedido cancelado/i,
+      );
+      expect(
+        screen.queryByRole("button", { name: /cancelar pedido/i }),
+      ).not.toBeInTheDocument();
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it("refresca el pedido cuando la cancelación falla por un conflicto de estado", async () => {
+    vi.mocked(api.get)
+      .mockResolvedValueOnce({ data: mockOrder })
+      .mockResolvedValue({ data: { ...mockOrder, status: "SHIPPED" } });
+    vi.mocked(api.patch).mockRejectedValue(
+      Object.assign(new Error("Este pedido cambió de estado"), {
+        response: { status: 400 },
+      }),
+    );
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    try {
+      const cancelButton = await screen.findByRole("button", {
+        name: /cancelar pedido/i,
+      });
+      await user.click(cancelButton);
+
+      await screen.findByText("Este pedido cambió de estado");
+      // The badge now reflects the real (post-conflict) status, and the
+      // button that just failed correctly stops offering the same action.
+      await waitFor(() => {
+        expect(
+          screen.queryByRole("button", { name: /cancelar pedido/i }),
+        ).not.toBeInTheDocument();
+      });
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
   it("no cancela el pedido si el usuario no confirma el diálogo", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockOrder });
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);

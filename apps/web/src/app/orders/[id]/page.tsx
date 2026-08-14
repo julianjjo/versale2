@@ -31,6 +31,7 @@ export default function OrderDetailPage() {
   const queryClient = useQueryClient();
   const { user, isLoading: isAuthLoading } = useAuth();
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancelSuccess, setCancelSuccess] = useState(false);
 
   const { data, isLoading, isError, error, refetch } = useQuery<Order>({
     queryKey: ["order", params.id],
@@ -70,9 +71,18 @@ export default function OrderDetailPage() {
         queryClient.invalidateQueries({ queryKey: ["products"] }),
         queryClient.invalidateQueries({ queryKey: ["product"] }),
       ]);
+      setCancelSuccess(true);
     },
-    onError: (err) =>
-      setCancelError(extractApiError(err, "No pudimos cancelar el pedido")),
+    // A conflict (the compare-and-swap in transitionStatus rejecting a status
+    // that moved since this page last read it — e.g. an admin just shipped
+    // it) means the badge and the still-visible Cancelar button are showing
+    // a status that's no longer real. Refetching here is what makes the
+    // button correctly disappear on its own instead of inviting a retry
+    // that will just fail the same way again.
+    onError: (err) => {
+      setCancelError(extractApiError(err, "No pudimos cancelar el pedido"));
+      queryClient.invalidateQueries({ queryKey: ["order", params.id] });
+    },
   });
 
   if (isAuthLoading || isLoading) {
@@ -160,28 +170,41 @@ export default function OrderDetailPage() {
         </Badge>
       </div>
 
-      {canCancel && (
+      {(canCancel || cancelError || cancelSuccess) && (
         <div className="-mt-3 mb-6 flex flex-col items-start gap-2">
-          <Button
-            variant="danger"
-            size="sm"
-            disabled={cancelOrder.isPending}
-            onClick={() => {
-              setCancelError(null);
-              if (confirm("¿Cancelar este pedido? Esta acción no se puede deshacer.")) {
-                cancelOrder.mutate();
-              }
-            }}
-          >
-            {cancelOrder.isPending ? (
-              <Spinner className="h-4 w-4" />
-            ) : (
-              "Cancelar pedido"
-            )}
-          </Button>
+          {canCancel && (
+            <Button
+              variant="danger"
+              size="sm"
+              disabled={cancelOrder.isPending}
+              onClick={() => {
+                setCancelError(null);
+                if (confirm("¿Cancelar este pedido? Esta acción no se puede deshacer.")) {
+                  cancelOrder.mutate();
+                }
+              }}
+            >
+              {cancelOrder.isPending ? (
+                <Spinner className="h-4 w-4" />
+              ) : (
+                "Cancelar pedido"
+              )}
+            </Button>
+          )}
+          {/* Neither message is nested inside `canCancel` above: a failed
+              cancel due to a conflict (someone else changed the order's
+              status first) refetches the real status, which can immediately
+              flip `canCancel` to false — the explanation of *why* the button
+              disappeared has to outlive the button itself, same as the
+              success confirmation on a cancel that worked. */}
           {cancelError && (
             <p className="text-sm text-danger" role="alert">
               {cancelError}
+            </p>
+          )}
+          {cancelSuccess && (
+            <p role="status" className="text-sm text-success">
+              Pedido cancelado.
             </p>
           )}
         </div>
