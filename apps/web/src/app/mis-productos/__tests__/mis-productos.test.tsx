@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MisProductosPage from "../page";
-import { TestProviders } from "@/test-utils/TestProviders";
+import { TestProviders, createTestQueryClient } from "@/test-utils/TestProviders";
 import type { Product } from "@/lib/types";
 
 const pushMock = vi.fn();
@@ -212,11 +212,47 @@ describe("MisProductosPage", () => {
     await user.type(priceInput, "60000");
     await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
 
+    // Only the field the seller actually touched is sent — title/description
+    // never changed, so they're left out rather than round-tripped through
+    // `.trim()` and sent back unchanged (see handleEditSubmit).
     await waitFor(() => {
       expect(api.patch).toHaveBeenCalledWith("/products/p4", {
-        title: "Falda pendiente",
-        description: "Descripción",
         price: 60000,
+      });
+    });
+  });
+
+  it("solo envía título/descripción cuando el valor realmente cambió, no por un simple trim", async () => {
+    // Simulates a listing whose stored title carries whitespace `/sell` never
+    // trims on submit. Saving the price alone must not read as a title change.
+    const withWhitespace = productFixture({
+      id: "p6",
+      title: "Chaqueta ",
+      description: "Descripción ",
+      price: 30000,
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([withWhitespace]) });
+    vi.mocked(api.patch).mockResolvedValue({ data: { success: true } });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    const card = await screen.findByTestId("mine-product-p6");
+    await user.click(within(card).getByRole("button", { name: "Editar" }));
+
+    const dialog = screen.getByRole("dialog");
+    const priceInput = within(dialog).getByLabelText(/precio/i);
+    await user.clear(priceInput);
+    await user.type(priceInput, "35000");
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/products/p6", {
+        price: 35000,
       });
     });
   });
@@ -234,14 +270,88 @@ describe("MisProductosPage", () => {
       </TestProviders>,
     );
 
-    const card = await screen.findByTestId("mine-product-p5");
-    await user.click(within(card).getByRole("button", { name: "Eliminar" }));
+    try {
+      const card = await screen.findByTestId("mine-product-p5");
+      await user.click(within(card).getByRole("button", { name: "Eliminar" }));
 
+      await waitFor(() => {
+        expect(api.delete).toHaveBeenCalledWith("/products/p5");
+      });
+    } finally {
+      // In a `finally` so a failed assertion above still restores the real
+      // `window.confirm` instead of leaking a stub that returns `true` for
+      // every later test in this file.
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it("invalida también la caché del producto y del catálogo al editar", async () => {
+    const pending = productFixture({ id: "p7", title: "Bufanda pendiente" });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([pending]) });
+    vi.mocked(api.patch).mockResolvedValue({ data: { success: true } });
+    const client = createTestQueryClient();
+    const invalidateSpy = vi.spyOn(client, "invalidateQueries");
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders client={client}>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    const card = await screen.findByTestId("mine-product-p7");
+    await user.click(within(card).getByRole("button", { name: "Editar" }));
+    const dialog = screen.getByRole("dialog");
+    const priceInput = within(dialog).getByLabelText(/precio/i);
+    await user.clear(priceInput);
+    await user.type(priceInput, "40000");
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
+
+    // The seller can reach this same product's detail page and the public
+    // catalog from elsewhere in the app — both must drop their cached copy
+    // too, or a save here can look "not saved" for as long as those queries'
+    // staleTime allows.
     await waitFor(() => {
-      expect(api.delete).toHaveBeenCalledWith("/products/p5");
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: ["product", "p7"],
+      });
     });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["products"] });
+  });
 
-    confirmSpy.mockRestore();
+  it("deshabilita Editar mientras una eliminación está en curso, para no editar una fila que está desapareciendo", async () => {
+    const pending = productFixture({ id: "p8", title: "Gorra pendiente" });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([pending]) });
+    let resolveDelete!: () => void;
+    vi.mocked(api.delete).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveDelete = () => resolve({ data: {} });
+        }),
+    );
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    try {
+      const card = await screen.findByTestId("mine-product-p8");
+      await user.click(within(card).getByRole("button", { name: "Eliminar" }));
+
+      await waitFor(() => {
+        expect(
+          within(card).getByRole("button", { name: "Editar" }),
+        ).toBeDisabled();
+      });
+
+      resolveDelete();
+    } finally {
+      confirmSpy.mockRestore();
+    }
   });
 
   it("muestra un estado vacío con CTA para publicar cuando no hay productos", async () => {

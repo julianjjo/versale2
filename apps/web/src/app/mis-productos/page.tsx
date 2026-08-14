@@ -109,11 +109,21 @@ function MisProductosList() {
     placeholderData: keepPreviousData,
   });
 
-  const invalidate = () => {
+  // Also invalidates the caches this same page links out to (the product's own
+  // detail view, reached via the card's title link, and the public catalog) —
+  // otherwise a seller who previewed a listing before editing it could see the
+  // pre-edit title/price/description there for as long as those queries'
+  // staleTime allows, even though this page already shows the save as done.
+  const invalidate = (productId?: string) => {
     queryClient.invalidateQueries({ queryKey: ["mis-productos"] });
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+    if (productId) {
+      queryClient.invalidateQueries({ queryKey: ["product", productId] });
+    }
   };
 
   const openEdit = (product: Product) => {
+    setError(null);
     setEditError(null);
     setEditForm({
       title: product.title,
@@ -139,8 +149,8 @@ function MisProductosList() {
     }) => {
       await api.patch(`/products/${id}`, body);
     },
-    onSuccess: () => {
-      invalidate();
+    onSuccess: (_data, { id }) => {
+      invalidate(id);
       setEditTarget(null);
     },
     onError: (err) =>
@@ -151,7 +161,7 @@ function MisProductosList() {
     mutationFn: async (id: string) => {
       await api.delete(`/products/${id}`);
     },
-    onSuccess: invalidate,
+    onSuccess: (_data, id) => invalidate(id),
     onError: (err) =>
       setError(extractApiError(err, "No pudimos eliminar la publicación")),
   });
@@ -160,8 +170,10 @@ function MisProductosList() {
     e.preventDefault();
     if (!editTarget) return;
     setEditError(null);
+    const title = editForm.title.trim();
+    const description = editForm.description.trim();
     const price = Number(editForm.price);
-    if (!editForm.title.trim() || !editForm.description.trim()) {
+    if (!title || !description) {
       setEditError("El título y la descripción son obligatorios.");
       return;
     }
@@ -169,14 +181,25 @@ function MisProductosList() {
       setEditError("El precio debe ser un número mayor a 0.");
       return;
     }
-    update.mutate({
-      id: editTarget.id,
-      body: {
-        title: editForm.title.trim(),
-        description: editForm.description.trim(),
-        price,
-      },
-    });
+
+    // Only send fields that actually changed. `/sell` never trims on submit,
+    // so a stored title/description can carry whitespace this form's own
+    // `.trim()` strips on every save — comparing the trimmed values on both
+    // sides keeps a price-only edit from reading as a title/description
+    // change too and sending an untouched, already-approved listing back to
+    // moderation (products.service.ts's `hasModeratedChanges` compares
+    // whatever this sends against the stored value with a strict `!==`).
+    const body: Record<string, string | number> = {};
+    if (title !== editTarget.title.trim()) body.title = title;
+    if (description !== editTarget.description.trim()) body.description = description;
+    if (price !== editTarget.price) body.price = price;
+
+    if (Object.keys(body).length === 0) {
+      setEditError("No hay cambios que guardar.");
+      return;
+    }
+
+    update.mutate({ id: editTarget.id, body });
   };
 
   const products = data?.data ?? [];
@@ -313,6 +336,7 @@ function MisProductosList() {
                         size="sm"
                         variant="secondary"
                         onClick={() => openEdit(product)}
+                        disabled={remove.isPending || update.isPending}
                       >
                         Editar
                       </Button>
@@ -322,11 +346,12 @@ function MisProductosList() {
                         size="sm"
                         variant="danger"
                         onClick={() => {
+                          setError(null);
                           if (confirm(`¿Eliminar "${product.title}"?`)) {
                             remove.mutate(product.id);
                           }
                         }}
-                        disabled={remove.isPending}
+                        disabled={remove.isPending || update.isPending}
                       >
                         Eliminar
                       </Button>
@@ -386,6 +411,7 @@ function MisProductosList() {
             }
             disabled={update.isPending}
             required
+            hint="Precio en pesos colombianos, sin decimales."
           />
           {editError && (
             <p className="text-sm text-danger" role="alert">
