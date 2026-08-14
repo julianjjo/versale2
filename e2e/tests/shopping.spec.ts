@@ -177,6 +177,52 @@ test.describe("Flujo de compra", () => {
     expect((await catalog.json()).meta.total).toBe(0);
   });
 
+  test("el comprador puede cancelar su pedido pendiente, y la prenda vuelve al catálogo", async ({
+    page,
+  }) => {
+    const product = await createPurchasableProduct(page.request);
+    const buyer = await createBuyer(page.request);
+
+    await page.request.post(`${API_URL}/cart/items`, {
+      headers: { Authorization: `Bearer ${buyer.token}` },
+      data: { productId: product.id, quantity: 1 },
+    });
+    const orderRes = await page.request.post(`${API_URL}/orders`, {
+      headers: { Authorization: `Bearer ${buyer.token}` },
+      data: { shippingAddress: E2E_SHIPPING_ADDRESS },
+    });
+    expect(orderRes.status()).toBe(201);
+    const order = await orderRes.json();
+
+    await page.goto("/login");
+    await page.getByLabel("Correo electrónico").fill(buyer.email);
+    await page.getByLabel("Contraseña").fill(buyer.password);
+    await page
+      .getByRole("main")
+      .getByRole("button", { name: /iniciar sesión/i })
+      .click();
+    await page.waitForURL(/\/products/, { timeout: 10_000 });
+
+    await page.goto(`/orders/${order.id}`);
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: /cancelar pedido/i }).click();
+
+    // Badge appears twice on this page (header + details list); either
+    // proves the cancellation went through.
+    await expect(
+      page.getByText("Cancelado", { exact: true }).first(),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByRole("button", { name: /cancelar pedido/i }),
+    ).not.toBeVisible();
+
+    // Cancelling releases the one-of-a-kind garment: it's sellable again.
+    const catalog = await page.request.get(
+      `${API_URL}/products?search=${encodeURIComponent(product.title)}`,
+    );
+    expect((await catalog.json()).meta.total).toBe(1);
+  });
+
   test("el usuario puede eliminar un producto del carrito", async ({
     userPage,
   }) => {

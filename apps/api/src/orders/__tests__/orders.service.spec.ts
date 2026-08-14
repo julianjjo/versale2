@@ -6,9 +6,21 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { OrderStatus } from '../order-status.enum';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { Role } from '../../users/role.enum';
+
+// Simulates the error Prisma throws when the compare-and-swap `where` clause
+// (id + the status just read) matches no row — the shape a second writer
+// (an admin's status change racing this same order's cancellation) would
+// trigger between this service's read and its write.
+function staleStatusError() {
+  return new Prisma.PrismaClientKnownRequestError('No record found', {
+    code: 'P2025',
+    clientVersion: 'test',
+  });
+}
 
 describe('OrdersService', () => {
   let service: OrdersService;
@@ -751,10 +763,26 @@ describe('OrdersService', () => {
       const result = await service.updateOrderStatus(orderId, OrderStatus.PAID);
 
       expect(mockPrismaService.client.order.update).toHaveBeenCalledWith({
-        where: { id: orderId },
+        where: { id: orderId, status: OrderStatus.PENDING },
         data: { status: OrderStatus.PAID },
       });
       expect(result).toEqual(mockOrder);
+    });
+
+    it('should reject the write as a conflict if the status changed since it was read', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.PENDING,
+      });
+      mockPrismaService.client.order.update.mockRejectedValue(
+        staleStatusError(),
+      );
+
+      await expect(
+        service.updateOrderStatus('order1', OrderStatus.PAID),
+      ).rejects.toThrow(
+        'Este pedido cambió de estado mientras se procesaba tu solicitud. Actualiza la página e inténtalo de nuevo.',
+      );
     });
 
     it('should allow cancelling an order that has not shipped yet, releasing its garments', async () => {
@@ -777,7 +805,7 @@ describe('OrdersService', () => {
       );
 
       expect(mockTx.order.update).toHaveBeenCalledWith({
-        where: { id: 'order1' },
+        where: { id: 'order1', status: OrderStatus.PAID },
         data: { status: OrderStatus.CANCELLED },
       });
       // Checkout stamped `soldAt` to take the items off the market; a sale that
@@ -804,9 +832,30 @@ describe('OrdersService', () => {
 
       expect(mockTx.product.updateMany).not.toHaveBeenCalled();
       expect(mockPrismaService.client.order.update).toHaveBeenCalledWith({
-        where: { id: 'order1' },
+        where: { id: 'order1', status: OrderStatus.PAID },
         data: { status: OrderStatus.SHIPPED },
       });
+    });
+
+    // Regression: a buyer cancelling and an admin marking SHIPPED can both
+    // read the order before either writes. Without the compare-and-swap
+    // `where`, whichever write commits last wins silently — either relisting
+    // an already-shipped garment or leaving the order SHIPPED with its
+    // garment already released back to the catalog.
+    it('should reject the cancellation as a conflict if the order shipped in the meantime', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.PAID,
+      });
+      mockTx.orderItem.findMany.mockResolvedValue([{ productId: 'product1' }]);
+      mockTx.order.update.mockRejectedValue(staleStatusError());
+
+      await expect(
+        service.updateOrderStatus('order1', OrderStatus.CANCELLED),
+      ).rejects.toThrow(
+        'Este pedido cambió de estado mientras se procesaba tu solicitud. Actualiza la página e inténtalo de nuevo.',
+      );
+      expect(mockTx.product.updateMany).not.toHaveBeenCalled();
     });
 
     it('should reject a backwards transition out of a terminal status', async () => {
@@ -856,6 +905,117 @@ describe('OrdersService', () => {
         service.updateOrderStatus('nonexistent', OrderStatus.PAID),
       ).rejects.toThrow(NotFoundException);
       expect(mockPrismaService.client.order.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('cancelOwnOrder', () => {
+    it("should cancel the caller's own pending order, releasing its garments", async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        userId: 'buyer1',
+        status: OrderStatus.PENDING,
+      });
+      mockTx.orderItem.findMany.mockResolvedValue([{ productId: 'product1' }]);
+      mockTx.order.update.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.CANCELLED,
+      });
+
+      const result = await service.cancelOwnOrder('buyer1', 'order1');
+
+      expect(mockTx.order.update).toHaveBeenCalledWith({
+        where: { id: 'order1', status: OrderStatus.PENDING },
+        data: { status: OrderStatus.CANCELLED },
+      });
+      expect(mockTx.product.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['product1'] } },
+        data: { soldAt: null },
+      });
+      expect(result).toEqual({ id: 'order1', status: OrderStatus.CANCELLED });
+    });
+
+    it('should cancel a paid order the same way, since it has not shipped yet', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        userId: 'buyer1',
+        status: OrderStatus.PAID,
+      });
+      mockTx.orderItem.findMany.mockResolvedValue([]);
+      mockTx.order.update.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.CANCELLED,
+      });
+
+      await service.cancelOwnOrder('buyer1', 'order1');
+
+      expect(mockTx.order.update).toHaveBeenCalledWith({
+        where: { id: 'order1', status: OrderStatus.PAID },
+        data: { status: OrderStatus.CANCELLED },
+      });
+    });
+
+    it('should reject the cancellation as a conflict if an admin shipped it in the meantime', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        userId: 'buyer1',
+        status: OrderStatus.PAID,
+      });
+      mockTx.orderItem.findMany.mockResolvedValue([{ productId: 'product1' }]);
+      mockTx.order.update.mockRejectedValue(staleStatusError());
+
+      await expect(
+        service.cancelOwnOrder('buyer1', 'order1'),
+      ).rejects.toThrow(
+        'Este pedido cambió de estado mientras se procesaba tu solicitud. Actualiza la página e inténtalo de nuevo.',
+      );
+      expect(mockTx.product.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("should refuse to cancel another buyer's order", async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        userId: 'buyer1',
+        status: OrderStatus.PENDING,
+      });
+
+      await expect(
+        service.cancelOwnOrder('someoneElse', 'order1'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrismaService.client.order.update).not.toHaveBeenCalled();
+      expect(mockTx.order.update).not.toHaveBeenCalled();
+    });
+
+    it('should refuse to cancel an order that has already shipped', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        userId: 'buyer1',
+        status: OrderStatus.SHIPPED,
+      });
+
+      await expect(
+        service.cancelOwnOrder('buyer1', 'order1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.client.order.update).not.toHaveBeenCalled();
+    });
+
+    it('should refuse to cancel an order twice', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        userId: 'buyer1',
+        status: OrderStatus.CANCELLED,
+      });
+
+      await expect(
+        service.cancelOwnOrder('buyer1', 'order1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw NotFoundException for an unknown order id', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.cancelOwnOrder('buyer1', 'nonexistent'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });
