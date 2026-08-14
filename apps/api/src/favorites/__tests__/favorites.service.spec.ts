@@ -24,6 +24,7 @@ describe('FavoritesService', () => {
     client: {
       favorite: {
         findMany: jest.fn(),
+        count: jest.fn(),
         upsert: jest.fn(),
         delete: jest.fn(),
       },
@@ -51,7 +52,7 @@ describe('FavoritesService', () => {
   });
 
   describe('findAll', () => {
-    it('should return the user favorites newest-first with product and seller included', async () => {
+    it('should return the user favorites newest-first with product and seller included, paginated', async () => {
       const userId = 'user1';
       const mockFavorites = [
         { id: 'fav1', userId, productId: 'product1', createdAt: new Date() },
@@ -60,17 +61,52 @@ describe('FavoritesService', () => {
       mockPrismaService.client.favorite.findMany.mockResolvedValue(
         mockFavorites,
       );
+      mockPrismaService.client.favorite.count.mockResolvedValue(1);
 
-      const result = await service.findAll(userId);
+      const result = await service.findAll(userId, {
+        page: '1',
+        limit: '10',
+      });
 
       expect(mockPrismaService.client.favorite.findMany).toHaveBeenCalledWith({
         where: { userId },
         orderBy: { createdAt: 'desc' },
+        skip: 0,
+        take: 10,
         include: {
           product: { select: FAVORITE_PRODUCT_SELECT },
         },
       });
-      expect(result).toEqual(mockFavorites);
+      expect(mockPrismaService.client.favorite.count).toHaveBeenCalledWith({
+        where: { userId },
+      });
+      expect(result).toEqual({
+        data: mockFavorites,
+        meta: { total: 1, page: 1, limit: 10, pages: 1 },
+      });
+    });
+
+    it('should apply the requested page to skip/take', async () => {
+      mockPrismaService.client.favorite.findMany.mockResolvedValue([]);
+      mockPrismaService.client.favorite.count.mockResolvedValue(0);
+
+      await service.findAll('user1', { page: '2', limit: '5' });
+
+      expect(mockPrismaService.client.favorite.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 5, take: 5 }),
+      );
+    });
+
+    it('should clamp an oversized limit to the maximum page size', async () => {
+      mockPrismaService.client.favorite.findMany.mockResolvedValue([]);
+      mockPrismaService.client.favorite.count.mockResolvedValue(0);
+
+      const result = await service.findAll('user1', { limit: '999999' });
+
+      expect(mockPrismaService.client.favorite.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 100 }),
+      );
+      expect(result.meta.limit).toBe(100);
     });
 
     // Regression: findAll used to `include` the full product row, which

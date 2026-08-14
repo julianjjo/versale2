@@ -2,14 +2,22 @@ import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
 import { useAuth } from "./auth";
-import type { Favorite } from "./types";
+import type { Favorite, PaginatedResponse } from "./types";
+
+// GET /favorites is paginated like every other list endpoint; the favoritos
+// page and the heart-icon membership check below have no pager UI, so this
+// asks for the API's max page size to keep showing everything a buyer has
+// favorited instead of silently truncating to the default page size.
+const FAVORITES_PAGE_LIMIT = 100;
 
 export function useFavorites() {
   const { user } = useAuth();
-  return useQuery<Favorite[]>({
+  return useQuery<PaginatedResponse<Favorite>>({
     queryKey: ["favorites"],
     queryFn: async () => {
-      const response = await api.get<Favorite[]>("/favorites");
+      const response = await api.get<PaginatedResponse<Favorite>>(
+        `/favorites?limit=${FAVORITES_PAGE_LIMIT}`,
+      );
       return response.data;
     },
     enabled: Boolean(user),
@@ -23,7 +31,7 @@ export function useFavorites() {
 export function useFavoriteProductIds(): Set<string> {
   const { data } = useFavorites();
   return useMemo(
-    () => new Set((data ?? []).map((favorite) => favorite.productId)),
+    () => new Set((data?.data ?? []).map((favorite) => favorite.productId)),
     [data],
   );
 }
