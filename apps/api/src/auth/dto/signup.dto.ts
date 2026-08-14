@@ -1,11 +1,11 @@
-import { IsEmail, IsString, MinLength, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsString, IsNotEmpty } from 'class-validator';
+import { IsPassword } from '../../common/password-validation';
 
 export class SignupDto {
   @IsEmail({}, { message: 'Ingresa un correo electrónico válido' })
   email!: string;
 
-  @IsString({ message: 'La contraseña debe ser un texto' })
-  @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
+  @IsPassword()
   password!: string;
 
   @IsString({ message: 'El nombre debe ser un texto' })
