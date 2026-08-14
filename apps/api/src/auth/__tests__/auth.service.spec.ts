@@ -3,7 +3,7 @@ import { AuthService } from '../auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -15,6 +15,7 @@ describe('AuthService', () => {
       user: {
         findUnique: jest.fn(),
         create: jest.fn(),
+        update: jest.fn(),
       },
     },
   };
@@ -243,6 +244,132 @@ describe('AuthService', () => {
       const result = await service.validateUser(email, password);
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('forgotPassword', () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      process.env.NODE_ENV = originalNodeEnv;
+    });
+
+    it('should set a reset token and expiry, and return it outside production', async () => {
+      process.env.NODE_ENV = 'test';
+      const email = 'test@example.com';
+      const user = { id: 'user1', email };
+
+      mockPrismaService.client.user.findUnique.mockResolvedValue(user);
+      mockPrismaService.client.user.update.mockResolvedValue(user);
+
+      const result = await service.forgotPassword(email);
+
+      expect(mockPrismaService.client.user.update).toHaveBeenCalledWith({
+        where: { id: 'user1' },
+        data: {
+          resetToken: expect.any(String),
+          resetTokenExpires: expect.any(Date),
+        },
+      });
+      expect(result.message).toBe(
+        'Si el correo existe, enviaremos instrucciones para restablecer la contraseña',
+      );
+      expect(result.resetToken).toEqual(expect.any(String));
+    });
+
+    it('should not include the reset token in the response in production', async () => {
+      process.env.NODE_ENV = 'production';
+      const email = 'test@example.com';
+      const user = { id: 'user1', email };
+
+      mockPrismaService.client.user.findUnique.mockResolvedValue(user);
+      mockPrismaService.client.user.update.mockResolvedValue(user);
+
+      const result = await service.forgotPassword(email);
+
+      expect(result).toEqual({
+        message:
+          'Si el correo existe, enviaremos instrucciones para restablecer la contraseña',
+      });
+    });
+
+    // Must respond identically whether or not the email is registered —
+    // otherwise the endpoint becomes an account-enumeration oracle.
+    it('should return the same generic message when the email does not exist, without writing anything', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
+
+      const result = await service.forgotPassword('missing@example.com');
+
+      expect(result).toEqual({
+        message:
+          'Si el correo existe, enviaremos instrucciones para restablecer la contraseña',
+      });
+      expect(mockPrismaService.client.user.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('should hash the new password and clear the reset token', async () => {
+      const token = 'valid-token';
+      const newPassword = 'newPassword123';
+      const hashedPassword = 'hashed_new_password';
+      const user = {
+        id: 'user1',
+        resetToken: token,
+        resetTokenExpires: new Date(Date.now() + 60_000),
+      };
+
+      mockPrismaService.client.user.findUnique.mockResolvedValue(user);
+      jest
+        .spyOn(bcrypt, 'hash')
+        .mockImplementation(() => Promise.resolve(hashedPassword));
+      mockPrismaService.client.user.update.mockResolvedValue({
+        ...user,
+        password: hashedPassword,
+      });
+
+      const result = await service.resetPassword(token, newPassword);
+
+      expect(mockPrismaService.client.user.findUnique).toHaveBeenCalledWith({
+        where: { resetToken: token },
+      });
+      expect(bcrypt.hash).toHaveBeenCalledWith(newPassword, 10);
+      expect(mockPrismaService.client.user.update).toHaveBeenCalledWith({
+        where: { id: 'user1' },
+        data: {
+          password: hashedPassword,
+          resetToken: null,
+          resetTokenExpires: null,
+        },
+      });
+      expect(result).toEqual({
+        message: 'Tu contraseña se actualizó correctamente',
+      });
+    });
+
+    it('should reject an unknown token', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.resetPassword('bad-token', 'newPassword123'),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.client.user.update).not.toHaveBeenCalled();
+    });
+
+    it('should reject an expired token', async () => {
+      const token = 'expired-token';
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        id: 'user1',
+        resetToken: token,
+        resetTokenExpires: new Date(Date.now() - 60_000),
+      });
+
+      await expect(
+        service.resetPassword(token, 'newPassword123'),
+      ).rejects.toThrow(
+        'El enlace para restablecer la contraseña no es válido o expiró',
+      );
+      expect(mockPrismaService.client.user.update).not.toHaveBeenCalled();
     });
   });
 });

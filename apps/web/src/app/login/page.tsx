@@ -69,6 +69,14 @@ function LoginForm() {
           minLength={6}
           autoComplete="current-password"
         />
+        <p className="-mt-2 text-right text-sm">
+          <Link
+            href="/forgot-password"
+            className="font-medium text-text-primary underline-offset-4 hover:underline"
+          >
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </p>
         {error && (
           <p className="text-sm text-danger" role="alert">
             {error}
