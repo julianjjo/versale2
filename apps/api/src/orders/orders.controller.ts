@@ -41,6 +41,14 @@ export class OrdersController {
     return this.ordersService.getOrderById(id, userId, req.user.role as Role);
   }
 
+  // A buyer's own self-service cancellation, distinct from the admin
+  // `admin/:id/status` route below: it can only ever move an order to
+  // CANCELLED, and only the order's own owner may call it.
+  @Patch(':id/cancel')
+  async cancelOrder(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.ordersService.cancelOwnOrder(req.user.id, id);
+  }
+
   // Admin routes live under the two-segment `admin/*` prefix, so the
   // single-segment `@Get(':id')` above cannot capture them. Keep them grouped
   // here and keep the `admin/` prefix: a one-segment literal would have to be

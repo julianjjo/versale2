@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, extractApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
   Spinner,
@@ -15,7 +16,11 @@ import {
   Price,
   Divider,
 } from "@/components/ui";
-import { ORDER_STATUS_LABEL, ORDER_STATUS_VARIANT } from "@/lib/order-status";
+import {
+  ORDER_STATUS_LABEL,
+  ORDER_STATUS_VARIANT,
+  nextStatusesFor,
+} from "@/lib/order-status";
 import { conditionLabel } from "@/lib/product-condition";
 import { isTerminalError } from "@/lib/http-error";
 import type { Order } from "@/lib/types";
@@ -23,7 +28,9 @@ import type { Order } from "@/lib/types";
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user, isLoading: isAuthLoading } = useAuth();
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const { data, isLoading, isError, error, refetch } = useQuery<Order>({
     queryKey: ["order", params.id],
@@ -32,6 +39,31 @@ export default function OrderDetailPage() {
       return response.data;
     },
     enabled: Boolean(user && params.id),
+  });
+
+  const cancelOrder = useMutation({
+    mutationFn: async (id: string) => {
+      await api.patch(`/orders/${id}/cancel`);
+    },
+    onSuccess: (_data, id) => {
+      // Cancelling releases the garments back to the catalog, so every cache
+      // that could be showing them (the catalog itself, each item's own
+      // product page, and the seller's "Mis productos" view) needs to drop
+      // its stale copy too — not just this order and the buyer's own list.
+      queryClient.invalidateQueries({ queryKey: ["order", id] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-order-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["mis-productos"] });
+      for (const item of data?.items ?? []) {
+        queryClient.invalidateQueries({
+          queryKey: ["product", item.productId],
+        });
+      }
+    },
+    onError: (err) =>
+      setCancelError(extractApiError(err, "No pudimos cancelar el pedido")),
   });
 
   if (isAuthLoading || isLoading) {
@@ -95,6 +127,11 @@ export default function OrderDetailPage() {
   }
 
   const shipping = data.shippingAddress as Record<string, string> | null;
+  // Only the order's own buyer can cancel it (the API 403s anyone else), and
+  // only while it's still legal to move to CANCELLED — i.e. PENDING or PAID,
+  // never once it has shipped.
+  const canCancel =
+    data.userId === user.id && nextStatusesFor(data.status).includes("CANCELLED");
 
   return (
     <PageContainer size="default">
@@ -113,6 +150,33 @@ export default function OrderDetailPage() {
           {ORDER_STATUS_LABEL[data.status]}
         </Badge>
       </div>
+
+      {canCancel && (
+        <div className="-mt-3 mb-6 flex flex-col items-start gap-2">
+          <Button
+            variant="danger"
+            size="sm"
+            disabled={cancelOrder.isPending}
+            onClick={() => {
+              setCancelError(null);
+              if (confirm("¿Cancelar este pedido? Esta acción no se puede deshacer.")) {
+                cancelOrder.mutate(data.id);
+              }
+            }}
+          >
+            {cancelOrder.isPending ? (
+              <Spinner className="h-4 w-4" />
+            ) : (
+              "Cancelar pedido"
+            )}
+          </Button>
+          {cancelError && (
+            <p className="text-sm text-danger" role="alert">
+              {cancelError}
+            </p>
+          )}
+        </div>
+      )}
 
       {data.status === "DELIVERED" && (
         <p

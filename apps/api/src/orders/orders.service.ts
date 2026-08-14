@@ -265,6 +265,37 @@ export class OrdersService {
       throw new NotFoundException(`No se encontró el pedido con ID ${id}`);
     }
 
+    return this.transitionStatus(order, status);
+  }
+
+  // A buyer can only ever move their own order to CANCELLED — never to any
+  // other status, and never someone else's order. `updateOrderStatus` above
+  // stays the unrestricted admin path; this is its ownership-checked,
+  // single-target sibling, sharing the same transition table and the same
+  // soldAt release so a buyer's cancellation relists the garment exactly like
+  // an admin's does.
+  async cancelOwnOrder(userId: string, id: string) {
+    const order = await this.prisma.client.order.findUnique({
+      where: { id },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`No se encontró el pedido con ID ${id}`);
+    }
+
+    if (order.userId !== userId) {
+      throw new ForbiddenException(
+        'No tienes autorización para cancelar este pedido',
+      );
+    }
+
+    return this.transitionStatus(order, OrderStatus.CANCELLED);
+  }
+
+  private async transitionStatus(
+    order: { id: string; status: string },
+    status: OrderStatus,
+  ) {
     const currentStatus = order.status as OrderStatus;
     const allowed = ALLOWED_STATUS_TRANSITIONS[currentStatus] ?? [];
 
@@ -283,19 +314,19 @@ export class OrdersService {
     // facets, and un-addable to any cart, with no way for the seller to relist.
     if (status !== OrderStatus.CANCELLED) {
       return this.prisma.client.order.update({
-        where: { id },
+        where: { id: order.id },
         data: { status },
       });
     }
 
     return this.prisma.client.$transaction(async (tx) => {
       const items = await tx.orderItem.findMany({
-        where: { orderId: id },
+        where: { orderId: order.id },
         select: { productId: true },
       });
 
       const updated = await tx.order.update({
-        where: { id },
+        where: { id: order.id },
         data: { status },
       });
 
