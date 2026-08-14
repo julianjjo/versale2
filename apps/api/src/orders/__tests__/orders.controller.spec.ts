@@ -25,6 +25,7 @@ describe('OrdersController', () => {
     getAllOrders: jest.fn(),
     getOrderStats: jest.fn(),
     updateOrderStatus: jest.fn(),
+    cancelOwnOrder: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -143,6 +144,27 @@ describe('OrdersController', () => {
         orderId,
         'admin1',
         'ADMIN',
+      );
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('cancelOrder', () => {
+    it('should call ordersService.cancelOwnOrder with userId and id from request', async () => {
+      const userId = 'user1';
+      const orderId = 'order1';
+      const mockReq = {
+        user: { id: userId, email: 'test@example.com', role: 'USER' },
+      } as AuthRequest;
+
+      const mockResult = { id: orderId, status: 'CANCELLED' };
+      mockOrdersService.cancelOwnOrder.mockResolvedValue(mockResult);
+
+      const result = await controller.cancelOrder(mockReq, orderId);
+
+      expect(ordersService.cancelOwnOrder).toHaveBeenCalledWith(
+        userId,
+        orderId,
       );
       expect(result).toEqual(mockResult);
     });
