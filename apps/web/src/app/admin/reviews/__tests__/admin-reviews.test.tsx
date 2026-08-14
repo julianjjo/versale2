@@ -32,10 +32,13 @@ function reviewsFixture(overrides?: Partial<Review>[]): Review[] {
   ];
 }
 
-function paginatedResponse(reviews: Review[]) {
+function paginatedResponse(
+  reviews: Review[],
+  meta?: Partial<{ page: number; pages: number }>,
+) {
   return {
     data: reviews,
-    meta: { total: reviews.length, page: 1, pages: 1 },
+    meta: { total: reviews.length, page: 1, pages: 1, ...meta },
   };
 }
 
@@ -77,6 +80,48 @@ describe("AdminReviewsPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText("No hay reseñas")).toBeInTheDocument();
+    });
+  });
+
+  it("muestra un estado de error si falla la carga, sin confundirlo con la lista vacía", async () => {
+    vi.mocked(api.get).mockRejectedValue(new Error("network down"));
+
+    render(
+      <TestProviders>
+        <AdminReviewsPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("No pudimos cargar las reseñas"),
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText("No hay reseñas")).not.toBeInTheDocument();
+  });
+
+  it("pide la página siguiente al hacer clic en Siguiente", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: paginatedResponse(reviewsFixture(), { page: 1, pages: 2 }),
+    });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AdminReviewsPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Chaqueta de cuero")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /siguiente/i }));
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith(
+        "/reviews/admin/all?page=2&limit=20",
+      );
     });
   });
 
@@ -149,6 +194,40 @@ describe("AdminReviewsPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Falló la eliminación")).toBeInTheDocument();
+    });
+  });
+
+  it("limpia el error previo cuando un reintento de eliminación sí funciona", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: paginatedResponse(reviewsFixture()),
+    });
+    vi.mocked(api.delete)
+      .mockRejectedValueOnce(new Error("Falló la eliminación"))
+      .mockResolvedValueOnce({ data: { success: true } });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AdminReviewsPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Chaqueta de cuero")).toBeInTheDocument();
+    });
+
+    const deleteButton = screen.getByRole("button", { name: /eliminar/i });
+    await user.click(deleteButton);
+    await waitFor(() => {
+      expect(screen.getByText("Falló la eliminación")).toBeInTheDocument();
+    });
+
+    await user.click(deleteButton);
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Falló la eliminación"),
+      ).not.toBeInTheDocument();
     });
   });
 });

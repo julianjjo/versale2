@@ -18,7 +18,7 @@ export default function AdminReviewsPage() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading, isFetching, isError } = useQuery({
     queryKey: ["admin-reviews", page],
     queryFn: async () => {
       const res = await api.get<{
@@ -37,6 +37,7 @@ export default function AdminReviewsPage() {
       await api.delete(`/reviews/${id}`);
     },
     onSuccess: () => {
+      setError(null);
       queryClient.invalidateQueries({ queryKey: ["admin-reviews"] });
     },
     onError: (err) =>
@@ -62,6 +63,8 @@ export default function AdminReviewsPage() {
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
           <Spinner className="h-5 w-5" /> Cargando…
         </div>
+      ) : isError ? (
+        <EmptyState title="No pudimos cargar las reseñas" />
       ) : reviews.length === 0 ? (
         <EmptyState title="No hay reseñas" />
       ) : (
