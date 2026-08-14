@@ -163,10 +163,21 @@ export class UsersService {
       ? { isVerified: false, verificationToken: null }
       : {};
 
+    // A changed password must invalidate every JWT issued before it —
+    // otherwise a token stolen earlier keeps working after the account is
+    // "secured" via a password change.
+    const passwordChangeInvalidatesTokens = wantsPasswordChange
+      ? { tokenVersion: { increment: 1 } }
+      : {};
+
     try {
       return await this.prisma.client.user.update({
         where: { id },
-        data: { ...data, ...emailChangeResetsVerification },
+        data: {
+          ...data,
+          ...emailChangeResetsVerification,
+          ...passwordChangeInvalidatesTokens,
+        },
         select: PUBLIC_USER_SELECT,
       });
     } catch (error) {

@@ -36,11 +36,12 @@ describe('JwtStrategy', () => {
 
   describe('validate', () => {
     it('should return user object with id, email, and role if user is found', async () => {
-      const payload = { sub: 'user1' };
+      const payload = { sub: 'user1', tokenVersion: 0 };
       const mockUser = {
         id: 'user1',
         email: 'test@example.com',
         role: 'USER',
+        tokenVersion: 0,
       };
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(mockUser);
@@ -58,13 +59,55 @@ describe('JwtStrategy', () => {
     });
 
     it('should throw UnauthorizedException if user is not found', async () => {
-      const payload = { sub: 'nonexistent' };
+      const payload = { sub: 'nonexistent', tokenVersion: 0 };
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
 
       await expect(strategy.validate(payload)).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+
+    // Regression: resetPassword/change-password bump the stored tokenVersion
+    // precisely so a token signed before the change stops working. Without
+    // this check, a stolen token kept working even after the legitimate
+    // owner "secured" the account.
+    it('should throw UnauthorizedException when the token predates a password reset', async () => {
+      const payload = { sub: 'user1', tokenVersion: 0 };
+      const mockUser = {
+        id: 'user1',
+        email: 'test@example.com',
+        role: 'USER',
+        tokenVersion: 1,
+      };
+
+      mockPrismaService.client.user.findUnique.mockResolvedValue(mockUser);
+
+      await expect(strategy.validate(payload)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    // Tokens signed before tokenVersion existed carry no such claim at all —
+    // they must keep working until the first reset, not be rejected outright.
+    it('should accept a token with no tokenVersion claim when the user has never reset', async () => {
+      const payload = { sub: 'user1' };
+      const mockUser = {
+        id: 'user1',
+        email: 'test@example.com',
+        role: 'USER',
+        tokenVersion: 0,
+      };
+
+      mockPrismaService.client.user.findUnique.mockResolvedValue(mockUser);
+
+      const result = await strategy.validate(payload);
+
+      expect(result).toEqual({
+        id: 'user1',
+        email: 'test@example.com',
+        role: 'USER',
+      });
     });
   });
 });
