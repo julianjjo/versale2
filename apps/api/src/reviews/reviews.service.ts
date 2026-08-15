@@ -9,15 +9,7 @@ import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { Role } from '../users/role.enum';
 import { resolvePagination } from '../common/pagination';
-import { OrderStatus } from '../orders/order-status.enum';
-
-// A review only counts as coming from a verified buyer once the sale actually
-// went through — not a PENDING (unpaid) or CANCELLED order.
-const VERIFIED_PURCHASE_STATUSES: OrderStatus[] = [
-  OrderStatus.PAID,
-  OrderStatus.SHIPPED,
-  OrderStatus.DELIVERED,
-];
+import { VERIFIED_PURCHASE_STATUSES } from '../orders/order-status.enum';
 
 @Injectable()
 export class ReviewsService {

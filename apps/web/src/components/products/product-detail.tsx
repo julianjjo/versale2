@@ -200,9 +200,14 @@ export function ProductDetail({
 
   const updateReview = useMutation({
     mutationFn: async (reviewId: string) => {
+      // Unlike creating a review, editing one has an existing comment that
+      // has to be overwritable *to blank* — `|| undefined` here (like the
+      // create form uses) would drop an emptied field from the request body
+      // entirely, which the API reads as "leave the current comment alone"
+      // rather than "clear it", so the old text would silently survive.
       await api.patch(`/reviews/${reviewId}`, {
         rating: editRating,
-        comment: editComment || undefined,
+        comment: editComment,
       });
     },
     onSuccess: () => {
@@ -526,6 +531,7 @@ export function ProductDetail({
                       <Button
                         size="sm"
                         variant="secondary"
+                        disabled={deleteReview.isPending}
                         onClick={() => {
                           setEditingReviewId(review.id);
                           setEditRating(review.rating);

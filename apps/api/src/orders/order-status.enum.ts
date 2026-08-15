@@ -16,3 +16,13 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   [OrderStatus.DELIVERED]: 'Entregado',
   [OrderStatus.CANCELLED]: 'Cancelado',
 };
+
+// A review only counts as coming from a verified buyer once the sale actually
+// went through — not a PENDING (unpaid) or CANCELLED order. Shared by every
+// place that has to answer "did this user actually buy this product" (right
+// now, ReviewsService and ProductsService both need this exact same rule).
+export const VERIFIED_PURCHASE_STATUSES: OrderStatus[] = [
+  OrderStatus.PAID,
+  OrderStatus.SHIPPED,
+  OrderStatus.DELIVERED,
+];

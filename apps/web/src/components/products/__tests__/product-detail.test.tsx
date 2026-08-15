@@ -619,6 +619,73 @@ describe("ProductDetail", () => {
     });
   });
 
+  it("borrar el comentario y guardar realmente lo limpia, en vez de dejar el anterior", async () => {
+    authState.user = { id: "u1", email: "bob@b.c", name: "Bob", role: "USER" };
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    vi.mocked(api.patch).mockResolvedValue({ data: { id: "r1" } });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Love it!")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /editar reseña/i }));
+    await user.clear(screen.getByLabelText(/comentario/i));
+    await user.click(screen.getByRole("button", { name: /guardar cambios/i }));
+
+    // Debe enviarse como cadena vacía, no omitirse: un campo ausente le dice a
+    // la API "no lo toques", así que el comentario anterior sobreviviría.
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/reviews/r1", {
+        rating: 5,
+        comment: "",
+      });
+    });
+  });
+
+  it("no permite editar mientras se está eliminando la reseña", async () => {
+    authState.user = { id: "u1", email: "bob@b.c", name: "Bob", role: "USER" };
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    let resolveDelete: () => void;
+    vi.mocked(api.delete).mockReturnValue(
+      new Promise((resolve) => {
+        resolveDelete = () => resolve({ data: { success: true } });
+      }),
+    );
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    try {
+      await waitFor(() => {
+        expect(screen.getByText("Love it!")).toBeInTheDocument();
+      });
+
+      await user.click(
+        screen.getByRole("button", { name: /eliminar reseña/i }),
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: /editar reseña/i }),
+        ).toBeDisabled();
+      });
+
+      resolveDelete!();
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
   it("cancela la edición sin llamar a la api", async () => {
     authState.user = { id: "u1", email: "bob@b.c", name: "Bob", role: "USER" };
     vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));

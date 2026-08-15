@@ -10,6 +10,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { Role } from '../users/role.enum';
 import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
+import { VERIFIED_PURCHASE_STATUSES } from '../orders/order-status.enum';
 
 // Fields moderation actually judges: if a seller changes any of them the
 // listing has to be reviewed again before going back to the public catalog.
@@ -154,31 +155,46 @@ export class ProductsService {
   }
 
   async findOne(id: string, requester?: { id: string; role: Role } | null) {
-    const product = await this.prisma.client.product.findUnique({
-      where: { id },
-      include: {
-        seller: { select: { id: true, name: true } },
-        reviews: {
-          select: {
-            id: true,
-            rating: true,
-            comment: true,
-            createdAt: true,
-            // Without these, the web app's own review card can never tell
-            // "is this my review" from "is this someone else's" (userId),
-            // and a seller's reply — already written via PATCH
-            // /reviews/:id/reply — never reaches the page that is supposed
-            // to display it.
-            userId: true,
-            sellerReply: true,
-            sellerRepliedAt: true,
-            user: { select: { id: true, name: true } },
+    // Every listing is a single physical garment, never restocked — so at
+    // most one order item can ever record its actual sale. Whoever that
+    // order belongs to (if it went through) is the one buyer a review can
+    // count as "verified". Fired alongside the product read rather than
+    // after it: this doesn't depend on the product existing, and reviews
+    // are only in scope once we already know it does.
+    const [product, sale] = await Promise.all([
+      this.prisma.client.product.findUnique({
+        where: { id },
+        include: {
+          seller: { select: { id: true, name: true } },
+          reviews: {
+            select: {
+              id: true,
+              rating: true,
+              comment: true,
+              createdAt: true,
+              // Without these, the web app's own review card can never tell
+              // "is this my review" from "is this someone else's" (userId),
+              // and a seller's reply — already written via PATCH
+              // /reviews/:id/reply — never reaches the page that is supposed
+              // to display it.
+              userId: true,
+              sellerReply: true,
+              sellerRepliedAt: true,
+              user: { select: { id: true, name: true } },
+            },
+            orderBy: { createdAt: 'desc' },
           },
-          orderBy: { createdAt: 'desc' },
+          _count: { select: { reviews: true } },
         },
-        _count: { select: { reviews: true } },
-      },
-    });
+      }),
+      this.prisma.client.orderItem.findFirst({
+        where: {
+          productId: id,
+          order: { status: { in: VERIFIED_PURCHASE_STATUSES } },
+        },
+        select: { order: { select: { userId: true } } },
+      }),
+    ]);
 
     if (!product) {
       throw new NotFoundException(`Producto con ID ${id} no encontrado`);
@@ -199,7 +215,17 @@ export class ProductsService {
       }
     }
 
-    return product;
+    // Mirrors ReviewsService.findAllByProduct's own verifiedPurchase
+    // computation — this page renders reviews from this endpoint, not that
+    // one, and it needs the exact same badge to be accurate here too.
+    const verifiedBuyerId = sale?.order.userId;
+    return {
+      ...product,
+      reviews: product.reviews.map((review) => ({
+        ...review,
+        verifiedPurchase: review.userId === verifiedBuyerId,
+      })),
+    };
   }
 
   async findRaw(id: string) {
