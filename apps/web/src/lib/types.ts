@@ -88,6 +88,7 @@ export interface Review {
   createdAt: string;
   sellerReply?: string | null;
   sellerRepliedAt?: string | null;
+  verifiedPurchase?: boolean;
   user?: { id: string; name: string };
   product?: { id: string; title: string };
 }

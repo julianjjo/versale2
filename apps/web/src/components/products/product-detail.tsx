@@ -343,9 +343,14 @@ export function ProductDetail({
             {reviews.map((review) => (
               <Card key={review.id}>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-text-primary">
-                    {review.user?.name ?? "Anónimo"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-text-primary">
+                      {review.user?.name ?? "Anónimo"}
+                    </span>
+                    {review.verifiedPurchase && (
+                      <Badge variant="success">Compra verificada</Badge>
+                    )}
+                  </div>
                   <StarRating value={review.rating} />
                 </div>
                 {review.comment && (
