@@ -139,6 +139,11 @@ export default function OrdersPage() {
                 <p className="mt-1 text-xs font-medium text-text-primary">
                   {ORDER_STATUS_REASSURANCE[order.status]}
                 </p>
+                {order.trackingNumber && (
+                  <p className="mt-1 text-xs text-text-muted">
+                    Guía: {order.trackingNumber}
+                  </p>
+                )}
               </Card>
             </a>
           ))}

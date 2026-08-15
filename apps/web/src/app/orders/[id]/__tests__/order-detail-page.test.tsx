@@ -77,6 +77,36 @@ describe("OrderDetailPage", () => {
     });
   });
 
+  it("muestra el número de guía cuando el vendedor ya lo agregó", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: { ...mockOrder, status: "SHIPPED", trackingNumber: "ABC123" },
+    });
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Número de guía")).toBeInTheDocument();
+    });
+    expect(screen.getByText("ABC123")).toBeInTheDocument();
+  });
+
+  it("no muestra la fila de número de guía cuando el pedido no tiene uno", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: mockOrder });
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("#order1")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("Número de guía")).not.toBeInTheDocument();
+  });
+
   // Regression: un 404 real (el pedido no existe) mostraba "Pedido no
   // encontrado", el comportamiento correcto para ese caso.
   it("muestra 'Pedido no encontrado' cuando el pedido no existe (404)", async () => {
