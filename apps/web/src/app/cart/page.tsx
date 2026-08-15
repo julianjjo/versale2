@@ -19,7 +19,7 @@ import {
   Divider,
 } from "@/components/ui";
 import { conditionLabel } from "@/lib/product-condition";
-import type { Cart, CartItem, Order } from "@/lib/types";
+import type { Cart, CartItem, Order, PaginatedResponse } from "@/lib/types";
 
 function isSold(item: CartItem): boolean {
   return Boolean(item.product?.soldAt);
@@ -96,18 +96,24 @@ export default function CartPage() {
       enabled: Boolean(user),
     });
 
-  // Same queryKey the orders list page uses, so this is already warm (no
-  // extra request) for anyone who just checked their order history.
+  // `/orders` is paginated now (search/filter/sort on the orders list page
+  // needed it), so this asks for only the handful of most recent orders it
+  // actually needs instead of the buyer's entire history — a distinct query
+  // key from the orders list page's own `["orders", search, status, page]`,
+  // since that key now varies with filters this lookup doesn't use.
   // Purely a convenience: a failure here just means the "usar la anterior"
   // shortcut doesn't appear, so it isn't allowed to affect cart loading state.
-  const { data: previousOrders } = useQuery<Order[]>({
-    queryKey: ["orders"],
+  const { data: previousOrdersPage } = useQuery<PaginatedResponse<Order>>({
+    queryKey: ["orders", "recent-for-checkout"],
     queryFn: async () => {
-      const response = await api.get<Order[]>("/orders");
+      const response = await api.get<PaginatedResponse<Order>>(
+        "/orders?limit=5",
+      );
       return response.data;
     },
     enabled: Boolean(user),
   });
+  const previousOrders = previousOrdersPage?.data;
 
   // Only a `string`, never `undefined`/`null`/some other JSON type — the
   // column backing `shippingAddress` is a raw, untyped `Json` field, so a

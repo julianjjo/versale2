@@ -31,9 +31,9 @@ export class OrdersController {
   }
 
   @Get()
-  async getUserOrders(@Req() req: AuthRequest) {
+  async getUserOrders(@Req() req: AuthRequest, @Query() query: any) {
     const userId = req.user.id;
-    return this.ordersService.getUserOrders(userId);
+    return this.ordersService.getUserOrders(userId, query);
   }
 
   @Get(':id')

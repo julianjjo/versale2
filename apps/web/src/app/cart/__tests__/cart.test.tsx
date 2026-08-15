@@ -132,6 +132,17 @@ vi.mock("@/lib/api", () => ({
 
 import { api } from "@/lib/api";
 
+// `/orders` is paginated now: the axios-style `{ data: ... }` wraps a second
+// `{ data, meta }` envelope, not a bare array.
+function ordersResponse(orders: unknown[]) {
+  return {
+    data: {
+      data: orders,
+      meta: { total: orders.length, page: 1, limit: 5, pages: 1 },
+    },
+  };
+}
+
 describe("CartPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -198,7 +209,7 @@ describe("CartPage", () => {
     // instead of isolating the cart's own retry.
     let cartCalls = 0;
     vi.mocked(api.get).mockImplementation(async (url: string) => {
-      if (url === "/orders") return { data: [] };
+      if (url.startsWith("/orders?")) return ordersResponse([]);
       cartCalls += 1;
       if (cartCalls === 1) throw new Error("Network error");
       return { data: mockCart };
@@ -513,27 +524,25 @@ describe("CartPage", () => {
 
   it("rellena la dirección con la del pedido anterior al hacer click en el acceso rápido", async () => {
     vi.mocked(api.get).mockImplementation(async (url: string) => {
-      if (url === "/orders") {
-        return {
-          data: [
-            {
-              id: "order1",
-              userId: "u1",
-              status: "DELIVERED",
-              totalAmount: 30000,
-              shippingAddress: {
-                street: "Carrera 15 # 88-64",
-                city: "Bogotá",
-                state: "Cundinamarca",
-                zip: "110221",
-                country: "Colombia",
-              },
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              items: [],
+      if (url.startsWith("/orders?")) {
+        return ordersResponse([
+          {
+            id: "order1",
+            userId: "u1",
+            status: "DELIVERED",
+            totalAmount: 30000,
+            shippingAddress: {
+              street: "Carrera 15 # 88-64",
+              city: "Bogotá",
+              state: "Cundinamarca",
+              zip: "110221",
+              country: "Colombia",
             },
-          ],
-        };
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            items: [],
+          },
+        ]);
       }
       return { data: mockCart };
     });
@@ -560,27 +569,25 @@ describe("CartPage", () => {
 
   it("no ofrece un pedido anterior cuyo campo obligatorio 'país' está vacío", async () => {
     vi.mocked(api.get).mockImplementation(async (url: string) => {
-      if (url === "/orders") {
-        return {
-          data: [
-            {
-              id: "order1",
-              userId: "u1",
-              status: "DELIVERED",
-              totalAmount: 30000,
-              shippingAddress: {
-                street: "Carrera 15 # 88-64",
-                city: "Bogotá",
-                state: "",
-                zip: "",
-                country: "",
-              },
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              items: [],
+      if (url.startsWith("/orders?")) {
+        return ordersResponse([
+          {
+            id: "order1",
+            userId: "u1",
+            status: "DELIVERED",
+            totalAmount: 30000,
+            shippingAddress: {
+              street: "Carrera 15 # 88-64",
+              city: "Bogotá",
+              state: "",
+              zip: "",
+              country: "",
             },
-          ],
-        };
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            items: [],
+          },
+        ]);
       }
       return { data: mockCart };
     });
@@ -600,29 +607,27 @@ describe("CartPage", () => {
 
   it("coacciona a texto un campo no-string en vez de romper el pago, y omite el resto", async () => {
     vi.mocked(api.get).mockImplementation(async (url: string) => {
-      if (url === "/orders") {
-        return {
-          data: [
-            {
-              id: "order1",
-              userId: "u1",
-              status: "DELIVERED",
-              totalAmount: 30000,
-              shippingAddress: {
-                // `zip` llega como número: un dato mal tipado no debe romper
-                // el pago ni terminar renderizado como "[object Object]".
-                street: "Carrera 15 # 88-64",
-                city: "Bogotá",
-                state: "Cundinamarca",
-                zip: 110221,
-                country: "Colombia",
-              },
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              items: [],
+      if (url.startsWith("/orders?")) {
+        return ordersResponse([
+          {
+            id: "order1",
+            userId: "u1",
+            status: "DELIVERED",
+            totalAmount: 30000,
+            shippingAddress: {
+              // `zip` llega como número: un dato mal tipado no debe romper
+              // el pago ni terminar renderizado como "[object Object]".
+              street: "Carrera 15 # 88-64",
+              city: "Bogotá",
+              state: "Cundinamarca",
+              zip: 110221,
+              country: "Colombia",
             },
-          ],
-        };
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            items: [],
+          },
+        ]);
       }
       return { data: mockCart };
     });
@@ -660,27 +665,25 @@ describe("CartPage", () => {
 
   it("limpia el banner de error al usar el acceso rápido de dirección anterior", async () => {
     vi.mocked(api.get).mockImplementation(async (url: string) => {
-      if (url === "/orders") {
-        return {
-          data: [
-            {
-              id: "order1",
-              userId: "u1",
-              status: "DELIVERED",
-              totalAmount: 30000,
-              shippingAddress: {
-                street: "Carrera 15 # 88-64",
-                city: "Bogotá",
-                state: "Cundinamarca",
-                zip: "110221",
-                country: "Colombia",
-              },
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              items: [],
+      if (url.startsWith("/orders?")) {
+        return ordersResponse([
+          {
+            id: "order1",
+            userId: "u1",
+            status: "DELIVERED",
+            totalAmount: 30000,
+            shippingAddress: {
+              street: "Carrera 15 # 88-64",
+              city: "Bogotá",
+              state: "Cundinamarca",
+              zip: "110221",
+              country: "Colombia",
             },
-          ],
-        };
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            items: [],
+          },
+        ]);
       }
       return { data: mockCart };
     });
@@ -710,27 +713,25 @@ describe("CartPage", () => {
 
   it("anuncia en la región en vivo cuando se usa el acceso rápido de dirección anterior", async () => {
     vi.mocked(api.get).mockImplementation(async (url: string) => {
-      if (url === "/orders") {
-        return {
-          data: [
-            {
-              id: "order1",
-              userId: "u1",
-              status: "DELIVERED",
-              totalAmount: 30000,
-              shippingAddress: {
-                street: "Carrera 15 # 88-64",
-                city: "Bogotá",
-                state: "Cundinamarca",
-                zip: "110221",
-                country: "Colombia",
-              },
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              items: [],
+      if (url.startsWith("/orders?")) {
+        return ordersResponse([
+          {
+            id: "order1",
+            userId: "u1",
+            status: "DELIVERED",
+            totalAmount: 30000,
+            shippingAddress: {
+              street: "Carrera 15 # 88-64",
+              city: "Bogotá",
+              state: "Cundinamarca",
+              zip: "110221",
+              country: "Colombia",
             },
-          ],
-        };
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            items: [],
+          },
+        ]);
       }
       return { data: mockCart };
     });
@@ -758,27 +759,25 @@ describe("CartPage", () => {
 
   it("no pisa un error no relacionado al usar el acceso rápido de dirección anterior", async () => {
     vi.mocked(api.get).mockImplementation(async (url: string) => {
-      if (url === "/orders") {
-        return {
-          data: [
-            {
-              id: "order1",
-              userId: "u1",
-              status: "DELIVERED",
-              totalAmount: 30000,
-              shippingAddress: {
-                street: "Carrera 15 # 88-64",
-                city: "Bogotá",
-                state: "Cundinamarca",
-                zip: "110221",
-                country: "Colombia",
-              },
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              items: [],
+      if (url.startsWith("/orders?")) {
+        return ordersResponse([
+          {
+            id: "order1",
+            userId: "u1",
+            status: "DELIVERED",
+            totalAmount: 30000,
+            shippingAddress: {
+              street: "Carrera 15 # 88-64",
+              city: "Bogotá",
+              state: "Cundinamarca",
+              zip: "110221",
+              country: "Colombia",
             },
-          ],
-        };
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            items: [],
+          },
+        ]);
       }
       return { data: mockCart };
     });
@@ -813,7 +812,7 @@ describe("CartPage", () => {
 
   it("no muestra el acceso rápido cuando no hay pedidos anteriores", async () => {
     vi.mocked(api.get).mockImplementation(async (url: string) => {
-      if (url === "/orders") return { data: [] };
+      if (url.startsWith("/orders?")) return ordersResponse([]);
       return { data: mockCart };
     });
     render(
