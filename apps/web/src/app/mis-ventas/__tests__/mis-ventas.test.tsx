@@ -97,6 +97,21 @@ describe("MisVentasPage", () => {
     expect(screen.getByText(/chaqueta/i)).toBeInTheDocument();
   });
 
+  it("muestra un estado de error si falla la carga, sin confundirlo con la lista vacía", async () => {
+    vi.mocked(api.get).mockRejectedValue(new Error("network down"));
+    render(
+      <TestProviders>
+        <MisVentasPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/no pudimos cargar tus ventas/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/aún no tienes ventas/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /reintentar/i })).toBeInTheDocument();
+  });
+
   it("muestra un estado vacío cuando no hay ventas", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: paginatedResponse([]) });
     render(

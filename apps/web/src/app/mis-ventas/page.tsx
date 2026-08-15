@@ -38,7 +38,7 @@ export default function MisVentasPage() {
     {},
   );
 
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ["mis-ventas", page],
     queryFn: async () => {
       const res = await api.get<{
@@ -122,7 +122,13 @@ export default function MisVentasPage() {
         </p>
       )}
 
-      {orders.length === 0 ? (
+      {isError ? (
+        <EmptyState
+          title="No pudimos cargar tus ventas"
+          description="Ocurrió un error al conectar con el servidor. Intenta de nuevo."
+          action={<Button onClick={() => refetch()}>Reintentar</Button>}
+        />
+      ) : orders.length === 0 ? (
         <EmptyState
           title="Aún no tienes ventas"
           description="Cuando alguien compre uno de tus productos, aparecerá aquí."
