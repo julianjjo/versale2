@@ -116,6 +116,11 @@ export function Header() {
             </NavLink>
           )}
           {user && (
+            <NavLink href="/mis-ventas" className="hidden lg:inline">
+              Mis ventas
+            </NavLink>
+          )}
+          {user && (
             <NavLink href="/favoritos" className="hidden lg:inline">
               Favoritos
             </NavLink>
@@ -132,6 +137,7 @@ export function Header() {
             <MoreMenu
               items={[
                 { href: "/mis-productos", label: "Mis publicaciones" },
+                { href: "/mis-ventas", label: "Mis ventas" },
                 { href: "/favoritos", label: "Favoritos" },
                 { href: "/profile", label: `Mi perfil (${user.name})` },
               ]}
@@ -254,6 +260,11 @@ export function Header() {
               {user && (
                 <MobileLink href="/mis-productos" onClick={closeMenu}>
                   Mis publicaciones
+                </MobileLink>
+              )}
+              {user && (
+                <MobileLink href="/mis-ventas" onClick={closeMenu}>
+                  Mis ventas
                 </MobileLink>
               )}
               {user && (

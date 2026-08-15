@@ -257,6 +257,104 @@ export class OrdersService {
     return { totalOrders, confirmedRevenue, pendingRevenue };
   }
 
+  // A seller's own fulfillment queue: every order that includes at least one
+  // of their products, newest first. `items` is filtered to just this
+  // seller's own — a mixed cart's other items belong to sellers who have
+  // nothing to do with this request and shouldn't see each other's listings.
+  async getMySales(sellerId: string, query: any = {}) {
+    const { page, limit } = query ?? {};
+    const { pageNum, limitNum, skip } = resolvePagination(page, limit);
+
+    const where = { items: { some: { product: { sellerId } } } };
+
+    const [orders, total] = await Promise.all([
+      this.prisma.client.order.findMany({
+        where,
+        skip,
+        take: limitNum,
+        include: {
+          user: { select: { id: true, name: true } },
+          items: {
+            where: { product: { sellerId } },
+            include: { product: { select: { id: true, title: true, images: true } } },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.client.order.count({ where }),
+    ]);
+
+    return {
+      data: orders,
+      meta: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum),
+      },
+    };
+  }
+
+  // Lets a seller mark their own sale as shipped without waiting on an admin —
+  // but only when every item on the order is theirs. A cart can mix products
+  // from several sellers under one order/one status, and there is no
+  // per-item shipping state; letting one seller flip SHIPPED on an order that
+  // also has another seller's still-unshipped item would misreport it as
+  // shipped. That mixed case is refused and left for an admin to handle.
+  async shipOwnSale(sellerId: string, id: string, trackingNumber?: string) {
+    const order = await this.prisma.client.order.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        items: { select: { product: { select: { sellerId: true } } } },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`No se encontró el pedido con ID ${id}`);
+    }
+
+    const sellerItemCount = order.items.filter(
+      (item) => item.product.sellerId === sellerId,
+    ).length;
+
+    if (sellerItemCount === 0) {
+      throw new ForbiddenException('No tienes productos en este pedido');
+    }
+
+    if (sellerItemCount !== order.items.length) {
+      throw new ForbiddenException(
+        'Este pedido incluye productos de otros vendedores; solo un administrador puede actualizarlo',
+      );
+    }
+
+    const currentStatus = order.status as OrderStatus;
+    if (currentStatus !== OrderStatus.PAID) {
+      throw new BadRequestException(
+        `No se puede marcar como enviado un pedido en estado ${ORDER_STATUS_LABEL[currentStatus]}`,
+      );
+    }
+
+    try {
+      return await this.prisma.client.order.update({
+        where: { id, status: OrderStatus.PAID },
+        data: {
+          status: OrderStatus.SHIPPED,
+          trackingNumber: trackingNumber || null,
+        },
+      });
+    } catch (error) {
+      translatePrismaError(error, {
+        P2025: () => {
+          throw new BadRequestException(
+            'Este pedido cambió de estado mientras se procesaba tu solicitud. Actualiza la página e inténtalo de nuevo.',
+          );
+        },
+      });
+    }
+  }
+
   async updateOrderStatus(id: string, status: OrderStatus) {
     const order = await this.prisma.client.order.findUnique({
       where: { id },

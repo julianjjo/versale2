@@ -181,7 +181,7 @@ describe("Header", () => {
     expect(dialog).toBeInTheDocument();
   });
 
-  it('el menú "Más" del nav de escritorio expone Mis publicaciones, Favoritos y Mi perfil, y se cierra tras seleccionar', async () => {
+  it('el menú "Más" del nav de escritorio expone Mis publicaciones, Mis ventas, Favoritos y Mi perfil, y se cierra tras seleccionar', async () => {
     authState.user = {
       id: "u1",
       email: "a@b.c",
@@ -204,6 +204,8 @@ describe("Header", () => {
       name: /^mis publicaciones$/i,
     });
     expect(misPublicaciones).toHaveAttribute("href", "/mis-productos");
+    const misVentas = panel.getByRole("link", { name: /^mis ventas$/i });
+    expect(misVentas).toHaveAttribute("href", "/mis-ventas");
     const favoritos = panel.getByRole("link", { name: /^favoritos$/i });
     expect(favoritos).toHaveAttribute("href", "/favoritos");
     const miPerfil = panel.getByRole("link", { name: /mi perfil \(alice\)/i });

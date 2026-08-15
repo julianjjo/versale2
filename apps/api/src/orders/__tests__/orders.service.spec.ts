@@ -1018,4 +1018,170 @@ describe('OrdersService', () => {
       ).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('getMySales', () => {
+    it("should return paginated orders that include the caller's own products, filtering items to only theirs", async () => {
+      const sellerId = 'seller1';
+      const mockOrders = [{ id: 'order1', status: 'PAID' }];
+
+      mockPrismaService.client.order.findMany.mockResolvedValue(mockOrders);
+      mockPrismaService.client.order.count.mockResolvedValue(1);
+
+      const result = await service.getMySales(sellerId, { page: '1', limit: '10' });
+
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
+        where: { items: { some: { product: { sellerId } } } },
+        skip: 0,
+        take: 10,
+        include: {
+          user: { select: { id: true, name: true } },
+          items: {
+            where: { product: { sellerId } },
+            include: {
+              product: { select: { id: true, title: true, images: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(result).toEqual({
+        data: mockOrders,
+        meta: { total: 1, page: 1, limit: 10, pages: 1 },
+      });
+    });
+  });
+
+  describe('shipOwnSale', () => {
+    it("should mark a paid order as shipped when every item is the caller's own", async () => {
+      const sellerId = 'seller1';
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.PAID,
+        items: [
+          { product: { sellerId } },
+          { product: { sellerId } },
+        ],
+      });
+      mockPrismaService.client.order.update.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.SHIPPED,
+        trackingNumber: 'ABC123',
+      });
+
+      const result = await service.shipOwnSale(sellerId, 'order1', 'ABC123');
+
+      expect(mockPrismaService.client.order.update).toHaveBeenCalledWith({
+        where: { id: 'order1', status: OrderStatus.PAID },
+        data: { status: OrderStatus.SHIPPED, trackingNumber: 'ABC123' },
+      });
+      expect(result).toEqual({
+        id: 'order1',
+        status: OrderStatus.SHIPPED,
+        trackingNumber: 'ABC123',
+      });
+    });
+
+    it('should store a null tracking number when none is provided', async () => {
+      const sellerId = 'seller1';
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.PAID,
+        items: [{ product: { sellerId } }],
+      });
+      mockPrismaService.client.order.update.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.SHIPPED,
+      });
+
+      await service.shipOwnSale(sellerId, 'order1', undefined);
+
+      expect(mockPrismaService.client.order.update).toHaveBeenCalledWith({
+        where: { id: 'order1', status: OrderStatus.PAID },
+        data: { status: OrderStatus.SHIPPED, trackingNumber: null },
+      });
+    });
+
+    it('should refuse a seller with no products in the order', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.PAID,
+        items: [{ product: { sellerId: 'someoneElse' } }],
+      });
+
+      await expect(
+        service.shipOwnSale('seller1', 'order1', undefined),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrismaService.client.order.update).not.toHaveBeenCalled();
+    });
+
+    it('should refuse an order that mixes products from other sellers', async () => {
+      const sellerId = 'seller1';
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.PAID,
+        items: [
+          { product: { sellerId } },
+          { product: { sellerId: 'someoneElse' } },
+        ],
+      });
+
+      await expect(
+        service.shipOwnSale(sellerId, 'order1', undefined),
+      ).rejects.toThrow(
+        'Este pedido incluye productos de otros vendedores; solo un administrador puede actualizarlo',
+      );
+      expect(mockPrismaService.client.order.update).not.toHaveBeenCalled();
+    });
+
+    it('should refuse to ship an order that is not yet paid', async () => {
+      const sellerId = 'seller1';
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.PENDING,
+        items: [{ product: { sellerId } }],
+      });
+
+      await expect(
+        service.shipOwnSale(sellerId, 'order1', undefined),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.client.order.update).not.toHaveBeenCalled();
+    });
+
+    it('should refuse to ship an order that was already shipped', async () => {
+      const sellerId = 'seller1';
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.SHIPPED,
+        items: [{ product: { sellerId } }],
+      });
+
+      await expect(
+        service.shipOwnSale(sellerId, 'order1', undefined),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw NotFoundException for an unknown order id', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.shipOwnSale('seller1', 'nonexistent', undefined),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should reject as a conflict if the order changed status mid-request', async () => {
+      const sellerId = 'seller1';
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.PAID,
+        items: [{ product: { sellerId } }],
+      });
+      mockPrismaService.client.order.update.mockRejectedValue(staleStatusError());
+
+      await expect(
+        service.shipOwnSale(sellerId, 'order1', undefined),
+      ).rejects.toThrow(
+        'Este pedido cambió de estado mientras se procesaba tu solicitud. Actualiza la página e inténtalo de nuevo.',
+      );
+    });
+  });
 });

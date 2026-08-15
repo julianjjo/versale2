@@ -96,6 +96,7 @@ model Order {
   status        OrderStatus @default(PENDING)
   totalAmount   Float
   shippingAddress Json   // or separate ShippingAddress model (now required)
+  trackingNumber String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   items         OrderItem[] @relation("OrderItemOrder")
