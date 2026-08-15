@@ -150,16 +150,60 @@ export class OrdersService {
     });
   }
 
-  async getUserOrders(userId: string) {
-    return this.prisma.client.order.findMany({
-      where: { userId },
-      include: {
-        items: {
-          include: { product: true },
+  // A buyer's own order history: searchable (by order id or an item's
+  // product title) and filterable by status, paginated the same way every
+  // other list endpoint in this API is. Mirrors `getAllOrders` (admin) and
+  // `getMySales` (seller) below rather than introducing a third shape.
+  async getUserOrders(userId: string, query: any = {}) {
+    const { search, status, page, limit } = query ?? {};
+    const { pageNum, limitNum, skip } = resolvePagination(page, limit);
+
+    const where: any = { userId };
+    if (search) {
+      const term = String(search);
+      where.OR = [
+        { id: { contains: term } },
+        { items: { some: { product: { is: { title: { contains: term } } } } } },
+      ];
+    }
+    // Validated against the enum instead of passed through as-is: Prisma
+    // throws an unhandled `PrismaClientValidationError` (a raw 500, no
+    // Spanish message) for a `status` filter value outside `OrderStatus`,
+    // and this is a public query param a caller can set to anything.
+    if (status && Object.values(OrderStatus).includes(status as OrderStatus)) {
+      where.status = status;
+    }
+
+    const [orders, total] = await Promise.all([
+      this.prisma.client.order.findMany({
+        where,
+        skip,
+        take: limitNum,
+        include: {
+          // The buyer's own list card only ever shows the first item's title
+          // and thumbnail (see apps/web/src/app/orders/page.tsx), the same
+          // narrowing getMySales already applies for the seller's own list —
+          // no reason for this one to pull every Product column instead.
+          items: {
+            include: {
+              product: { select: { id: true, title: true, images: true } },
+            },
+          },
         },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.client.order.count({ where }),
+    ]);
+
+    return {
+      data: orders,
+      meta: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        pages: Math.ceil(total / limitNum),
       },
-      orderBy: { createdAt: 'desc' },
-    });
+    };
   }
 
   async getOrderById(id: string, userId: string, role: Role) {
