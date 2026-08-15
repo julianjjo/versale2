@@ -88,6 +88,35 @@ describe("OrdersPage", () => {
     expect(screen.getByText(/pedido #order1/i)).toBeInTheDocument();
   });
 
+  it("muestra el número de guía cuando el pedido ya fue enviado", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: [{ ...mockOrders[0], status: "SHIPPED", trackingNumber: "ABC123" }],
+    });
+    render(
+      <TestProviders>
+        <OrdersPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/guía: abc123/i)).toBeInTheDocument();
+    });
+  });
+
+  it("no muestra la guía cuando el pedido no tiene una", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: mockOrders });
+    render(
+      <TestProviders>
+        <OrdersPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/pedido #order1/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/guía:/i)).not.toBeInTheDocument();
+  });
+
   it("muestra un estado vacío cuando no hay pedidos", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: [] });
     render(

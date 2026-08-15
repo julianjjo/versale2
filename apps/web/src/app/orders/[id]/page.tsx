@@ -325,6 +325,14 @@ export default function OrderDetailPage() {
               </Badge>
             </dd>
           </div>
+          {data.trackingNumber && (
+            <div className="flex justify-between">
+              <dt className="text-text-muted">Número de guía</dt>
+              <dd className="font-medium text-text-primary">
+                {data.trackingNumber}
+              </dd>
+            </div>
+          )}
         </dl>
       </Card>
     </PageContainer>
