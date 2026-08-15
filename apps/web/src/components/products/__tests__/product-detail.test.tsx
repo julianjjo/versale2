@@ -56,6 +56,7 @@ const mockProduct = {
     {
       id: "r1",
       productId: "p1",
+      userId: "u1",
       rating: 5,
       comment: "Love it!",
       createdAt: new Date().toISOString(),
@@ -526,5 +527,195 @@ describe("ProductDetail", () => {
     expect(
       screen.queryByRole("button", { name: /editar respuesta/i }),
     ).toBeNull();
+  });
+
+  it("muestra Editar reseña y Eliminar reseña solo en la reseña propia del comprador", async () => {
+    authState.user = { id: "u1", email: "bob@b.c", name: "Bob", role: "USER" };
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Love it!")).toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole("button", { name: /editar reseña/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /eliminar reseña/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("no muestra Editar reseña ni Eliminar reseña en la reseña de otra persona", async () => {
+    authState.user = { id: "u2", email: "charlie@b.c", name: "Charlie", role: "USER" };
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Love it!")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("button", { name: /editar reseña/i }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /eliminar reseña/i }),
+    ).toBeNull();
+  });
+
+  it("oculta el formulario de nueva reseña cuando el comprador ya tiene una", async () => {
+    authState.user = { id: "u1", email: "bob@b.c", name: "Bob", role: "USER" };
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Love it!")).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/escribe una reseña/i)).not.toBeInTheDocument();
+  });
+
+  it("edita la propia reseña con los valores existentes precargados", async () => {
+    authState.user = { id: "u1", email: "bob@b.c", name: "Bob", role: "USER" };
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    vi.mocked(api.patch).mockResolvedValue({ data: { id: "r1" } });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Love it!")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /editar reseña/i }));
+
+    const textarea = screen.getByLabelText(/comentario/i);
+    expect(textarea).toHaveValue("Love it!");
+    const stars = screen.getAllByRole("radio");
+    expect(stars[4]).toHaveAttribute("aria-checked", "true");
+
+    await user.clear(textarea);
+    await user.type(textarea, "Ya no me gusta tanto");
+    await user.click(stars[2]); // 3 estrellas
+    await user.click(screen.getByRole("button", { name: /guardar cambios/i }));
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/reviews/r1", {
+        rating: 3,
+        comment: "Ya no me gusta tanto",
+      });
+    });
+  });
+
+  it("cancela la edición sin llamar a la api", async () => {
+    authState.user = { id: "u1", email: "bob@b.c", name: "Bob", role: "USER" };
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Love it!")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /editar reseña/i }));
+    await user.click(screen.getByRole("button", { name: /cancelar/i }));
+
+    expect(api.patch).not.toHaveBeenCalled();
+    expect(screen.getByText("Love it!")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /editar reseña/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("elimina la propia reseña tras confirmar", async () => {
+    authState.user = { id: "u1", email: "bob@b.c", name: "Bob", role: "USER" };
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    vi.mocked(api.delete).mockResolvedValue({ data: { success: true } });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    try {
+      await waitFor(() => {
+        expect(screen.getByText("Love it!")).toBeInTheDocument();
+      });
+
+      await user.click(
+        screen.getByRole("button", { name: /eliminar reseña/i }),
+      );
+
+      await waitFor(() => {
+        expect(api.delete).toHaveBeenCalledWith("/reviews/r1");
+      });
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it("no elimina la reseña si el usuario no confirma el diálogo", async () => {
+    authState.user = { id: "u1", email: "bob@b.c", name: "Bob", role: "USER" };
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    try {
+      await waitFor(() => {
+        expect(screen.getByText("Love it!")).toBeInTheDocument();
+      });
+
+      await user.click(
+        screen.getByRole("button", { name: /eliminar reseña/i }),
+      );
+
+      expect(api.delete).not.toHaveBeenCalled();
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it("muestra un error si la actualización de la reseña falla", async () => {
+    authState.user = { id: "u1", email: "bob@b.c", name: "Bob", role: "USER" };
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    vi.mocked(api.patch).mockRejectedValue(new Error("No autorizado"));
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Love it!")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /editar reseña/i }));
+    await user.click(screen.getByRole("button", { name: /guardar cambios/i }));
+
+    expect(await screen.findByText("No autorizado")).toBeInTheDocument();
   });
 });

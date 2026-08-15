@@ -107,6 +107,43 @@ test.describe("Publicación de productos y administración", () => {
     ).toBeVisible({ timeout: 10_000 });
   });
 
+  test("el usuario puede editar y luego eliminar su propia reseña", async ({
+    userPage,
+  }) => {
+    // Continúa el escenario de la prueba anterior: mismo producto, misma
+    // reseña ya publicada por este mismo usuario sembrado.
+    await userPage.goto("/products");
+    await userPage
+      .getByRole("heading", { name: "Vintage Denim Jacket" })
+      .click();
+    await expect(
+      userPage.getByText("Excellent jacket, fits perfectly!"),
+    ).toBeVisible({ timeout: 10_000 });
+
+    await userPage.getByRole("button", { name: /editar reseña/i }).click();
+    const commentField = userPage.getByLabel(/comentario/i);
+    await expect(commentField).toHaveValue("Excellent jacket, fits perfectly!");
+    await commentField.fill("Cambié de opinión, igual está bien.");
+    await userPage.getByRole("button", { name: /guardar cambios/i }).click();
+
+    await expect(
+      userPage.getByText("Cambié de opinión, igual está bien."),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      userPage.getByText("Excellent jacket, fits perfectly!"),
+    ).not.toBeVisible();
+
+    userPage.once("dialog", (dialog) => dialog.accept());
+    await userPage.getByRole("button", { name: /eliminar reseña/i }).click();
+
+    await expect(
+      userPage.getByText("Cambié de opinión, igual está bien."),
+    ).not.toBeVisible({ timeout: 10_000 });
+    await expect(
+      userPage.getByRole("heading", { name: /escribe una reseña/i }),
+    ).toBeVisible({ timeout: 10_000 });
+  });
+
   test("el administrador puede cambiar el estado de un pedido", async ({
     adminPage,
     userPage,

@@ -164,6 +164,14 @@ export class ProductsService {
             rating: true,
             comment: true,
             createdAt: true,
+            // Without these, the web app's own review card can never tell
+            // "is this my review" from "is this someone else's" (userId),
+            // and a seller's reply — already written via PATCH
+            // /reviews/:id/reply — never reaches the page that is supposed
+            // to display it.
+            userId: true,
+            sellerReply: true,
+            sellerRepliedAt: true,
             user: { select: { id: true, name: true } },
           },
           orderBy: { createdAt: 'desc' },
