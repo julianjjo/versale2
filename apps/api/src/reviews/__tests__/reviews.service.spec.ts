@@ -22,6 +22,9 @@ describe('ReviewsService', () => {
         findMany: jest.fn(),
         count: jest.fn(),
       },
+      orderItem: {
+        findFirst: jest.fn(),
+      },
     },
   };
 
@@ -196,18 +199,29 @@ describe('ReviewsService', () => {
   });
 
   describe('findAllByProduct', () => {
-    it('should return reviews for a product', async () => {
+    it('marks a review as verifiedPurchase when it comes from the product\'s actual buyer', async () => {
       const productId = 'product1';
       const mockReviews = [
         {
           id: 'review1',
+          userId: 'buyer1',
           rating: 5,
           comment: 'Great!',
-          user: { id: 'user1', name: 'User 1' },
+          user: { id: 'buyer1', name: 'Buyer' },
+        },
+        {
+          id: 'review2',
+          userId: 'someoneElse',
+          rating: 3,
+          comment: 'Solo lo vi de lejos',
+          user: { id: 'someoneElse', name: 'Otro' },
         },
       ];
 
       mockPrismaService.client.review.findMany.mockResolvedValue(mockReviews);
+      mockPrismaService.client.orderItem.findFirst.mockResolvedValue({
+        order: { userId: 'buyer1' },
+      });
 
       const result = await service.findAllByProduct(productId);
 
@@ -218,7 +232,37 @@ describe('ReviewsService', () => {
         },
         orderBy: { createdAt: 'desc' },
       });
-      expect(result).toEqual(mockReviews);
+      expect(mockPrismaService.client.orderItem.findFirst).toHaveBeenCalledWith({
+        where: {
+          productId,
+          order: { status: { in: ['PAID', 'SHIPPED', 'DELIVERED'] } },
+        },
+        select: { order: { select: { userId: true } } },
+      });
+      expect(result).toEqual([
+        { ...mockReviews[0], verifiedPurchase: true },
+        { ...mockReviews[1], verifiedPurchase: false },
+      ]);
+    });
+
+    it('marks every review as unverified when the product was never actually sold', async () => {
+      const productId = 'product1';
+      const mockReviews = [
+        {
+          id: 'review1',
+          userId: 'user1',
+          rating: 4,
+          comment: null,
+          user: { id: 'user1', name: 'User 1' },
+        },
+      ];
+
+      mockPrismaService.client.review.findMany.mockResolvedValue(mockReviews);
+      mockPrismaService.client.orderItem.findFirst.mockResolvedValue(null);
+
+      const result = await service.findAllByProduct(productId);
+
+      expect(result).toEqual([{ ...mockReviews[0], verifiedPurchase: false }]);
     });
   });
 

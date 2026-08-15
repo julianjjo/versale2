@@ -9,6 +9,15 @@ import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { Role } from '../users/role.enum';
 import { resolvePagination } from '../common/pagination';
+import { OrderStatus } from '../orders/order-status.enum';
+
+// A review only counts as coming from a verified buyer once the sale actually
+// went through — not a PENDING (unpaid) or CANCELLED order.
+const VERIFIED_PURCHASE_STATUSES: OrderStatus[] = [
+  OrderStatus.PAID,
+  OrderStatus.SHIPPED,
+  OrderStatus.DELIVERED,
+];
 
 @Injectable()
 export class ReviewsService {
@@ -66,11 +75,32 @@ export class ReviewsService {
   }
 
   async findAllByProduct(productId: string) {
-    return this.prisma.client.review.findMany({
-      where: { productId },
-      include: { user: { select: { id: true, name: true } } },
-      orderBy: { createdAt: 'desc' },
-    });
+    // Every listing is a single physical garment, never restocked — so at
+    // most one order item can ever record its actual sale. Whoever that
+    // order belongs to (if it went through) is the one buyer a review can
+    // count as "verified": someone else's review on the same listing is
+    // necessarily not from someone who bought this exact item.
+    const [reviews, sale] = await Promise.all([
+      this.prisma.client.review.findMany({
+        where: { productId },
+        include: { user: { select: { id: true, name: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.client.orderItem.findFirst({
+        where: {
+          productId,
+          order: { status: { in: VERIFIED_PURCHASE_STATUSES } },
+        },
+        select: { order: { select: { userId: true } } },
+      }),
+    ]);
+
+    const verifiedBuyerId = sale?.order.userId;
+
+    return reviews.map((review) => ({
+      ...review,
+      verifiedPurchase: review.userId === verifiedBuyerId,
+    }));
   }
 
   async update(

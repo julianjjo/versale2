@@ -466,6 +466,42 @@ describe("ProductDetail", () => {
     });
   });
 
+  it('muestra el sello "Compra verificada" en la reseña del comprador real', async () => {
+    const productWithVerifiedReview = {
+      ...mockProduct,
+      reviews: [
+        { ...mockProduct.reviews[0], verifiedPurchase: true },
+      ],
+    };
+    vi.mocked(api.get).mockImplementation(
+      mockProductGet(productWithVerifiedReview),
+    );
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Love it!")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Compra verificada")).toBeInTheDocument();
+  });
+
+  it('no muestra el sello "Compra verificada" cuando la reseña no viene del comprador real', async () => {
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Love it!")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("Compra verificada")).not.toBeInTheDocument();
+  });
+
   it("un visitante que no es el vendedor sí ve la respuesta ya publicada", async () => {
     authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
     const productWithReply = {
