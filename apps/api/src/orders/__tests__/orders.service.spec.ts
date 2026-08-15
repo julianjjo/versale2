@@ -520,7 +520,13 @@ describe('OrdersService', () => {
         where: { userId },
         skip: 0,
         take: 10,
-        include: { items: { include: { product: true } } },
+        include: {
+          items: {
+            include: {
+              product: { select: { id: true, title: true, images: true } },
+            },
+          },
+        },
         orderBy: { createdAt: 'desc' },
       });
       expect(mockPrismaService.client.order.count).toHaveBeenCalledWith({
@@ -557,7 +563,13 @@ describe('OrdersService', () => {
         },
         skip: 5,
         take: 5,
-        include: { items: { include: { product: true } } },
+        include: {
+          items: {
+            include: {
+              product: { select: { id: true, title: true, images: true } },
+            },
+          },
+        },
         orderBy: { createdAt: 'desc' },
       });
     });

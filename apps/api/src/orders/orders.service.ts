@@ -180,8 +180,14 @@ export class OrdersService {
         skip,
         take: limitNum,
         include: {
+          // The buyer's own list card only ever shows the first item's title
+          // and thumbnail (see apps/web/src/app/orders/page.tsx), the same
+          // narrowing getMySales already applies for the seller's own list —
+          // no reason for this one to pull every Product column instead.
           items: {
-            include: { product: true },
+            include: {
+              product: { select: { id: true, title: true, images: true } },
+            },
           },
         },
         orderBy: { createdAt: 'desc' },
