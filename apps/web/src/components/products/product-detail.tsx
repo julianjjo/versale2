@@ -525,7 +525,7 @@ export function ProductDetail({
                   </>
                 )}
 
-                {review.userId === user?.id &&
+                {review.id === ownReview?.id &&
                   editingReviewId !== review.id && (
                     <div className="mt-3 flex gap-2">
                       <Button
