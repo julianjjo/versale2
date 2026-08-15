@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { ExecutionContext, INestApplication } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 // `esModuleInterop` is off in apps/api, and @types/supertest uses `export =`,
 // so the namespace import is the one that stays callable after compilation.
@@ -26,6 +26,8 @@ describe('OrdersController', () => {
     getOrderStats: jest.fn(),
     updateOrderStatus: jest.fn(),
     cancelOwnOrder: jest.fn(),
+    getMySales: jest.fn(),
+    shipOwnSale: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -170,6 +172,54 @@ describe('OrdersController', () => {
     });
   });
 
+  describe('getMySales', () => {
+    it('should call ordersService.getMySales with userId from request and query', async () => {
+      const userId = 'seller1';
+      const mockReq = {
+        user: { id: userId, email: 'seller@example.com', role: 'USER' },
+      } as AuthRequest;
+      const query = { page: '1', limit: '10' };
+
+      const mockResult = {
+        data: [{ id: 'order1', status: 'PAID' }],
+        meta: { total: 1, page: 1, limit: 10, pages: 1 },
+      };
+      mockOrdersService.getMySales.mockResolvedValue(mockResult);
+
+      const result = await controller.getMySales(mockReq, query);
+
+      expect(ordersService.getMySales).toHaveBeenCalledWith(userId, query);
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('shipOwnSale', () => {
+    it('should call ordersService.shipOwnSale with userId, id and the tracking number', async () => {
+      const userId = 'seller1';
+      const orderId = 'order1';
+      const mockReq = {
+        user: { id: userId, email: 'seller@example.com', role: 'USER' },
+      } as AuthRequest;
+      const body = { trackingNumber: 'ABC123' };
+
+      const mockResult = {
+        id: orderId,
+        status: OrderStatus.SHIPPED,
+        trackingNumber: 'ABC123',
+      };
+      mockOrdersService.shipOwnSale.mockResolvedValue(mockResult);
+
+      const result = await controller.shipOwnSale(mockReq, orderId, body);
+
+      expect(ordersService.shipOwnSale).toHaveBeenCalledWith(
+        userId,
+        orderId,
+        'ABC123',
+      );
+      expect(result).toEqual(mockResult);
+    });
+  });
+
   describe('getAllOrders', () => {
     it('should call ordersService.getAllOrders with query', async () => {
       const query = { search: 'ana', page: '1', limit: '10' };
@@ -247,7 +297,16 @@ describe('OrdersController', () => {
         providers: [{ provide: OrdersService, useValue: mockOrdersService }],
       })
         .overrideGuard(JwtAuthGuard)
-        .useValue({ canActivate: () => true })
+        .useValue({
+          // The real guard populates `request.user` from the JWT; routes
+          // below that read `req.user.id` (getMySales, shipOwnSale) need a
+          // stand-in so they don't crash on `undefined.id`.
+          canActivate: (context: ExecutionContext) => {
+            const req = context.switchToHttp().getRequest();
+            req.user = { id: 'seller1', email: 'seller@example.com', role: 'USER' };
+            return true;
+          },
+        })
         .overrideGuard(RolesGuard)
         .useValue({ canActivate: () => true })
         .compile();
@@ -290,6 +349,34 @@ describe('OrdersController', () => {
 
       expect(res.body).toEqual(page);
       expect(mockOrdersService.getOrderById).not.toHaveBeenCalled();
+    });
+
+    it('routes GET /orders/mine/sales to getMySales, not to the :id handler', async () => {
+      const page = {
+        data: [],
+        meta: { total: 0, page: 1, limit: 10, pages: 0 },
+      };
+      mockOrdersService.getMySales.mockResolvedValue(page);
+
+      const res = await request(app.getHttpServer())
+        .get('/orders/mine/sales')
+        .expect(200);
+
+      expect(res.body).toEqual(page);
+      expect(mockOrdersService.getOrderById).not.toHaveBeenCalled();
+    });
+
+    it('routes PATCH /orders/mine/sales/:id/ship to shipOwnSale, not to the :id/cancel handler', async () => {
+      const result = { id: 'order1', status: 'SHIPPED' };
+      mockOrdersService.shipOwnSale.mockResolvedValue(result);
+
+      const res = await request(app.getHttpServer())
+        .patch('/orders/mine/sales/order1/ship')
+        .send({ trackingNumber: 'ABC123' })
+        .expect(200);
+
+      expect(res.body).toEqual(result);
+      expect(mockOrdersService.cancelOwnOrder).not.toHaveBeenCalled();
     });
   });
 });

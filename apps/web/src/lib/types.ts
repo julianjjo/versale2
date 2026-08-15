@@ -73,6 +73,7 @@ export interface Order {
   status: OrderStatus;
   totalAmount: number;
   shippingAddress: Record<string, unknown>;
+  trackingNumber?: string | null;
   createdAt: string;
   updatedAt: string;
   items: OrderItem[];

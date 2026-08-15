@@ -17,6 +17,7 @@ import { Roles } from '../auth/roles.decorator';
 import { Role } from '../users/role.enum';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { ShipSaleDto } from './dto/ship-sale.dto';
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
@@ -47,6 +48,29 @@ export class OrdersController {
   @Patch(':id/cancel')
   async cancelOrder(@Req() req: AuthRequest, @Param('id') id: string) {
     return this.ordersService.cancelOwnOrder(req.user.id, id);
+  }
+
+  // A seller's own fulfillment queue and self-service "mark as shipped",
+  // distinct from the admin routes below: `mine/sales*` only ever touches
+  // orders that include the caller's own products (see OrdersService for the
+  // mixed-seller-order guard). Two/three-segment paths, same reasoning as
+  // `admin/*` below, so they never collide with the single-segment `:id`.
+  @Get('mine/sales')
+  async getMySales(@Req() req: AuthRequest, @Query() query: any) {
+    return this.ordersService.getMySales(req.user.id, query);
+  }
+
+  @Patch('mine/sales/:id/ship')
+  async shipOwnSale(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() body: ShipSaleDto,
+  ) {
+    return this.ordersService.shipOwnSale(
+      req.user.id,
+      id,
+      body.trackingNumber,
+    );
   }
 
   // Admin routes live under the two-segment `admin/*` prefix, so the
