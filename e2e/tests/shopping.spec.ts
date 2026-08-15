@@ -184,6 +184,51 @@ test.describe("Flujo de compra", () => {
     await page.waitForURL(/\/orders/, { timeout: 10_000 });
   });
 
+  test("el comprador puede buscar su historial de pedidos por el nombre del producto", async ({
+    page,
+  }) => {
+    const buyer = await createBuyer(page.request);
+    const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const productA = await createPurchasableProduct(page.request, {
+      title: `Chaqueta buscable ${uniqueSuffix}`,
+    });
+    const productB = await createPurchasableProduct(page.request, {
+      title: `Sueter distinto ${uniqueSuffix}`,
+    });
+
+    for (const product of [productA, productB]) {
+      await page.request.post(`${API_URL}/cart/items`, {
+        headers: { Authorization: `Bearer ${buyer.token}` },
+        data: { productId: product.id, quantity: 1 },
+      });
+      const orderRes = await page.request.post(`${API_URL}/orders`, {
+        headers: { Authorization: `Bearer ${buyer.token}` },
+        data: { shippingAddress: E2E_SHIPPING_ADDRESS },
+      });
+      expect(orderRes.status()).toBe(201);
+    }
+
+    await page.goto("/login");
+    await page.getByLabel("Correo electrónico").fill(buyer.email);
+    await page.getByLabel("Contraseña").fill(buyer.password);
+    await page
+      .getByRole("main")
+      .getByRole("button", { name: /iniciar sesión/i })
+      .click();
+    await page.waitForURL(/\/products/, { timeout: 10_000 });
+
+    await page.goto("/orders");
+    await expect(page.getByText(productA.title)).toBeVisible();
+    await expect(page.getByText(productB.title)).toBeVisible();
+
+    await page
+      .getByPlaceholder(/buscar por producto o id de pedido/i)
+      .fill(`Chaqueta buscable ${uniqueSuffix}`);
+
+    await expect(page.getByText(productA.title)).toBeVisible();
+    await expect(page.getByText(productB.title)).not.toBeVisible();
+  });
+
   test("un pedido sin dirección de envío es rechazado", async ({ page }) => {
     const product = await createPurchasableProduct(page.request);
     const buyer = await createBuyer(page.request);

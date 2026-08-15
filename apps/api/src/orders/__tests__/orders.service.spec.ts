@@ -505,22 +505,101 @@ describe('OrdersService', () => {
   });
 
   describe('getUserOrders', () => {
-    it('should return orders for a user', async () => {
+    it('should return paginated orders scoped to the user, with no filters', async () => {
       const userId = 'user1';
       const mockOrders = [
         { id: 'order1', userId, totalAmount: 100.0, status: 'PENDING' },
       ];
 
       mockPrismaService.client.order.findMany.mockResolvedValue(mockOrders);
+      mockPrismaService.client.order.count.mockResolvedValue(1);
 
       const result = await service.getUserOrders(userId);
 
       expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
         where: { userId },
+        skip: 0,
+        take: 10,
         include: { items: { include: { product: true } } },
         orderBy: { createdAt: 'desc' },
       });
-      expect(result).toEqual(mockOrders);
+      expect(mockPrismaService.client.order.count).toHaveBeenCalledWith({
+        where: { userId },
+      });
+      expect(result).toEqual({
+        data: mockOrders,
+        meta: { total: 1, page: 1, limit: 10, pages: 1 },
+      });
+    });
+
+    it("should filter by order id or an item's product title when search is provided", async () => {
+      const userId = 'user1';
+      mockPrismaService.client.order.findMany.mockResolvedValue([]);
+      mockPrismaService.client.order.count.mockResolvedValue(0);
+
+      await service.getUserOrders(userId, {
+        search: 'chaqueta',
+        page: '2',
+        limit: '5',
+      });
+
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
+        where: {
+          userId,
+          OR: [
+            { id: { contains: 'chaqueta' } },
+            {
+              items: {
+                some: { product: { is: { title: { contains: 'chaqueta' } } } },
+              },
+            },
+          ],
+        },
+        skip: 5,
+        take: 5,
+        include: { items: { include: { product: true } } },
+        orderBy: { createdAt: 'desc' },
+      });
+    });
+
+    it('should filter by status when a valid status is provided', async () => {
+      const userId = 'user1';
+      mockPrismaService.client.order.findMany.mockResolvedValue([]);
+      mockPrismaService.client.order.count.mockResolvedValue(0);
+
+      await service.getUserOrders(userId, { status: OrderStatus.DELIVERED });
+
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId, status: OrderStatus.DELIVERED },
+        }),
+      );
+    });
+
+    it('should silently ignore a status value outside the enum instead of passing it to Prisma', async () => {
+      const userId = 'user1';
+      mockPrismaService.client.order.findMany.mockResolvedValue([]);
+      mockPrismaService.client.order.count.mockResolvedValue(0);
+
+      await service.getUserOrders(userId, { status: 'NOT_A_REAL_STATUS' });
+
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId } }),
+      );
+    });
+
+    it('should never return another user\'s orders regardless of search or status filters', async () => {
+      const userId = 'user1';
+      mockPrismaService.client.order.findMany.mockResolvedValue([]);
+      mockPrismaService.client.order.count.mockResolvedValue(0);
+
+      await service.getUserOrders(userId, {
+        search: 'anything',
+        status: OrderStatus.PAID,
+      });
+
+      const [[callArgs]] = mockPrismaService.client.order.findMany.mock.calls;
+      expect(callArgs.where.userId).toBe(userId);
     });
   });
 

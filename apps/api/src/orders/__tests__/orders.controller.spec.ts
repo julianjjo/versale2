@@ -77,25 +77,23 @@ describe('OrdersController', () => {
   });
 
   describe('getUserOrders', () => {
-    it('should call ordersService.getUserOrders with userId from request', async () => {
+    it('should call ordersService.getUserOrders with userId from request and the query', async () => {
       const userId = 'user1';
       const mockReq = {
         user: { id: userId, email: 'test@example.com', role: 'USER' },
       } as AuthRequest;
+      const query = { search: 'chaqueta', status: 'PAID', page: '1', limit: '10' };
 
-      const mockResult = [
-        {
-          id: 'order1',
-          userId,
-          totalAmount: 100.0,
-        },
-      ];
+      const mockResult = {
+        data: [{ id: 'order1', userId, totalAmount: 100.0 }],
+        meta: { total: 1, page: 1, limit: 10, pages: 1 },
+      };
 
       mockOrdersService.getUserOrders.mockResolvedValue(mockResult);
 
-      const result = await controller.getUserOrders(mockReq);
+      const result = await controller.getUserOrders(mockReq, query);
 
-      expect(ordersService.getUserOrders).toHaveBeenCalledWith(userId);
+      expect(ordersService.getUserOrders).toHaveBeenCalledWith(userId, query);
       expect(result).toEqual(mockResult);
     });
   });
