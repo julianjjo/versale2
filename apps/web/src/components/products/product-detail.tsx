@@ -120,6 +120,18 @@ export function ProductDetail({
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
   const [editRating, setEditRating] = useState(5);
   const [editComment, setEditComment] = useState("");
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  // Next.js can reuse this component instance across two products in a row
+  // (e.g. clicking a "related products" card), so the gallery has to reset
+  // on navigation rather than relying on a remount to do it. Adjusting state
+  // during render (React's recommended pattern for this) instead of an
+  // effect avoids rendering the previous product's selected image for one
+  // extra frame before an effect would catch up.
+  const [galleryProductId, setGalleryProductId] = useState(id);
+  if (id !== galleryProductId) {
+    setGalleryProductId(id);
+    setSelectedImageIndex(0);
+  }
 
   // The server probe that produced `initialProduct` is anonymous, so for a
   // visitor without a token it already IS the answer — treating it as fresh
@@ -363,35 +375,57 @@ export function ProductDetail({
     <PageContainer size="wide">
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <div className="space-y-2">
-          <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-muted">
-            {data.images?.[0] ? (
-              <img
-                src={data.images[0]}
-                alt={data.title}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span className="text-sm text-text-muted">Sin imagen</span>
-            )}
-          </div>
-          {data.images && data.images.length > 1 && (
-            <div className="grid grid-cols-4 gap-2">
-              {data.images.slice(1).map((img, idx) => (
-                <div
-                  key={idx}
-                  className="aspect-square overflow-hidden rounded-md border border-border bg-surface-muted"
-                >
-                  <img
-                    src={img}
-                    alt={`${data.title} ${idx + 2}`}
-                    loading="lazy"
-                    decoding="async"
-                    className="h-full w-full object-cover"
-                  />
+          {(() => {
+            const images = data.images ?? [];
+            // Clamps against a product switch that hasn't run the
+            // reset-on-`id`-change effect yet, so this never indexes past
+            // the new product's (possibly shorter) image list.
+            const activeIndex = Math.min(
+              selectedImageIndex,
+              Math.max(images.length - 1, 0),
+            );
+            return (
+              <>
+                <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-muted">
+                  {images[activeIndex] ? (
+                    <img
+                      src={images[activeIndex]}
+                      alt={data.title}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-sm text-text-muted">Sin imagen</span>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
+                {images.length > 1 && (
+                  <div className="grid grid-cols-4 gap-2">
+                    {images.map((img, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedImageIndex(idx)}
+                        aria-current={idx === activeIndex}
+                        aria-label={`Ver foto ${idx + 1} de ${data.title}`}
+                        className={`aspect-square overflow-hidden rounded-md border bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
+                          idx === activeIndex
+                            ? "border-text-primary ring-2 ring-text-primary"
+                            : "border-border"
+                        }`}
+                      >
+                        <img
+                          src={img}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          className="h-full w-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
         <div className="space-y-4">
           <div>
