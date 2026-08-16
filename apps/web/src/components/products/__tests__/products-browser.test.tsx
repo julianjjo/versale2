@@ -427,6 +427,68 @@ describe("ProductsBrowser", () => {
     });
   });
 
+  it("envía el orden seleccionado al hacer click en Aplicar", async () => {
+    mockProductsApi({ data: emptyProducts });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductsBrowser showPagination={false} />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Zara" })).toBeInTheDocument();
+    });
+
+    await user.selectOptions(
+      screen.getByLabelText(/ordenar por/i),
+      "price_asc",
+    );
+    await user.click(screen.getByRole("button", { name: /aplicar/i }));
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith(
+        "/products",
+        expect.objectContaining({
+          params: expect.objectContaining({ sortBy: "price_asc" }),
+        }),
+      );
+    });
+  });
+
+  it("restablece el orden al limpiar los filtros", async () => {
+    mockProductsApi({ data: mockProducts });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductsBrowser showPagination={false} />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Zara" })).toBeInTheDocument();
+    });
+
+    await user.selectOptions(
+      screen.getByLabelText(/ordenar por/i),
+      "price_desc",
+    );
+    await user.click(screen.getByRole("button", { name: /aplicar/i }));
+    expect(screen.getByLabelText(/ordenar por/i)).toHaveValue("price_desc");
+
+    await user.click(screen.getByRole("button", { name: /limpiar filtros/i }));
+
+    expect(screen.getByLabelText(/ordenar por/i)).toHaveValue("");
+    await waitFor(() => {
+      expect(api.get).toHaveBeenLastCalledWith(
+        "/products",
+        expect.objectContaining({
+          params: expect.not.objectContaining({ sortBy: expect.anything() }),
+        }),
+      );
+    });
+  });
+
   it("restablece los campos visibles del formulario al limpiar los filtros", async () => {
     mockProductsApi({ data: mockProducts });
     const user = userEvent.setup();

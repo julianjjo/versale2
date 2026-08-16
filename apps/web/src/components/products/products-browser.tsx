@@ -24,6 +24,21 @@ import { Pager } from "@/components/admin/pager";
 import { FavoriteButton } from "@/components/products/favorite-button";
 import { useAuth } from "@/lib/auth";
 
+// One source of truth for the valid `sortBy` values and their labels, so the
+// URL parser, the submit handler, and the <Select>'s options can't drift out
+// of sync with each other the way three independently hand-written literals
+// would — the same reason CONDITION_OPTIONS exists below for `condition`.
+const SORT_OPTIONS = [
+  { value: "price_asc", label: "Precio: menor a mayor" },
+  { value: "price_desc", label: "Precio: mayor a menor" },
+] as const;
+
+type SortByValue = (typeof SORT_OPTIONS)[number]["value"];
+
+function isSortByValue(value: string): value is SortByValue {
+  return SORT_OPTIONS.some((option) => option.value === value);
+}
+
 export interface ProductFilters {
   search?: string;
   minPrice?: number;
@@ -36,6 +51,7 @@ export interface ProductFilters {
   // `initialFilters.sellerId` by a seller's public profile page, never
   // parsed from or written to the query string (see `queryFromFilters`).
   sellerId?: string;
+  sortBy?: SortByValue;
   page?: number;
   limit?: number;
 }
@@ -57,6 +73,7 @@ interface FilterFormState {
   brand: string;
   category: string;
   condition: string;
+  sortBy: string;
 }
 
 const EMPTY_FORM: FilterFormState = {
@@ -67,6 +84,7 @@ const EMPTY_FORM: FilterFormState = {
   brand: "",
   category: "",
   condition: "",
+  sortBy: "",
 };
 
 function toFormState(f?: ProductFilters): FilterFormState {
@@ -78,6 +96,7 @@ function toFormState(f?: ProductFilters): FilterFormState {
     brand: f?.brand ?? "",
     category: f?.category ?? "",
     condition: f?.condition ?? "",
+    sortBy: f?.sortBy ?? "",
   };
 }
 
@@ -121,6 +140,8 @@ function filtersFromQuery(
     const value = params.get(key)?.trim();
     if (value) filters[key] = value;
   }
+  const sortBy = params.get("sortBy")?.trim() ?? "";
+  if (isSortByValue(sortBy)) filters.sortBy = sortBy;
   filters.page = parsePage(params.get("page")) ?? filters.page ?? 1;
   return filters;
 }
@@ -134,6 +155,7 @@ function queryFromFilters(filters: ProductFilters): string {
   if (filters.condition) params.set("condition", filters.condition);
   if (filters.brand) params.set("brand", filters.brand);
   if (filters.category) params.set("category", filters.category);
+  if (filters.sortBy) params.set("sortBy", filters.sortBy);
   if ((filters.page ?? 1) > 1) params.set("page", String(filters.page));
   return params.toString();
 }
@@ -265,6 +287,7 @@ function ProductsBrowserContent({
               brand: form.brand || undefined,
               category: form.category || undefined,
               condition: form.condition || undefined,
+              sortBy: isSortByValue(form.sortBy) ? form.sortBy : undefined,
               page: 1,
             });
           }}
@@ -356,6 +379,27 @@ function ProductsBrowserContent({
             {mergeFacetOptions(facets?.categories, form.category).map((c) => (
               <option key={c} value={c}>
                 {c}
+              </option>
+            ))}
+          </Select>
+          <Select
+            name="sortBy"
+            value={form.sortBy}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, sortBy: e.target.value }))
+            }
+            aria-label="Ordenar por"
+            // Matches the search input's span: the 7 filter fields before it
+            // fill exactly 8 one-unit grid cells (2 breakpoints' worth of full
+            // rows), so a single-unit 9th field would leave the row before the
+            // button bar mostly empty. Spanning 2 keeps sm's rows full and
+            // narrows (rather than widens) the gap on lg.
+            wrapperClassName="sm:col-span-2 lg:col-span-2"
+          >
+            <option value="">Más recientes</option>
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </Select>

@@ -4,10 +4,12 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Role } from '../users/role.enum';
+import { ProductSortBy } from './product-sort.enum';
 import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
 import { VERIFIED_PURCHASE_STATUSES } from '../orders/order-status.enum';
@@ -49,9 +51,39 @@ const APPROVED_UNSOLD = {
 // nothing actually overrides.
 const RELATED_PRODUCTS_LIMIT = 4;
 
+// `id` as a secondary key gives ties on the primary sort column a stable
+// order across separate paginated (skip/take) queries. Without it, rows
+// sharing a value on a low-cardinality column like `price` — or even on
+// `createdAt`, for listings bulk-approved in the same request — can be
+// duplicated or skipped as a buyer pages through results, since neither
+// SQLite nor any other engine guarantees tie order stays put between
+// independent queries.
+const SORT_ORDER_BY: Record<ProductSortBy, Prisma.ProductOrderByWithRelationInput[]> = {
+  [ProductSortBy.PRICE_ASC]: [{ price: 'asc' }, { id: 'asc' }],
+  [ProductSortBy.PRICE_DESC]: [{ price: 'desc' }, { id: 'asc' }],
+};
+
 @Injectable()
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
+
+  // Only `price` is sortable beyond the default recency order: rating is
+  // computed after the page is fetched (see withAverageRating's own
+  // comment on why — one groupBy for the whole page, not a column Prisma
+  // could ORDER BY), so it can't be a catalog sort option without a much
+  // larger restructure. An unrecognized or missing value falls back to the
+  // browsing default rather than erroring, since this reads directly off
+  // the query string and a stale/bookmarked URL should never 400.
+  private resolveSortOrder(sortBy: unknown): Prisma.ProductOrderByWithRelationInput[] {
+    // A duplicated query key (?sortBy=a&sortBy=b) arrives as an array; take
+    // the first value rather than silently discarding the request, the way
+    // `brand`/`category` normalize their own possibly-array input below.
+    const value = Array.isArray(sortBy) ? sortBy[0] : sortBy;
+    if (value && Object.values(ProductSortBy).includes(value as ProductSortBy)) {
+      return SORT_ORDER_BY[value as ProductSortBy];
+    }
+    return [{ createdAt: 'desc' }, { id: 'asc' }];
+  }
 
   // Shared by findAll (public catalog) and findAllMine (a seller's own
   // listings): the same four text columns, so the two search experiences
@@ -107,10 +139,12 @@ export class ProductsService {
       category,
       condition,
       sellerId,
+      sortBy,
       page = 1,
       limit = 10,
     } = query;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
+    const orderBy = this.resolveSortOrder(sortBy);
 
     // Sold items are one-of-a-kind: once bought they leave the public catalog.
     const where: any = { ...APPROVED_UNSOLD };
@@ -151,7 +185,7 @@ export class ProductsService {
         where,
         skip,
         take: limitNum,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: {
           seller: { select: { id: true, name: true } },
         },

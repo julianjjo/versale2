@@ -1003,7 +1003,7 @@ describe('ProductsService', () => {
         },
         skip: 0,
         take: 10,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         include: {
           seller: { select: { id: true, name: true } },
         },
@@ -1100,6 +1100,86 @@ describe('ProductsService', () => {
       );
       expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
         where: { isApproved: true, soldAt: null, category: 'Jackets' },
+      });
+    });
+  });
+
+  describe('findAll sort order', () => {
+    beforeEach(() => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+    });
+
+    it('should default to newest-first, with id as a tiebreaker, when no sortBy is given', async () => {
+      await service.findAll({});
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        }),
+      );
+    });
+
+    it('should sort by price ascending, with id as a tiebreaker, when sortBy=price_asc', async () => {
+      await service.findAll({ sortBy: 'price_asc' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ price: 'asc' }, { id: 'asc' }],
+        }),
+      );
+    });
+
+    it('should sort by price descending, with id as a tiebreaker, when sortBy=price_desc', async () => {
+      await service.findAll({ sortBy: 'price_desc' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ price: 'desc' }, { id: 'asc' }],
+        }),
+      );
+    });
+
+    it('should fall back to newest-first for an unrecognized sortBy value instead of erroring', async () => {
+      await service.findAll({ sortBy: 'not-a-real-option' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        }),
+      );
+    });
+
+    // Regression: Express/qs turns a duplicated query key into an array,
+    // which would never === either sort literal and silently fall back —
+    // this proves the array's first value is still honored instead.
+    it('should honor the first value when sortBy arrives as an array (duplicated query key)', async () => {
+      await service.findAll({ sortBy: ['price_asc', 'price_desc'] });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ price: 'asc' }, { id: 'asc' }],
+        }),
+      );
+    });
+
+    it('should combine sortBy with an active price range filter correctly', async () => {
+      await service.findAll({
+        sortBy: 'price_asc',
+        minPrice: '10000',
+        maxPrice: '50000',
+      });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith({
+        where: {
+          isApproved: true,
+          soldAt: null,
+          price: { gte: 10000, lte: 50000 },
+        },
+        skip: 0,
+        take: 10,
+        orderBy: [{ price: 'asc' }, { id: 'asc' }],
+        include: { seller: { select: { id: true, name: true } } },
       });
     });
   });
