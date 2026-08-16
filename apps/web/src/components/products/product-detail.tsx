@@ -24,6 +24,77 @@ import { tokenStore } from "@/lib/token";
 import type { Product, Review } from "@/lib/types";
 import { FavoriteButton } from "@/components/products/favorite-button";
 
+// Shared by the "write a review" form and the inline "edit my review" form so
+// the accessible radiogroup (roving tabindex, arrow-key navigation) isn't
+// hand-duplicated across both — each needs its own ref array, since a button
+// ref from one can't be reused to focus the other.
+function StarRatingInput({
+  value,
+  onChange,
+  idPrefix,
+}: {
+  value: number;
+  onChange: (rating: number) => void;
+  idPrefix: string;
+}) {
+  const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  return (
+    <div>
+      <span
+        id={`${idPrefix}-rating-label`}
+        className="text-sm font-medium text-text-primary"
+      >
+        Calificación
+      </span>
+      <div
+        role="radiogroup"
+        aria-labelledby={`${idPrefix}-rating-label`}
+        className="mt-1 flex items-center gap-1"
+      >
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            ref={(el) => {
+              buttonRefs.current[n - 1] = el;
+            }}
+            type="button"
+            role="radio"
+            aria-checked={n === value}
+            tabIndex={n === value ? 0 : -1}
+            onClick={() => onChange(n)}
+            onKeyDown={(e) => {
+              let next: number | null = null;
+              if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+                next = value < 5 ? value + 1 : 1;
+              } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+                next = value > 1 ? value - 1 : 5;
+              } else if (e.key === "Home") {
+                next = 1;
+              } else if (e.key === "End") {
+                next = 5;
+              }
+              if (next !== null) {
+                e.preventDefault();
+                onChange(next);
+                buttonRefs.current[next - 1]?.focus();
+              }
+            }}
+            className={`text-2xl transition-colors ${
+              n <= value
+                ? "text-warning"
+                : "text-border hover:text-text-muted"
+            }`}
+            aria-label={`${n} estrella${n === 1 ? "" : "s"}`}
+          >
+            ★
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ProductDetail({
   /** Product already resolved on the server (see `app/products/[id]/page.tsx`).
    *  Seeds the query so the page paints without a spinner; the client still
@@ -39,12 +110,14 @@ export function ProductDetail({
   const queryClient = useQueryClient();
   const { user, isLoading: isAuthLoading } = useAuth();
   const [rating, setRating] = useState(5);
-  const ratingButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [editRating, setEditRating] = useState(5);
+  const [editComment, setEditComment] = useState("");
 
   // The server probe that produced `initialProduct` is anonymous, so for a
   // visitor without a token it already IS the answer — treating it as fresh
@@ -125,6 +198,41 @@ export function ProductDetail({
       setError(extractApiError(err, "No pudimos publicar la respuesta")),
   });
 
+  const updateReview = useMutation({
+    mutationFn: async (reviewId: string) => {
+      // Unlike creating a review, editing one has an existing comment that
+      // has to be overwritable *to blank* — `|| undefined` here (like the
+      // create form uses) would drop an emptied field from the request body
+      // entirely, which the API reads as "leave the current comment alone"
+      // rather than "clear it", so the old text would silently survive.
+      await api.patch(`/reviews/${reviewId}`, {
+        rating: editRating,
+        comment: editComment,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product", id] });
+      setEditingReviewId(null);
+      setSuccess("Reseña actualizada");
+      setTimeout(() => setSuccess(null), 3000);
+    },
+    onError: (err) =>
+      setError(extractApiError(err, "No pudimos actualizar tu reseña")),
+  });
+
+  const deleteReview = useMutation({
+    mutationFn: async (reviewId: string) => {
+      await api.delete(`/reviews/${reviewId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product", id] });
+      setSuccess("Reseña eliminada");
+      setTimeout(() => setSuccess(null), 3000);
+    },
+    onError: (err) =>
+      setError(extractApiError(err, "No pudimos eliminar tu reseña")),
+  });
+
   const loginRedirect = (reason: "cart" | "review") =>
     `/login?next=${encodeURIComponent(`/products/${id}`)}&reason=${reason}`;
 
@@ -151,6 +259,19 @@ export function ProductDetail({
     e.preventDefault();
     setError(null);
     replyToReview.mutate(reviewId);
+  };
+
+  const handleEditReviewSubmit = (e: React.FormEvent, reviewId: string) => {
+    e.preventDefault();
+    setError(null);
+    updateReview.mutate(reviewId);
+  };
+
+  const handleDeleteReview = (reviewId: string) => {
+    setError(null);
+    if (confirm("¿Eliminar tu reseña? Esta acción no se puede deshacer.")) {
+      deleteReview.mutate(reviewId);
+    }
   };
 
   if (isLoading) {
@@ -211,6 +332,9 @@ export function ProductDetail({
   // writes the review here — so the page has to say it is gone rather than
   // offering an add-to-cart the API would reject.
   const isSold = Boolean(data.soldAt);
+  const ownReview = user
+    ? reviews.find((review) => review.userId === user.id)
+    : undefined;
 
   return (
     <PageContainer size="wide">
@@ -353,14 +477,79 @@ export function ProductDetail({
                   </div>
                   <StarRating value={review.rating} />
                 </div>
-                {review.comment && (
-                  <p className="mt-2 text-sm text-text-primary">
-                    {review.comment}
-                  </p>
+                {editingReviewId === review.id ? (
+                  <form
+                    onSubmit={(e) => handleEditReviewSubmit(e, review.id)}
+                    className="mt-3 space-y-3"
+                  >
+                    <StarRatingInput
+                      value={editRating}
+                      onChange={setEditRating}
+                      idPrefix={`edit-review-${review.id}`}
+                    />
+                    <Textarea
+                      label="Comentario (opcional)"
+                      value={editComment}
+                      onChange={(e) => setEditComment(e.target.value)}
+                      rows={3}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={updateReview.isPending}
+                      >
+                        {updateReview.isPending ? "Guardando…" : "Guardar cambios"}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setEditingReviewId(null)}
+                        disabled={updateReview.isPending}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    {review.comment && (
+                      <p className="mt-2 text-sm text-text-primary">
+                        {review.comment}
+                      </p>
+                    )}
+                    <p className="mt-2 text-xs text-text-muted">
+                      {new Date(review.createdAt).toLocaleDateString("es-CO")}
+                    </p>
+                  </>
                 )}
-                <p className="mt-2 text-xs text-text-muted">
-                  {new Date(review.createdAt).toLocaleDateString("es-CO")}
-                </p>
+
+                {review.id === ownReview?.id &&
+                  editingReviewId !== review.id && (
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={deleteReview.isPending}
+                        onClick={() => {
+                          setEditingReviewId(review.id);
+                          setEditRating(review.rating);
+                          setEditComment(review.comment ?? "");
+                        }}
+                      >
+                        Editar reseña
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => handleDeleteReview(review.id)}
+                        disabled={deleteReview.isPending}
+                      >
+                        {deleteReview.isPending ? "Eliminando…" : "Eliminar reseña"}
+                      </Button>
+                    </div>
+                  )}
 
                 {review.sellerReply && (
                   <div className="mt-3 rounded-md border border-border bg-surface-muted p-3">
@@ -424,67 +613,21 @@ export function ProductDetail({
           </div>
         )}
 
-        {user && !isOwn && data.isApproved && (
+        {/* Once the buyer already has a review on this product, editing it
+            happens inline on their own review card above — a second, blank
+            form here would just invite an accidental overwrite via the
+            create endpoint's own upsert-by-product behavior. */}
+        {user && !isOwn && data.isApproved && !ownReview && (
           <form
             onSubmit={handleReviewSubmit}
             className="mt-6 max-w-md space-y-3 rounded-lg border border-border bg-surface p-4"
           >
             <h3 className="heading-card">Escribe una reseña</h3>
-            <div>
-              <span
-                id="review-rating-label"
-                className="text-sm font-medium text-text-primary"
-              >
-                Calificación
-              </span>
-              <div
-                role="radiogroup"
-                aria-labelledby="review-rating-label"
-                className="mt-1 flex items-center gap-1"
-              >
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button
-                    key={n}
-                    ref={(el) => {
-                      ratingButtonRefs.current[n - 1] = el;
-                    }}
-                    type="button"
-                    role="radio"
-                    aria-checked={n === rating}
-                    tabIndex={n === rating ? 0 : -1}
-                    onClick={() => setRating(n)}
-                    onKeyDown={(e) => {
-                      let next: number | null = null;
-                      if (e.key === "ArrowRight" || e.key === "ArrowUp") {
-                        next = rating < 5 ? rating + 1 : 1;
-                      } else if (
-                        e.key === "ArrowLeft" ||
-                        e.key === "ArrowDown"
-                      ) {
-                        next = rating > 1 ? rating - 1 : 5;
-                      } else if (e.key === "Home") {
-                        next = 1;
-                      } else if (e.key === "End") {
-                        next = 5;
-                      }
-                      if (next !== null) {
-                        e.preventDefault();
-                        setRating(next);
-                        ratingButtonRefs.current[next - 1]?.focus();
-                      }
-                    }}
-                    className={`text-2xl transition-colors ${
-                      n <= rating
-                        ? "text-warning"
-                        : "text-border hover:text-text-muted"
-                    }`}
-                    aria-label={`${n} estrella${n === 1 ? "" : "s"}`}
-                  >
-                    ★
-                  </button>
-                ))}
-              </div>
-            </div>
+            <StarRatingInput
+              value={rating}
+              onChange={setRating}
+              idPrefix="review"
+            />
             <Textarea
               label="Comentario (opcional)"
               value={comment}

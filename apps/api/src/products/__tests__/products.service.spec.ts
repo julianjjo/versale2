@@ -45,6 +45,9 @@ describe('ProductsService', () => {
         findMany: jest.fn(),
         count: jest.fn(),
       },
+      orderItem: {
+        findFirst: jest.fn(),
+      },
     },
   };
 
@@ -58,6 +61,10 @@ describe('ProductsService', () => {
 
     service = module.get<ProductsService>(ProductsService);
     prismaService = module.get<PrismaService>(PrismaService);
+    // findOne() always fires this alongside the product read now, whether or
+    // not a test cares about verifiedPurchase — default to "never sold" so
+    // every other findOne test doesn't have to set this up itself.
+    mockPrismaService.client.orderItem.findFirst.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -132,6 +139,9 @@ describe('ProductsService', () => {
               rating: true,
               comment: true,
               createdAt: true,
+              userId: true,
+              sellerReply: true,
+              sellerRepliedAt: true,
               user: { select: { id: true, name: true } },
             },
             orderBy: { createdAt: 'desc' },
@@ -140,6 +150,59 @@ describe('ProductsService', () => {
         },
       });
       expect(result).toEqual(mockProduct);
+    });
+
+    it("should mark the review from the product's actual verified buyer as verifiedPurchase", async () => {
+      const productId = 'product1';
+      const mockProduct = {
+        id: productId,
+        sellerId: 'seller1',
+        isApproved: true,
+        reviews: [
+          { id: 'r1', userId: 'buyer1', rating: 5 },
+          { id: 'r2', userId: 'someoneElse', rating: 3 },
+        ],
+      };
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+      mockPrismaService.client.orderItem.findFirst.mockResolvedValue({
+        order: { userId: 'buyer1' },
+      });
+
+      const result = await service.findOne(productId);
+
+      expect(mockPrismaService.client.orderItem.findFirst).toHaveBeenCalledWith({
+        where: {
+          productId,
+          order: { status: { in: ['PAID', 'SHIPPED', 'DELIVERED'] } },
+        },
+        select: { order: { select: { userId: true } } },
+      });
+      expect(result.reviews).toEqual([
+        { id: 'r1', userId: 'buyer1', rating: 5, verifiedPurchase: true },
+        { id: 'r2', userId: 'someoneElse', rating: 3, verifiedPurchase: false },
+      ]);
+    });
+
+    it('should mark every review as unverified when the product was never actually sold', async () => {
+      const productId = 'product1';
+      const mockProduct = {
+        id: productId,
+        sellerId: 'seller1',
+        isApproved: true,
+        reviews: [{ id: 'r1', userId: 'buyer1', rating: 4 }],
+      };
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+      mockPrismaService.client.orderItem.findFirst.mockResolvedValue(null);
+
+      const result = await service.findOne(productId);
+
+      expect(result.reviews).toEqual([
+        { id: 'r1', userId: 'buyer1', rating: 4, verifiedPurchase: false },
+      ]);
     });
 
     it('should throw NotFoundException if product not found', async () => {
@@ -158,6 +221,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId,
         isApproved: false,
+        reviews: [],
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -178,6 +242,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId: 'seller1',
         isApproved: false,
+        reviews: [],
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -219,6 +284,7 @@ describe('ProductsService', () => {
         sellerId: 'seller1',
         isApproved: true,
         soldAt: new Date(),
+        reviews: [],
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -259,6 +325,7 @@ describe('ProductsService', () => {
         sellerId,
         isApproved: true,
         soldAt: new Date(),
+        reviews: [],
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
