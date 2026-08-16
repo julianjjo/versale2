@@ -1,6 +1,7 @@
 # Versale — Used Clothing Marketplace
 
 [![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://app.codspeed.io/julianjjo/versale2?utm_source=badge)
+[![codecov](https://codecov.io/gh/julianjjo/versale2/branch/main/graph/badge.svg)](https://codecov.io/gh/julianjjo/versale2)
 
 A full-stack editorial marketplace for buying and selling pre-owned clothing. Versale pairs a NestJS + Prisma backend with a Next.js 15 storefront and a Playwright end-to-end suite, all running from a single npm workspace.
 
