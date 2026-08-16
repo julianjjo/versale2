@@ -232,6 +232,29 @@ describe('CartService', () => {
       expect(mockPrismaService.client.cartItem.upsert).not.toHaveBeenCalled();
     });
 
+    it('should refuse to add a product the seller has paused', async () => {
+      const userId = 'user1';
+      const productId = 'product1';
+
+      jest
+        .spyOn(service, 'getCart')
+        .mockResolvedValue({ id: 'cart1', userId, items: [] } as any);
+      mockProductsService.findRaw.mockResolvedValue({
+        id: productId,
+        title: 'Test Product',
+        price: 10.0,
+        sellerId: 'seller1',
+        isApproved: true,
+        soldAt: null,
+        pausedAt: new Date(),
+      });
+
+      await expect(service.addItem(userId, productId, 1)).rejects.toThrow(
+        'El vendedor pausó este producto temporalmente y no está disponible',
+      );
+      expect(mockPrismaService.client.cartItem.upsert).not.toHaveBeenCalled();
+    });
+
     it('should refuse a quantity above the one-of-a-kind cap', async () => {
       await expect(service.addItem('user1', 'product1', 500)).rejects.toThrow(
         BadRequestException,

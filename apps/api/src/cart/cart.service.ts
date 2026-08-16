@@ -50,6 +50,12 @@ export class CartService {
       );
     }
 
+    if (product.pausedAt) {
+      throw new BadRequestException(
+        'El vendedor pausó este producto temporalmente y no está disponible',
+      );
+    }
+
     return this.prisma.client.cartItem.upsert({
       where: { cartId_productId: { cartId: cart.id, productId } },
       // Each listing is a single garment, so re-adding it keeps the line at the

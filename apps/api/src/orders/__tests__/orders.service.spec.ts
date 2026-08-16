@@ -247,6 +247,37 @@ describe('OrdersService', () => {
       expect(mockTx.cartItem.deleteMany).not.toHaveBeenCalled();
     });
 
+    it('should refuse to check out a product the seller has paused', async () => {
+      const userId = 'user1';
+      mockTx.cart.findUnique.mockResolvedValue({
+        id: 'cart1',
+        userId,
+        items: [
+          {
+            id: 'item1',
+            productId: 'product1',
+            quantity: 1,
+            priceAtAdd: 10.0,
+            product: {
+              id: 'product1',
+              title: 'Camisa de lino',
+              isApproved: true,
+              soldAt: null,
+              pausedAt: new Date(),
+              price: 10.0,
+              sellerId: 'sellerA',
+            },
+          },
+        ],
+      });
+
+      await expect(service.createOrder(userId, createOrderDto)).rejects.toThrow(
+        'El vendedor pausó el producto Camisa de lino y ya no está disponible',
+      );
+      expect(mockTx.order.create).not.toHaveBeenCalled();
+      expect(mockTx.cartItem.deleteMany).not.toHaveBeenCalled();
+    });
+
     it('should abort the order when a racing checkout claimed the product first', async () => {
       const userId = 'user1';
       mockTx.cart.findUnique.mockResolvedValue({

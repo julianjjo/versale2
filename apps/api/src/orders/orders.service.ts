@@ -80,6 +80,12 @@ export class OrdersService {
           );
         }
 
+        if (product.pausedAt) {
+          throw new BadRequestException(
+            `El vendedor pausó el producto ${product.title} y ya no está disponible`,
+          );
+        }
+
         if (product.sellerId === userId) {
           throw new BadRequestException(
             `No puedes comprar tu propio producto: ${product.title}`,

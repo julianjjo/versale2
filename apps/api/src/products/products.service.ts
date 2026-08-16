@@ -38,11 +38,14 @@ const APPROVE_DATA = {
 // The public-catalog visibility rule — findAll, getSellerProfile's active
 // count, getFacets, and getRelatedProducts all need "is this listing
 // something a buyer could actually find by browsing", and each independent
-// hand-copy of {isApproved:true, soldAt:null} is a chance for the rule to
-// drift if it ever changes.
-const APPROVED_UNSOLD = {
+// hand-copy of {isApproved:true, soldAt:null, pausedAt:null} is a chance for
+// the rule to drift if it ever changes. `pausedAt` is the seller's own
+// temporary-hide toggle (see pauseProduct/unpauseProduct below) — orthogonal
+// to moderation and to being sold, exactly like soldAt already is.
+const PUBLICLY_VISIBLE = {
   isApproved: true,
   soldAt: null,
+  pausedAt: null,
 } as const;
 
 // No route-level configurability today (see getRelatedProducts) — a plain
@@ -58,7 +61,10 @@ const RELATED_PRODUCTS_LIMIT = 4;
 // duplicated or skipped as a buyer pages through results, since neither
 // SQLite nor any other engine guarantees tie order stays put between
 // independent queries.
-const SORT_ORDER_BY: Record<ProductSortBy, Prisma.ProductOrderByWithRelationInput[]> = {
+const SORT_ORDER_BY: Record<
+  ProductSortBy,
+  Prisma.ProductOrderByWithRelationInput[]
+> = {
   [ProductSortBy.PRICE_ASC]: [{ price: 'asc' }, { id: 'asc' }],
   [ProductSortBy.PRICE_DESC]: [{ price: 'desc' }, { id: 'asc' }],
 };
@@ -74,12 +80,17 @@ export class ProductsService {
   // larger restructure. An unrecognized or missing value falls back to the
   // browsing default rather than erroring, since this reads directly off
   // the query string and a stale/bookmarked URL should never 400.
-  private resolveSortOrder(sortBy: unknown): Prisma.ProductOrderByWithRelationInput[] {
+  private resolveSortOrder(
+    sortBy: unknown,
+  ): Prisma.ProductOrderByWithRelationInput[] {
     // A duplicated query key (?sortBy=a&sortBy=b) arrives as an array; take
     // the first value rather than silently discarding the request, the way
     // `brand`/`category` normalize their own possibly-array input below.
     const value = Array.isArray(sortBy) ? sortBy[0] : sortBy;
-    if (value && Object.values(ProductSortBy).includes(value as ProductSortBy)) {
+    if (
+      value &&
+      Object.values(ProductSortBy).includes(value as ProductSortBy)
+    ) {
       return SORT_ORDER_BY[value as ProductSortBy];
     }
     return [{ createdAt: 'desc' }, { id: 'asc' }];
@@ -147,7 +158,7 @@ export class ProductsService {
     const orderBy = this.resolveSortOrder(sortBy);
 
     // Sold items are one-of-a-kind: once bought they leave the public catalog.
-    const where: any = { ...APPROVED_UNSOLD };
+    const where: any = { ...PUBLICLY_VISIBLE };
 
     if (search) {
       where.OR = this.searchTextWhere(String(search));
@@ -276,7 +287,7 @@ export class ProductsService {
     // Promise.all) so a 404 lookup costs one product.count, not two — see
     // "should call product.count only once for a non-seller id" test.
     const activeListings = await this.prisma.client.product.count({
-      where: { sellerId: id, ...APPROVED_UNSOLD },
+      where: { sellerId: id, ...PUBLICLY_VISIBLE },
     });
 
     return {
@@ -290,13 +301,13 @@ export class ProductsService {
   async getFacets() {
     const [brands, categories] = await Promise.all([
       this.prisma.client.product.findMany({
-        where: { ...APPROVED_UNSOLD, brand: { not: null } },
+        where: { ...PUBLICLY_VISIBLE, brand: { not: null } },
         select: { brand: true },
         distinct: ['brand'],
         orderBy: { brand: 'asc' },
       }),
       this.prisma.client.product.findMany({
-        where: { ...APPROVED_UNSOLD },
+        where: { ...PUBLICLY_VISIBLE },
         select: { category: true },
         distinct: ['category'],
         orderBy: { category: 'asc' },
@@ -419,7 +430,7 @@ export class ProductsService {
     const related = await this.prisma.client.product.findMany({
       where: {
         category: product.category,
-        ...APPROVED_UNSOLD,
+        ...PUBLICLY_VISIBLE,
         id: { not: id },
       },
       take: RELATED_PRODUCTS_LIMIT,
@@ -510,6 +521,101 @@ export class ProductsService {
     }
   }
 
+  // Lets a seller temporarily hide an otherwise-live listing from the public
+  // catalog without deleting it or sending it back through re-review — e.g.
+  // taking a break, or the garment is spoken for outside the site for now.
+  // Gated on `isApproved` (unlike update()/remove(), which only gate on
+  // soldAt): a pending or rejected listing is already invisible to buyers for
+  // a stronger reason, and pausing one would leave a dangling `pausedAt` an
+  // admin's later approval wouldn't explain — the seller would have to
+  // separately remember to unpause a listing they never saw approved yet.
+  async pauseProduct(id: string, userId: string, role: Role) {
+    const product = await this.prisma.client.product.findUnique({
+      where: { id },
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Producto con ID ${id} no encontrado`);
+    }
+
+    if (product.sellerId !== userId && role !== Role.ADMIN) {
+      throw new ForbiddenException(
+        'No tienes autorización para pausar este producto',
+      );
+    }
+
+    if (product.soldAt) {
+      throw new BadRequestException(
+        'Este producto ya fue vendido y no se puede pausar',
+      );
+    }
+
+    if (!product.isApproved) {
+      throw new BadRequestException(
+        'Solo puedes pausar una publicación aprobada',
+      );
+    }
+
+    try {
+      return await this.prisma.client.product.update({
+        where: { id, soldAt: null },
+        data: { pausedAt: new Date() },
+        include: { seller: { select: { id: true, name: true } } },
+      });
+    } catch (error) {
+      translatePrismaError(error, {
+        P2025: () => {
+          throw new BadRequestException(
+            'Este producto ya fue vendido y no se puede pausar',
+          );
+        },
+      });
+    }
+  }
+
+  // The reactivate half of pauseProduct() above: no isApproved guard here,
+  // since a paused-but-now-unapproved listing (the seller edited a moderated
+  // field while it was paused, sending it back to review) is a valid state —
+  // unpausing it just means it will be visible again once it's re-approved,
+  // same as any other pending listing.
+  async unpauseProduct(id: string, userId: string, role: Role) {
+    const product = await this.prisma.client.product.findUnique({
+      where: { id },
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Producto con ID ${id} no encontrado`);
+    }
+
+    if (product.sellerId !== userId && role !== Role.ADMIN) {
+      throw new ForbiddenException(
+        'No tienes autorización para reactivar este producto',
+      );
+    }
+
+    if (product.soldAt) {
+      throw new BadRequestException(
+        'Este producto ya fue vendido y no se puede reactivar',
+      );
+    }
+
+    try {
+      return await this.prisma.client.product.update({
+        where: { id, soldAt: null },
+        data: { pausedAt: null },
+        include: { seller: { select: { id: true, name: true } } },
+      });
+    } catch (error) {
+      translatePrismaError(error, {
+        P2025: () => {
+          throw new BadRequestException(
+            'Este producto ya fue vendido y no se puede reactivar',
+          );
+        },
+      });
+    }
+  }
+
   async remove(id: string, userId: string, role: Role) {
     const product = await this.prisma.client.product.findUnique({
       where: { id },
@@ -569,11 +675,12 @@ export class ProductsService {
     const { search, status, page = 1, limit = 10 } = query;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
-    // A seller's own dashboard has one more bucket than the admin queue:
-    // "vendido" (soldAt set) sits outside isApproved/rejectedAt entirely, and
-    // an approved-but-sold listing must stop showing up under "aprobados"
-    // here even though admin's findAllForAdmin still counts it there (that
-    // view tracks moderation history, this one tracks what's sellable).
+    // A seller's own dashboard has two more buckets than the admin queue:
+    // "vendido" (soldAt set) and "pausado" (pausedAt set) both sit outside
+    // isApproved/rejectedAt entirely, and an approved-but-sold-or-paused
+    // listing must stop showing up under "aprobados" here even though
+    // admin's findAllForAdmin still counts it there (that view tracks
+    // moderation history, this one tracks what's actually sellable).
     const where: any = { sellerId };
     if (status === 'pending') {
       where.isApproved = false;
@@ -582,11 +689,15 @@ export class ProductsService {
     } else if (status === 'approved') {
       where.isApproved = true;
       where.soldAt = null;
+      where.pausedAt = null;
     } else if (status === 'rejected') {
       where.isApproved = false;
       where.rejectedAt = { not: null };
     } else if (status === 'sold') {
       where.soldAt = { not: null };
+    } else if (status === 'paused') {
+      where.pausedAt = { not: null };
+      where.soldAt = null;
     }
 
     if (search) {

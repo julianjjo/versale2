@@ -376,6 +376,56 @@ describe("ProductDetail", () => {
     ).toBeNull();
   });
 
+  it("muestra que el vendedor pausó la publicación en vez del botón de comprar", async () => {
+    authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
+    const pausedProduct = {
+      ...mockProduct,
+      pausedAt: new Date().toISOString(),
+    };
+    vi.mocked(api.get).mockImplementation(mockProductGet(pausedProduct));
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("button", { name: /agregar al carrito/i }),
+    ).toBeNull();
+    expect(
+      screen.getByText(/el vendedor pausó esta publicación/i),
+    ).toBeInTheDocument();
+  });
+
+  it("le dice al propio vendedor que su publicación está pausada", async () => {
+    authState.user = {
+      id: "s1",
+      email: "seller@b.c",
+      name: "Alice",
+      role: "USER",
+    };
+    const pausedProduct = {
+      ...mockProduct,
+      pausedAt: new Date().toISOString(),
+    };
+    vi.mocked(api.get).mockResolvedValue({ data: pausedProduct });
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/pausaste esta publicación/i),
+    ).toBeInTheDocument();
+  });
+
   it("pide inicio de sesión al agregar a favoritos sin sesión", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
     const user = userEvent.setup();

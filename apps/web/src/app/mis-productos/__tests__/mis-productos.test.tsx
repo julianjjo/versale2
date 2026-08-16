@@ -191,6 +191,102 @@ describe("MisProductosPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("pausa una publicación aprobada al hacer clic en Pausar", async () => {
+    const approved = productFixture({
+      id: "p12",
+      title: "Chaqueta aprobada",
+      isApproved: true,
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([approved]) });
+    vi.mocked(api.patch).mockResolvedValue({ data: { success: true } });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    const card = await screen.findByTestId("mine-product-p12");
+    expect(within(card).getByText("Aprobado")).toBeInTheDocument();
+    await user.click(within(card).getByRole("button", { name: "Pausar" }));
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/products/p12/pause");
+    });
+  });
+
+  it("muestra el badge Pausado y reactiva una publicación pausada", async () => {
+    const paused = productFixture({
+      id: "p13",
+      title: "Camisa pausada",
+      isApproved: true,
+      pausedAt: new Date("2026-02-05T10:00:00Z").toISOString(),
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([paused]) });
+    vi.mocked(api.patch).mockResolvedValue({ data: { success: true } });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    const card = await screen.findByTestId("mine-product-p13");
+    expect(within(card).getByText("Pausado")).toBeInTheDocument();
+    expect(within(card).queryByText("Aprobado")).not.toBeInTheDocument();
+    await user.click(within(card).getByRole("button", { name: "Reactivar" }));
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/products/p13/unpause");
+    });
+  });
+
+  it("no ofrece Pausar para una publicación pendiente", async () => {
+    const pending = productFixture({
+      id: "p14",
+      title: "Falda pendiente",
+      isApproved: false,
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([pending]) });
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    const card = await screen.findByTestId("mine-product-p14");
+    expect(
+      within(card).queryByRole("button", { name: "Pausar" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("no ofrece Pausar ni Reactivar para una publicación ya vendida", async () => {
+    const sold = productFixture({
+      id: "p15",
+      title: "Botas vendidas",
+      isApproved: true,
+      soldAt: new Date("2026-02-01T10:00:00Z").toISOString(),
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([sold]) });
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    const card = await screen.findByTestId("mine-product-p15");
+    expect(
+      within(card).queryByRole("button", { name: "Pausar" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(card).queryByRole("button", { name: "Reactivar" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("cambia de pestaña de estado y vuelve a pedir la lista filtrada", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: paginated([]) });
     const user = userEvent.setup();
@@ -207,6 +303,26 @@ describe("MisProductosPage", () => {
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(
         "/products/mine?status=sold&page=1&limit=20",
+      );
+    });
+  });
+
+  it("filtra por la pestaña Pausados", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([]) });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    await user.click(screen.getByRole("button", { name: "Pausados" }));
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith(
+        "/products/mine?status=paused&page=1&limit=20",
       );
     });
   });
