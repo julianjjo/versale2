@@ -39,7 +39,13 @@ jobs:
       - name: Build API
         run: npm run build --workspace=apps/api
       - name: Run API tests
-        run: npm test --workspace=apps/api
+        run: npm run test:cov --workspace=apps/api
+      - name: Upload API coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: api
+          files: apps/api/coverage/lcov.info
 
   web-tests:
     name: Web unit tests
@@ -57,7 +63,13 @@ jobs:
       - name: Build Web
         run: npm run build --workspace=apps/web
       - name: Run Web tests
-        run: npm test --workspace=apps/web
+        run: npm run test:coverage --workspace=apps/web
+      - name: Upload Web coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: web
+          files: apps/web/coverage/lcov.info
 
   e2e:
     name: End-to-end (Playwright)
