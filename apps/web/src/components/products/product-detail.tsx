@@ -377,9 +377,10 @@ export function ProductDetail({
         <div className="space-y-2">
           {(() => {
             const images = data.images ?? [];
-            // Clamps against a product switch that hasn't run the
-            // reset-on-`id`-change effect yet, so this never indexes past
-            // the new product's (possibly shorter) image list.
+            // The id-change check above already resets the index to 0 on
+            // navigation; this clamp instead guards a same-product edit —
+            // a refetch that lands with fewer images than the selected
+            // thumbnail's index — so it never indexes past the array.
             const activeIndex = Math.min(
               selectedImageIndex,
               Math.max(images.length - 1, 0),
