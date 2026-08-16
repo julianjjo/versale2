@@ -56,8 +56,20 @@ export class FavoritesService {
       this.prisma.client.favorite.count({ where: { userId } }),
     ]);
 
+    // The web app renders a favorited product with the same catalog card
+    // used on the public catalog, so it needs the same rating info — without
+    // this, the identical listing would show a rating on /products and none
+    // on /favoritos.
+    const products = await this.productsService.withAverageRating(
+      favorites.map((favorite) => favorite.product),
+    );
+    const data = favorites.map((favorite, index) => ({
+      ...favorite,
+      product: products[index],
+    }));
+
     return {
-      data: favorites,
+      data,
       meta: {
         total,
         page: pageNum,

@@ -121,7 +121,6 @@ export class ProductsService {
         orderBy: { createdAt: 'desc' },
         include: {
           seller: { select: { id: true, name: true } },
-          _count: { select: { reviews: true } },
         },
       }),
       this.prisma.client.product.count({ where }),
@@ -138,15 +137,21 @@ export class ProductsService {
     };
   }
 
-  // A buyer browsing the catalog decides whether to open a listing partly on
-  // its rating, so the grid needs it too, not just the single-product page
-  // (which already computes it from the full `reviews` array `findOne`
-  // returns). A `groupBy` scoped to just this page's product ids gets every
-  // average in one query instead of one aggregate per product (N+1) or
-  // pulling every review row into `include` just to average it in JS.
-  private async withAverageRating<T extends { id: string }>(
+  // Shared by findAll (public catalog) and FavoritesService.findAll (a
+  // buyer's bookmarked products): the same ProductCard renders both, so both
+  // need the same rating info. A buyer decides whether to open a listing
+  // partly on its rating, so a list of products needs it too, not just the
+  // single-product page (which already computes it from the full `reviews`
+  // array `findOne` returns). One `groupBy` scoped to just this page's
+  // product ids gets every average AND count in a single query, instead of
+  // one aggregate per product (N+1), a separate `_count` include alongside it
+  // (two scans of the same Review rows), or pulling every review row into
+  // `include` just to average it in JS.
+  async withAverageRating<T extends { id: string }>(
     products: T[],
-  ): Promise<(T & { averageRating: number | null })[]> {
+  ): Promise<
+    (T & { _count: { reviews: number }; averageRating: number | null })[]
+  > {
     if (products.length === 0) {
       return [];
     }
@@ -155,15 +160,18 @@ export class ProductsService {
       by: ['productId'],
       where: { productId: { in: products.map((p) => p.id) } },
       _avg: { rating: true },
+      _count: true,
     });
-    const averageByProductId = new Map(
-      ratings.map((r) => [r.productId, r._avg.rating]),
-    );
+    const ratingByProductId = new Map(ratings.map((r) => [r.productId, r]));
 
-    return products.map((product) => ({
-      ...product,
-      averageRating: averageByProductId.get(product.id) ?? null,
-    }));
+    return products.map((product) => {
+      const rating = ratingByProductId.get(product.id);
+      return {
+        ...product,
+        _count: { reviews: rating?._count ?? 0 },
+        averageRating: rating?._avg.rating ?? null,
+      };
+    });
   }
 
   async getFacets() {

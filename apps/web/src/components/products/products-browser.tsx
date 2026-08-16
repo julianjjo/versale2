@@ -464,8 +464,7 @@ export function ProductCard({ product }: { product: Product }) {
               <StarRating value={product.averageRating} />
               <span className="text-[11px] text-muted">
                 {product.averageRating.toFixed(1)}
-                {typeof product._count?.reviews === "number" &&
-                  ` (${product._count.reviews})`}
+                {product._count && ` (${product._count.reviews})`}
               </span>
             </div>
           )}

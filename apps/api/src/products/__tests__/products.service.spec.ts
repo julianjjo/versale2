@@ -1002,7 +1002,6 @@ describe('ProductsService', () => {
         orderBy: { createdAt: 'desc' },
         include: {
           seller: { select: { id: true, name: true } },
-          _count: { select: { reviews: true } },
         },
       });
       expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
@@ -1022,7 +1021,9 @@ describe('ProductsService', () => {
         },
       });
       expect(result).toEqual({
-        data: [{ ...mockProducts[0], averageRating: null }],
+        data: [
+          { ...mockProducts[0], _count: { reviews: 0 }, averageRating: null },
+        ],
         meta: {
           total: 1,
           page: 1, // converted to number
@@ -1032,7 +1033,7 @@ describe('ProductsService', () => {
       });
     });
 
-    it("should attach each product's average rating from a single groupBy query, not one aggregate per product", async () => {
+    it("should attach each product's average rating and review count from a single groupBy query, not one aggregate per product plus a separate count", async () => {
       const mockProducts = [
         { id: 'product1', title: 'Rated product' },
         { id: 'product2', title: 'Unrated product' },
@@ -1040,7 +1041,7 @@ describe('ProductsService', () => {
       mockPrismaService.client.product.findMany.mockResolvedValue(mockProducts);
       mockPrismaService.client.product.count.mockResolvedValue(2);
       mockPrismaService.client.review.groupBy.mockResolvedValue([
-        { productId: 'product1', _avg: { rating: 4.5 } },
+        { productId: 'product1', _avg: { rating: 4.5 }, _count: 2 },
       ]);
 
       const result = await service.findAll({});
@@ -1050,10 +1051,21 @@ describe('ProductsService', () => {
         by: ['productId'],
         where: { productId: { in: ['product1', 'product2'] } },
         _avg: { rating: true },
+        _count: true,
       });
       expect(result.data).toEqual([
-        { id: 'product1', title: 'Rated product', averageRating: 4.5 },
-        { id: 'product2', title: 'Unrated product', averageRating: null },
+        {
+          id: 'product1',
+          title: 'Rated product',
+          _count: { reviews: 2 },
+          averageRating: 4.5,
+        },
+        {
+          id: 'product2',
+          title: 'Unrated product',
+          _count: { reviews: 0 },
+          averageRating: null,
+        },
       ]);
     });
 

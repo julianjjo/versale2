@@ -25,6 +25,12 @@ const prismaStub = {
       count: () => Promise.resolve(catalogSize),
       findUnique: () => Promise.resolve(detailedProduct),
     },
+    // findAll() also fetches each page's average rating via a review
+    // groupBy — an empty result (no reviews) keeps this bench measuring
+    // findAll's own cost instead of throwing on every iteration.
+    review: {
+      groupBy: () => Promise.resolve([]),
+    },
   },
 } as unknown as PrismaService;
 
