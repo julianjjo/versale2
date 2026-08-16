@@ -1314,6 +1314,7 @@ describe('ProductsService', () => {
     it('should return other approved, unsold listings in the same category', async () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         category: 'Jackets',
+        isApproved: true,
       });
       const mockRelated = [
         { id: 'p2', title: 'Another jacket' },
@@ -1328,7 +1329,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findUnique).toHaveBeenCalledWith(
         {
           where: { id: 'p1' },
-          select: { category: true },
+          select: { category: true, isApproved: true },
         },
       );
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith({
@@ -1351,6 +1352,7 @@ describe('ProductsService', () => {
     it('should never include the product itself among its own related listings', async () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         category: 'Jackets',
+        isApproved: true,
       });
       mockPrismaService.client.product.findMany.mockResolvedValue([]);
 
@@ -1370,9 +1372,25 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).not.toHaveBeenCalled();
     });
 
+    // Regression: without this, a pending or rejected listing's id would
+    // 404 on findOne but 200 here, letting a caller confirm a hidden
+    // listing exists (and its category) through this side-channel endpoint.
+    it('should throw the same NotFoundException for an unapproved source product as for a missing one', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        category: 'Jackets',
+        isApproved: false,
+      });
+
+      await expect(service.getRelatedProducts('pending1')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockPrismaService.client.product.findMany).not.toHaveBeenCalled();
+    });
+
     it('should return an empty list when nothing else is in the same category', async () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         category: 'Jackets',
+        isApproved: true,
       });
       mockPrismaService.client.product.findMany.mockResolvedValue([]);
 

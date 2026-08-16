@@ -162,6 +162,10 @@ export function ProductDetail({
       return response.data;
     },
     enabled: Boolean(id),
+    // Matches the main product query's staleTime above — without it this
+    // sibling query refetches on every remount while the product next to it
+    // stays cached.
+    staleTime: 60_000,
   });
   // Guards against a missing/malformed response shape so this
   // nice-to-have section can never crash the rest of the page.

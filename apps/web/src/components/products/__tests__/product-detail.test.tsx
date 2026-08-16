@@ -164,6 +164,9 @@ describe("ProductDetail", () => {
     expect(screen.getByText("Chaqueta de mezclilla clásica")).toBeInTheDocument();
   });
 
+  // Regression: this must fail if the related-products query is ever
+  // disabled/broken outright, not just if the endpoint legitimately returns
+  // an empty list — both would look identical without this assertion.
   it("no muestra la sección de productos similares cuando no hay ninguno", async () => {
     vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
     render(
@@ -175,7 +178,57 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith("/products/p1/related");
+    });
     expect(screen.queryByText("Productos similares")).not.toBeInTheDocument();
+  });
+
+  // Regression: each ProductCard's heart must check its OWN product id, not
+  // accidentally share state across the main listing and its related items.
+  it("mantiene el estado de favorito independiente entre el producto principal y los relacionados", async () => {
+    authState.user = { id: "u1", email: "a@b.c", name: "Dana", role: "USER" };
+    const related = [
+      {
+        id: "p2",
+        title: "Chaqueta de mezclilla clásica",
+        description: "Otra chaqueta",
+        category: "Jackets",
+        brand: "Zara",
+        size: "L",
+        condition: "Good",
+        price: 30000,
+        sellerId: "s2",
+        isApproved: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        images: null,
+        seller: { id: "s2", name: "Carla" },
+      },
+    ];
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/favorites/ids") return { data: { productIds: ["p1"] } };
+      if (url === `/products/${mockProduct.id}/related`) {
+        return { data: { data: related } };
+      }
+      return { data: mockProduct };
+    });
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Chaqueta de mezclilla clásica")).toBeInTheDocument();
+    });
+
+    expect(
+      await screen.findAllByRole("button", { name: /quitar de favoritos/i }),
+    ).toHaveLength(1);
+    expect(
+      screen.getAllByRole("button", { name: /agregar a favoritos/i }),
+    ).toHaveLength(1);
   });
 
   it("renderiza las reseñas", async () => {
