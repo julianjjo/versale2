@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth";
+import { loginRedirectUrl, useAuth } from "@/lib/auth";
 import { useFavoriteProductIds, useToggleFavorite } from "@/lib/favorites";
 
 export function FavoriteButton({
@@ -41,9 +41,7 @@ export function FavoriteButton({
     if (isAuthLoading) return;
 
     if (!user) {
-      router.push(
-        `/login?next=${encodeURIComponent(`/products/${productId}`)}&reason=favorite`,
-      );
+      router.push(loginRedirectUrl(productId, "favorite"));
       return;
     }
 

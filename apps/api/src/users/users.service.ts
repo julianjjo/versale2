@@ -252,13 +252,13 @@ export class UsersService {
         P2025: () => {
           throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
         },
-        // Product.sellerId, Order.userId, Review.userId and Cart.userId are
-        // all ON DELETE RESTRICT, so deleting a user with any of that
-        // activity raises P2003. Without this handler it surfaces as an
-        // English 500.
+        // Product.sellerId, Order.userId, Review.userId, Cart.userId and
+        // ProductReport.reporterId are all ON DELETE RESTRICT, so deleting a
+        // user with any of that activity raises P2003. Without this handler
+        // it surfaces as an English 500.
         P2003: () => {
           throw new BadRequestException(
-            'No se puede eliminar a este usuario: tiene productos, pedidos, reseñas, favoritos o un carrito asociados.',
+            'No se puede eliminar a este usuario: tiene productos, pedidos, reseñas, favoritos, reportes o un carrito asociados.',
           );
         },
       });
