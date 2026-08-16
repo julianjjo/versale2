@@ -293,7 +293,10 @@ describe("AdminProductsPage", () => {
     expect(screen.getByLabelText(/seleccionar dos/i)).toBeChecked();
   });
 
-  it("muestra un aviso cuando algunas seleccionadas ya habían sido vendidas al aprobar", async () => {
+  // The message doesn't blame a specific cause (sold, deleted, already
+  // handled by another admin) — the API's compare-and-swap can't tell those
+  // apart, so the UI only reports the effect.
+  it("muestra un aviso, no un error, cuando algunas seleccionadas ya no se pudieron aprobar", async () => {
     const first = productFixture({ id: "p40", title: "Chaqueta" });
     const second = productFixture({ id: "p41", title: "Camiseta" });
     vi.mocked(api.get).mockResolvedValue({ data: paginated([first, second]) });
@@ -318,9 +321,143 @@ describe("AdminProductsPage", () => {
     await waitFor(() => {
       expect(
         screen.getByText(
-          /se aprobaron 1 de 2 publicaciones\. las demás ya habían sido vendidas\./i,
+          /se aprobaron 1 de 2 publicaciones\. las demás ya no estaban disponibles para aprobar\./i,
         ),
       ).toBeInTheDocument();
+    });
+    // It's an informational notice, not styled or announced as an error.
+    expect(
+      screen.getByText(/se aprobaron 1 de 2/i).closest('[role="status"]'),
+    ).not.toBeNull();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  // Regression: a single-item shortfall used to always render "publicaciones"
+  // (plural) even when requested === 1.
+  it("usa el singular en el aviso cuando solo se solicitó una publicación", async () => {
+    const only = productFixture({ id: "p42", title: "Bufanda" });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([only]) });
+    vi.mocked(api.patch).mockResolvedValue({
+      data: { approved: 0, requested: 1 },
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("admin-product-p42");
+    await user.click(screen.getByLabelText(/seleccionar bufanda/i));
+    await user.click(
+      screen.getByRole("button", { name: "Aprobar seleccionadas" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/se aprobaron 0 de 1 publicación\. /i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("distingue publicaciones con el mismo título en la casilla de selección", async () => {
+    const first = productFixture({ id: "aaaaaaaa-1", title: "Camiseta" });
+    const second = productFixture({ id: "bbbbbbbb-2", title: "Camiseta" });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([first, second]) });
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("admin-product-aaaaaaaa-1");
+
+    expect(
+      within(screen.getByTestId("admin-product-aaaaaaaa-1")).getByLabelText(
+        "Seleccionar Camiseta (#aaaaaaaa)",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("admin-product-bbbbbbbb-2")).getByLabelText(
+        "Seleccionar Camiseta (#bbbbbbbb)",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("descarta la selección de una publicación que se aprobó individualmente", async () => {
+    const first = productFixture({ id: "p45", title: "Uno" });
+    const second = productFixture({ id: "p46", title: "Dos" });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([first, second]) });
+    vi.mocked(api.patch).mockResolvedValue({ data: { success: true } });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("admin-product-p45");
+    await user.click(screen.getByLabelText(/seleccionar uno/i));
+    await user.click(screen.getByLabelText(/seleccionar dos/i));
+    expect(screen.getByText("2 seleccionadas")).toBeInTheDocument();
+
+    // The per-row "Aprobar" button, not the bulk action bar.
+    await user.click(
+      within(screen.getByTestId("admin-product-p45")).getByRole("button", {
+        name: "Aprobar",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("1 seleccionada")).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText(/seleccionar dos/i)).toBeChecked();
+  });
+
+  // The whole reason selection isn't page-scoped: an admin should be able to
+  // pick eligible rows across several pages, then approve them all together.
+  it("mantiene la selección entre páginas y envía la unión al aprobar en lote", async () => {
+    const pageOneProduct = productFixture({ id: "p60", title: "Página uno" });
+    const pageTwoProduct = productFixture({ id: "p61", title: "Página dos" });
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      const page = new URLSearchParams(url.split("?")[1]).get("page");
+      if (page === "2") {
+        return {
+          data: { data: [pageTwoProduct], meta: { total: 2, page: 2, pages: 2 } },
+        };
+      }
+      return {
+        data: { data: [pageOneProduct], meta: { total: 2, page: 1, pages: 2 } },
+      };
+    });
+    vi.mocked(api.patch).mockResolvedValue({
+      data: { approved: 2, requested: 2 },
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("admin-product-p60");
+    await user.click(screen.getByLabelText(/seleccionar página uno/i));
+
+    await user.click(screen.getByRole("button", { name: /siguiente/i }));
+    await screen.findByTestId("admin-product-p61");
+    expect(screen.getByText("1 seleccionada")).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText(/seleccionar página dos/i));
+    expect(screen.getByText("2 seleccionadas")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Aprobar seleccionadas" }),
+    );
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/products/admin/bulk-approve", {
+        ids: ["p60", "p61"],
+      });
     });
   });
 

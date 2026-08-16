@@ -1502,7 +1502,11 @@ describe('ProductsService', () => {
       const result = await service.bulkApprove(['product1', 'product2']);
 
       expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['product1', 'product2'] }, soldAt: null },
+        where: {
+          id: { in: ['product1', 'product2'] },
+          isApproved: false,
+          soldAt: null,
+        },
         data: { isApproved: true, rejectedAt: null, rejectionReason: null },
       });
       expect(result).toEqual({ approved: 2, requested: 2 });
@@ -1520,6 +1524,42 @@ describe('ProductsService', () => {
       const result = await service.bulkApprove(['product1', 'product2']);
 
       expect(result).toEqual({ approved: 1, requested: 2 });
+    });
+
+    // The where clause now also excludes already-approved products (not just
+    // sold ones): a product another admin approved in the meantime is
+    // silently skipped instead of being redundantly rewritten.
+    it('should exclude already-approved products from the where clause', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 0,
+      });
+
+      await service.bulkApprove(['product1']);
+
+      expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ isApproved: false }),
+        }),
+      );
+    });
+
+    // A caller other than this app's own Set-backed UI (a retried request, a
+    // manually-crafted call) could submit the same id twice; without
+    // de-duplication `requested` would read as 2 for a single distinct
+    // product, misreporting a fully successful batch as a partial one.
+    it('should de-duplicate requested ids before counting them or querying', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      const result = await service.bulkApprove(['product1', 'product1']);
+
+      expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: { in: ['product1'] } }),
+        }),
+      );
+      expect(result).toEqual({ approved: 1, requested: 1 });
     });
   });
 
