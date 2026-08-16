@@ -20,7 +20,7 @@ import {
 import { Pager } from "@/components/admin/pager";
 import { conditionLabel } from "@/lib/product-condition";
 import type { Product } from "@/lib/types";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 type StatusFilter = "all" | "pending" | "approved" | "rejected";
@@ -39,6 +39,21 @@ const EMPTY_STATE_COPY: Record<StatusFilter, string> = {
   rejected: "No hay publicaciones rechazadas",
 };
 
+// Mirrors the DTO's own cap (apps/api/src/products/dto/bulk-approve.dto.ts):
+// enforced here too so an admin who selects across many pages gets a clear,
+// actionable message instead of only finding out after the request 400s.
+const MAX_BULK_APPROVE = 100;
+
+// A listing can be bulk-approved from the same two states its own row's
+// "Aprobar" button already covers (pending or previously rejected), as long
+// as it hasn't been sold since — mirrors the per-row condition so a selected
+// checkbox never promises an action the request would silently drop.
+function isBulkApprovable(product: Product): boolean {
+  const isPending = !product.isApproved && !product.rejectedAt;
+  const isRejected = !product.isApproved && !!product.rejectedAt;
+  return (isPending || isRejected) && !product.soldAt;
+}
+
 export default function AdminProductsPage() {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -47,8 +62,21 @@ export default function AdminProductsPage() {
     undefined,
   );
   const [error, setError] = useState<string | null>(null);
+  // Distinct from `error`: a partial-success outcome isn't a failure, so it
+  // isn't styled or announced as one.
+  const [notice, setNotice] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Product | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [rejectReason, setRejectReason] = useState("");
+
+  const discardSelected = (id: string) => {
+    setSelectedIds((current) => {
+      if (!current.has(id)) return current;
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+  };
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ["admin-products", status, page],
@@ -85,7 +113,13 @@ export default function AdminProductsPage() {
     mutationFn: async (id: string) => {
       await api.patch(`/products/admin/${id}/approve`);
     },
-    onSuccess: invalidateProducts,
+    onSuccess: (_data, id) => {
+      invalidateProducts();
+      // The row this approved may have also been part of a pending bulk
+      // selection; approving it individually already resolved it, so it
+      // shouldn't linger in the batch and get resubmitted.
+      discardSelected(id);
+    },
     onError: (err) =>
       setError(extractApiError(err, "No pudimos aprobar la publicación")),
   });
@@ -96,8 +130,9 @@ export default function AdminProductsPage() {
         reason: reason.trim() || undefined,
       });
     },
-    onSuccess: () => {
+    onSuccess: (_data, { id }) => {
       invalidateProducts();
+      discardSelected(id);
       setRejectTarget(null);
       setRejectReason("");
     },
@@ -109,10 +144,65 @@ export default function AdminProductsPage() {
     mutationFn: async (id: string) => {
       await api.delete(`/products/${id}`);
     },
-    onSuccess: invalidateProducts,
+    onSuccess: (_data, id) => {
+      invalidateProducts();
+      discardSelected(id);
+    },
     onError: (err) =>
       setError(extractApiError(err, "No pudimos eliminar la publicación")),
   });
+
+  const bulkApprove = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const res = await api.patch<{ approved: number; requested: number }>(
+        "/products/admin/bulk-approve",
+        { ids },
+      );
+      return res.data;
+    },
+    onSuccess: (result, ids) => {
+      invalidateProducts();
+      // Only the ids actually submitted are resolved — anything checked
+      // after the request was already sent (the checkboxes are disabled
+      // meanwhile, but this stays correct even if that ever changes) stays
+      // selected instead of being silently discarded.
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+      setError(null);
+      // A shortfall can come from more than one cause (sold, deleted, or
+      // already handled by another admin) — the message names the effect,
+      // not a specific guessed cause, all covered by the API's own
+      // compare-and-swap silently excluding that id from `approved`.
+      setNotice(
+        result.approved < result.requested
+          ? `Se aprobaron ${result.approved} de ${result.requested} ${
+              result.requested === 1 ? "publicación" : "publicaciones"
+            }. Las demás ya no estaban disponibles para aprobar.`
+          : null,
+      );
+    },
+    onError: (err) => {
+      setNotice(null);
+      setError(
+        extractApiError(err, "No pudimos aprobar las publicaciones seleccionadas"),
+      );
+    },
+  });
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   const products = data?.data ?? [];
   const meta = data?.meta;
@@ -132,7 +222,44 @@ export default function AdminProductsPage() {
   const setTab = (next: StatusFilter) => {
     setStatus(next);
     setPage(1);
+    // A selection made under one status filter doesn't carry meaning under
+    // another — e.g. a pending item selected before switching to "Rechazados"
+    // would leave the bulk bar counting a row no longer even on screen.
+    setSelectedIds(new Set());
   };
+
+  const eligibleOnPage = products.filter(isBulkApprovable);
+  const someEligibleSelected = eligibleOnPage.some((product) =>
+    selectedIds.has(product.id),
+  );
+  const allEligibleSelected =
+    eligibleOnPage.length > 0 &&
+    eligibleOnPage.every((product) => selectedIds.has(product.id));
+  // A plain checked/unchecked box can't say "some, but not all, of this
+  // page's eligible rows are selected" — a real state once a selection
+  // carries over from another page. Only the DOM property (no React/ARIA
+  // prop for it) can show that third state.
+  const selectAllRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate =
+        someEligibleSelected && !allEligibleSelected;
+    }
+  }, [someEligibleSelected, allEligibleSelected]);
+
+  const toggleSelectAllOnPage = () => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allEligibleSelected) {
+        eligibleOnPage.forEach((product) => next.delete(product.id));
+      } else {
+        eligibleOnPage.forEach((product) => next.add(product.id));
+      }
+      return next;
+    });
+  };
+
+  const exceedsBulkApproveLimit = selectedIds.size > MAX_BULK_APPROVE;
 
   return (
     <div>
@@ -180,6 +307,42 @@ export default function AdminProductsPage() {
         </p>
       )}
 
+      {notice && (
+        <p className="mb-3 text-sm text-text-primary" role="status">
+          {notice}
+        </p>
+      )}
+
+      {selectedIds.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface-muted px-4 py-2">
+          <span className="text-sm text-text-primary">
+            {selectedIds.size} seleccionada
+            {selectedIds.size === 1 ? "" : "s"}
+            {exceedsBulkApproveLimit && ` (máximo ${MAX_BULK_APPROVE} por lote)`}
+          </span>
+          <Button
+            size="sm"
+            variant="accent"
+            onClick={() => bulkApprove.mutate(Array.from(selectedIds))}
+            disabled={bulkApprove.isPending || exceedsBulkApproveLimit}
+          >
+            {bulkApprove.isPending ? (
+              <Spinner className="h-4 w-4" />
+            ) : (
+              "Aprobar seleccionadas"
+            )}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setSelectedIds(new Set())}
+            disabled={bulkApprove.isPending}
+          >
+            Cancelar selección
+          </Button>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
           <Spinner className="h-5 w-5" /> Cargando…
@@ -188,6 +351,19 @@ export default function AdminProductsPage() {
         <EmptyState title={EMPTY_STATE_COPY[status]} />
       ) : (
         <div className="space-y-3" aria-busy={isFetching}>
+          {eligibleOnPage.length > 0 && (
+            <label className="flex items-center gap-2 text-xs text-text-muted">
+              <input
+                ref={selectAllRef}
+                type="checkbox"
+                aria-label="Seleccionar todas las elegibles en esta página"
+                checked={allEligibleSelected}
+                onChange={toggleSelectAllOnPage}
+                disabled={bulkApprove.isPending}
+              />
+              Seleccionar todas las elegibles en esta página
+            </label>
+          )}
           {products.map((product, index) => {
             const isPending = !product.isApproved && !product.rejectedAt;
             const isRejected = !product.isApproved && !!product.rejectedAt;
@@ -197,6 +373,16 @@ export default function AdminProductsPage() {
                 data-testid={`admin-product-${product.id}`}
               >
                 <div className="flex flex-wrap items-center gap-4">
+                  {isBulkApprovable(product) && (
+                    <input
+                      type="checkbox"
+                      aria-label={`Seleccionar ${product.title} (#${product.id.slice(0, 8)})`}
+                      checked={selectedIds.has(product.id)}
+                      onChange={() => toggleSelected(product.id)}
+                      disabled={bulkApprove.isPending}
+                      className="h-4 w-4 flex-shrink-0"
+                    />
+                  )}
                   <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
                     {product.images?.[0] ? (
                       <img
@@ -246,10 +432,10 @@ export default function AdminProductsPage() {
                     ) : (
                       <Badge variant="warning">Pendiente</Badge>
                     )}
-                    {/* Se excluyen las vendidas (soldAt): la API ya rechaza
-                        aprobar un producto vendido, así que el botón tampoco
-                        se ofrece para uno. */}
-                    {(isPending || isRejected) && !product.soldAt && (
+                    {/* Same eligibility rule as the bulk-select checkbox
+                        above (isBulkApprovable): excludes sold listings, since
+                        the API already refuses to approve one. */}
+                    {isBulkApprovable(product) && (
                       <Button
                         size="sm"
                         variant="accent"

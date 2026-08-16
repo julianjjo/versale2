@@ -25,6 +25,14 @@ const MODERATED_FIELDS = [
   'images',
 ] as const;
 
+// Shared by approveProduct (single item) and bulkApprove (batch): what
+// "approving a product" resets, in one place so the two can't drift apart.
+const APPROVE_DATA = {
+  isApproved: true,
+  rejectedAt: null,
+  rejectionReason: null,
+};
+
 @Injectable()
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
@@ -523,7 +531,7 @@ export class ProductsService {
     try {
       return await this.prisma.client.product.update({
         where: { id, soldAt: null },
-        data: { isApproved: true, rejectedAt: null, rejectionReason: null },
+        data: APPROVE_DATA,
       });
     } catch (error) {
       translatePrismaError(error, {
@@ -534,6 +542,30 @@ export class ProductsService {
         },
       });
     }
+  }
+
+  // A moderator working through a backlog of pending listings approves them
+  // one at a time today; this lets a batch go through in a single request.
+  // `updateMany` (not a loop of individual updates) re-asserts `soldAt: null`
+  // in its own `where`, the same compare-and-swap approveProduct() uses, so a
+  // checkout racing this request still can't have one of the selected
+  // products approved out from under the buyer who just bought it — it's
+  // just silently excluded from `count` instead of one request failing.
+  // `isApproved: false` mirrors the frontend's own eligibility check: a
+  // product another admin already approved in the meantime is excluded
+  // instead of being redundantly rewritten. Requested ids are de-duplicated
+  // first so a caller that (unlike this app's own Set-backed UI) submits the
+  // same id twice can't make `approved` read as lower than `requested` for a
+  // batch where every distinct product actually succeeded.
+  async bulkApprove(ids: string[]) {
+    const uniqueIds = Array.from(new Set(ids));
+
+    const result = await this.prisma.client.product.updateMany({
+      where: { id: { in: uniqueIds }, isApproved: false, soldAt: null },
+      data: APPROVE_DATA,
+    });
+
+    return { approved: result.count, requested: uniqueIds.length };
   }
 
   async rejectProduct(id: string, reason?: string) {

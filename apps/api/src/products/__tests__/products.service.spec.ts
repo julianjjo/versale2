@@ -41,6 +41,7 @@ describe('ProductsService', () => {
         create: jest.fn(),
         findUnique: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
         delete: jest.fn(),
         findMany: jest.fn(),
         count: jest.fn(),
@@ -1489,6 +1490,76 @@ describe('ProductsService', () => {
         expect.objectContaining({ skip: 0, take: 100 }),
       );
       expect(result.meta).toEqual({ total: 0, page: 1, limit: 100, pages: 0 });
+    });
+  });
+
+  describe('bulkApprove', () => {
+    it('should approve every requested product in a single updateMany call', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 2,
+      });
+
+      const result = await service.bulkApprove(['product1', 'product2']);
+
+      expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: ['product1', 'product2'] },
+          isApproved: false,
+          soldAt: null,
+        },
+        data: { isApproved: true, rejectedAt: null, rejectionReason: null },
+      });
+      expect(result).toEqual({ approved: 2, requested: 2 });
+    });
+
+    // Mirrors approveProduct()'s compare-and-swap: a product that was sold
+    // between the admin loading the list and clicking "Aprobar seleccionados"
+    // is silently excluded from the update instead of failing the whole
+    // batch, since updateMany's `where` already re-asserts `soldAt: null`.
+    it('should silently exclude already-sold products from the count instead of failing the whole batch', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      const result = await service.bulkApprove(['product1', 'product2']);
+
+      expect(result).toEqual({ approved: 1, requested: 2 });
+    });
+
+    // The where clause now also excludes already-approved products (not just
+    // sold ones): a product another admin approved in the meantime is
+    // silently skipped instead of being redundantly rewritten.
+    it('should exclude already-approved products from the where clause', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 0,
+      });
+
+      await service.bulkApprove(['product1']);
+
+      expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ isApproved: false }),
+        }),
+      );
+    });
+
+    // A caller other than this app's own Set-backed UI (a retried request, a
+    // manually-crafted call) could submit the same id twice; without
+    // de-duplication `requested` would read as 2 for a single distinct
+    // product, misreporting a fully successful batch as a partial one.
+    it('should de-duplicate requested ids before counting them or querying', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      const result = await service.bulkApprove(['product1', 'product1']);
+
+      expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: { in: ['product1'] } }),
+        }),
+      );
+      expect(result).toEqual({ approved: 1, requested: 1 });
     });
   });
 

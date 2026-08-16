@@ -21,6 +21,7 @@ describe('ProductsController', () => {
     findAllMine: jest.fn(),
     approveProduct: jest.fn(),
     rejectProduct: jest.fn(),
+    bulkApprove: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -315,6 +316,23 @@ describe('ProductsController', () => {
       const result = await controller.approveProduct(productId);
 
       expect(productsService.approveProduct).toHaveBeenCalledWith(productId);
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('bulkApproveProducts', () => {
+    it('should call productsService.bulkApprove with the ids array', async () => {
+      const mockResult = { approved: 2, requested: 2 };
+      mockProductsService.bulkApprove.mockResolvedValue(mockResult);
+
+      const result = await controller.bulkApproveProducts({
+        ids: ['product1', 'product2'],
+      });
+
+      expect(productsService.bulkApprove).toHaveBeenCalledWith([
+        'product1',
+        'product2',
+      ]);
       expect(result).toEqual(mockResult);
     });
   });
