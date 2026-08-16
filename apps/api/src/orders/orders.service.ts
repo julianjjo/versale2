@@ -305,11 +305,35 @@ export class OrdersService {
   // of their products, newest first. `items` is filtered to just this
   // seller's own — a mixed cart's other items belong to sellers who have
   // nothing to do with this request and shouldn't see each other's listings.
+  // Searchable (by order id, buyer name, or one of the seller's own product
+  // titles) and filterable by status, mirroring getUserOrders (buyer) and
+  // getAllOrders (admin) rather than introducing a third filtering shape.
   async getMySales(sellerId: string, query: any = {}) {
-    const { page, limit } = query ?? {};
+    const { search, status, page, limit } = query ?? {};
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
-    const where = { items: { some: { product: { sellerId } } } };
+    const where: any = { items: { some: { product: { sellerId } } } };
+    if (search) {
+      const term = String(search);
+      where.OR = [
+        { id: { contains: term } },
+        { user: { is: { name: { contains: term } } } },
+        // Scoped to `sellerId` too, not just `title`: otherwise a title match
+        // on another seller's item in a mixed-cart order would surface an
+        // order that has nothing to do with this seller's own listing.
+        {
+          items: {
+            some: { product: { is: { sellerId, title: { contains: term } } } },
+          },
+        },
+      ];
+    }
+    // Validated against the enum for the same reason as getUserOrders: an
+    // out-of-enum value would otherwise reach Prisma and raise an unhandled
+    // PrismaClientValidationError instead of just matching nothing.
+    if (status && Object.values(OrderStatus).includes(status as OrderStatus)) {
+      where.status = status;
+    }
 
     const [orders, total] = await Promise.all([
       this.prisma.client.order.findMany({
@@ -320,7 +344,9 @@ export class OrdersService {
           user: { select: { id: true, name: true } },
           items: {
             where: { product: { sellerId } },
-            include: { product: { select: { id: true, title: true, images: true } } },
+            include: {
+              product: { select: { id: true, title: true, images: true } },
+            },
           },
         },
         orderBy: { createdAt: 'desc' },

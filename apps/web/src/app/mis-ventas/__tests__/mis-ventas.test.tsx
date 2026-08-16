@@ -112,6 +112,38 @@ describe("MisVentasPage", () => {
     expect(screen.getByRole("button", { name: /reintentar/i })).toBeInTheDocument();
   });
 
+  it("mantiene la lista visible y avisa en línea si falla una actualización en segundo plano, sin confundirlo con un error de carga inicial", async () => {
+    vi.mocked(api.get)
+      .mockResolvedValueOnce({ data: paginatedResponse([paidOrder]) })
+      .mockRejectedValueOnce(new Error("network down"));
+    vi.mocked(api.patch).mockResolvedValue({ data: { id: "order1", status: "SHIPPED" } });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <MisVentasPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/pedido #order1/i)).toBeInTheDocument();
+    });
+
+    // La invalidación de la mutación dispara un refetch en segundo plano de la
+    // misma queryKey, que aquí falla — a diferencia de una carga inicial
+    // fallida, ya hay datos válidos en caché.
+    await user.click(screen.getByRole("button", { name: /marcar como enviado/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/no pudimos actualizar tus ventas/i)).toBeInTheDocument();
+    });
+    // La lista ya cargada debe seguir visible: un refetch fallido no debe
+    // reemplazarla por el estado de error de carga inicial.
+    expect(screen.getByText(/pedido #order1/i)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/no pudimos cargar tus ventas/i),
+    ).not.toBeInTheDocument();
+  });
+
   it("muestra un estado vacío cuando no hay ventas", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: paginatedResponse([]) });
     render(
@@ -186,6 +218,72 @@ describe("MisVentasPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/pedido en estado inválido/i)).toBeInTheDocument();
+    });
+  });
+
+  it("busca ventas por producto, comprador o ID de pedido", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: paginatedResponse([paidOrder]) });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <MisVentasPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/pedido #order1/i)).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText(/buscar ventas/i), "chaqueta");
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith(
+        expect.stringContaining("search=chaqueta"),
+      );
+    });
+  });
+
+  it("filtra las ventas por estado", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: paginatedResponse([paidOrder]) });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <MisVentasPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/pedido #order1/i)).toBeInTheDocument();
+    });
+
+    await user.selectOptions(screen.getByLabelText(/filtrar por estado/i), "SHIPPED");
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith(
+        expect.stringContaining("status=SHIPPED"),
+      );
+    });
+  });
+
+  it("muestra un mensaje distinto al vacío real cuando el filtro no encuentra ventas", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: paginatedResponse([]) });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <MisVentasPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/aún no tienes ventas/i)).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText(/buscar ventas/i), "inexistente");
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/ninguna venta coincide con tu búsqueda/i),
+      ).toBeInTheDocument();
     });
   });
 
