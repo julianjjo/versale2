@@ -25,6 +25,7 @@ import { tokenStore } from "@/lib/token";
 import type { Product, Review } from "@/lib/types";
 import { FavoriteButton } from "@/components/products/favorite-button";
 import { ProductCard } from "@/components/products/products-browser";
+import { ProductGallery } from "@/components/products/product-gallery";
 
 // Shared by the "write a review" form and the inline "edit my review" form so
 // the accessible radiogroup (roving tabindex, arrow-key navigation) isn't
@@ -362,37 +363,17 @@ export function ProductDetail({
   return (
     <PageContainer size="wide">
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-        <div className="space-y-2">
-          <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-muted">
-            {data.images?.[0] ? (
-              <img
-                src={data.images[0]}
-                alt={data.title}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span className="text-sm text-text-muted">Sin imagen</span>
-            )}
-          </div>
-          {data.images && data.images.length > 1 && (
-            <div className="grid grid-cols-4 gap-2">
-              {data.images.slice(1).map((img, idx) => (
-                <div
-                  key={idx}
-                  className="aspect-square overflow-hidden rounded-md border border-border bg-surface-muted"
-                >
-                  <img
-                    src={img}
-                    alt={`${data.title} ${idx + 2}`}
-                    loading="lazy"
-                    decoding="async"
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Keyed on id + the images themselves (not just id): a same-id
+            refetch that changes the picture set (e.g. a moderated-field edit,
+            once re-approved) remounts the gallery instead of trying to
+            reconcile a stale index against a changed array — see
+            ProductGallery's own doc comment for why that reconciliation
+            problem doesn't have a good answer. */}
+        <ProductGallery
+          key={`${id}:${(data.images ?? []).join("|")}`}
+          images={data.images ?? []}
+          title={data.title}
+        />
         <div className="space-y-4">
           <div>
             <div className="flex items-start justify-between gap-3">

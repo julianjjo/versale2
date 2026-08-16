@@ -132,6 +132,34 @@ describe("ProductDetail", () => {
     expect(sellerLink).toHaveAttribute("href", "/vendedores/s1");
   });
 
+  // Detailed gallery interaction/behavior tests live in
+  // product-gallery.test.tsx, against ProductGallery directly — this is
+  // just a wiring smoke test confirming ProductDetail actually renders it
+  // with the product's real images and title.
+  it("renderiza la galería de fotos con los datos del producto", async () => {
+    const productWithGallery = {
+      ...mockProduct,
+      images: [
+        "https://example.com/jacket-1.jpg",
+        "https://example.com/jacket-2.jpg",
+      ],
+    };
+    vi.mocked(api.get).mockResolvedValue({ data: productWithGallery });
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    const mainImage = await screen.findByRole("img", {
+      name: "Vintage denim jacket",
+    });
+    expect(mainImage).toHaveAttribute("src", "https://example.com/jacket-1.jpg");
+    expect(
+      screen.getByRole("button", { name: /ver foto 2 de/i }),
+    ).toBeInTheDocument();
+  });
+
   it("muestra productos similares de la misma categoría", async () => {
     const related = [
       {
