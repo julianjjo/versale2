@@ -61,6 +61,10 @@ model Product {
   // createdAt desc, so this covers the hottest query in the product end to end.
   // Without it every listing page was a full table scan.
   @@index([isApproved, soldAt, createdAt])
+  // Same shape, for the catalog's price-sorted view (?sortBy=price_asc/desc) —
+  // without it, sorting by price degrades to an in-memory sort over every
+  // approved/unsold row as the catalog grows.
+  @@index([isApproved, soldAt, price])
   // Admin moderation queue buckets on isApproved + rejectedAt.
   @@index([isApproved, rejectedAt])
   // Resolving a seller's own listings.

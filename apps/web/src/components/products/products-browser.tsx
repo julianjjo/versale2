@@ -24,6 +24,21 @@ import { Pager } from "@/components/admin/pager";
 import { FavoriteButton } from "@/components/products/favorite-button";
 import { useAuth } from "@/lib/auth";
 
+// One source of truth for the valid `sortBy` values and their labels, so the
+// URL parser, the submit handler, and the <Select>'s options can't drift out
+// of sync with each other the way three independently hand-written literals
+// would — the same reason CONDITION_OPTIONS exists below for `condition`.
+const SORT_OPTIONS = [
+  { value: "price_asc", label: "Precio: menor a mayor" },
+  { value: "price_desc", label: "Precio: mayor a menor" },
+] as const;
+
+type SortByValue = (typeof SORT_OPTIONS)[number]["value"];
+
+function isSortByValue(value: string): value is SortByValue {
+  return SORT_OPTIONS.some((option) => option.value === value);
+}
+
 export interface ProductFilters {
   search?: string;
   minPrice?: number;
@@ -36,7 +51,7 @@ export interface ProductFilters {
   // `initialFilters.sellerId` by a seller's public profile page, never
   // parsed from or written to the query string (see `queryFromFilters`).
   sellerId?: string;
-  sortBy?: "price_asc" | "price_desc";
+  sortBy?: SortByValue;
   page?: number;
   limit?: number;
 }
@@ -125,8 +140,8 @@ function filtersFromQuery(
     const value = params.get(key)?.trim();
     if (value) filters[key] = value;
   }
-  const sortBy = params.get("sortBy");
-  if (sortBy === "price_asc" || sortBy === "price_desc") filters.sortBy = sortBy;
+  const sortBy = params.get("sortBy")?.trim() ?? "";
+  if (isSortByValue(sortBy)) filters.sortBy = sortBy;
   filters.page = parsePage(params.get("page")) ?? filters.page ?? 1;
   return filters;
 }
@@ -272,10 +287,7 @@ function ProductsBrowserContent({
               brand: form.brand || undefined,
               category: form.category || undefined,
               condition: form.condition || undefined,
-              sortBy:
-                form.sortBy === "price_asc" || form.sortBy === "price_desc"
-                  ? form.sortBy
-                  : undefined,
+              sortBy: isSortByValue(form.sortBy) ? form.sortBy : undefined,
               page: 1,
             });
           }}
@@ -377,10 +389,19 @@ function ProductsBrowserContent({
               setForm((f) => ({ ...f, sortBy: e.target.value }))
             }
             aria-label="Ordenar por"
+            // Matches the search input's span: the 7 filter fields before it
+            // fill exactly 8 one-unit grid cells (2 breakpoints' worth of full
+            // rows), so a single-unit 9th field would leave the row before the
+            // button bar mostly empty. Spanning 2 keeps sm's rows full and
+            // narrows (rather than widens) the gap on lg.
+            wrapperClassName="sm:col-span-2 lg:col-span-2"
           >
             <option value="">Más recientes</option>
-            <option value="price_asc">Precio: menor a mayor</option>
-            <option value="price_desc">Precio: mayor a menor</option>
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </Select>
           <div className="flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:justify-end lg:col-span-4">
             <Button
