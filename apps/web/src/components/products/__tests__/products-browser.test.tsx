@@ -179,6 +179,44 @@ describe("ProductsBrowser", () => {
     expect(screen.getByText(/vendido por alice/i)).toBeInTheDocument();
   });
 
+  it("muestra la calificación promedio y el número de reseñas cuando el producto tiene alguna", async () => {
+    mockProductsApi({
+      data: {
+        data: [{ ...mockProducts.data[0], averageRating: 4.5 }],
+        meta: mockProducts.meta,
+      },
+    });
+    render(
+      <TestProviders>
+        <ProductsBrowser showPagination={false} />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    });
+    expect(screen.getByText("4.5 (3)")).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: /4\.5 de 5 estrellas/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("no muestra ninguna calificación cuando el producto todavía no tiene reseñas", async () => {
+    mockProductsApi({ data: mockProducts });
+    render(
+      <TestProviders>
+        <ProductsBrowser showPagination={false} />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    });
+    // Neither product fixture sets averageRating (undefined, same as the
+    // backend's `null` for "no reviews yet") — no star rating should render.
+    expect(screen.queryByRole("img", { name: /estrellas/i })).not.toBeInTheDocument();
+  });
+
   it("renderiza un estado vacío cuando no hay productos", async () => {
     mockProductsApi({ data: emptyProducts });
     render(

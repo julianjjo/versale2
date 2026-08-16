@@ -128,7 +128,7 @@ export class ProductsService {
     ]);
 
     return {
-      data: products,
+      data: await this.withAverageRating(products),
       meta: {
         total,
         page: pageNum,
@@ -136,6 +136,34 @@ export class ProductsService {
         pages: Math.ceil(total / limitNum),
       },
     };
+  }
+
+  // A buyer browsing the catalog decides whether to open a listing partly on
+  // its rating, so the grid needs it too, not just the single-product page
+  // (which already computes it from the full `reviews` array `findOne`
+  // returns). A `groupBy` scoped to just this page's product ids gets every
+  // average in one query instead of one aggregate per product (N+1) or
+  // pulling every review row into `include` just to average it in JS.
+  private async withAverageRating<T extends { id: string }>(
+    products: T[],
+  ): Promise<(T & { averageRating: number | null })[]> {
+    if (products.length === 0) {
+      return [];
+    }
+
+    const ratings = await this.prisma.client.review.groupBy({
+      by: ['productId'],
+      where: { productId: { in: products.map((p) => p.id) } },
+      _avg: { rating: true },
+    });
+    const averageByProductId = new Map(
+      ratings.map((r) => [r.productId, r._avg.rating]),
+    );
+
+    return products.map((product) => ({
+      ...product,
+      averageRating: averageByProductId.get(product.id) ?? null,
+    }));
   }
 
   async getFacets() {

@@ -28,6 +28,10 @@ export interface Product {
   seller?: { id: string; name: string };
   _count?: { reviews: number };
   reviews?: Review[];
+  // Only populated by the public catalog listing (GET /products) — null
+  // means no reviews yet, undefined means this response never computes it
+  // (e.g. a seller's own listings or the admin queue).
+  averageRating?: number | null;
 }
 
 export interface PaginatedResponse<T> {

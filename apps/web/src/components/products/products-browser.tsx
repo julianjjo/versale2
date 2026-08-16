@@ -18,6 +18,7 @@ import {
   Input,
   Select,
   Badge,
+  StarRating,
 } from "@/components/ui";
 import { Pager } from "@/components/admin/pager";
 import { FavoriteButton } from "@/components/products/favorite-button";
@@ -457,6 +458,16 @@ export function ProductCard({ product }: { product: Product }) {
             <p className="truncate text-[11px] uppercase tracking-[0.08em] text-muted">
               {product.brand}
             </p>
+          )}
+          {product.averageRating != null && (
+            <div className="mt-0.5 flex items-center gap-1.5">
+              <StarRating value={product.averageRating} />
+              <span className="text-[11px] text-muted">
+                {product.averageRating.toFixed(1)}
+                {typeof product._count?.reviews === "number" &&
+                  ` (${product._count.reviews})`}
+              </span>
+            </div>
           )}
           <div className="mt-1.5 flex items-center justify-between gap-2">
             <Price value={product.price} className="text-[16px] sm:text-[18px]" />

@@ -48,6 +48,9 @@ describe('ProductsService', () => {
       orderItem: {
         findFirst: jest.fn(),
       },
+      review: {
+        groupBy: jest.fn(),
+      },
     },
   };
 
@@ -65,6 +68,10 @@ describe('ProductsService', () => {
     // not a test cares about verifiedPurchase — default to "never sold" so
     // every other findOne test doesn't have to set this up itself.
     mockPrismaService.client.orderItem.findFirst.mockResolvedValue(null);
+    // findAll() always fires this alongside the product read now, whether or
+    // not a test cares about ratings — default to "no reviews yet" so every
+    // other findAll test doesn't have to set this up itself.
+    mockPrismaService.client.review.groupBy.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -1015,7 +1022,7 @@ describe('ProductsService', () => {
         },
       });
       expect(result).toEqual({
-        data: mockProducts,
+        data: [{ ...mockProducts[0], averageRating: null }],
         meta: {
           total: 1,
           page: 1, // converted to number
@@ -1023,6 +1030,41 @@ describe('ProductsService', () => {
           pages: 1,
         },
       });
+    });
+
+    it("should attach each product's average rating from a single groupBy query, not one aggregate per product", async () => {
+      const mockProducts = [
+        { id: 'product1', title: 'Rated product' },
+        { id: 'product2', title: 'Unrated product' },
+      ];
+      mockPrismaService.client.product.findMany.mockResolvedValue(mockProducts);
+      mockPrismaService.client.product.count.mockResolvedValue(2);
+      mockPrismaService.client.review.groupBy.mockResolvedValue([
+        { productId: 'product1', _avg: { rating: 4.5 } },
+      ]);
+
+      const result = await service.findAll({});
+
+      expect(mockPrismaService.client.review.groupBy).toHaveBeenCalledTimes(1);
+      expect(mockPrismaService.client.review.groupBy).toHaveBeenCalledWith({
+        by: ['productId'],
+        where: { productId: { in: ['product1', 'product2'] } },
+        _avg: { rating: true },
+      });
+      expect(result.data).toEqual([
+        { id: 'product1', title: 'Rated product', averageRating: 4.5 },
+        { id: 'product2', title: 'Unrated product', averageRating: null },
+      ]);
+    });
+
+    it('should not query ratings at all for an empty page of results', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      const result = await service.findAll({});
+
+      expect(mockPrismaService.client.review.groupBy).not.toHaveBeenCalled();
+      expect(result.data).toEqual([]);
     });
   });
 
