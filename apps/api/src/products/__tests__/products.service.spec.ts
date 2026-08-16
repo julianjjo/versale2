@@ -41,6 +41,7 @@ describe('ProductsService', () => {
         create: jest.fn(),
         findUnique: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
         delete: jest.fn(),
         findMany: jest.fn(),
         count: jest.fn(),
@@ -1489,6 +1490,36 @@ describe('ProductsService', () => {
         expect.objectContaining({ skip: 0, take: 100 }),
       );
       expect(result.meta).toEqual({ total: 0, page: 1, limit: 100, pages: 0 });
+    });
+  });
+
+  describe('bulkApprove', () => {
+    it('should approve every requested product in a single updateMany call', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 2,
+      });
+
+      const result = await service.bulkApprove(['product1', 'product2']);
+
+      expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['product1', 'product2'] }, soldAt: null },
+        data: { isApproved: true, rejectedAt: null, rejectionReason: null },
+      });
+      expect(result).toEqual({ approved: 2, requested: 2 });
+    });
+
+    // Mirrors approveProduct()'s compare-and-swap: a product that was sold
+    // between the admin loading the list and clicking "Aprobar seleccionados"
+    // is silently excluded from the update instead of failing the whole
+    // batch, since updateMany's `where` already re-asserts `soldAt: null`.
+    it('should silently exclude already-sold products from the count instead of failing the whole batch', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      const result = await service.bulkApprove(['product1', 'product2']);
+
+      expect(result).toEqual({ approved: 1, requested: 2 });
     });
   });
 

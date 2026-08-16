@@ -39,6 +39,16 @@ const EMPTY_STATE_COPY: Record<StatusFilter, string> = {
   rejected: "No hay publicaciones rechazadas",
 };
 
+// A listing can be bulk-approved from the same two states its own row's
+// "Aprobar" button already covers (pending or previously rejected), as long
+// as it hasn't been sold since — mirrors the per-row condition so a selected
+// checkbox never promises an action the request would silently drop.
+function isBulkApprovable(product: Product): boolean {
+  const isPending = !product.isApproved && !product.rejectedAt;
+  const isRejected = !product.isApproved && !!product.rejectedAt;
+  return (isPending || isRejected) && !product.soldAt;
+}
+
 export default function AdminProductsPage() {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -48,6 +58,7 @@ export default function AdminProductsPage() {
   );
   const [error, setError] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Product | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [rejectReason, setRejectReason] = useState("");
 
   const { data, isLoading, isFetching } = useQuery({
@@ -114,6 +125,44 @@ export default function AdminProductsPage() {
       setError(extractApiError(err, "No pudimos eliminar la publicación")),
   });
 
+  const bulkApprove = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const res = await api.patch<{ approved: number; requested: number }>(
+        "/products/admin/bulk-approve",
+        { ids },
+      );
+      return res.data;
+    },
+    onSuccess: (result) => {
+      invalidateProducts();
+      setSelectedIds(new Set());
+      // A product sold between loading this list and clicking the button is
+      // silently excluded by the API's own compare-and-swap — surfaced here
+      // instead of pretending every selected row went through.
+      setError(
+        result.approved < result.requested
+          ? `Se aprobaron ${result.approved} de ${result.requested} publicaciones. Las demás ya habían sido vendidas.`
+          : null,
+      );
+    },
+    onError: (err) =>
+      setError(
+        extractApiError(err, "No pudimos aprobar las publicaciones seleccionadas"),
+      ),
+  });
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   const products = data?.data ?? [];
   const meta = data?.meta;
 
@@ -132,6 +181,27 @@ export default function AdminProductsPage() {
   const setTab = (next: StatusFilter) => {
     setStatus(next);
     setPage(1);
+    // A selection made under one status filter doesn't carry meaning under
+    // another — e.g. a pending item selected before switching to "Rechazados"
+    // would leave the bulk bar counting a row no longer even on screen.
+    setSelectedIds(new Set());
+  };
+
+  const eligibleOnPage = products.filter(isBulkApprovable);
+  const allEligibleSelected =
+    eligibleOnPage.length > 0 &&
+    eligibleOnPage.every((product) => selectedIds.has(product.id));
+
+  const toggleSelectAllOnPage = () => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allEligibleSelected) {
+        eligibleOnPage.forEach((product) => next.delete(product.id));
+      } else {
+        eligibleOnPage.forEach((product) => next.add(product.id));
+      }
+      return next;
+    });
   };
 
   return (
@@ -180,6 +250,35 @@ export default function AdminProductsPage() {
         </p>
       )}
 
+      {selectedIds.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface-muted px-4 py-2">
+          <span className="text-sm text-text-primary">
+            {selectedIds.size} seleccionada
+            {selectedIds.size === 1 ? "" : "s"}
+          </span>
+          <Button
+            size="sm"
+            variant="accent"
+            onClick={() => bulkApprove.mutate(Array.from(selectedIds))}
+            disabled={bulkApprove.isPending}
+          >
+            {bulkApprove.isPending ? (
+              <Spinner className="h-4 w-4" />
+            ) : (
+              "Aprobar seleccionadas"
+            )}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setSelectedIds(new Set())}
+            disabled={bulkApprove.isPending}
+          >
+            Cancelar selección
+          </Button>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
           <Spinner className="h-5 w-5" /> Cargando…
@@ -188,6 +287,17 @@ export default function AdminProductsPage() {
         <EmptyState title={EMPTY_STATE_COPY[status]} />
       ) : (
         <div className="space-y-3" aria-busy={isFetching}>
+          {eligibleOnPage.length > 0 && (
+            <label className="flex items-center gap-2 text-xs text-text-muted">
+              <input
+                type="checkbox"
+                aria-label="Seleccionar todas las elegibles en esta página"
+                checked={allEligibleSelected}
+                onChange={toggleSelectAllOnPage}
+              />
+              Seleccionar todas las elegibles en esta página
+            </label>
+          )}
           {products.map((product, index) => {
             const isPending = !product.isApproved && !product.rejectedAt;
             const isRejected = !product.isApproved && !!product.rejectedAt;
@@ -197,6 +307,15 @@ export default function AdminProductsPage() {
                 data-testid={`admin-product-${product.id}`}
               >
                 <div className="flex flex-wrap items-center gap-4">
+                  {isBulkApprovable(product) && (
+                    <input
+                      type="checkbox"
+                      aria-label={`Seleccionar ${product.title}`}
+                      checked={selectedIds.has(product.id)}
+                      onChange={() => toggleSelected(product.id)}
+                      className="h-4 w-4 flex-shrink-0"
+                    />
+                  )}
                   <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
                     {product.images?.[0] ? (
                       <img

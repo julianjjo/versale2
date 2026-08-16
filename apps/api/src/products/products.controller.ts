@@ -16,6 +16,7 @@ import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { RejectProductDto } from './dto/reject-product.dto';
+import { BulkApproveDto } from './dto/bulk-approve.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -87,6 +88,16 @@ export class ProductsController {
   @Get('admin/all')
   async findAllForAdmin(@Query() query: any) {
     return this.productsService.findAllForAdmin(query);
+  }
+
+  // Declared as a literal two-segment path (admin/bulk-approve), so it never
+  // collides with the three-segment admin/:id/approve below regardless of
+  // declaration order.
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Patch('admin/bulk-approve')
+  async bulkApproveProducts(@Body() bulkApproveDto: BulkApproveDto) {
+    return this.productsService.bulkApprove(bulkApproveDto.ids);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

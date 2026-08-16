@@ -536,6 +536,22 @@ export class ProductsService {
     }
   }
 
+  // A moderator working through a backlog of pending listings approves them
+  // one at a time today; this lets a batch go through in a single request.
+  // `updateMany` (not a loop of individual updates) re-asserts `soldAt: null`
+  // in its own `where`, the same compare-and-swap approveProduct() uses, so a
+  // checkout racing this request still can't have one of the selected
+  // products approved out from under the buyer who just bought it — it's
+  // just silently excluded from `count` instead of one request failing.
+  async bulkApprove(ids: string[]) {
+    const result = await this.prisma.client.product.updateMany({
+      where: { id: { in: ids }, soldAt: null },
+      data: { isApproved: true, rejectedAt: null, rejectionReason: null },
+    });
+
+    return { approved: result.count, requested: ids.length };
+  }
+
   async rejectProduct(id: string, reason?: string) {
     const product = await this.prisma.client.product.findUnique({
       where: { id },

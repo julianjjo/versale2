@@ -193,6 +193,156 @@ describe("AdminProductsPage", () => {
     });
   });
 
+  it("ofrece la casilla de selección para una publicación pendiente y para una rechazada, pero no para una vendida", async () => {
+    const pending = productFixture({ id: "p20", title: "Pendiente" });
+    const rejected = productFixture({
+      id: "p21",
+      title: "Rechazada",
+      rejectedAt: new Date("2026-01-15T10:00:00Z").toISOString(),
+    });
+    const sold = productFixture({
+      id: "p22",
+      title: "Vendida",
+      isApproved: true,
+      soldAt: new Date("2026-02-01T10:00:00Z").toISOString(),
+    });
+    vi.mocked(api.get).mockResolvedValue({
+      data: paginated([pending, rejected, sold]),
+    });
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    const pendingCard = await screen.findByTestId("admin-product-p20");
+    const rejectedCard = screen.getByTestId("admin-product-p21");
+    const soldCard = screen.getByTestId("admin-product-p22");
+
+    expect(
+      within(pendingCard).getByLabelText(/seleccionar pendiente/i),
+    ).toBeInTheDocument();
+    expect(
+      within(rejectedCard).getByLabelText(/seleccionar rechazada/i),
+    ).toBeInTheDocument();
+    expect(
+      within(soldCard).queryByLabelText(/seleccionar vendida/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("aprueba en lote las publicaciones seleccionadas", async () => {
+    const first = productFixture({ id: "p30", title: "Primera pendiente" });
+    const second = productFixture({ id: "p31", title: "Segunda pendiente" });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([first, second]) });
+    vi.mocked(api.patch).mockResolvedValue({
+      data: { approved: 2, requested: 2 },
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("admin-product-p30");
+    await user.click(screen.getByLabelText(/seleccionar primera pendiente/i));
+    await user.click(screen.getByLabelText(/seleccionar segunda pendiente/i));
+
+    expect(screen.getByText("2 seleccionadas")).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Aprobar seleccionadas" }),
+    );
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/products/admin/bulk-approve", {
+        ids: ["p30", "p31"],
+      });
+    });
+    // The selection bar and its checkboxes clear once the batch succeeds.
+    await waitFor(() => {
+      expect(screen.queryByText(/seleccionadas$/)).not.toBeInTheDocument();
+    });
+  });
+
+  it("selecciona todas las elegibles de la página con la casilla general", async () => {
+    const first = productFixture({ id: "p32", title: "Uno" });
+    const second = productFixture({ id: "p33", title: "Dos" });
+    const sold = productFixture({
+      id: "p34",
+      title: "Tres vendida",
+      isApproved: true,
+      soldAt: new Date("2026-02-01T10:00:00Z").toISOString(),
+    });
+    vi.mocked(api.get).mockResolvedValue({
+      data: paginated([first, second, sold]),
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("admin-product-p32");
+    await user.click(
+      screen.getByLabelText(/seleccionar todas las elegibles en esta página/i),
+    );
+
+    expect(screen.getByText("2 seleccionadas")).toBeInTheDocument();
+    expect(screen.getByLabelText(/seleccionar uno/i)).toBeChecked();
+    expect(screen.getByLabelText(/seleccionar dos/i)).toBeChecked();
+  });
+
+  it("muestra un aviso cuando algunas seleccionadas ya habían sido vendidas al aprobar", async () => {
+    const first = productFixture({ id: "p40", title: "Chaqueta" });
+    const second = productFixture({ id: "p41", title: "Camiseta" });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([first, second]) });
+    vi.mocked(api.patch).mockResolvedValue({
+      data: { approved: 1, requested: 2 },
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("admin-product-p40");
+    await user.click(
+      screen.getByLabelText(/seleccionar todas las elegibles en esta página/i),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Aprobar seleccionadas" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          /se aprobaron 1 de 2 publicaciones\. las demás ya habían sido vendidas\./i,
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("limpia la selección al cambiar de pestaña de estado", async () => {
+    const pending = productFixture({ id: "p50", title: "Pendiente" });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([pending]) });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("admin-product-p50");
+    await user.click(screen.getByLabelText(/seleccionar pendiente/i));
+    expect(screen.getByText("1 seleccionada")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Rechazados" }));
+
+    expect(screen.queryByText(/seleccionada$/)).not.toBeInTheDocument();
+  });
+
   // Regression: deleting the last row on a page shrank `meta.pages` without
   // `page` following it down. Pager only clamps its own button clicks and
   // renders nothing once `pages <= 1`, so the admin was stuck looking at an
