@@ -129,14 +129,15 @@ vi.mock("@/lib/api", () => ({
 import { api } from "@/lib/api";
 
 // Most tests only care about the /products response; give the /products/facets
-// call a harmless default so brand/category <select> options don't blow up.
+// and /favorites/ids calls a harmless default so brand/category <select>
+// options and each card's heart icon don't blow up.
 function mockProductsApi(productsResponse: unknown) {
   vi.mocked(api.get).mockImplementation(async (url: string) => {
     if (url === "/products/facets") {
       return { data: mockFacets };
     }
-    if (url === "/favorites") {
-      return { data: [] };
+    if (url === "/favorites/ids") {
+      return { data: { productIds: [] } };
     }
     return productsResponse as { data: unknown };
   });

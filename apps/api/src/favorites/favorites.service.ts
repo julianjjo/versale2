@@ -79,6 +79,21 @@ export class FavoritesService {
     };
   }
 
+  // A lightweight sibling to findAll(): every FavoriteButton across the app
+  // (catalog cards, the product detail page) only needs to answer "is this
+  // product one of mine?", not the full paginated list with product details
+  // and rating enrichment findAll's own callers actually render. Sharing one
+  // endpoint for both meant every heart icon paid for a product join and a
+  // review aggregate it never used.
+  async findAllIds(userId: string) {
+    const favorites = await this.prisma.client.favorite.findMany({
+      where: { userId },
+      select: { productId: true },
+    });
+
+    return { productIds: favorites.map((favorite) => favorite.productId) };
+  }
+
   async addFavorite(userId: string, productId: string) {
     // Confirms the product exists (and surfaces the same 404 as everywhere
     // else) before creating a bookmark that would otherwise dangle.

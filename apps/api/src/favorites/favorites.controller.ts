@@ -22,6 +22,14 @@ export class FavoritesController {
     return this.favoritesService.findAll(req.user.id, query);
   }
 
+  // A literal one-segment path, so it can never collide with the bare
+  // @Get() above or the :productId routes below regardless of declaration
+  // order.
+  @Get('ids')
+  async getFavoriteIds(@Req() req: AuthRequest) {
+    return this.favoritesService.findAllIds(req.user.id);
+  }
+
   @Post(':productId')
   async addFavorite(
     @Req() req: AuthRequest,

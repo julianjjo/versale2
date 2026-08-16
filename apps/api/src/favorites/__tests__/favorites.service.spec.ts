@@ -176,6 +176,45 @@ describe('FavoritesService', () => {
     });
   });
 
+  describe('findAllIds', () => {
+    it("should return just the product ids of the user's favorites, with no product join", async () => {
+      mockPrismaService.client.favorite.findMany.mockResolvedValue([
+        { productId: 'product1' },
+        { productId: 'product2' },
+      ]);
+
+      const result = await service.findAllIds('user1');
+
+      expect(mockPrismaService.client.favorite.findMany).toHaveBeenCalledWith({
+        where: { userId: 'user1' },
+        select: { productId: true },
+      });
+      expect(result).toEqual({ productIds: ['product1', 'product2'] });
+      // This is the whole point of the endpoint: no product join, no
+      // pagination, and no rating enrichment for a caller that only checks
+      // membership.
+      expect(mockProductsService.withAverageRating).not.toHaveBeenCalled();
+    });
+
+    it('should return an empty list when the user has no favorites', async () => {
+      mockPrismaService.client.favorite.findMany.mockResolvedValue([]);
+
+      const result = await service.findAllIds('user1');
+
+      expect(result).toEqual({ productIds: [] });
+    });
+
+    it("should never return another user's favorites", async () => {
+      mockPrismaService.client.favorite.findMany.mockResolvedValue([]);
+
+      await service.findAllIds('user2');
+
+      expect(mockPrismaService.client.favorite.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: 'user2' } }),
+      );
+    });
+  });
+
   describe('addFavorite', () => {
     const approvedProduct = (overrides = {}) => ({
       id: 'product1',
