@@ -33,6 +33,22 @@ const APPROVE_DATA = {
   rejectionReason: null,
 };
 
+// The public-catalog visibility rule — findAll, getSellerProfile's active
+// count, getFacets, and getRelatedProducts all need "is this listing
+// something a buyer could actually find by browsing", and each independent
+// hand-copy of {isApproved:true, soldAt:null} is a chance for the rule to
+// drift if it ever changes.
+const APPROVED_UNSOLD = {
+  isApproved: true,
+  soldAt: null,
+} as const;
+
+// No route-level configurability today (see getRelatedProducts) — a plain
+// module constant, matching this codebase's convention for other hardcoded
+// caps (MAX_FAVORITE_IDS, MAX_ITEM_QUANTITY) rather than a default parameter
+// nothing actually overrides.
+const RELATED_PRODUCTS_LIMIT = 4;
+
 @Injectable()
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
@@ -97,7 +113,7 @@ export class ProductsService {
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     // Sold items are one-of-a-kind: once bought they leave the public catalog.
-    const where: any = { isApproved: true, soldAt: null };
+    const where: any = { ...APPROVED_UNSOLD };
 
     if (search) {
       where.OR = this.searchTextWhere(String(search));
@@ -226,7 +242,7 @@ export class ProductsService {
     // Promise.all) so a 404 lookup costs one product.count, not two — see
     // "should call product.count only once for a non-seller id" test.
     const activeListings = await this.prisma.client.product.count({
-      where: { sellerId: id, isApproved: true, soldAt: null },
+      where: { sellerId: id, ...APPROVED_UNSOLD },
     });
 
     return {
@@ -240,13 +256,13 @@ export class ProductsService {
   async getFacets() {
     const [brands, categories] = await Promise.all([
       this.prisma.client.product.findMany({
-        where: { isApproved: true, soldAt: null, brand: { not: null } },
+        where: { ...APPROVED_UNSOLD, brand: { not: null } },
         select: { brand: true },
         distinct: ['brand'],
         orderBy: { brand: 'asc' },
       }),
       this.prisma.client.product.findMany({
-        where: { isApproved: true, soldAt: null },
+        where: { ...APPROVED_UNSOLD },
         select: { category: true },
         distinct: ['category'],
         orderBy: { category: 'asc' },
@@ -331,6 +347,55 @@ export class ProductsService {
         verifiedPurchase: review.userId === verifiedBuyerId,
       })),
     };
+  }
+
+  // "Productos similares": other listings in the same category, so a buyer
+  // who opens one item can keep browsing instead of bouncing back to the
+  // catalog. A dedicated, lightweight endpoint rather than a field on
+  // findOne's response — this is optional supplementary content the page
+  // fetches independently, not something every findOne caller needs to pay
+  // for (findOne is also used by SSR product-page metadata and the seller's
+  // own preview of a pending listing).
+  //
+  // Unguarded route, no requester — unlike findOne, this never makes an
+  // exception for the listing's own seller or an admin. Gating on
+  // `isApproved` here (not just on the *results*, which already excluded
+  // unapproved siblings) matters for the SOURCE product too: without it, a
+  // pending or rejected listing's id would 404 on findOne but 200 here,
+  // letting a caller confirm a hidden listing exists via a side channel.
+  // The cost is that a seller previewing their own still-pending listing
+  // won't see a "similar items" section — an acceptable gap, since that
+  // section is a buyer-discovery aid, not something the listing's own
+  // author needs while it awaits review.
+  async getRelatedProducts(id: string) {
+    const product = await this.prisma.client.product.findUnique({
+      where: { id },
+      select: { category: true, isApproved: true },
+    });
+
+    if (!product || !product.isApproved) {
+      throw new NotFoundException(`Producto con ID ${id} no encontrado`);
+    }
+
+    // Exact match on the free-text `category` column: two listings entered
+    // as "Chaquetas" and "chaquetas" won't match each other. A known,
+    // pre-existing gap in how categories are stored app-wide (findAll's own
+    // catalog filter has the same exact-match limitation) — fixing it means
+    // normalizing category values at write time, out of scope here.
+    const related = await this.prisma.client.product.findMany({
+      where: {
+        category: product.category,
+        ...APPROVED_UNSOLD,
+        id: { not: id },
+      },
+      take: RELATED_PRODUCTS_LIMIT,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        seller: { select: { id: true, name: true } },
+      },
+    });
+
+    return { data: await this.withAverageRating(related) };
   }
 
   async findRaw(id: string) {

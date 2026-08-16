@@ -1310,6 +1310,96 @@ describe('ProductsService', () => {
     });
   });
 
+  describe('getRelatedProducts', () => {
+    it('should return other approved, unsold listings in the same category', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        category: 'Jackets',
+        isApproved: true,
+      });
+      const mockRelated = [
+        { id: 'p2', title: 'Another jacket' },
+        { id: 'p3', title: 'Yet another jacket' },
+      ];
+      mockPrismaService.client.product.findMany.mockResolvedValue(
+        mockRelated,
+      );
+
+      const result = await service.getRelatedProducts('p1');
+
+      expect(mockPrismaService.client.product.findUnique).toHaveBeenCalledWith(
+        {
+          where: { id: 'p1' },
+          select: { category: true, isApproved: true },
+        },
+      );
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith({
+        where: {
+          category: 'Jackets',
+          isApproved: true,
+          soldAt: null,
+          id: { not: 'p1' },
+        },
+        take: 4,
+        orderBy: { createdAt: 'desc' },
+        include: { seller: { select: { id: true, name: true } } },
+      });
+      expect(result.data).toEqual([
+        { ...mockRelated[0], _count: { reviews: 0 }, averageRating: null },
+        { ...mockRelated[1], _count: { reviews: 0 }, averageRating: null },
+      ]);
+    });
+
+    it('should never include the product itself among its own related listings', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        category: 'Jackets',
+        isApproved: true,
+      });
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+
+      await service.getRelatedProducts('p1');
+
+      const where = mockPrismaService.client.product.findMany.mock
+        .calls[0][0].where;
+      expect(where.id).toEqual({ not: 'p1' });
+    });
+
+    it('should throw NotFoundException when the product does not exist', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue(null);
+
+      await expect(service.getRelatedProducts('ghost')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockPrismaService.client.product.findMany).not.toHaveBeenCalled();
+    });
+
+    // Regression: without this, a pending or rejected listing's id would
+    // 404 on findOne but 200 here, letting a caller confirm a hidden
+    // listing exists (and its category) through this side-channel endpoint.
+    it('should throw the same NotFoundException for an unapproved source product as for a missing one', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        category: 'Jackets',
+        isApproved: false,
+      });
+
+      await expect(service.getRelatedProducts('pending1')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockPrismaService.client.product.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should return an empty list when nothing else is in the same category', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        category: 'Jackets',
+        isApproved: true,
+      });
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+
+      const result = await service.getRelatedProducts('p1');
+
+      expect(result).toEqual({ data: [] });
+    });
+  });
+
   describe('getFacets', () => {
     it('should return distinct approved brands and categories', async () => {
       mockPrismaService.client.product.findMany

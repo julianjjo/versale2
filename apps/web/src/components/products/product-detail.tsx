@@ -24,6 +24,7 @@ import { isTerminalError } from "@/lib/http-error";
 import { tokenStore } from "@/lib/token";
 import type { Product, Review } from "@/lib/types";
 import { FavoriteButton } from "@/components/products/favorite-button";
+import { ProductCard } from "@/components/products/products-browser";
 
 // Shared by the "write a review" form and the inline "edit my review" form so
 // the accessible radiogroup (roving tabindex, arrow-key navigation) isn't
@@ -148,6 +149,27 @@ export function ProductDetail({
     // refetches straight away.
     staleTime: 60_000,
   });
+
+  // Fetched independently of the main product query above — it only needs
+  // the id from the URL, so it doesn't wait on that request to resolve
+  // before firing its own.
+  const { data: related } = useQuery<{ data: Product[] }>({
+    queryKey: ["product-related", id],
+    queryFn: async () => {
+      const response = await api.get<{ data: Product[] }>(
+        `/products/${id}/related`,
+      );
+      return response.data;
+    },
+    enabled: Boolean(id),
+    // Matches the main product query's staleTime above — without it this
+    // sibling query refetches on every remount while the product next to it
+    // stays cached.
+    staleTime: 60_000,
+  });
+  // Guards against a missing/malformed response shape so this
+  // nice-to-have section can never crash the rest of the page.
+  const relatedProducts = related?.data ?? [];
 
   const addToCart = useMutation({
     mutationFn: async () => {
@@ -662,6 +684,19 @@ export function ProductDetail({
           </a>{" "}
           para agregar este producto a tu carrito o escribir una reseña.
         </p>
+      )}
+
+      {relatedProducts.length > 0 && (
+        <section className="mt-10">
+          <h2 className="heading-section text-text-primary">
+            Productos similares
+          </h2>
+          <div className="products-grid mt-4 grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+            {relatedProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </section>
       )}
     </PageContainer>
   );

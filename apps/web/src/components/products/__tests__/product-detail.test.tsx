@@ -79,12 +79,16 @@ vi.mock("@/lib/api", () => ({
 import { api } from "@/lib/api";
 
 // A logged-in, non-owner visit renders the favorite heart, which fires its
-// own GET /favorites/ids alongside the product fetch. Tests that only care
-// about the product response can use this so that call doesn't collide with
-// a blanket `mockResolvedValue`/`mockRejectedValue` on every `api.get` call.
-function mockProductGet(product: unknown) {
-  return async (url: string) =>
-    url === "/favorites/ids" ? { data: { productIds: [] } } : { data: product };
+// own GET /favorites/ids alongside the product fetch, and the page always
+// fires its own GET /products/:id/related. Tests that only care about the
+// product response can use this so those calls don't collide with a blanket
+// `mockResolvedValue`/`mockRejectedValue` on every `api.get` call.
+function mockProductGet(product: { id: string }, related: unknown[] = []) {
+  return async (url: string) => {
+    if (url === "/favorites/ids") return { data: { productIds: [] } };
+    if (url === `/products/${product.id}/related`) return { data: { data: related } };
+    return { data: product };
+  };
 }
 
 describe("ProductDetail", () => {
@@ -126,6 +130,105 @@ describe("ProductDetail", () => {
 
     const sellerLink = await screen.findByRole("link", { name: "Alice" });
     expect(sellerLink).toHaveAttribute("href", "/vendedores/s1");
+  });
+
+  it("muestra productos similares de la misma categoría", async () => {
+    const related = [
+      {
+        id: "p2",
+        title: "Chaqueta de mezclilla clásica",
+        description: "Otra chaqueta",
+        category: "Jackets",
+        brand: "Zara",
+        size: "L",
+        condition: "Good",
+        price: 30000,
+        sellerId: "s2",
+        isApproved: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        images: null,
+        seller: { id: "s2", name: "Carla" },
+      },
+    ];
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct, related));
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Productos similares")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Chaqueta de mezclilla clásica")).toBeInTheDocument();
+  });
+
+  // Regression: this must fail if the related-products query is ever
+  // disabled/broken outright, not just if the endpoint legitimately returns
+  // an empty list — both would look identical without this assertion.
+  it("no muestra la sección de productos similares cuando no hay ninguno", async () => {
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith("/products/p1/related");
+    });
+    expect(screen.queryByText("Productos similares")).not.toBeInTheDocument();
+  });
+
+  // Regression: each ProductCard's heart must check its OWN product id, not
+  // accidentally share state across the main listing and its related items.
+  it("mantiene el estado de favorito independiente entre el producto principal y los relacionados", async () => {
+    authState.user = { id: "u1", email: "a@b.c", name: "Dana", role: "USER" };
+    const related = [
+      {
+        id: "p2",
+        title: "Chaqueta de mezclilla clásica",
+        description: "Otra chaqueta",
+        category: "Jackets",
+        brand: "Zara",
+        size: "L",
+        condition: "Good",
+        price: 30000,
+        sellerId: "s2",
+        isApproved: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        images: null,
+        seller: { id: "s2", name: "Carla" },
+      },
+    ];
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/favorites/ids") return { data: { productIds: ["p1"] } };
+      if (url === `/products/${mockProduct.id}/related`) {
+        return { data: { data: related } };
+      }
+      return { data: mockProduct };
+    });
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Chaqueta de mezclilla clásica")).toBeInTheDocument();
+    });
+
+    expect(
+      await screen.findAllByRole("button", { name: /quitar de favoritos/i }),
+    ).toHaveLength(1);
+    expect(
+      screen.getAllByRole("button", { name: /agregar a favoritos/i }),
+    ).toHaveLength(1);
   });
 
   it("renderiza las reseñas", async () => {
