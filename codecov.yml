@@ -1,0 +1,41 @@
+codecov:
+  require_ci_to_pass: true
+
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+  status:
+    # Overall coverage per app must stay at/above 80%.
+    project:
+      default: false
+      api:
+        target: 80%
+        threshold: 0%
+        flags:
+          - api
+      web:
+        target: 80%
+        threshold: 0%
+        flags:
+          - web
+    # New/changed lines in the PR diff must also be covered at 80%.
+    patch:
+      default:
+        target: 80%
+        threshold: 0%
+
+flags:
+  api:
+    paths:
+      - apps/api/
+    carryforward: true
+  web:
+    paths:
+      - apps/web/
+    carryforward: true
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false
