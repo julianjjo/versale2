@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
@@ -12,13 +17,21 @@ import {
   Badge,
   Button,
   Input,
+  Select,
   PageContainer,
   SectionHeader,
   Price,
 } from "@/components/ui";
 import { Pager } from "@/components/admin/pager";
-import { ORDER_STATUS_LABEL, ORDER_STATUS_VARIANT } from "@/lib/order-status";
-import type { Order } from "@/lib/types";
+import { useDebouncedSearch } from "@/lib/use-debounced-search";
+import {
+  ORDER_STATUSES,
+  ORDER_STATUS_LABEL,
+  ORDER_STATUS_VARIANT,
+} from "@/lib/order-status";
+import type { Order, OrderStatus } from "@/lib/types";
+
+type StatusFilter = OrderStatus | "all";
 
 function shippingAddressLine(address: Record<string, unknown>): string {
   const city = typeof address.city === "string" ? address.city : "";
@@ -30,6 +43,7 @@ export default function MisVentasPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, isLoading: isAuthLoading } = useAuth();
+  const [status, setStatus] = useState<StatusFilter>("all");
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   // Keyed by order id: several "Marcar como enviado" forms can be open on the
@@ -38,16 +52,29 @@ export default function MisVentasPage() {
     {},
   );
 
+  const { searchInput, setSearchInput, search } = useDebouncedSearch(() =>
+    setPage(1),
+  );
+
   const { data, isLoading, isFetching, isError, refetch } = useQuery({
-    queryKey: ["mis-ventas", page],
+    queryKey: ["mis-ventas", search, status, page],
     queryFn: async () => {
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      if (status !== "all") params.set("status", status);
+      params.set("page", String(page));
+      params.set("limit", "10");
       const res = await api.get<{
         data: Order[];
         meta: { total: number; page: number; pages: number };
-      }>(`/orders/mine/sales?page=${page}&limit=10`);
+      }>(`/orders/mine/sales?${params.toString()}`);
       return res.data;
     },
     enabled: Boolean(user),
+    // Igual que en el historial del comprador: cada combinación de
+    // búsqueda/estado/página es una queryKey nueva, así que sin esto la
+    // lista se vaciaría (y el buscador perdería el foco) en cada pulsación.
+    placeholderData: keepPreviousData,
   });
 
   const ship = useMutation({
@@ -108,6 +135,12 @@ export default function MisVentasPage() {
 
   const orders = data?.data ?? [];
   const meta = data?.meta;
+  const isFiltered = Boolean(search) || status !== "all";
+  // Igual que en el historial del comprador: sin ventas es distinto de sin
+  // resultados para el filtro, y cada uno necesita su propia acción.
+  const emptyTitle = isFiltered
+    ? "Ninguna venta coincide con tu búsqueda"
+    : "Aún no tienes ventas";
 
   return (
     <PageContainer>
@@ -122,6 +155,41 @@ export default function MisVentasPage() {
         </p>
       )}
 
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Input
+          type="search"
+          placeholder="Buscar por producto, comprador o ID de pedido"
+          aria-label="Buscar ventas"
+          value={searchInput}
+          onChange={(e) => {
+            setSearchInput(e.target.value);
+          }}
+          className="max-w-md"
+          wrapperClassName="flex-1"
+        />
+        <Select
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value as StatusFilter);
+            setPage(1);
+          }}
+          aria-label="Filtrar por estado"
+          className="w-auto"
+        >
+          <option value="all">Todos los estados</option>
+          {ORDER_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {ORDER_STATUS_LABEL[s]}
+            </option>
+          ))}
+        </Select>
+        {isFetching && !isLoading && (
+          <span className="inline-flex flex-shrink-0 items-center gap-1.5 text-xs text-text-muted">
+            <Spinner className="h-3.5 w-3.5" /> Actualizando…
+          </span>
+        )}
+      </div>
+
       {isError ? (
         <EmptyState
           title="No pudimos cargar tus ventas"
@@ -130,8 +198,12 @@ export default function MisVentasPage() {
         />
       ) : orders.length === 0 ? (
         <EmptyState
-          title="Aún no tienes ventas"
-          description="Cuando alguien compre uno de tus productos, aparecerá aquí."
+          title={emptyTitle}
+          description={
+            isFiltered
+              ? undefined
+              : "Cuando alguien compre uno de tus productos, aparecerá aquí."
+          }
         />
       ) : (
         <div className="space-y-3" aria-busy={isFetching}>

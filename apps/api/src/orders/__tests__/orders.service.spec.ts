@@ -600,7 +600,7 @@ describe('OrdersService', () => {
       );
     });
 
-    it('should never return another user\'s orders regardless of search or status filters', async () => {
+    it("should never return another user's orders regardless of search or status filters", async () => {
       const userId = 'user1';
       mockPrismaService.client.order.findMany.mockResolvedValue([]);
       mockPrismaService.client.order.count.mockResolvedValue(0);
@@ -1054,9 +1054,7 @@ describe('OrdersService', () => {
       mockTx.orderItem.findMany.mockResolvedValue([{ productId: 'product1' }]);
       mockTx.order.update.mockRejectedValue(staleStatusError());
 
-      await expect(
-        service.cancelOwnOrder('buyer1', 'order1'),
-      ).rejects.toThrow(
+      await expect(service.cancelOwnOrder('buyer1', 'order1')).rejects.toThrow(
         'Este pedido cambió de estado mientras se procesaba tu solicitud. Actualiza la página e inténtalo de nuevo.',
       );
       expect(mockTx.product.updateMany).not.toHaveBeenCalled();
@@ -1083,9 +1081,9 @@ describe('OrdersService', () => {
         status: OrderStatus.SHIPPED,
       });
 
-      await expect(
-        service.cancelOwnOrder('buyer1', 'order1'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.cancelOwnOrder('buyer1', 'order1')).rejects.toThrow(
+        BadRequestException,
+      );
       expect(mockPrismaService.client.order.update).not.toHaveBeenCalled();
     });
 
@@ -1096,9 +1094,9 @@ describe('OrdersService', () => {
         status: OrderStatus.CANCELLED,
       });
 
-      await expect(
-        service.cancelOwnOrder('buyer1', 'order1'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.cancelOwnOrder('buyer1', 'order1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw NotFoundException for an unknown order id', async () => {
@@ -1118,7 +1116,10 @@ describe('OrdersService', () => {
       mockPrismaService.client.order.findMany.mockResolvedValue(mockOrders);
       mockPrismaService.client.order.count.mockResolvedValue(1);
 
-      const result = await service.getMySales(sellerId, { page: '1', limit: '10' });
+      const result = await service.getMySales(sellerId, {
+        page: '1',
+        limit: '10',
+      });
 
       expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
         where: { items: { some: { product: { sellerId } } } },
@@ -1140,6 +1141,94 @@ describe('OrdersService', () => {
         meta: { total: 1, page: 1, limit: 10, pages: 1 },
       });
     });
+
+    it("should filter by order id, buyer name, or the seller's own product title when search is provided", async () => {
+      const sellerId = 'seller1';
+      mockPrismaService.client.order.findMany.mockResolvedValue([]);
+      mockPrismaService.client.order.count.mockResolvedValue(0);
+
+      await service.getMySales(sellerId, {
+        search: 'chaqueta',
+        page: '2',
+        limit: '5',
+      });
+
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
+        where: {
+          items: { some: { product: { sellerId } } },
+          OR: [
+            { id: { contains: 'chaqueta' } },
+            { user: { is: { name: { contains: 'chaqueta' } } } },
+            {
+              items: {
+                some: {
+                  product: {
+                    is: { sellerId, title: { contains: 'chaqueta' } },
+                  },
+                },
+              },
+            },
+          ],
+        },
+        skip: 5,
+        take: 5,
+        include: {
+          user: { select: { id: true, name: true } },
+          items: {
+            where: { product: { sellerId } },
+            include: {
+              product: { select: { id: true, title: true, images: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    });
+
+    it('should filter by status when a valid status is provided', async () => {
+      const sellerId = 'seller1';
+      mockPrismaService.client.order.findMany.mockResolvedValue([]);
+      mockPrismaService.client.order.count.mockResolvedValue(0);
+
+      await service.getMySales(sellerId, { status: OrderStatus.SHIPPED });
+
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            items: { some: { product: { sellerId } } },
+            status: OrderStatus.SHIPPED,
+          },
+        }),
+      );
+    });
+
+    it('should silently ignore a status value outside the enum instead of passing it to Prisma', async () => {
+      const sellerId = 'seller1';
+      mockPrismaService.client.order.findMany.mockResolvedValue([]);
+      mockPrismaService.client.order.count.mockResolvedValue(0);
+
+      await service.getMySales(sellerId, { status: 'NOT_A_REAL_STATUS' });
+
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { items: { some: { product: { sellerId } } } },
+        }),
+      );
+    });
+
+    it("should scope a product-title search match to the caller's own listings, not another seller's item in the same order", async () => {
+      const sellerId = 'seller1';
+      mockPrismaService.client.order.findMany.mockResolvedValue([]);
+      mockPrismaService.client.order.count.mockResolvedValue(0);
+
+      await service.getMySales(sellerId, { search: 'zapatos' });
+
+      const [[callArgs]] = mockPrismaService.client.order.findMany.mock.calls;
+      const titleClause = callArgs.where.OR.find(
+        (clause: any) => clause.items?.some?.product?.is?.title,
+      );
+      expect(titleClause.items.some.product.is.sellerId).toBe(sellerId);
+    });
   });
 
   describe('shipOwnSale', () => {
@@ -1148,10 +1237,7 @@ describe('OrdersService', () => {
       mockPrismaService.client.order.findUnique.mockResolvedValue({
         id: 'order1',
         status: OrderStatus.PAID,
-        items: [
-          { product: { sellerId } },
-          { product: { sellerId } },
-        ],
+        items: [{ product: { sellerId } }, { product: { sellerId } }],
       });
       mockPrismaService.client.order.update.mockResolvedValue({
         id: 'order1',
@@ -1266,7 +1352,9 @@ describe('OrdersService', () => {
         status: OrderStatus.PAID,
         items: [{ product: { sellerId } }],
       });
-      mockPrismaService.client.order.update.mockRejectedValue(staleStatusError());
+      mockPrismaService.client.order.update.mockRejectedValue(
+        staleStatusError(),
+      );
 
       await expect(
         service.shipOwnSale(sellerId, 'order1', undefined),

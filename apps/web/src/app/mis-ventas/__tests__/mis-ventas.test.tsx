@@ -189,6 +189,72 @@ describe("MisVentasPage", () => {
     });
   });
 
+  it("busca ventas por producto, comprador o ID de pedido", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: paginatedResponse([paidOrder]) });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <MisVentasPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/pedido #order1/i)).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText(/buscar ventas/i), "chaqueta");
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith(
+        expect.stringContaining("search=chaqueta"),
+      );
+    });
+  });
+
+  it("filtra las ventas por estado", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: paginatedResponse([paidOrder]) });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <MisVentasPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/pedido #order1/i)).toBeInTheDocument();
+    });
+
+    await user.selectOptions(screen.getByLabelText(/filtrar por estado/i), "SHIPPED");
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith(
+        expect.stringContaining("status=SHIPPED"),
+      );
+    });
+  });
+
+  it("muestra un mensaje distinto al vacío real cuando el filtro no encuentra ventas", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: paginatedResponse([]) });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <MisVentasPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/aún no tienes ventas/i)).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText(/buscar ventas/i), "inexistente");
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/ninguna venta coincide con tu búsqueda/i),
+      ).toBeInTheDocument();
+    });
+  });
+
   it("pide al usuario iniciar sesión si no está autenticado", async () => {
     authState.user = null;
     const user = userEvent.setup();
