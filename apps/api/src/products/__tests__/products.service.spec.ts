@@ -1104,6 +1104,45 @@ describe('ProductsService', () => {
     });
   });
 
+  describe('findAll sort order', () => {
+    beforeEach(() => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+    });
+
+    it('should default to newest-first when no sortBy is given', async () => {
+      await service.findAll({});
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { createdAt: 'desc' } }),
+      );
+    });
+
+    it('should sort by price ascending when sortBy=price_asc', async () => {
+      await service.findAll({ sortBy: 'price_asc' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { price: 'asc' } }),
+      );
+    });
+
+    it('should sort by price descending when sortBy=price_desc', async () => {
+      await service.findAll({ sortBy: 'price_desc' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { price: 'desc' } }),
+      );
+    });
+
+    it('should fall back to newest-first for an unrecognized sortBy value instead of erroring', async () => {
+      await service.findAll({ sortBy: 'not-a-real-option' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { createdAt: 'desc' } }),
+      );
+    });
+  });
+
   describe('findAll with sellerId filter', () => {
     it('should filter by seller when provided, powering a seller public profile page', async () => {
       mockPrismaService.client.product.findMany.mockResolvedValue([]);

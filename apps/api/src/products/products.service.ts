@@ -53,6 +53,19 @@ const RELATED_PRODUCTS_LIMIT = 4;
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
+  // Only `price` is sortable beyond the default recency order: rating is
+  // computed after the page is fetched (see withAverageRating's own
+  // comment on why — one groupBy for the whole page, not a column Prisma
+  // could ORDER BY), so it can't be a catalog sort option without a much
+  // larger restructure. An unrecognized or missing value falls back to the
+  // browsing default rather than erroring, since this reads directly off
+  // the query string and a stale/bookmarked URL should never 400.
+  private resolveSortOrder(sortBy: unknown): { createdAt: 'desc' } | { price: 'asc' | 'desc' } {
+    if (sortBy === 'price_asc') return { price: 'asc' };
+    if (sortBy === 'price_desc') return { price: 'desc' };
+    return { createdAt: 'desc' };
+  }
+
   // Shared by findAll (public catalog) and findAllMine (a seller's own
   // listings): the same four text columns, so the two search experiences
   // can't silently drift apart the way two hand-copied blocks would.
@@ -107,10 +120,12 @@ export class ProductsService {
       category,
       condition,
       sellerId,
+      sortBy,
       page = 1,
       limit = 10,
     } = query;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
+    const orderBy = this.resolveSortOrder(sortBy);
 
     // Sold items are one-of-a-kind: once bought they leave the public catalog.
     const where: any = { ...APPROVED_UNSOLD };
@@ -151,7 +166,7 @@ export class ProductsService {
         where,
         skip,
         take: limitNum,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: {
           seller: { select: { id: true, name: true } },
         },

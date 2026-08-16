@@ -36,6 +36,7 @@ export interface ProductFilters {
   // `initialFilters.sellerId` by a seller's public profile page, never
   // parsed from or written to the query string (see `queryFromFilters`).
   sellerId?: string;
+  sortBy?: "price_asc" | "price_desc";
   page?: number;
   limit?: number;
 }
@@ -57,6 +58,7 @@ interface FilterFormState {
   brand: string;
   category: string;
   condition: string;
+  sortBy: string;
 }
 
 const EMPTY_FORM: FilterFormState = {
@@ -67,6 +69,7 @@ const EMPTY_FORM: FilterFormState = {
   brand: "",
   category: "",
   condition: "",
+  sortBy: "",
 };
 
 function toFormState(f?: ProductFilters): FilterFormState {
@@ -78,6 +81,7 @@ function toFormState(f?: ProductFilters): FilterFormState {
     brand: f?.brand ?? "",
     category: f?.category ?? "",
     condition: f?.condition ?? "",
+    sortBy: f?.sortBy ?? "",
   };
 }
 
@@ -121,6 +125,8 @@ function filtersFromQuery(
     const value = params.get(key)?.trim();
     if (value) filters[key] = value;
   }
+  const sortBy = params.get("sortBy");
+  if (sortBy === "price_asc" || sortBy === "price_desc") filters.sortBy = sortBy;
   filters.page = parsePage(params.get("page")) ?? filters.page ?? 1;
   return filters;
 }
@@ -134,6 +140,7 @@ function queryFromFilters(filters: ProductFilters): string {
   if (filters.condition) params.set("condition", filters.condition);
   if (filters.brand) params.set("brand", filters.brand);
   if (filters.category) params.set("category", filters.category);
+  if (filters.sortBy) params.set("sortBy", filters.sortBy);
   if ((filters.page ?? 1) > 1) params.set("page", String(filters.page));
   return params.toString();
 }
@@ -265,6 +272,10 @@ function ProductsBrowserContent({
               brand: form.brand || undefined,
               category: form.category || undefined,
               condition: form.condition || undefined,
+              sortBy:
+                form.sortBy === "price_asc" || form.sortBy === "price_desc"
+                  ? form.sortBy
+                  : undefined,
               page: 1,
             });
           }}
@@ -358,6 +369,18 @@ function ProductsBrowserContent({
                 {c}
               </option>
             ))}
+          </Select>
+          <Select
+            name="sortBy"
+            value={form.sortBy}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, sortBy: e.target.value }))
+            }
+            aria-label="Ordenar por"
+          >
+            <option value="">Más recientes</option>
+            <option value="price_asc">Precio: menor a mayor</option>
+            <option value="price_desc">Precio: mayor a menor</option>
           </Select>
           <div className="flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:justify-end lg:col-span-4">
             <Button
