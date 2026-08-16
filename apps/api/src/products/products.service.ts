@@ -195,24 +195,36 @@ export class ProductsService {
   // are currently live, so a buyer who likes one item can see the rest of
   // that seller's catalog. Looked up by an arbitrary user id from a product
   // page, so it only ever surfaces accounts that have actually published at
-  // least one approved listing — a `USER` who has never sold anything isn't
-  // a "seller" (see PRODUCT.md) and their account shouldn't be enumerable
+  // least one listing — a `USER` who has never listed anything isn't a
+  // "seller" (see PRODUCT.md) and their account shouldn't be enumerable
   // through this route.
+  //
+  // Deliberately gated on "has ever published a listing" (any Product row
+  // at all), NOT "currently has an approved one": editing any moderated
+  // field of an already-approved listing flips it back to `isApproved:
+  // false` pending re-review (see `update()` above), and a seller's very
+  // first listing starts out pending too. Gating on current approval would
+  // 404 an established seller's own profile the moment they touch their
+  // price, or a new seller previewing their own pending listing — exactly
+  // the accounts this page exists to serve.
   async getSellerProfile(id: string) {
-    const [user, everApproved] = await Promise.all([
+    const [user, hasEverListed] = await Promise.all([
       this.prisma.client.user.findUnique({
         where: { id },
         select: { id: true, name: true, createdAt: true },
       }),
       this.prisma.client.product.count({
-        where: { sellerId: id, isApproved: true },
+        where: { sellerId: id },
       }),
     ]);
 
-    if (!user || everApproved === 0) {
+    if (!user || hasEverListed === 0) {
       throw new NotFoundException('Este vendedor no existe');
     }
 
+    // Deferred until after the gate above (rather than folded into the
+    // Promise.all) so a 404 lookup costs one product.count, not two — see
+    // "should call product.count only once for a non-seller id" test.
     const activeListings = await this.prisma.client.product.count({
       where: { sellerId: id, isApproved: true, soldAt: null },
     });

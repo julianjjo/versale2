@@ -3,8 +3,6 @@ import { render, screen, waitFor } from "@testing-library/react";
 import SellerProfilePage from "../page";
 import { TestProviders } from "@/test-utils/TestProviders";
 
-const pushMock = vi.fn();
-
 vi.mock("next/link", () => ({
   default: ({ children, href, ...rest }: { children: React.ReactNode; href: string }) => (
     <a href={href} {...rest}>
@@ -15,22 +13,42 @@ vi.mock("next/link", () => ({
 
 // A minimal App Router stand-in for the `<ProductsBrowser>` rendered inside
 // this page — it needs `useSearchParams`/`usePathname` (for pagination) on
-// top of `useParams` (the seller id from the URL segment).
-const nav = vi.hoisted(() => ({ url: "/vendedores/seller1" }));
+// top of `useParams` (the seller id from the URL segment). `push`/`replace`
+// actually mutate the observed URL (like products-browser.test.tsx's own
+// stand-in) rather than being inert spies, so a future pagination/navigation
+// test here would actually see the resulting state change.
+const nav = vi.hoisted(() => {
+  const state = {
+    url: "/vendedores/seller1",
+    listeners: new Set<() => void>(),
+    navigate(url: string) {
+      state.url = url;
+      state.listeners.forEach((listener) => listener());
+    },
+  };
+  return state;
+});
 
 vi.mock("next/navigation", async () => {
   const { useSyncExternalStore } = await import("react");
+  const subscribe = (onChange: () => void) => {
+    nav.listeners.add(onChange);
+    return () => {
+      nav.listeners.delete(onChange);
+    };
+  };
+  const getUrl = () => nav.url;
   return {
-    useRouter: () => ({ push: pushMock, replace: pushMock, refresh: vi.fn() }),
+    useRouter: () => ({
+      push: (url: string) => nav.navigate(url),
+      replace: (url: string) => nav.navigate(url),
+      refresh: vi.fn(),
+    }),
     useParams: () => ({ id: "seller1" }),
-    usePathname: () => nav.url.split("?")[0],
+    usePathname: () => useSyncExternalStore(subscribe, getUrl, getUrl).split("?")[0],
     useSearchParams: () =>
       new URLSearchParams(
-        useSyncExternalStore(
-          () => () => {},
-          () => nav.url,
-          () => nav.url,
-        ).split("?")[1] ?? "",
+        useSyncExternalStore(subscribe, getUrl, getUrl).split("?")[1] ?? "",
       ),
   };
 });
@@ -51,8 +69,12 @@ vi.mock("@/lib/auth", async () => {
   };
 });
 
+// `id` deliberately does NOT match the "seller1" route param used below —
+// the page must filter the catalog by the URL's id (available immediately,
+// with no fetch required), not by echoing this response's `id` field, so a
+// mismatch here would expose that bug immediately instead of masking it.
 const mockProfile = {
-  id: "seller1",
+  id: "some-other-id-the-page-must-not-use",
   name: "Bob",
   memberSince: "2025-01-15T00:00:00.000Z",
   activeListings: 2,

@@ -31,19 +31,10 @@ export default function SellerProfilePage() {
       );
       return response.data;
     },
+    enabled: Boolean(params.id),
   });
 
-  if (isLoading) {
-    return (
-      <PageContainer>
-        <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-          <Spinner className="h-5 w-5" /> Cargando…
-        </div>
-      </PageContainer>
-    );
-  }
-
-  if (isError || !data) {
+  if (isError) {
     const notFound = isTerminalError(error, [404]);
     return (
       <PageContainer size="narrow">
@@ -64,20 +55,28 @@ export default function SellerProfilePage() {
     );
   }
 
-  const listingsLabel =
-    data.activeListings === 1 ? "publicación activa" : "publicaciones activas";
-
+  // The listings grid below only needs the seller id from the URL, which is
+  // already known — it doesn't need to wait for this profile lookup to
+  // resolve, so it renders in parallel with it instead of after it.
   return (
     <PageContainer size="wide">
-      <SectionHeader
-        title={data.name}
-        description={`Miembro desde ${memberSinceFormatter.format(new Date(data.memberSince))} · ${data.activeListings} ${listingsLabel}`}
-      />
-      <ProductsBrowser
-        initialFilters={{ sellerId: data.id }}
-        showFilters={false}
-        showPagination
-      />
+      {isLoading || !data ? (
+        <div className="mb-6 flex items-center gap-2 text-text-muted">
+          <Spinner className="h-5 w-5" /> Cargando…
+        </div>
+      ) : (
+        <SectionHeader
+          title={data.name}
+          description={`Miembro desde ${memberSinceFormatter.format(new Date(data.memberSince))} · ${data.activeListings} ${data.activeListings === 1 ? "publicación activa" : "publicaciones activas"}`}
+        />
+      )}
+      {params.id && (
+        <ProductsBrowser
+          initialFilters={{ sellerId: params.id }}
+          showFilters={false}
+          showPagination
+        />
+      )}
     </PageContainer>
   );
 }

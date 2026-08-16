@@ -243,7 +243,10 @@ function ProductsBrowserContent({
 
   const clearFilters = () => {
     setForm(EMPTY_FORM);
-    applyFilters({ page: 1, limit });
+    // Keeps any fixed filter a host page supplies (e.g. a seller profile
+    // page's `sellerId`) — this resets what the visitor searched for, not
+    // which catalog they're even looking at.
+    applyFilters({ page: 1, limit, ...initialFilters });
   };
 
   return (
@@ -386,11 +389,17 @@ function ProductsBrowserContent({
       {data && data.data.length === 0 && !isLoading && (
         <EmptyState
           title="No encontramos productos"
-          description="Ajusta los filtros o explora todas las publicaciones."
+          description={
+            showFilters
+              ? "Ajusta los filtros o explora todas las publicaciones."
+              : "Todavía no hay publicaciones activas aquí."
+          }
           action={
-            <Button variant="secondary" size="sm" onClick={clearFilters}>
-              Limpiar filtros
-            </Button>
+            showFilters ? (
+              <Button variant="secondary" size="sm" onClick={clearFilters}>
+                Limpiar filtros
+              </Button>
+            ) : undefined
           }
         />
       )}
