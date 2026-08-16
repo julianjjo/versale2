@@ -14,6 +14,7 @@ describe('ProductsController', () => {
     findAll: jest.fn(),
     getFacets: jest.fn(),
     getSellerProfile: jest.fn(),
+    getRelatedProducts: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
@@ -83,6 +84,18 @@ describe('ProductsController', () => {
       expect(productsService.getSellerProfile).toHaveBeenCalledWith(
         'seller1',
       );
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('getRelatedProducts', () => {
+    it('should call productsService.getRelatedProducts with the id param', async () => {
+      const mockResult = { data: [{ id: 'p2', title: 'Another jacket' }] };
+      mockProductsService.getRelatedProducts.mockResolvedValue(mockResult);
+
+      const result = await controller.getRelatedProducts('p1');
+
+      expect(productsService.getRelatedProducts).toHaveBeenCalledWith('p1');
       expect(result).toEqual(mockResult);
     });
   });

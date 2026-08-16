@@ -333,6 +333,40 @@ export class ProductsService {
     };
   }
 
+  // "Productos similares": other listings in the same category, so a buyer
+  // who opens one item can keep browsing instead of bouncing back to the
+  // catalog. A dedicated, lightweight endpoint rather than a field on
+  // findOne's response — this is optional supplementary content the page
+  // fetches independently, not something every findOne caller needs to pay
+  // for (findOne is also used by SSR product-page metadata and the seller's
+  // own preview of a pending listing).
+  async getRelatedProducts(id: string, limit = 4) {
+    const product = await this.prisma.client.product.findUnique({
+      where: { id },
+      select: { category: true },
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Producto con ID ${id} no encontrado`);
+    }
+
+    const related = await this.prisma.client.product.findMany({
+      where: {
+        category: product.category,
+        isApproved: true,
+        soldAt: null,
+        id: { not: id },
+      },
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        seller: { select: { id: true, name: true } },
+      },
+    });
+
+    return { data: await this.withAverageRating(related) };
+  }
+
   async findRaw(id: string) {
     const product = await this.prisma.client.product.findUnique({
       where: { id },

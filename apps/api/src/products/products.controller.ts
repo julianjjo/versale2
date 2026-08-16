@@ -62,6 +62,13 @@ export class ProductsController {
     );
   }
 
+  // Two segments (':id/related'), so it never collides with the bare ':id'
+  // above regardless of declaration order — same reasoning as 'sellers/:id'.
+  @Get(':id/related')
+  async getRelatedProducts(@Param('id') id: string) {
+    return this.productsService.getRelatedProducts(id);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Post()
   async create(
