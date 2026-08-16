@@ -27,6 +27,7 @@ model User {
   cart          Cart?
   reviews       Review[]
   favorites     Favorite[]
+  productReports ProductReport[]
 }
 
 enum Role {
@@ -56,6 +57,7 @@ model Product {
   images        Json?    // Changed to Json type (SQLite compatible), nullable
   cartItems     CartItem[] @relation("CartItemProduct")
   favoritedBy   Favorite[]
+  reports       ProductReport[]
 
   // The public catalog always filters on isApproved + soldAt and sorts by
   // createdAt desc, so this covers the hottest query in the product end to end.
@@ -160,4 +162,22 @@ model Favorite {
   @@unique([userId, productId])
   // The favorites page always loads "this user's favorites, newest first".
   @@index([userId, createdAt])
+}
+
+model ProductReport {
+  id         String   @id @default(uuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  reporterId String
+  reporter   User     @relation(fields: [reporterId], references: [id])
+  reason     String
+  createdAt  DateTime @default(now())
+
+  // Resubmitting isn't a second signal against the listing, it's the same
+  // complaint — upserting on this keeps the admin queue from growing
+  // unbounded from one reporter retrying the same product, while still
+  // letting them refine their reason (see ReportsService#create).
+  @@unique([productId, reporterId])
+  // The admin queue always loads "every report, newest first".
+  @@index([createdAt])
 }

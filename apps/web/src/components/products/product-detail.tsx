@@ -24,6 +24,7 @@ import { isTerminalError } from "@/lib/http-error";
 import { tokenStore } from "@/lib/token";
 import type { Product, Review } from "@/lib/types";
 import { FavoriteButton } from "@/components/products/favorite-button";
+import { ReportProductButton } from "@/components/products/report-product-button";
 import { ProductCard } from "@/components/products/products-browser";
 import { ProductGallery } from "@/components/products/product-gallery";
 
@@ -468,6 +469,8 @@ export function ProductDetail({
               {success}
             </p>
           )}
+
+          {!isOwn && <ReportProductButton productId={data.id} />}
         </div>
       </div>
 

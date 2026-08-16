@@ -99,6 +99,16 @@ export interface Review {
   product?: { id: string; title: string };
 }
 
+export interface ProductReport {
+  id: string;
+  productId: string;
+  reporterId: string;
+  reason: string;
+  createdAt: string;
+  reporter?: { id: string; name: string };
+  product?: { id: string; title: string };
+}
+
 export interface Favorite {
   id: string;
   userId: string;
