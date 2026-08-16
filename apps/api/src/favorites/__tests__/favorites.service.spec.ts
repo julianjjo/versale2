@@ -33,6 +33,7 @@ describe('FavoritesService', () => {
 
   const mockProductsService = {
     findRaw: jest.fn(),
+    withAverageRating: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -45,6 +46,12 @@ describe('FavoritesService', () => {
     }).compile();
 
     service = module.get<FavoritesService>(FavoritesService);
+    // Identity passthrough by default: most tests here only care about
+    // favorite/pagination behavior, not rating enrichment, which is
+    // ProductsService's own responsibility and unit-tested there.
+    mockProductsService.withAverageRating.mockImplementation(
+      (products: unknown[]) => Promise.resolve(products),
+    );
   });
 
   afterEach(() => {
@@ -54,8 +61,19 @@ describe('FavoritesService', () => {
   describe('findAll', () => {
     it('should return the user favorites newest-first with product and seller included, paginated', async () => {
       const userId = 'user1';
+      const mockProduct = {
+        id: 'product1',
+        title: 'Test Product',
+        seller: { id: 'seller1', name: 'Alice' },
+      };
       const mockFavorites = [
-        { id: 'fav1', userId, productId: 'product1', createdAt: new Date() },
+        {
+          id: 'fav1',
+          userId,
+          productId: 'product1',
+          createdAt: new Date(),
+          product: mockProduct,
+        },
       ];
 
       mockPrismaService.client.favorite.findMany.mockResolvedValue(
@@ -84,6 +102,44 @@ describe('FavoritesService', () => {
         data: mockFavorites,
         meta: { total: 1, page: 1, limit: 10, pages: 1 },
       });
+    });
+
+    // The web app renders a favorited product with the same catalog card
+    // used on the public catalog (ProductCard), so it needs the same rating
+    // info or the identical listing would show a rating on /products and
+    // none on /favoritos.
+    it("should attach each favorited product's rating via ProductsService.withAverageRating", async () => {
+      const userId = 'user1';
+      const mockProduct = { id: 'product1', title: 'Test Product' };
+      const mockFavorites = [
+        {
+          id: 'fav1',
+          userId,
+          productId: 'product1',
+          createdAt: new Date(),
+          product: mockProduct,
+        },
+      ];
+      const ratedProduct = {
+        ...mockProduct,
+        _count: { reviews: 3 },
+        averageRating: 4.5,
+      };
+
+      mockPrismaService.client.favorite.findMany.mockResolvedValue(
+        mockFavorites,
+      );
+      mockPrismaService.client.favorite.count.mockResolvedValue(1);
+      mockProductsService.withAverageRating.mockResolvedValue([ratedProduct]);
+
+      const result = await service.findAll(userId, {});
+
+      expect(mockProductsService.withAverageRating).toHaveBeenCalledWith([
+        mockProduct,
+      ]);
+      expect(result.data).toEqual([
+        { ...mockFavorites[0], product: ratedProduct },
+      ]);
     });
 
     it('should apply the requested page to skip/take', async () => {
@@ -269,12 +325,12 @@ describe('FavoritesService', () => {
         .mockResolvedValueOnce({ id: 'fav1', userId, productId })
         .mockRejectedValueOnce(notFoundError());
 
-      await expect(
-        service.removeFavorite(userId, productId),
-      ).resolves.toEqual({ success: true });
-      await expect(
-        service.removeFavorite(userId, productId),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.removeFavorite(userId, productId)).resolves.toEqual({
+        success: true,
+      });
+      await expect(service.removeFavorite(userId, productId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });
