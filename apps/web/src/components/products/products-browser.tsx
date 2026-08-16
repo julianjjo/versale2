@@ -32,6 +32,10 @@ export interface ProductFilters {
   brand?: string;
   condition?: string;
   category?: string;
+  // Not URL-driven like the fields above — always supplied as a fixed
+  // `initialFilters.sellerId` by a seller's public profile page, never
+  // parsed from or written to the query string (see `queryFromFilters`).
+  sellerId?: string;
   page?: number;
   limit?: number;
 }

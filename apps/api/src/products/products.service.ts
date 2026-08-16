@@ -90,6 +90,7 @@ export class ProductsService {
       brand,
       category,
       condition,
+      sellerId,
       page = 1,
       limit = 10,
     } = query;
@@ -100,6 +101,14 @@ export class ProductsService {
 
     if (search) {
       where.OR = this.searchTextWhere(String(search));
+    }
+
+    // Powers a seller's public profile page (their other listings), reusing
+    // the same catalog visibility rules above rather than a bespoke query —
+    // a seller's profile shows exactly what any buyer could already find by
+    // browsing, never a private preview of unapproved or sold stock.
+    if (sellerId) {
+      where.sellerId = String(sellerId);
     }
 
     if (minPrice !== undefined) {
@@ -180,6 +189,40 @@ export class ProductsService {
         averageRating: rating?._avg.rating ?? null,
       };
     });
+  }
+
+  // Public seller profile: name, member-since date, and how many listings
+  // are currently live, so a buyer who likes one item can see the rest of
+  // that seller's catalog. Looked up by an arbitrary user id from a product
+  // page, so it only ever surfaces accounts that have actually published at
+  // least one approved listing — a `USER` who has never sold anything isn't
+  // a "seller" (see PRODUCT.md) and their account shouldn't be enumerable
+  // through this route.
+  async getSellerProfile(id: string) {
+    const [user, everApproved] = await Promise.all([
+      this.prisma.client.user.findUnique({
+        where: { id },
+        select: { id: true, name: true, createdAt: true },
+      }),
+      this.prisma.client.product.count({
+        where: { sellerId: id, isApproved: true },
+      }),
+    ]);
+
+    if (!user || everApproved === 0) {
+      throw new NotFoundException('Este vendedor no existe');
+    }
+
+    const activeListings = await this.prisma.client.product.count({
+      where: { sellerId: id, isApproved: true, soldAt: null },
+    });
+
+    return {
+      id: user.id,
+      name: user.name,
+      memberSince: user.createdAt,
+      activeListings,
+    };
   }
 
   async getFacets() {
