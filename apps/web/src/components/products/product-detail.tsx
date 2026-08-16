@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
@@ -419,7 +420,16 @@ export function ProductDetail({
             <dd className="font-medium text-text-primary">{data.category}</dd>
             <dt className="text-text-muted">Vendedor</dt>
             <dd className="font-medium text-text-primary">
-              {data.seller?.name ?? "—"}
+              {data.seller ? (
+                <Link
+                  href={`/vendedores/${data.sellerId}`}
+                  className="underline-offset-2 hover:underline"
+                >
+                  {data.seller.name}
+                </Link>
+              ) : (
+                "—"
+              )}
             </dd>
           </dl>
 

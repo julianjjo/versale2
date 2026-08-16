@@ -13,6 +13,7 @@ describe('ProductsController', () => {
   const mockProductsService = {
     findAll: jest.fn(),
     getFacets: jest.fn(),
+    getSellerProfile: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
@@ -63,6 +64,25 @@ describe('ProductsController', () => {
       const result = await controller.getFacets();
 
       expect(productsService.getFacets).toHaveBeenCalledWith();
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('getSellerProfile', () => {
+    it('should call productsService.getSellerProfile with the id param', async () => {
+      const mockResult = {
+        id: 'seller1',
+        name: 'Bob',
+        memberSince: new Date('2025-01-01'),
+        activeListings: 2,
+      };
+      mockProductsService.getSellerProfile.mockResolvedValue(mockResult);
+
+      const result = await controller.getSellerProfile('seller1');
+
+      expect(productsService.getSellerProfile).toHaveBeenCalledWith(
+        'seller1',
+      );
       expect(result).toEqual(mockResult);
     });
   });

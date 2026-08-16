@@ -37,6 +37,15 @@ export class ProductsController {
     return this.productsService.getFacets();
   }
 
+  // A literal two-segment path, so it can never collide with the
+  // single-segment ':id' below regardless of declaration order — a request
+  // for '/products/sellers/abc' has two segments after '/products', which
+  // ':id' alone can never match.
+  @Get('sellers/:id')
+  async getSellerProfile(@Param('id') id: string) {
+    return this.productsService.getSellerProfile(id);
+  }
+
   // Declared before ':id' so 'mine' is never swallowed by the id param route.
   @UseGuards(JwtAuthGuard)
   @Get('mine')

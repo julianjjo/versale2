@@ -52,6 +52,9 @@ describe('ProductsService', () => {
       review: {
         groupBy: jest.fn(),
       },
+      user: {
+        findUnique: jest.fn(),
+      },
     },
   };
 
@@ -1097,6 +1100,176 @@ describe('ProductsService', () => {
       );
       expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
         where: { isApproved: true, soldAt: null, category: 'Jackets' },
+      });
+    });
+  });
+
+  describe('findAll with sellerId filter', () => {
+    it('should filter by seller when provided, powering a seller public profile page', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAll({ sellerId: 'seller1', page: '1', limit: '10' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { isApproved: true, soldAt: null, sellerId: 'seller1' },
+        }),
+      );
+      expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
+        where: { isApproved: true, soldAt: null, sellerId: 'seller1' },
+      });
+    });
+
+    it("should still only surface that seller's approved, unsold listings, same as the public catalog", async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAll({ sellerId: 'seller1' });
+
+      const where = mockPrismaService.client.product.findMany.mock.calls[0][0]
+        .where;
+      expect(where.isApproved).toBe(true);
+      expect(where.soldAt).toBeNull();
+    });
+
+    it('should AND sellerId with a search term rather than folding it into the search OR clause', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAll({ sellerId: 'seller1', search: 'jacket' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            isApproved: true,
+            soldAt: null,
+            sellerId: 'seller1',
+            OR: [
+              { title: { contains: 'jacket' } },
+              { description: { contains: 'jacket' } },
+              { brand: { contains: 'jacket' } },
+              { category: { contains: 'jacket' } },
+            ],
+          },
+        }),
+      );
+    });
+  });
+
+  describe('getSellerProfile', () => {
+    it("should return the seller's public info and active listing count", async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        id: 'seller1',
+        name: 'Bob',
+        createdAt: new Date('2025-01-01'),
+      });
+      mockPrismaService.client.product.count
+        .mockResolvedValueOnce(3) // hasEverListed
+        .mockResolvedValueOnce(2); // activeListings
+
+      const result = await service.getSellerProfile('seller1');
+
+      expect(mockPrismaService.client.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'seller1' },
+        select: { id: true, name: true, createdAt: true },
+      });
+      // The existence gate must count every listing the seller has ever
+      // created, not just currently-approved ones — see the "pending
+      // re-review" regression test below for why.
+      expect(
+        mockPrismaService.client.product.count,
+      ).toHaveBeenNthCalledWith(1, { where: { sellerId: 'seller1' } });
+      expect(result).toEqual({
+        id: 'seller1',
+        name: 'Bob',
+        memberSince: new Date('2025-01-01'),
+        activeListings: 2,
+      });
+    });
+
+    it('should not leak which columns exist on User beyond id/name/createdAt', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        id: 'seller1',
+        name: 'Bob',
+        createdAt: new Date('2025-01-01'),
+        email: 'bob@example.com',
+        role: 'USER',
+      });
+      mockPrismaService.client.product.count.mockResolvedValue(1);
+
+      const result = await service.getSellerProfile('seller1');
+
+      expect(Object.keys(result)).toEqual([
+        'id',
+        'name',
+        'memberSince',
+        'activeListings',
+      ]);
+    });
+
+    it('should throw NotFoundException when the user does not exist', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await expect(service.getSellerProfile('ghost')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    // A registered buyer who has never listed anything isn't a "seller" per
+    // PRODUCT.md — this route must not become a way to look up arbitrary
+    // account existence/join-date for non-sellers.
+    it('should throw NotFoundException when the user exists but has never listed a product', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        id: 'buyer1',
+        name: 'Alice',
+        createdAt: new Date(),
+      });
+      mockPrismaService.client.product.count.mockResolvedValueOnce(0);
+
+      await expect(service.getSellerProfile('buyer1')).rejects.toThrow(
+        'Este vendedor no existe',
+      );
+      expect(mockPrismaService.client.product.count).toHaveBeenCalledTimes(1);
+    });
+
+    it('should still show a seller with 0 active listings if everything they ever sold is now gone', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        id: 'seller1',
+        name: 'Bob',
+        createdAt: new Date('2025-01-01'),
+      });
+      mockPrismaService.client.product.count
+        .mockResolvedValueOnce(5) // hasEverListed (all since sold)
+        .mockResolvedValueOnce(0); // activeListings
+
+      const result = await service.getSellerProfile('seller1');
+
+      expect(result.activeListings).toBe(0);
+    });
+
+    // Regression: editing any moderated field of an already-approved listing
+    // flips it back to isApproved: false pending re-review (see `update()`).
+    // Gating existence on "currently approved" instead of "ever listed"
+    // would 404 this seller's OWN profile the moment they touch their price.
+    it("should not 404 a seller whose only listing is pending re-review after an edit", async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        id: 'seller1',
+        name: 'Bob',
+        createdAt: new Date('2025-01-01'),
+      });
+      mockPrismaService.client.product.count
+        .mockResolvedValueOnce(1) // hasEverListed: the listing still exists...
+        .mockResolvedValueOnce(0); // ...but isApproved is currently false, so 0 active
+
+      const result = await service.getSellerProfile('seller1');
+
+      expect(result).toEqual({
+        id: 'seller1',
+        name: 'Bob',
+        memberSince: new Date('2025-01-01'),
+        activeListings: 0,
       });
     });
   });

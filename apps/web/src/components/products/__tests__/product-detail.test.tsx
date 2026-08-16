@@ -116,6 +116,18 @@ describe("ProductDetail", () => {
     expect(screen.getByText("Alice")).toBeInTheDocument();
   });
 
+  it("enlaza el nombre del vendedor a su perfil público", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    const sellerLink = await screen.findByRole("link", { name: "Alice" });
+    expect(sellerLink).toHaveAttribute("href", "/vendedores/s1");
+  });
+
   it("renderiza las reseñas", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
     render(
