@@ -374,6 +374,124 @@ describe("MisProductosPage", () => {
     }
   });
 
+  it("busca publicaciones por título, marca o categoría", async () => {
+    const pending = productFixture({ id: "p9", title: "Chaqueta de jean" });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([pending]) });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("mine-product-p9");
+    await user.type(screen.getByLabelText(/buscar publicaciones/i), "jean");
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith(
+        expect.stringContaining("search=jean"),
+      );
+    });
+  });
+
+  it("reinicia a la página 1 al buscar, aunque estuviera en otra página", async () => {
+    const pending = productFixture({ id: "p10", title: "Vestido" });
+    vi.mocked(api.get).mockResolvedValue({
+      data: { data: [pending], meta: { total: 25, page: 1, pages: 2 } },
+    });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("mine-product-p10");
+    await user.click(screen.getByRole("button", { name: /siguiente/i }));
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenLastCalledWith(
+        expect.stringContaining("page=2"),
+      );
+    });
+
+    await user.type(screen.getByLabelText(/buscar publicaciones/i), "vestido");
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenLastCalledWith(
+        expect.stringContaining("search=vestido"),
+      );
+    });
+    expect(api.get).toHaveBeenLastCalledWith(expect.stringContaining("page=1"));
+  });
+
+  it("mantiene la búsqueda al cambiar de pestaña de estado, combinando ambos filtros en la misma solicitud", async () => {
+    const pending = productFixture({ id: "p11", title: "Bolso" });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([pending]) });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("mine-product-p11");
+    await user.type(screen.getByLabelText(/buscar publicaciones/i), "bolso");
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith(
+        expect.stringContaining("search=bolso"),
+      );
+    });
+
+    await user.click(screen.getByRole("button", { name: "Vendidos" }));
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenLastCalledWith(
+        expect.stringContaining("status=sold"),
+      );
+    });
+    expect(api.get).toHaveBeenLastCalledWith(
+      expect.stringContaining("search=bolso"),
+    );
+    // El campo de búsqueda en pantalla no se vació al cambiar de pestaña.
+    expect(screen.getByLabelText(/buscar publicaciones/i)).toHaveValue("bolso");
+  });
+
+  it("distingue 'sin publicaciones' de 'sin resultados para la búsqueda'", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([]) });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    expect(
+      await screen.findByText(/aún no has publicado ningún producto/i),
+    ).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/buscar publicaciones/i), "algo que no existe");
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/ninguna publicación coincide con tu búsqueda/i),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText(/aún no has publicado ningún producto/i),
+    ).not.toBeInTheDocument();
+    // A filtered empty state has no "publish your first item" CTA — it isn't
+    // the seller's first listing, just a search with no matches.
+    expect(
+      screen.queryByRole("link", { name: /publicar tu primer producto/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("muestra un estado vacío con CTA para publicar cuando no hay productos", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: paginated([]) });
 

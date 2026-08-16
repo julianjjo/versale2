@@ -29,6 +29,18 @@ const MODERATED_FIELDS = [
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
+  // Shared by findAll (public catalog) and findAllMine (a seller's own
+  // listings): the same four text columns, so the two search experiences
+  // can't silently drift apart the way two hand-copied blocks would.
+  private searchTextWhere(term: string) {
+    return [
+      { title: { contains: term } },
+      { description: { contains: term } },
+      { brand: { contains: term } },
+      { category: { contains: term } },
+    ];
+  }
+
   private hasModeratedChanges(
     product: Record<string, unknown>,
     updateProductDto: UpdateProductDto,
@@ -79,13 +91,7 @@ export class ProductsService {
     const where: any = { isApproved: true, soldAt: null };
 
     if (search) {
-      const term = String(search);
-      where.OR = [
-        { title: { contains: term } },
-        { description: { contains: term } },
-        { brand: { contains: term } },
-        { category: { contains: term } },
-      ];
+      where.OR = this.searchTextWhere(String(search));
     }
 
     if (minPrice !== undefined) {
@@ -358,8 +364,11 @@ export class ProductsService {
     }
   }
 
+  // Searchable across the same fields as the public catalog's findAll
+  // (title, description, brand, category) so a seller with many listings
+  // can find one without paging through every status tab by hand.
   async findAllMine(sellerId: string, query: any) {
-    const { status, page = 1, limit = 10 } = query;
+    const { search, status, page = 1, limit = 10 } = query;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     // A seller's own dashboard has one more bucket than the admin queue:
@@ -380,6 +389,10 @@ export class ProductsService {
       where.rejectedAt = { not: null };
     } else if (status === 'sold') {
       where.soldAt = { not: null };
+    }
+
+    if (search) {
+      where.OR = this.searchTextWhere(String(search));
     }
 
     const [products, total] = await Promise.all([

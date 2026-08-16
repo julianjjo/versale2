@@ -172,13 +172,15 @@ describe('ProductsService', () => {
 
       const result = await service.findOne(productId);
 
-      expect(mockPrismaService.client.orderItem.findFirst).toHaveBeenCalledWith({
-        where: {
-          productId,
-          order: { status: { in: ['PAID', 'SHIPPED', 'DELIVERED'] } },
+      expect(mockPrismaService.client.orderItem.findFirst).toHaveBeenCalledWith(
+        {
+          where: {
+            productId,
+            order: { status: { in: ['PAID', 'SHIPPED', 'DELIVERED'] } },
+          },
+          select: { order: { select: { userId: true } } },
         },
-        select: { order: { select: { userId: true } } },
-      });
+      );
       expect(result.reviews).toEqual([
         { id: 'r1', userId: 'buyer1', rating: 5, verifiedPurchase: true },
         { id: 'r2', userId: 'someoneElse', rating: 3, verifiedPurchase: false },
@@ -1236,6 +1238,63 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { sellerId: 'seller2' } }),
       );
+    });
+
+    it('should filter by title, description, brand, or category when search is provided', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAllMine('seller1', { search: 'chaqueta' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            sellerId: 'seller1',
+            OR: [
+              { title: { contains: 'chaqueta' } },
+              { description: { contains: 'chaqueta' } },
+              { brand: { contains: 'chaqueta' } },
+              { category: { contains: 'chaqueta' } },
+            ],
+          },
+        }),
+      );
+    });
+
+    it('should combine search with a status filter, both scoped to the seller', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAllMine('seller1', {
+        search: 'lino',
+        status: 'approved',
+      });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            sellerId: 'seller1',
+            isApproved: true,
+            soldAt: null,
+            OR: [
+              { title: { contains: 'lino' } },
+              { description: { contains: 'lino' } },
+              { brand: { contains: 'lino' } },
+              { category: { contains: 'lino' } },
+            ],
+          },
+        }),
+      );
+    });
+
+    it("should never return another seller's listings regardless of the search term", async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAllMine('seller2', { search: 'anything' });
+
+      const [[callArgs]] = mockPrismaService.client.product.findMany.mock.calls;
+      expect(callArgs.where.sellerId).toBe('seller2');
     });
 
     it('should clamp pagination the same way as the other listing endpoints', async () => {
