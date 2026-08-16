@@ -56,7 +56,14 @@ export default function MisVentasPage() {
     setPage(1),
   );
 
-  const { data, isLoading, isFetching, isError, refetch } = useQuery({
+  const {
+    data,
+    isLoading,
+    isLoadingError,
+    isFetching,
+    isRefetchError,
+    refetch,
+  } = useQuery({
     queryKey: ["mis-ventas", search, status, page],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -133,6 +140,18 @@ export default function MisVentasPage() {
     );
   }
 
+  if (isLoadingError) {
+    return (
+      <PageContainer size="narrow">
+        <EmptyState
+          title="No pudimos cargar tus ventas"
+          description="Ocurrió un error al conectar con el servidor. Intenta de nuevo."
+          action={<Button onClick={() => refetch()}>Reintentar</Button>}
+        />
+      </PageContainer>
+    );
+  }
+
   const orders = data?.data ?? [];
   const meta = data?.meta;
   const isFiltered = Boolean(search) || status !== "all";
@@ -152,6 +171,18 @@ export default function MisVentasPage() {
       {error && (
         <p className="mb-3 text-sm text-danger" role="alert">
           {error}
+        </p>
+      )}
+
+      {isRefetchError && (
+        <p
+          role="alert"
+          className="mb-4 flex items-center justify-between gap-3 rounded-md border border-danger/30 bg-danger/10 px-4 py-2 text-sm text-danger"
+        >
+          <span>No pudimos actualizar tus ventas.</span>
+          <Button variant="ghost" onClick={() => refetch()}>
+            Reintentar
+          </Button>
         </p>
       )}
 
@@ -190,13 +221,7 @@ export default function MisVentasPage() {
         )}
       </div>
 
-      {isError ? (
-        <EmptyState
-          title="No pudimos cargar tus ventas"
-          description="Ocurrió un error al conectar con el servidor. Intenta de nuevo."
-          action={<Button onClick={() => refetch()}>Reintentar</Button>}
-        />
-      ) : orders.length === 0 ? (
+      {orders.length === 0 ? (
         <EmptyState
           title={emptyTitle}
           description={
