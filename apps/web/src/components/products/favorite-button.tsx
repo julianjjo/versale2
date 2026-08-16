@@ -8,15 +8,24 @@ import { useFavoriteProductIds, useToggleFavorite } from "@/lib/favorites";
 export function FavoriteButton({
   productId,
   className = "",
+  isFavoriteOverride,
 }: {
   productId: string;
   className?: string;
+  // The Favoritos page already knows every card it renders is a favorite —
+  // passing that ground truth here skips the membership lookup entirely
+  // instead of firing a redundant `/favorites/ids` request whose answer is
+  // already known (and, for a moment before it resolved, would otherwise
+  // flash every heart on that page as unfavorited).
+  isFavoriteOverride?: boolean;
 }) {
   const router = useRouter();
   const { user, isLoading: isAuthLoading } = useAuth();
-  const favoriteProductIds = useFavoriteProductIds();
+  const favoriteProductIds = useFavoriteProductIds({
+    enabled: isFavoriteOverride === undefined,
+  });
   const toggleFavorite = useToggleFavorite();
-  const isFavorite = favoriteProductIds.has(productId);
+  const isFavorite = isFavoriteOverride ?? favoriteProductIds.has(productId);
   const [error, setError] = useState<string | null>(null);
 
   const handleClick = (e: React.MouseEvent) => {

@@ -32,7 +32,17 @@ export function useFavorites() {
 // set, never the product details or rating enrichment the Favoritos page
 // renders, so sharing that heavier endpoint would pay for a product join and
 // a review aggregate on every page that has so much as one heart icon.
-export function useFavoriteProductIds(): Set<string> {
+//
+// `enabled: false` lets a caller that already knows the answer (see
+// `FavoriteButton`'s `isFavoriteOverride` — every card on the Favoritos page
+// itself is a favorite by definition) skip the request entirely instead of
+// firing a redundant fetch. Seeding this cache from `useFavorites()`'s own
+// (page-1-capped) data was considered instead and rejected: `useFavorites()`
+// only ever returns a user's most recent 100 favorites, but `["favorite-ids"]`
+// is one global cache every heart icon app-wide reads from, so seeding it
+// from a capped source would silently mark anything past the 100th favorite
+// as unfavorited everywhere else for the rest of that cache's staleTime.
+export function useFavoriteProductIds(options?: { enabled?: boolean }): Set<string> {
   const { user } = useAuth();
   const { data } = useQuery<{ productIds: string[] }>({
     queryKey: ["favorite-ids"],
@@ -42,7 +52,7 @@ export function useFavoriteProductIds(): Set<string> {
       );
       return response.data;
     },
-    enabled: Boolean(user),
+    enabled: Boolean(user) && (options?.enabled ?? true),
   });
   return useMemo(() => new Set(data?.productIds ?? []), [data]);
 }

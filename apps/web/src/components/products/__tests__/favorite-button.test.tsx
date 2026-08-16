@@ -127,6 +127,25 @@ describe("FavoriteButton", () => {
     });
   });
 
+  // isFavoriteOverride (used by the Favoritos page, where every card is
+  // already known to be a favorite) must skip the membership lookup
+  // entirely, not just race it — otherwise the heart still flashes
+  // unfavorited for a moment before the request resolves.
+  it("no consulta /favorites/ids cuando se pasa isFavoriteOverride", async () => {
+    authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
+    render(
+      <TestProviders>
+        <FavoriteButton productId="p1" isFavoriteOverride />
+      </TestProviders>,
+    );
+
+    const button = await screen.findByRole("button", {
+      name: /quitar de favoritos/i,
+    });
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    expect(api.get).not.toHaveBeenCalled();
+  });
+
   it("no consulta /favorites/ids cuando no hay sesión", async () => {
     render(
       <TestProviders>

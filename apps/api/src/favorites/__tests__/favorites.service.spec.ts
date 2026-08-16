@@ -188,12 +188,25 @@ describe('FavoritesService', () => {
       expect(mockPrismaService.client.favorite.findMany).toHaveBeenCalledWith({
         where: { userId: 'user1' },
         select: { productId: true },
+        take: 1000,
       });
       expect(result).toEqual({ productIds: ['product1', 'product2'] });
       // This is the whole point of the endpoint: no product join, no
       // pagination, and no rating enrichment for a caller that only checks
       // membership.
       expect(mockProductsService.withAverageRating).not.toHaveBeenCalled();
+    });
+
+    // Deliberately unpaginated (a heart icon needs the whole set), but not
+    // literally unbounded — a hard technical ceiling rather than a page size.
+    it('should cap the number of ids returned even though the endpoint has no pagination', async () => {
+      mockPrismaService.client.favorite.findMany.mockResolvedValue([]);
+
+      await service.findAllIds('user1');
+
+      expect(mockPrismaService.client.favorite.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 1000 }),
+      );
     });
 
     it('should return an empty list when the user has no favorites', async () => {
