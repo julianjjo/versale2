@@ -374,6 +374,58 @@ describe("MisProductosPage", () => {
     }
   });
 
+  it("busca publicaciones por título, marca o categoría", async () => {
+    const pending = productFixture({ id: "p9", title: "Chaqueta de jean" });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([pending]) });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("mine-product-p9");
+    await user.type(screen.getByLabelText(/buscar publicaciones/i), "jean");
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith(
+        expect.stringContaining("search=jean"),
+      );
+    });
+  });
+
+  it("distingue 'sin publicaciones' de 'sin resultados para la búsqueda'", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([]) });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    expect(
+      await screen.findByText(/aún no has publicado ningún producto/i),
+    ).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/buscar publicaciones/i), "algo que no existe");
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/ninguna publicación coincide con tu búsqueda/i),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText(/aún no has publicado ningún producto/i),
+    ).not.toBeInTheDocument();
+    // A filtered empty state has no "publish your first item" CTA — it isn't
+    // the seller's first listing, just a search with no matches.
+    expect(
+      screen.queryByRole("link", { name: /publicar tu primer producto/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("muestra un estado vacío con CTA para publicar cuando no hay productos", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: paginated([]) });
 

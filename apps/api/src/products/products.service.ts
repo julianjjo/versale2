@@ -358,8 +358,11 @@ export class ProductsService {
     }
   }
 
+  // Searchable across the same fields as the public catalog's findAll
+  // (title, description, brand, category) so a seller with many listings
+  // can find one without paging through every status tab by hand.
   async findAllMine(sellerId: string, query: any) {
-    const { status, page = 1, limit = 10 } = query;
+    const { search, status, page = 1, limit = 10 } = query;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     // A seller's own dashboard has one more bucket than the admin queue:
@@ -380,6 +383,16 @@ export class ProductsService {
       where.rejectedAt = { not: null };
     } else if (status === 'sold') {
       where.soldAt = { not: null };
+    }
+
+    if (search) {
+      const term = String(search);
+      where.OR = [
+        { title: { contains: term } },
+        { description: { contains: term } },
+        { brand: { contains: term } },
+        { category: { contains: term } },
+      ];
     }
 
     const [products, total] = await Promise.all([

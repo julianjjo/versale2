@@ -24,6 +24,7 @@ import {
   SectionHeader,
 } from "@/components/ui";
 import { Pager } from "@/components/admin/pager";
+import { useDebouncedSearch } from "@/lib/use-debounced-search";
 import { conditionLabel } from "@/lib/product-condition";
 import type { Product } from "@/lib/types";
 import Link from "next/link";
@@ -94,13 +95,22 @@ function MisProductosList() {
   });
   const [editError, setEditError] = useState<string | null>(null);
 
+  const { searchInput, setSearchInput, search } = useDebouncedSearch(() =>
+    setPage(1),
+  );
+
   const { data, isLoading, isFetching, isError } = useQuery({
-    queryKey: ["mis-productos", status, page],
+    queryKey: ["mis-productos", search, status, page],
     queryFn: async () => {
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      params.set("status", status);
+      params.set("page", String(page));
+      params.set("limit", "20");
       const res = await api.get<{
         data: Product[];
         meta: { total: number; page: number; pages: number };
-      }>(`/products/mine?status=${status}&page=${page}&limit=20`);
+      }>(`/products/mine?${params.toString()}`);
       return res.data;
     },
     // Igual que en el panel de admin: cada pestaña/página es una queryKey
@@ -219,6 +229,8 @@ function MisProductosList() {
     setPage(1);
   };
 
+  const isFiltered = Boolean(search) || status !== "all";
+
   return (
     <PageContainer size="wide">
       <SectionHeader
@@ -232,6 +244,17 @@ function MisProductosList() {
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Input
+          type="search"
+          placeholder="Buscar por título, marca o categoría"
+          aria-label="Buscar publicaciones"
+          value={searchInput}
+          onChange={(e) => {
+            setSearchInput(e.target.value);
+          }}
+          className="max-w-md"
+          wrapperClassName="flex-1 basis-full sm:basis-auto"
+        />
         <div
           className="flex flex-wrap gap-2"
           role="group"
@@ -278,9 +301,13 @@ function MisProductosList() {
         </div>
       ) : products.length === 0 ? (
         <EmptyState
-          title={EMPTY_STATE_COPY[status]}
+          title={
+            search
+              ? "Ninguna publicación coincide con tu búsqueda"
+              : EMPTY_STATE_COPY[status]
+          }
           action={
-            status === "all" ? (
+            !isFiltered ? (
               <Link href="/sell">
                 <Button variant="accent">Publicar tu primer producto</Button>
               </Link>
