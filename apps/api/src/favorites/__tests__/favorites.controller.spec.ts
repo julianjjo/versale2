@@ -9,6 +9,7 @@ describe('FavoritesController', () => {
 
   const mockFavoritesService = {
     findAll: jest.fn(),
+    findAllIds: jest.fn(),
     addFavorite: jest.fn(),
     removeFavorite: jest.fn(),
   };
@@ -46,6 +47,23 @@ describe('FavoritesController', () => {
       const result = await controller.getFavorites(mockReq, query);
 
       expect(favoritesService.findAll).toHaveBeenCalledWith(userId, query);
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('getFavoriteIds', () => {
+    it('should call favoritesService.findAllIds with userId from request', async () => {
+      const userId = 'user1';
+      const mockReq = {
+        user: { id: userId, email: 'test@example.com', role: 'USER' },
+      } as AuthRequest;
+
+      const mockResult = { productIds: ['product1', 'product2'] };
+      mockFavoritesService.findAllIds.mockResolvedValue(mockResult);
+
+      const result = await controller.getFavoriteIds(mockReq);
+
+      expect(favoritesService.findAllIds).toHaveBeenCalledWith(userId);
       expect(result).toEqual(mockResult);
     });
   });

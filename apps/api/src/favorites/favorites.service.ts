@@ -8,6 +8,12 @@ import { ProductsService } from '../products/products.service';
 import { translatePrismaError } from '../common/prisma-error';
 import { resolvePagination } from '../common/pagination';
 
+// findAllIds() has no pagination UI to bound it the way findAll() has, so
+// this is a hard technical ceiling rather than a page size — an actual
+// buyer's favorite count in a marketplace of one-of-a-kind garments is
+// nowhere near this, it only guards against a pathological/abusive case.
+const MAX_FAVORITE_IDS = 1000;
+
 // A product a buyer favorited while approved can later be rejected by
 // moderation — the Favorite row survives, so `findAll` still resolves it.
 // `rejectionReason`/`rejectedAt` are moderation-internal (ProductsService's
@@ -77,6 +83,26 @@ export class FavoritesService {
         pages: Math.ceil(total / limitNum),
       },
     };
+  }
+
+  // A lightweight sibling to findAll(): every FavoriteButton across the app
+  // (catalog cards, the product detail page) only needs to answer "is this
+  // product one of mine?", not the full paginated list with product details
+  // and rating enrichment findAll's own callers actually render. Sharing one
+  // endpoint for both meant every heart icon paid for a product join and a
+  // review aggregate it never used.
+  //
+  // Deliberately unpaginated (a heart icon needs the complete set, not a
+  // page of it) but still capped: a `select`-only row is cheap, but nothing
+  // in this API should be able to ask for an unbounded number of rows.
+  async findAllIds(userId: string) {
+    const favorites = await this.prisma.client.favorite.findMany({
+      where: { userId },
+      select: { productId: true },
+      take: MAX_FAVORITE_IDS,
+    });
+
+    return { productIds: favorites.map((favorite) => favorite.productId) };
   }
 
   async addFavorite(userId: string, productId: string) {

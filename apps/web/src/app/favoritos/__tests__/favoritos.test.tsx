@@ -121,6 +121,31 @@ describe("FavoritosPage", () => {
     expect(api.get).toHaveBeenCalledWith("/favorites?limit=100");
   });
 
+  // Regression: every card here is a favorite by definition, but its heart
+  // used to independently re-check membership via a second request — which,
+  // for a moment before it resolved, rendered every heart as unfavorited.
+  // `isFavoriteOverride` (passed from this page down through ProductCard)
+  // skips that lookup entirely instead of just racing it.
+  it("muestra el corazón como favorito de inmediato, sin volver a consultar el estado", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: {
+        data: mockFavorites,
+        meta: { total: 1, page: 1, limit: 100, pages: 1 },
+      },
+    });
+    render(
+      <TestProviders>
+        <FavoritosPage />
+      </TestProviders>,
+    );
+
+    const heart = await screen.findByRole("button", {
+      name: /quitar de favoritos/i,
+    });
+    expect(heart).toHaveAttribute("aria-pressed", "true");
+    expect(api.get).not.toHaveBeenCalledWith("/favorites/ids");
+  });
+
   it("muestra un estado vacío cuando no hay favoritos", async () => {
     vi.mocked(api.get).mockResolvedValue({
       data: { data: [], meta: { total: 0, page: 1, limit: 100, pages: 0 } },

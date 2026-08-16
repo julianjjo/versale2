@@ -411,7 +411,16 @@ function ProductsBrowserContent({
 }
 
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({
+  product,
+  isFavoriteOverride,
+}: {
+  product: Product;
+  // Forwarded to `FavoriteButton` — see its own doc comment. Lets a caller
+  // that already knows every card it renders is a favorite (the Favoritos
+  // page) skip that button's membership lookup.
+  isFavoriteOverride?: boolean;
+}) {
   const { user } = useAuth();
   const isOwn = user?.id === product.sellerId;
 
@@ -447,6 +456,7 @@ export function ProductCard({ product }: { product: Product }) {
             <FavoriteButton
               productId={product.id}
               className="absolute right-3 top-3 z-10"
+              isFavoriteOverride={isFavoriteOverride}
             />
           )}
         </div>

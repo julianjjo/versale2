@@ -63,9 +63,7 @@ describe("FavoriteButton", () => {
 
   it("muestra 'Agregar a favoritos' y lo agrega cuando aún no es favorito", async () => {
     authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
-    vi.mocked(api.get).mockResolvedValue({
-      data: { data: [], meta: { total: 0, page: 1, limit: 100, pages: 0 } },
-    });
+    vi.mocked(api.get).mockResolvedValue({ data: { productIds: [] } });
     vi.mocked(api.post).mockResolvedValue({ data: { id: "fav1" } });
     const user = userEvent.setup();
     render(
@@ -89,12 +87,7 @@ describe("FavoriteButton", () => {
 
   it("muestra 'Quitar de favoritos' y lo elimina cuando ya es favorito", async () => {
     authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
-    vi.mocked(api.get).mockResolvedValue({
-      data: {
-        data: [{ id: "fav1", userId: "u1", productId: "p1", createdAt: "" }],
-        meta: { total: 1, page: 1, limit: 100, pages: 1 },
-      },
-    });
+    vi.mocked(api.get).mockResolvedValue({ data: { productIds: ["p1"] } });
     vi.mocked(api.delete).mockResolvedValue({ data: { success: true } });
     const user = userEvent.setup();
     render(
@@ -116,7 +109,44 @@ describe("FavoriteButton", () => {
     expect(api.post).not.toHaveBeenCalled();
   });
 
-  it("no consulta /favorites cuando no hay sesión", async () => {
+  // The membership check only ever needs product ids, not the full
+  // paginated favorites list with product details and rating enrichment —
+  // sharing that heavier endpoint would cost a product join and a review
+  // aggregate on every page that renders so much as one heart icon.
+  it("consulta el endpoint liviano de IDs, no la lista completa de favoritos", async () => {
+    authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
+    vi.mocked(api.get).mockResolvedValue({ data: { productIds: [] } });
+    render(
+      <TestProviders>
+        <FavoriteButton productId="p1" />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith("/favorites/ids");
+    });
+  });
+
+  // isFavoriteOverride (used by the Favoritos page, where every card is
+  // already known to be a favorite) must skip the membership lookup
+  // entirely, not just race it — otherwise the heart still flashes
+  // unfavorited for a moment before the request resolves.
+  it("no consulta /favorites/ids cuando se pasa isFavoriteOverride", async () => {
+    authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
+    render(
+      <TestProviders>
+        <FavoriteButton productId="p1" isFavoriteOverride />
+      </TestProviders>,
+    );
+
+    const button = await screen.findByRole("button", {
+      name: /quitar de favoritos/i,
+    });
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    expect(api.get).not.toHaveBeenCalled();
+  });
+
+  it("no consulta /favorites/ids cuando no hay sesión", async () => {
     render(
       <TestProviders>
         <FavoriteButton productId="p1" />
@@ -149,9 +179,7 @@ describe("FavoriteButton", () => {
 
   it("anuncia un error cuando falla agregar a favoritos", async () => {
     authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
-    vi.mocked(api.get).mockResolvedValue({
-      data: { data: [], meta: { total: 0, page: 1, limit: 100, pages: 0 } },
-    });
+    vi.mocked(api.get).mockResolvedValue({ data: { productIds: [] } });
     vi.mocked(api.post).mockRejectedValue(new Error("Network error"));
     const user = userEvent.setup();
     render(

@@ -79,12 +79,12 @@ vi.mock("@/lib/api", () => ({
 import { api } from "@/lib/api";
 
 // A logged-in, non-owner visit renders the favorite heart, which fires its
-// own GET /favorites alongside the product fetch. Tests that only care about
-// the product response can use this so that call doesn't collide with a
-// blanket `mockResolvedValue`/`mockRejectedValue` on every `api.get` call.
+// own GET /favorites/ids alongside the product fetch. Tests that only care
+// about the product response can use this so that call doesn't collide with
+// a blanket `mockResolvedValue`/`mockRejectedValue` on every `api.get` call.
 function mockProductGet(product: unknown) {
   return async (url: string) =>
-    url === "/favorites" ? { data: [] } : { data: product };
+    url === "/favorites/ids" ? { data: { productIds: [] } } : { data: product };
 }
 
 describe("ProductDetail", () => {
