@@ -29,6 +29,18 @@ const MODERATED_FIELDS = [
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
+  // Shared by findAll (public catalog) and findAllMine (a seller's own
+  // listings): the same four text columns, so the two search experiences
+  // can't silently drift apart the way two hand-copied blocks would.
+  private searchTextWhere(term: string) {
+    return [
+      { title: { contains: term } },
+      { description: { contains: term } },
+      { brand: { contains: term } },
+      { category: { contains: term } },
+    ];
+  }
+
   private hasModeratedChanges(
     product: Record<string, unknown>,
     updateProductDto: UpdateProductDto,
@@ -79,13 +91,7 @@ export class ProductsService {
     const where: any = { isApproved: true, soldAt: null };
 
     if (search) {
-      const term = String(search);
-      where.OR = [
-        { title: { contains: term } },
-        { description: { contains: term } },
-        { brand: { contains: term } },
-        { category: { contains: term } },
-      ];
+      where.OR = this.searchTextWhere(String(search));
     }
 
     if (minPrice !== undefined) {
@@ -386,13 +392,7 @@ export class ProductsService {
     }
 
     if (search) {
-      const term = String(search);
-      where.OR = [
-        { title: { contains: term } },
-        { description: { contains: term } },
-        { brand: { contains: term } },
-        { category: { contains: term } },
-      ];
+      where.OR = this.searchTextWhere(String(search));
     }
 
     const [products, total] = await Promise.all([

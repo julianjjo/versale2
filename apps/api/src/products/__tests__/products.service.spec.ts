@@ -172,13 +172,15 @@ describe('ProductsService', () => {
 
       const result = await service.findOne(productId);
 
-      expect(mockPrismaService.client.orderItem.findFirst).toHaveBeenCalledWith({
-        where: {
-          productId,
-          order: { status: { in: ['PAID', 'SHIPPED', 'DELIVERED'] } },
+      expect(mockPrismaService.client.orderItem.findFirst).toHaveBeenCalledWith(
+        {
+          where: {
+            productId,
+            order: { status: { in: ['PAID', 'SHIPPED', 'DELIVERED'] } },
+          },
+          select: { order: { select: { userId: true } } },
         },
-        select: { order: { select: { userId: true } } },
-      });
+      );
       expect(result.reviews).toEqual([
         { id: 'r1', userId: 'buyer1', rating: 5, verifiedPurchase: true },
         { id: 'r2', userId: 'someoneElse', rating: 3, verifiedPurchase: false },
