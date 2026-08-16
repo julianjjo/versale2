@@ -104,7 +104,11 @@ export default function AdminReportsPage() {
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => dismiss.mutate(report.id)}
+                  onClick={() => {
+                    if (confirm("¿Descartar este reporte?")) {
+                      dismiss.mutate(report.id);
+                    }
+                  }}
                   disabled={dismiss.isPending}
                 >
                   Descartar

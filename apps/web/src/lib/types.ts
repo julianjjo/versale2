@@ -105,6 +105,7 @@ export interface ProductReport {
   reporterId: string;
   reason: string;
   createdAt: string;
+  updatedAt: string;
   reporter?: { id: string; name: string };
   product?: { id: string; title: string };
 }

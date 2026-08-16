@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
+import { loginRedirectUrl, useAuth } from "@/lib/auth";
 import { useRef, useState } from "react";
 import {
   Button,
@@ -259,7 +259,7 @@ export function ProductDetail({
   });
 
   const loginRedirect = (reason: "cart" | "review") =>
-    `/login?next=${encodeURIComponent(`/products/${id}`)}&reason=${reason}`;
+    loginRedirectUrl(id, reason);
 
   const handleAddToCart = () => {
     setError(null);
@@ -470,7 +470,13 @@ export function ProductDetail({
             </p>
           )}
 
-          {!isOwn && <ReportProductButton productId={data.id} />}
+          {/* Keyed on the product id: this component instance can be reused
+              across two different products in a row (e.g. via the related-
+              products grid below), and without a remount its own "already
+              sent"/open-form/error state would silently survive the
+              navigation — see ProductGallery's doc comment for the same
+              underlying issue and fix shape. */}
+          {!isOwn && <ReportProductButton key={data.id} productId={data.id} />}
         </div>
       </div>
 

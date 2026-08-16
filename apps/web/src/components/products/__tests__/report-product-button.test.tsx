@@ -149,6 +149,75 @@ describe("ReportProductButton", () => {
     ).not.toBeInTheDocument();
   });
 
+  // Regression: the caller (ProductDetail) remounts this component via
+  // `key={productId}` specifically so state from one product's report never
+  // survives navigation to another — this proves that actually resets
+  // everything (open form, typed reason, confirmation) rather than just some
+  // of it.
+  it("no conserva el estado de un producto anterior cuando se vuelve a montar para otro", async () => {
+    authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
+    vi.mocked(api.post).mockResolvedValue({ data: { id: "report1" } });
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <TestProviders>
+        <ReportProductButton key="p1" productId="p1" />
+      </TestProviders>,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /reportar publicación/i }),
+    );
+    await user.type(
+      screen.getByLabelText(/por qué quieres reportar/i),
+      "Parece una estafa",
+    );
+    await user.click(screen.getByRole("button", { name: /enviar reporte/i }));
+    await screen.findByText(/un administrador revisará esta publicación/i);
+
+    rerender(
+      <TestProviders>
+        <ReportProductButton key="p2" productId="p2" />
+      </TestProviders>,
+    );
+
+    expect(
+      screen.queryByText(/un administrador revisará esta publicación/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /reportar publicación/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("no permite cancelar mientras el envío está en curso", async () => {
+    authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
+    let resolvePost!: () => void;
+    vi.mocked(api.post).mockReturnValue(
+      new Promise((resolve) => {
+        resolvePost = () => resolve({ data: { id: "report1" } });
+      }),
+    );
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ReportProductButton productId="p1" />
+      </TestProviders>,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /reportar publicación/i }),
+    );
+    await user.type(
+      screen.getByLabelText(/por qué quieres reportar/i),
+      "Motivo",
+    );
+    await user.click(screen.getByRole("button", { name: /enviar reporte/i }));
+
+    expect(screen.getByRole("button", { name: /cancelar/i })).toBeDisabled();
+
+    resolvePost();
+    await screen.findByText(/un administrador revisará esta publicación/i);
+  });
+
   it("anuncia un error cuando falla el envío", async () => {
     authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
     vi.mocked(api.post).mockRejectedValue(new Error("No puedes reportar tu propio producto"));

@@ -76,7 +76,7 @@ describe('ReportsService', () => {
         where: {
           productId_reporterId: { productId: 'product1', reporterId: 'buyer1' },
         },
-        update: { reason: 'Parece una estafa', createdAt: expect.any(Date) },
+        update: { reason: 'Parece una estafa' },
         create: {
           productId: 'product1',
           reporterId: 'buyer1',
@@ -131,10 +131,10 @@ describe('ReportsService', () => {
       await service.create('buyer1', 'product1', 'Motivo actualizado');
 
       const call = mockPrismaService.client.productReport.upsert.mock.calls[0][0];
-      expect(call.update).toEqual({
-        reason: 'Motivo actualizado',
-        createdAt: expect.any(Date),
-      });
+      // `createdAt` deliberately stays untouched on a re-report — it's
+      // "first reported at", not "last activity" (that's `updatedAt`,
+      // which Prisma bumps on its own and isn't part of this update object).
+      expect(call.update).toEqual({ reason: 'Motivo actualizado' });
     });
   });
 
@@ -162,7 +162,7 @@ describe('ReportsService', () => {
           reporter: { select: { id: true, name: true } },
           product: { select: { id: true, title: true } },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { updatedAt: 'desc' },
       });
       expect(result).toEqual({
         data: mockReports,

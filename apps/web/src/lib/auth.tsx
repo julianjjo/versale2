@@ -15,6 +15,14 @@ import { onUnauthorized } from "./auth-events";
 import { tokenStore } from "./token";
 import type { AuthResponse, User } from "./types";
 
+// Shared by every "this action needs an account" entry point on a product
+// page (favoriting, reviewing, reporting a listing) so the redirect URL's
+// shape — and where the visitor lands back on after logging in — can't
+// drift between them the way three independently hand-built copies would.
+export function loginRedirectUrl(productId: string, reason: string): string {
+  return `/login?next=${encodeURIComponent(`/products/${productId}`)}&reason=${reason}`;
+}
+
 export interface AuthState {
   user: User | null;
   isLoading: boolean;

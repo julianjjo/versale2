@@ -167,11 +167,21 @@ model Favorite {
 model ProductReport {
   id         String   @id @default(uuid())
   productId  String
-  product    Product  @relation(fields: [productId], references: [id])
+  // Cascades: once the reported product is gone, the report has served its
+  // purpose and must not be the thing standing between an admin and actually
+  // removing a listing a report flagged as bad — a plain RESTRICT here would
+  // make products.service.ts#remove()'s P2003 handler block exactly the
+  // moderation action this whole feature exists to enable.
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   reporterId String
+  // Left as the default RESTRICT (matching Review/Favorite/Order's existing
+  // User relations) — deleting a reporter's account is a separate concern
+  // from resolving what they reported, and shouldn't quietly erase reports
+  // still open against other products.
   reporter   User     @relation(fields: [reporterId], references: [id])
   reason     String
   createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   // Resubmitting isn't a second signal against the listing, it's the same
   // complaint — upserting on this keeps the admin queue from growing

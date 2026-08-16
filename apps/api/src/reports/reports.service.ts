@@ -29,11 +29,13 @@ export class ReportsService {
 
     // A second report from the same person isn't a second signal against the
     // listing — it's the same complaint, possibly with more detail — so it
-    // updates the existing row (refreshing the reason and its timestamp)
-    // instead of erroring or silently duplicating.
+    // updates the existing row (refreshing the reason) instead of erroring
+    // or silently duplicating. `createdAt` stays untouched (it's genuinely
+    // "first reported at"); Prisma bumps `updatedAt` on its own, which is
+    // what the admin queue actually sorts by.
     return this.prisma.client.productReport.upsert({
       where: { productId_reporterId: { productId, reporterId: userId } },
-      update: { reason, createdAt: new Date() },
+      update: { reason },
       create: { productId, reporterId: userId, reason },
     });
   }
@@ -50,7 +52,9 @@ export class ReportsService {
           reporter: { select: { id: true, name: true } },
           product: { select: { id: true, title: true } },
         },
-        orderBy: { createdAt: 'desc' },
+        // Most recently active first — a re-reported (refined) complaint is
+        // the one most worth an admin's attention right now.
+        orderBy: { updatedAt: 'desc' },
       }),
       this.prisma.client.productReport.count(),
     ]);

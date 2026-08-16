@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { useAuth } from "@/lib/auth";
+import { loginRedirectUrl, useAuth } from "@/lib/auth";
 import { api, extractApiError } from "@/lib/api";
 import { Button, Textarea } from "@/components/ui";
 
@@ -13,14 +13,12 @@ export function ReportProductButton({ productId }: { productId: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [wasSent, setWasSent] = useState(false);
 
   const reportProduct = useMutation({
     mutationFn: async () => {
       await api.post("/reports", { productId, reason });
     },
     onSuccess: () => {
-      setWasSent(true);
       setIsOpen(false);
       setReason("");
     },
@@ -36,9 +34,7 @@ export function ReportProductButton({ productId }: { productId: string }) {
     if (isAuthLoading) return;
 
     if (!user) {
-      router.push(
-        `/login?next=${encodeURIComponent(`/products/${productId}`)}&reason=report`,
-      );
+      router.push(loginRedirectUrl(productId, "report"));
       return;
     }
 
@@ -52,7 +48,10 @@ export function ReportProductButton({ productId }: { productId: string }) {
     reportProduct.mutate();
   };
 
-  if (wasSent) {
+  // `useMutation`'s own isSuccess already tracks "was this sent" — a
+  // separate boolean would have to be kept in sync by hand on every success
+  // path instead of being read directly off the thing that caused it.
+  if (reportProduct.isSuccess) {
     return (
       <p role="status" className="text-sm text-text-muted">
         Gracias, un administrador revisará esta publicación.
@@ -97,6 +96,7 @@ export function ReportProductButton({ productId }: { productId: string }) {
               variant="ghost"
               size="sm"
               onClick={() => setIsOpen(false)}
+              disabled={reportProduct.isPending}
             >
               Cancelar
             </Button>

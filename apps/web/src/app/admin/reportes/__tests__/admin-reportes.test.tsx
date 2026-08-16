@@ -24,6 +24,7 @@ function reportsFixture(overrides?: Partial<ProductReport>[]): ProductReport[] {
       reporterId: "user1",
       reason: "Parece una estafa, el precio es demasiado bajo.",
       createdAt: "2026-08-01T00:00:00.000Z",
+      updatedAt: "2026-08-01T00:00:00.000Z",
       reporter: { id: "user1", name: "Usuario Uno" },
       product: { id: "product1", title: "Chaqueta de cuero" },
     },
@@ -140,11 +141,12 @@ describe("AdminReportsPage", () => {
     });
   });
 
-  it("descarta un reporte al hacer click en Descartar", async () => {
+  it("descarta un reporte tras confirmar", async () => {
     vi.mocked(api.get).mockResolvedValue({
       data: paginatedResponse(reportsFixture()),
     });
     vi.mocked(api.delete).mockResolvedValue({ data: { success: true } });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
 
     render(
@@ -164,11 +166,34 @@ describe("AdminReportsPage", () => {
     });
   });
 
+  it("no descarta un reporte si se cancela la confirmación", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: paginatedResponse(reportsFixture()),
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AdminReportsPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Chaqueta de cuero")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /descartar/i }));
+
+    expect(api.delete).not.toHaveBeenCalled();
+  });
+
   it("muestra un error cuando falla al descartar un reporte", async () => {
     vi.mocked(api.get).mockResolvedValue({
       data: paginatedResponse(reportsFixture()),
     });
     vi.mocked(api.delete).mockRejectedValue(new Error("Este reporte ya no existe"));
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     const user = userEvent.setup();
 
     render(
