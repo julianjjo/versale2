@@ -132,13 +132,16 @@ describe("ProductDetail", () => {
     expect(sellerLink).toHaveAttribute("href", "/vendedores/s1");
   });
 
-  it("muestra la primera foto en el visor principal y una miniatura por cada foto", async () => {
+  // Detailed gallery interaction/behavior tests live in
+  // product-gallery.test.tsx, against ProductGallery directly — this is
+  // just a wiring smoke test confirming ProductDetail actually renders it
+  // with the product's real images and title.
+  it("renderiza la galería de fotos con los datos del producto", async () => {
     const productWithGallery = {
       ...mockProduct,
       images: [
         "https://example.com/jacket-1.jpg",
         "https://example.com/jacket-2.jpg",
-        "https://example.com/jacket-3.jpg",
       ],
     };
     vi.mocked(api.get).mockResolvedValue({ data: productWithGallery });
@@ -153,52 +156,8 @@ describe("ProductDetail", () => {
     });
     expect(mainImage).toHaveAttribute("src", "https://example.com/jacket-1.jpg");
     expect(
-      screen.getByRole("button", { name: /ver foto 1 de/i }),
-    ).toHaveAttribute("aria-current", "true");
-    expect(
       screen.getByRole("button", { name: /ver foto 2 de/i }),
-    ).toHaveAttribute("aria-current", "false");
-  });
-
-  it("cambia la foto principal al hacer click en una miniatura", async () => {
-    const productWithGallery = {
-      ...mockProduct,
-      images: [
-        "https://example.com/jacket-1.jpg",
-        "https://example.com/jacket-2.jpg",
-      ],
-    };
-    vi.mocked(api.get).mockResolvedValue({ data: productWithGallery });
-    const user = userEvent.setup();
-    render(
-      <TestProviders>
-        <ProductDetail />
-      </TestProviders>,
-    );
-
-    await screen.findByRole("img", { name: "Vintage denim jacket" });
-    await user.click(screen.getByRole("button", { name: /ver foto 2 de/i }));
-
-    expect(
-      screen.getByRole("img", { name: "Vintage denim jacket" }),
-    ).toHaveAttribute("src", "https://example.com/jacket-2.jpg");
-    expect(
-      screen.getByRole("button", { name: /ver foto 2 de/i }),
-    ).toHaveAttribute("aria-current", "true");
-  });
-
-  it("no muestra miniaturas cuando el producto tiene una sola foto", async () => {
-    vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
-    render(
-      <TestProviders>
-        <ProductDetail />
-      </TestProviders>,
-    );
-
-    await screen.findByRole("img", { name: "Vintage denim jacket" });
-    expect(
-      screen.queryByRole("button", { name: /ver foto/i }),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
   });
 
   it("muestra productos similares de la misma categoría", async () => {

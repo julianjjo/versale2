@@ -25,6 +25,7 @@ import { tokenStore } from "@/lib/token";
 import type { Product, Review } from "@/lib/types";
 import { FavoriteButton } from "@/components/products/favorite-button";
 import { ProductCard } from "@/components/products/products-browser";
+import { ProductGallery } from "@/components/products/product-gallery";
 
 // Shared by the "write a review" form and the inline "edit my review" form so
 // the accessible radiogroup (roving tabindex, arrow-key navigation) isn't
@@ -120,18 +121,6 @@ export function ProductDetail({
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
   const [editRating, setEditRating] = useState(5);
   const [editComment, setEditComment] = useState("");
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  // Next.js can reuse this component instance across two products in a row
-  // (e.g. clicking a "related products" card), so the gallery has to reset
-  // on navigation rather than relying on a remount to do it. Adjusting state
-  // during render (React's recommended pattern for this) instead of an
-  // effect avoids rendering the previous product's selected image for one
-  // extra frame before an effect would catch up.
-  const [galleryProductId, setGalleryProductId] = useState(id);
-  if (id !== galleryProductId) {
-    setGalleryProductId(id);
-    setSelectedImageIndex(0);
-  }
 
   // The server probe that produced `initialProduct` is anonymous, so for a
   // visitor without a token it already IS the answer — treating it as fresh
@@ -374,60 +363,17 @@ export function ProductDetail({
   return (
     <PageContainer size="wide">
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-        <div className="space-y-2">
-          {(() => {
-            const images = data.images ?? [];
-            // The id-change check above already resets the index to 0 on
-            // navigation; this clamp instead guards a same-product edit —
-            // a refetch that lands with fewer images than the selected
-            // thumbnail's index — so it never indexes past the array.
-            const activeIndex = Math.min(
-              selectedImageIndex,
-              Math.max(images.length - 1, 0),
-            );
-            return (
-              <>
-                <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-muted">
-                  {images[activeIndex] ? (
-                    <img
-                      src={images[activeIndex]}
-                      alt={data.title}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-sm text-text-muted">Sin imagen</span>
-                  )}
-                </div>
-                {images.length > 1 && (
-                  <div className="grid grid-cols-4 gap-2">
-                    {images.map((img, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setSelectedImageIndex(idx)}
-                        aria-current={idx === activeIndex}
-                        aria-label={`Ver foto ${idx + 1} de ${data.title}`}
-                        className={`aspect-square overflow-hidden rounded-md border bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
-                          idx === activeIndex
-                            ? "border-text-primary ring-2 ring-text-primary"
-                            : "border-border"
-                        }`}
-                      >
-                        <img
-                          src={img}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          className="h-full w-full object-cover"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            );
-          })()}
-        </div>
+        {/* Keyed on id + the images themselves (not just id): a same-id
+            refetch that changes the picture set (e.g. a moderated-field edit,
+            once re-approved) remounts the gallery instead of trying to
+            reconcile a stale index against a changed array — see
+            ProductGallery's own doc comment for why that reconciliation
+            problem doesn't have a good answer. */}
+        <ProductGallery
+          key={`${id}:${(data.images ?? []).join("|")}`}
+          images={data.images ?? []}
+          title={data.title}
+        />
         <div className="space-y-4">
           <div>
             <div className="flex items-start justify-between gap-3">
