@@ -99,6 +99,10 @@ describe("ProductDetail", () => {
     // Whether a token is present decides if the server-seeded product is
     // revalidated, so each test starts from a known (anonymous) state.
     tokenStore.clear();
+    // Viewing a product records it via recently-viewed's localStorage-backed
+    // history — clear between tests so one test's view can't leak into the
+    // next as stray "recently viewed" state.
+    localStorage.clear();
     vi.spyOn(window, "alert").mockImplementation(() => {});
   });
 

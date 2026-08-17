@@ -29,6 +29,10 @@ import { ProductQuestions } from "@/components/products/product-questions";
 import { SellerReplyBlock } from "@/components/products/seller-reply-block";
 import { ProductCard } from "@/components/products/products-browser";
 import { ProductGallery } from "@/components/products/product-gallery";
+import {
+  RecentlyViewed,
+  useRecordProductView,
+} from "@/components/products/recently-viewed";
 
 // Shared by the "write a review" form and the inline "edit my review" form so
 // the accessible radiogroup (roving tabindex, arrow-key navigation) isn't
@@ -174,6 +178,16 @@ export function ProductDetail({
   // Guards against a missing/malformed response shape so this
   // nice-to-have section can never crash the rest of the page.
   const relatedProducts = related?.data ?? [];
+
+  // Skips the seller's own listing — visiting your own product page while
+  // managing it isn't the kind of "browsing interest" this history is for,
+  // and would otherwise clutter the visitor's own recently-viewed rail with
+  // their own inventory. Called unconditionally (before the loading/error
+  // early returns below) since hooks can't be called conditionally; `data`
+  // is simply undefined until the product loads.
+  useRecordProductView(
+    data && user?.id !== data.sellerId ? data.id : undefined,
+  );
 
   const addToCart = useMutation({
     mutationFn: async () => {
@@ -768,6 +782,8 @@ export function ProductDetail({
           </div>
         </section>
       )}
+
+      <RecentlyViewed excludeId={data.id} />
     </PageContainer>
   );
 }
