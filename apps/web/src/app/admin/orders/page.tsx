@@ -6,7 +6,7 @@ import {
   useQueryClient,
   keepPreviousData,
 } from "@tanstack/react-query";
-import { api, extractApiError } from "@/lib/api";
+import { api, extractApiError, extractBlobApiError } from "@/lib/api";
 import {
   Spinner,
   Card,
@@ -36,6 +36,7 @@ export default function AdminOrdersPage() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<OrderStatus | "">("");
+  const [isExporting, setIsExporting] = useState(false);
   const bulkBarRef = useRef<HTMLDivElement>(null);
   const [bulkBarHeight, setBulkBarHeight] = useState(0);
 
@@ -65,6 +66,33 @@ export default function AdminOrdersPage() {
 
   const invalidateOrders = () =>
     queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+
+  // Not a useMutation: the result is a file the browser has to save, not
+  // cache-invalidating state React Query needs to track.
+  const handleExportCsv = async () => {
+    setError(null);
+    setIsExporting(true);
+    try {
+      const res = await api.get<Blob>(
+        `/orders/admin/export?search=${encodeURIComponent(search)}`,
+        { responseType: "blob" },
+      );
+      const url = URL.createObjectURL(res.data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "pedidos.csv";
+      link.click();
+      // Revoking synchronously right after click() races Safari's download
+      // kickoff (which isn't guaranteed synchronous) and can truncate the
+      // file — yielding a tick first is the standard fix; Chrome/Firefox are
+      // unaffected either way.
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch (err) {
+      setError(await extractBlobApiError(err, "No pudimos generar el archivo CSV"));
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: OrderStatus }) => {
@@ -200,6 +228,15 @@ export default function AdminOrdersPage() {
             <Spinner className="h-3.5 w-3.5" /> Actualizando…
           </span>
         )}
+        <Button
+          variant="secondary"
+          size="sm"
+          className="flex-shrink-0"
+          onClick={handleExportCsv}
+          disabled={isExporting}
+        >
+          {isExporting ? "Generando…" : "Descargar CSV"}
+        </Button>
       </div>
 
       {error && (

@@ -12,6 +12,23 @@ vi.mock("@/lib/api", () => ({
   },
   extractApiError: (err: unknown, fallback: string) =>
     err instanceof Error ? err.message : fallback,
+  // Mirrors the real extractBlobApiError's shape closely enough to exercise
+  // handleExportCsv's error path: read a Blob-typed response.data as JSON
+  // before falling back, same as the real implementation does.
+  extractBlobApiError: async (err: unknown, fallback: string) => {
+    const response = (err as { response?: { data?: unknown } })?.response;
+    if (response?.data instanceof Blob) {
+      try {
+        const parsed = JSON.parse(await response.data.text()) as {
+          message?: string;
+        };
+        if (parsed?.message) return parsed.message;
+      } catch {
+        // fall through
+      }
+    }
+    return err instanceof Error ? err.message : fallback;
+  },
 }));
 
 import { api } from "@/lib/api";
@@ -141,5 +158,110 @@ describe("AdminOrdersPage", () => {
       },
       { timeout: 5000 },
     );
+  });
+
+  it("descarga el CSV de pedidos con el término de búsqueda actual", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.startsWith("/orders/admin/export")) {
+        return { data: new Blob(["ID,Comprador"], { type: "text/csv" }) };
+      }
+      return { data: paginated([orderFixture("aaaaaaaa1")]) };
+    });
+    // jsdom no implementa la API real de Blob URLs — solo verificamos que se
+    // invoque, no el manejo del archivo en sí (fuera del alcance de un test
+    // de componente).
+    const createObjectURL = vi.fn().mockReturnValue("blob:mock");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { ...URL, createObjectURL, revokeObjectURL });
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AdminOrdersPage />
+      </TestProviders>,
+    );
+
+    await screen.findByText(/Pedido #aaaaaaaa/, undefined, { timeout: 5000 });
+    await user.click(screen.getByRole("button", { name: "Descargar CSV" }));
+
+    try {
+      await waitFor(() => {
+        expect(api.get).toHaveBeenCalledWith(
+          "/orders/admin/export?search=",
+          { responseType: "blob" },
+        );
+      });
+      expect(createObjectURL).toHaveBeenCalled();
+      expect(clickSpy).toHaveBeenCalled();
+      // Revoking is deferred a tick (guards against Safari's create→click→
+      // immediate-revoke download race), so this needs waitFor too.
+      await waitFor(() => {
+        expect(revokeObjectURL).toHaveBeenCalledWith("blob:mock");
+      });
+    } finally {
+      clickSpy.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("muestra el mensaje real del backend cuando la exportación a CSV falla", async () => {
+    // A `responseType: "blob"` request also decodes its ERROR body as a
+    // Blob, not parsed JSON — this reconstructs that shape to prove the
+    // real backend message (not just a generic fallback) reaches the user.
+    const errorBody = new Blob(
+      [JSON.stringify({ message: "No tienes autorización" })],
+      { type: "application/json" },
+    );
+    const blobError = Object.assign(new Error("Request failed"), {
+      response: { data: errorBody },
+    });
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.startsWith("/orders/admin/export")) {
+        throw blobError;
+      }
+      return { data: paginated([orderFixture("aaaaaaaa1")]) };
+    });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AdminOrdersPage />
+      </TestProviders>,
+    );
+
+    await screen.findByText(/Pedido #aaaaaaaa/, undefined, { timeout: 5000 });
+    await user.click(screen.getByRole("button", { name: "Descargar CSV" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "No tienes autorización",
+      );
+    });
+  });
+
+  it("cae al mensaje genérico si la exportación falla sin un cuerpo de error legible", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.startsWith("/orders/admin/export")) {
+        throw new Error("Network Error");
+      }
+      return { data: paginated([orderFixture("aaaaaaaa1")]) };
+    });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AdminOrdersPage />
+      </TestProviders>,
+    );
+
+    await screen.findByText(/Pedido #aaaaaaaa/, undefined, { timeout: 5000 });
+    await user.click(screen.getByRole("button", { name: "Descargar CSV" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Network Error");
+    });
   });
 });
