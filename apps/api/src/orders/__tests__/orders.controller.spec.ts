@@ -1,9 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ExecutionContext, INestApplication } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-// `esModuleInterop` is off in apps/api, and @types/supertest uses `export =`,
-// so the namespace import is the one that stays callable after compilation.
-import * as request from 'supertest';
+// `esModuleInterop` is off in apps/api, and @types/supertest uses `export =`.
+// The namespace-star form (`import * as request`) stays callable at runtime
+// but type-aware ESLint fails to resolve its type through that form, so the
+// `import = require()` form is used instead — it resolves correctly for both
+// runtime and lint, at the cost of needing one narrow rule exception below.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+import request = require('supertest');
 import { OrdersController } from '../orders.controller';
 import { OrdersService } from '../orders.service';
 import { AuthRequest } from '../../../src/types/request.types';
@@ -275,6 +279,9 @@ describe('OrdersController', () => {
     it('is admin-only, like the rest of the admin/* order routes', () => {
       const reflector = new Reflector();
       const requiredRoles = reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
+        // The method reference is only used as a decorator-metadata lookup
+        // key here, never invoked, so there's no unbound-`this` risk.
+        // eslint-disable-next-line @typescript-eslint/unbound-method
         OrdersController.prototype.getOrderStats,
         OrdersController,
       ]);
@@ -321,7 +328,7 @@ describe('OrdersController', () => {
           // below that read `req.user.id` (getMySales, shipOwnSale) need a
           // stand-in so they don't crash on `undefined.id`.
           canActivate: (context: ExecutionContext) => {
-            const req = context.switchToHttp().getRequest();
+            const req = context.switchToHttp().getRequest<AuthRequest>();
             req.user = {
               id: 'seller1',
               email: 'seller@example.com',

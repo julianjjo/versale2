@@ -20,8 +20,7 @@ describe('ReviewsController', () => {
     unmarkHelpful: jest.fn(),
   };
 
-  const createMockRes = () =>
-    ({ status: jest.fn().mockReturnThis() }) as unknown as Response;
+  const createMockRes = () => ({ status: jest.fn().mockReturnThis() });
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -79,7 +78,11 @@ describe('ReviewsController', () => {
 
       mockReviewsService.create.mockResolvedValue({ review, created: true });
 
-      const result = await controller.createReview(mockReq, body, res);
+      const result = await controller.createReview(
+        mockReq,
+        body,
+        res as unknown as Response,
+      );
 
       expect(mockReviewsService.create).toHaveBeenCalledWith(
         body,
@@ -106,7 +109,11 @@ describe('ReviewsController', () => {
 
       mockReviewsService.create.mockResolvedValue({ review, created: false });
 
-      const result = await controller.createReview(mockReq, body, res);
+      const result = await controller.createReview(
+        mockReq,
+        body,
+        res as unknown as Response,
+      );
 
       expect(res.status).toHaveBeenCalledWith(HttpStatus.OK);
       expect(result).toEqual(review);

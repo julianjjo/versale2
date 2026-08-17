@@ -69,6 +69,9 @@ describe('UsersController', () => {
       // fix is to lock it down to ADMIN via RolesGuard/@Roles, same as GET /users.
       const reflector = new Reflector();
       const requiredRoles = reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
+        // The method reference is only used as a decorator-metadata lookup
+        // key here, never invoked, so there's no unbound-`this` risk.
+        // eslint-disable-next-line @typescript-eslint/unbound-method
         UsersController.prototype.findOne,
         UsersController,
       ]);
