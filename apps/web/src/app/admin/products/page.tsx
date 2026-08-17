@@ -39,10 +39,11 @@ const EMPTY_STATE_COPY: Record<StatusFilter, string> = {
   rejected: "No hay publicaciones rechazadas",
 };
 
-// Mirrors the DTO's own cap (apps/api/src/products/dto/bulk-approve.dto.ts):
-// enforced here too so an admin who selects across many pages gets a clear,
-// actionable message instead of only finding out after the request 400s.
-const MAX_BULK_APPROVE = 100;
+// Mirrors both DTOs' own cap (apps/api/src/products/dto/bulk-approve.dto.ts,
+// bulk-reject.dto.ts): enforced here too so an admin who selects across many
+// pages gets a clear, actionable message instead of only finding out after
+// the request 400s.
+const MAX_BULK_ACTION = 100;
 
 // A listing can be bulk-approved from the same two states its own row's
 // "Aprobar" button already covers (pending or previously rejected), as long
@@ -52,6 +53,24 @@ function isBulkApprovable(product: Product): boolean {
   const isPending = !product.isApproved && !product.rejectedAt;
   const isRejected = !product.isApproved && !!product.rejectedAt;
   return (isPending || isRejected) && !product.soldAt;
+}
+
+// Same reasoning as isBulkApprovable, mirroring the per-row "Rechazar"
+// button's own eligibility instead: pending or currently-approved, not sold.
+// An already-rejected listing has nothing to gain from being rejected again.
+function isBulkRejectable(product: Product): boolean {
+  const isPending = !product.isApproved && !product.rejectedAt;
+  return (isPending || product.isApproved) && !product.soldAt;
+}
+
+// isBulkApprovable and isBulkRejectable between them cover every status a
+// non-sold product can be in (pending, approved, rejected), so this is
+// exactly `!product.soldAt` — spelled out as the union of the two so a
+// selected checkbox always maps back to at least one of the two buttons
+// below, rather than asserting the equivalence and hoping it stays true if
+// either predicate's rules change.
+function isBulkSelectable(product: Product): boolean {
+  return isBulkApprovable(product) || isBulkRejectable(product);
 }
 
 export default function AdminProductsPage() {
@@ -68,6 +87,8 @@ export default function AdminProductsPage() {
   const [rejectTarget, setRejectTarget] = useState<Product | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [rejectReason, setRejectReason] = useState("");
+  const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
+  const [bulkRejectReason, setBulkRejectReason] = useState("");
 
   const discardSelected = (id: string) => {
     setSelectedIds((current) => {
@@ -172,22 +193,64 @@ export default function AdminProductsPage() {
         return next;
       });
       setError(null);
-      // A shortfall can come from more than one cause (sold, deleted, or
-      // already handled by another admin) — the message names the effect,
-      // not a specific guessed cause, all covered by the API's own
-      // compare-and-swap silently excluding that id from `approved`.
+      // A shortfall can come from more than one cause (sold, deleted,
+      // already handled by another admin, or — since the checkbox above is
+      // shared with bulk-reject — a row that was only ever reject-eligible)
+      // — the message names the effect, not a specific guessed cause. The
+      // all-or-nothing case gets its own wording: "las demás" reads as a
+      // race that spared some of the batch, which is misleading when none
+      // of it went through.
       setNotice(
-        result.approved < result.requested
-          ? `Se aprobaron ${result.approved} de ${result.requested} ${
-              result.requested === 1 ? "publicación" : "publicaciones"
-            }. Las demás ya no estaban disponibles para aprobar.`
-          : null,
+        result.approved === result.requested
+          ? null
+          : result.approved === 0
+            ? "Ninguna de las publicaciones seleccionadas estaba disponible para aprobar."
+            : `Se aprobaron ${result.approved} de ${result.requested} publicaciones. Las demás ya no estaban disponibles para aprobar.`,
       );
     },
     onError: (err) => {
       setNotice(null);
       setError(
         extractApiError(err, "No pudimos aprobar las publicaciones seleccionadas"),
+      );
+    },
+  });
+
+  const bulkReject = useMutation({
+    mutationFn: async ({ ids, reason }: { ids: string[]; reason: string }) => {
+      const res = await api.patch<{ rejected: number; requested: number }>(
+        "/products/admin/bulk-reject",
+        { ids, reason: reason.trim() || undefined },
+      );
+      return res.data;
+    },
+    onSuccess: (result, { ids }) => {
+      invalidateProducts();
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+      setError(null);
+      setBulkRejectOpen(false);
+      setBulkRejectReason("");
+      // Same reasoning as bulkApprove's shortfall notice, including the
+      // all-or-nothing wording: the API's compare-and-swap can't say which
+      // selected ids were already sold, deleted, approve-only-eligible, or
+      // rejected by another admin — only that fewer than requested were
+      // actually rejected.
+      setNotice(
+        result.rejected === result.requested
+          ? null
+          : result.rejected === 0
+            ? "Ninguna de las publicaciones seleccionadas estaba disponible para rechazar."
+            : `Se rechazaron ${result.rejected} de ${result.requested} publicaciones. Las demás ya no estaban disponibles para rechazar.`,
+      );
+    },
+    onError: (err) => {
+      setNotice(null);
+      setError(
+        extractApiError(err, "No pudimos rechazar las publicaciones seleccionadas"),
       );
     },
   });
@@ -228,7 +291,7 @@ export default function AdminProductsPage() {
     setSelectedIds(new Set());
   };
 
-  const eligibleOnPage = products.filter(isBulkApprovable);
+  const eligibleOnPage = products.filter(isBulkSelectable);
   const someEligibleSelected = eligibleOnPage.some((product) =>
     selectedIds.has(product.id),
   );
@@ -259,7 +322,35 @@ export default function AdminProductsPage() {
     });
   };
 
-  const exceedsBulkApproveLimit = selectedIds.size > MAX_BULK_APPROVE;
+  const exceedsBulkLimit = selectedIds.size > MAX_BULK_ACTION;
+
+  // The checkbox above is shared by both bulk actions (isBulkSelectable), so
+  // a selection can legitimately hold ids that only one of the two actions
+  // can do anything with — e.g. an approved-and-not-sold row is selectable
+  // (for a bulk reject) but isn't approve-eligible. Sending it to the wrong
+  // action wouldn't just no-op: the backend would silently drop it from the
+  // count and report a shortfall that reads like a race condition instead of
+  // "this row was never a candidate for that button." Disabling the button
+  // when NONE of the selection could do anything closes the common case —
+  // selecting every eligible row on a single status tab, then reaching for
+  // the wrong one. This can only be verified for ids whose product data is
+  // currently loaded (this page); a selection that also spans another page
+  // falls back to the existing send-and-report-shortfall behavior, same as
+  // it did before this PR for a legitimate mid-flight race.
+  const selectedOnPage = products.filter((product) =>
+    selectedIds.has(product.id),
+  );
+  const selectionFullyOnPage = selectedOnPage.length === selectedIds.size;
+  const noneSelectedCanBeApproved =
+    selectionFullyOnPage &&
+    selectedOnPage.length > 0 &&
+    !selectedOnPage.some(isBulkApprovable);
+  const noneSelectedCanBeRejected =
+    selectionFullyOnPage &&
+    selectedOnPage.length > 0 &&
+    !selectedOnPage.some(isBulkRejectable);
+
+  const bulkActionPending = bulkApprove.isPending || bulkReject.isPending;
 
   return (
     <div>
@@ -318,13 +409,15 @@ export default function AdminProductsPage() {
           <span className="text-sm text-text-primary">
             {selectedIds.size} seleccionada
             {selectedIds.size === 1 ? "" : "s"}
-            {exceedsBulkApproveLimit && ` (máximo ${MAX_BULK_APPROVE} por lote)`}
+            {exceedsBulkLimit && ` (máximo ${MAX_BULK_ACTION} por lote)`}
           </span>
           <Button
             size="sm"
             variant="accent"
             onClick={() => bulkApprove.mutate(Array.from(selectedIds))}
-            disabled={bulkApprove.isPending || exceedsBulkApproveLimit}
+            disabled={
+              bulkActionPending || exceedsBulkLimit || noneSelectedCanBeApproved
+            }
           >
             {bulkApprove.isPending ? (
               <Spinner className="h-4 w-4" />
@@ -334,9 +427,19 @@ export default function AdminProductsPage() {
           </Button>
           <Button
             size="sm"
+            variant="secondary"
+            onClick={() => setBulkRejectOpen(true)}
+            disabled={
+              bulkActionPending || exceedsBulkLimit || noneSelectedCanBeRejected
+            }
+          >
+            Rechazar seleccionadas
+          </Button>
+          <Button
+            size="sm"
             variant="ghost"
             onClick={() => setSelectedIds(new Set())}
-            disabled={bulkApprove.isPending}
+            disabled={bulkActionPending}
           >
             Cancelar selección
           </Button>
@@ -359,13 +462,12 @@ export default function AdminProductsPage() {
                 aria-label="Seleccionar todas las elegibles en esta página"
                 checked={allEligibleSelected}
                 onChange={toggleSelectAllOnPage}
-                disabled={bulkApprove.isPending}
+                disabled={bulkActionPending}
               />
               Seleccionar todas las elegibles en esta página
             </label>
           )}
           {products.map((product, index) => {
-            const isPending = !product.isApproved && !product.rejectedAt;
             const isRejected = !product.isApproved && !!product.rejectedAt;
             return (
               <Card
@@ -373,13 +475,13 @@ export default function AdminProductsPage() {
                 data-testid={`admin-product-${product.id}`}
               >
                 <div className="flex flex-wrap items-center gap-4">
-                  {isBulkApprovable(product) && (
+                  {isBulkSelectable(product) && (
                     <input
                       type="checkbox"
                       aria-label={`Seleccionar ${product.title} (#${product.id.slice(0, 8)})`}
                       checked={selectedIds.has(product.id)}
                       onChange={() => toggleSelected(product.id)}
-                      disabled={bulkApprove.isPending}
+                      disabled={bulkActionPending}
                       className="h-4 w-4 flex-shrink-0"
                     />
                   )}
@@ -457,8 +559,9 @@ export default function AdminProductsPage() {
                         única forma de bajarla del catálogo sin borrar su
                         historial de reseñas/pedidos, que es lo que hace
                         "Eliminar". Se excluyen las vendidas (soldAt): son
-                        historial y no se tocan desde aquí. */}
-                    {(isPending || product.isApproved) && !product.soldAt && (
+                        historial y no se tocan desde aquí. Misma regla que la
+                        casilla de selección en lote (isBulkRejectable). */}
+                    {isBulkRejectable(product) && (
                       <Button
                         size="sm"
                         variant="secondary"
@@ -537,6 +640,58 @@ export default function AdminProductsPage() {
             }
           >
             {reject.isPending ? <Spinner className="h-4 w-4" /> : "Rechazar"}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={bulkRejectOpen}
+        onClose={() => {
+          if (bulkReject.isPending) return;
+          setBulkRejectOpen(false);
+          setBulkRejectReason("");
+        }}
+        title="Rechazar publicaciones seleccionadas"
+      >
+        <p className="text-sm text-text-muted">
+          El motivo queda guardado como nota interna en cada una de las{" "}
+          {selectedIds.size} publicaciones seleccionadas. Hoy el vendedor no
+          recibe ninguna notificación del rechazo.
+        </p>
+        <Textarea
+          className="mt-3"
+          label="Motivo (opcional)"
+          placeholder="Ej: las fotos no muestran bien el producto"
+          value={bulkRejectReason}
+          onChange={(e) => setBulkRejectReason(e.target.value)}
+          disabled={bulkReject.isPending}
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setBulkRejectOpen(false);
+              setBulkRejectReason("");
+            }}
+            disabled={bulkReject.isPending}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="danger"
+            disabled={bulkReject.isPending}
+            onClick={() =>
+              bulkReject.mutate({
+                ids: Array.from(selectedIds),
+                reason: bulkRejectReason,
+              })
+            }
+          >
+            {bulkReject.isPending ? (
+              <Spinner className="h-4 w-4" />
+            ) : (
+              "Rechazar seleccionadas"
+            )}
           </Button>
         </div>
       </Modal>

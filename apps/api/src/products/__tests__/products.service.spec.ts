@@ -1726,6 +1726,82 @@ describe('ProductsService', () => {
         }),
       );
     });
+
+    // Powers the storefront's "recently viewed" rail: a fixed batch of ids
+    // fetched in one call instead of one GET /products/:id per id, so it
+    // never touches viewCount the way that per-product endpoint does.
+    it('should filter by a comma-separated ids list', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAll({ ids: 'p1,p2,p3' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: { in: ['p1', 'p2', 'p3'] },
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('should filter by ids arriving as an array (duplicated query key)', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAll({ ids: ['p1', 'p2'] });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: { in: ['p1', 'p2'] },
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('should still apply the public-catalog visibility rule alongside an ids filter', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAll({ ids: 'p1' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            isApproved: true,
+            soldAt: null,
+            pausedAt: null,
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('should ignore blank entries and surrounding whitespace in the ids list', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAll({ ids: ' p1 , ,p2,' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: { in: ['p1', 'p2'] },
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('should not add an id filter at all when ids is absent, empty, or blank', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAll({ ids: '' });
+
+      const [[{ where }]] = mockPrismaService.client.product.findMany.mock
+        .calls as [[{ where: Record<string, unknown> }]];
+      expect(where.id).toBeUndefined();
+    });
   });
 
   describe('getSellerProfile', () => {
@@ -2592,6 +2668,102 @@ describe('ProductsService', () => {
       await expect(
         service.rejectProduct(productId, 'Fotos borrosas'),
       ).rejects.toThrow('Este producto ya fue vendido y no se puede rechazar');
+    });
+  });
+
+  describe('bulkReject', () => {
+    it('should reject every requested product in a single updateMany call', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 2,
+      });
+
+      const result = await service.bulkReject(
+        ['product1', 'product2'],
+        'Fotos borrosas',
+      );
+
+      expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: ['product1', 'product2'] },
+          rejectedAt: null,
+          soldAt: null,
+        },
+        data: {
+          isApproved: false,
+          rejectedAt: expect.any(Date) as Date,
+          rejectionReason: 'Fotos borrosas',
+        },
+      });
+      expect(result).toEqual({ rejected: 2, requested: 2 });
+    });
+
+    it('should default the rejection reason to null when none is given', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      await service.bulkReject(['product1']);
+
+      expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            rejectionReason: null,
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    // Mirrors rejectProduct()'s compare-and-swap: a product sold between the
+    // admin loading the list and clicking "Rechazar seleccionadas" is
+    // silently excluded from the update instead of failing the whole batch.
+    it('should silently exclude already-sold products from the count instead of failing the whole batch', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      const result = await service.bulkReject(['product1', 'product2']);
+
+      expect(result).toEqual({ rejected: 1, requested: 2 });
+    });
+
+    // The where clause also excludes already-rejected products: re-running
+    // the batch over a row another admin already rejected shouldn't
+    // overwrite its existing reason/timestamp for no reason.
+    it('should exclude already-rejected products from the where clause', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 0,
+      });
+
+      await service.bulkReject(['product1']);
+
+      expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            rejectedAt: null,
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    // Same reasoning as bulkApprove's own de-duplication test: a caller
+    // other than this app's own Set-backed UI could submit the same id
+    // twice, which would otherwise misreport a fully successful batch as
+    // partial.
+    it('should de-duplicate requested ids before counting them or querying', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      const result = await service.bulkReject(['product1', 'product1']);
+
+      expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: { in: ['product1'] },
+          }) as Record<string, unknown>,
+        }),
+      );
+      expect(result).toEqual({ rejected: 1, requested: 1 });
     });
   });
 });

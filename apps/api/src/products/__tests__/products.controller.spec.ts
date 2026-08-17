@@ -25,6 +25,7 @@ describe('ProductsController', () => {
     approveProduct: jest.fn(),
     rejectProduct: jest.fn(),
     bulkApprove: jest.fn(),
+    bulkReject: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -468,6 +469,39 @@ describe('ProductsController', () => {
 
       expect(mockProductsService.rejectProduct).toHaveBeenCalledWith(
         productId,
+        undefined,
+      );
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('bulkRejectProducts', () => {
+    it('should call productsService.bulkReject with the ids array and reason', async () => {
+      const mockResult = { rejected: 2, requested: 2 };
+      mockProductsService.bulkReject.mockResolvedValue(mockResult);
+
+      const result = await controller.bulkRejectProducts({
+        ids: ['product1', 'product2'],
+        reason: 'Fotos borrosas',
+      });
+
+      expect(mockProductsService.bulkReject).toHaveBeenCalledWith(
+        ['product1', 'product2'],
+        'Fotos borrosas',
+      );
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should call productsService.bulkReject with undefined reason when none is given', async () => {
+      const mockResult = { rejected: 1, requested: 1 };
+      mockProductsService.bulkReject.mockResolvedValue(mockResult);
+
+      const result = await controller.bulkRejectProducts({
+        ids: ['product1'],
+      });
+
+      expect(mockProductsService.bulkReject).toHaveBeenCalledWith(
+        ['product1'],
         undefined,
       );
       expect(result).toEqual(mockResult);
