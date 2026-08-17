@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ProductsBrowser } from "@/components/products/products-browser";
-import { RecentlyViewed } from "@/components/products/recently-viewed";
+import { RecentlyViewedSection } from "@/components/products/recently-viewed";
 import { CategoryGrid } from "@/components/marketing/category-grid";
 import { ClosingCTA } from "@/components/marketing/closing-cta";
 
@@ -196,19 +196,6 @@ function ProductsSection() {
         </div>
 
         <ProductsBrowser limit={6} showFilters={false} showPagination={false} />
-      </div>
-    </section>
-  );
-}
-
-// Renders nothing (RecentlyViewed returns null) until the visitor's browser
-// has a viewing history, so this section quietly disappears for first-time
-// visitors instead of showing an empty shell.
-function RecentlyViewedSection() {
-  return (
-    <section className="bg-surface pb-20 lg:pb-32">
-      <div className="mx-auto w-full max-w-[1320px] px-5 sm:px-8">
-        <RecentlyViewed />
       </div>
     </section>
   );

@@ -29,6 +29,15 @@ describe("recently-viewed", () => {
     expect(getRecentlyViewedIds()).toEqual(["p1", "p2"]);
   });
 
+  it("keeps all 12 entries when the cap is reached exactly, with none dropped", () => {
+    for (let i = 1; i <= 12; i++) {
+      recordProductView(`p${i}`);
+    }
+    const ids = getRecentlyViewedIds();
+    expect(ids).toHaveLength(12);
+    expect(ids).toContain("p1");
+  });
+
   it("caps the list at 12 entries, dropping the oldest", () => {
     for (let i = 1; i <= 13; i++) {
       recordProductView(`p${i}`);

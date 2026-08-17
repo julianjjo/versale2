@@ -1152,4 +1152,47 @@ describe("ProductDetail", () => {
 
     expect(await screen.findByText("No autorizado")).toBeInTheDocument();
   });
+
+  // Regression: `user` reads as `null` (indistinguishable from a genuinely
+  // anonymous visitor) for as long as the profile fetch is in flight, while
+  // the product itself can already be loaded. Recording a view during that
+  // window used to record the seller's own listing into their own
+  // recently-viewed history with no way to undo it once auth resolved and
+  // revealed they were the owner all along.
+  it("no registra la publicación propia como vista mientras la sesión todavía está cargando", async () => {
+    authState.user = null;
+    authState.isLoading = true;
+    vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
+
+    const { rerender } = render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    });
+    // Let any effect that would (incorrectly) fire while auth is still
+    // "loading" run before asserting nothing was recorded.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(localStorage.getItem("versale_recently_viewed")).toBeNull();
+
+    // Auth now resolves to reveal the viewer IS this product's own seller.
+    authState.user = {
+      id: mockProduct.sellerId,
+      email: "seller@b.c",
+      name: "Alice",
+      role: "USER",
+    };
+    authState.isLoading = false;
+    rerender(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(localStorage.getItem("versale_recently_viewed")).toBeNull();
+  });
 });

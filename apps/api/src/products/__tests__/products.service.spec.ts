@@ -1726,6 +1726,82 @@ describe('ProductsService', () => {
         }),
       );
     });
+
+    // Powers the storefront's "recently viewed" rail: a fixed batch of ids
+    // fetched in one call instead of one GET /products/:id per id, so it
+    // never touches viewCount the way that per-product endpoint does.
+    it('should filter by a comma-separated ids list', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAll({ ids: 'p1,p2,p3' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: { in: ['p1', 'p2', 'p3'] },
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('should filter by ids arriving as an array (duplicated query key)', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAll({ ids: ['p1', 'p2'] });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: { in: ['p1', 'p2'] },
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('should still apply the public-catalog visibility rule alongside an ids filter', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAll({ ids: 'p1' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            isApproved: true,
+            soldAt: null,
+            pausedAt: null,
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('should ignore blank entries and surrounding whitespace in the ids list', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAll({ ids: ' p1 , ,p2,' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: { in: ['p1', 'p2'] },
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('should not add an id filter at all when ids is absent, empty, or blank', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAll({ ids: '' });
+
+      const [[{ where }]] = mockPrismaService.client.product.findMany.mock
+        .calls as [[{ where: Record<string, unknown> }]];
+      expect(where.id).toBeUndefined();
+    });
   });
 
   describe('getSellerProfile', () => {

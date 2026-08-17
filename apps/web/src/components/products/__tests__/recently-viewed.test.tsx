@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import {
   RecentlyViewed,
+  RecentlyViewedSection,
   useRecordProductView,
 } from "../recently-viewed";
 import { recordProductView } from "@/lib/recently-viewed";
@@ -73,16 +74,12 @@ describe("RecentlyViewed", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders a card for each recently viewed product", async () => {
+  it("fetches every stored id in a single batched request instead of one per product", async () => {
     recordProductView("p1");
     recordProductView("p2");
     const p1 = productFixture({ id: "p1", title: "Chaqueta vintage" });
     const p2 = productFixture({ id: "p2", title: "Vestido floral" });
-    vi.mocked(api.get).mockImplementation(async (url: string) => {
-      if (url === "/products/p1") return { data: p1 };
-      if (url === "/products/p2") return { data: p2 };
-      throw new Error(`unexpected url ${url}`);
-    });
+    vi.mocked(api.get).mockResolvedValue({ data: { data: [p1, p2] } });
 
     render(
       <TestProviders>
@@ -95,16 +92,48 @@ describe("RecentlyViewed", () => {
     });
     expect(screen.getByText("Vestido floral")).toBeInTheDocument();
     expect(screen.getByText("Vistos recientemente")).toBeInTheDocument();
+    // p2 was viewed after p1, so it's requested first — one call, not two.
+    expect(api.get).toHaveBeenCalledTimes(1);
+    expect(api.get).toHaveBeenCalledWith("/products?ids=p2,p1&limit=2");
+  });
+
+  // The API has no reason to return rows in `id IN (...)` order — this
+  // proves the rail restores most-recently-viewed-first order itself
+  // instead of just trusting the response order.
+  it("orders the rail by recency regardless of the order the API returns", async () => {
+    recordProductView("p1");
+    recordProductView("p2");
+    recordProductView("p3");
+    const p1 = productFixture({ id: "p1", title: "Uno" });
+    const p2 = productFixture({ id: "p2", title: "Dos" });
+    const p3 = productFixture({ id: "p3", title: "Tres" });
+    // Deliberately out of recency order (p1, p2, p3) — p3 was viewed last.
+    vi.mocked(api.get).mockResolvedValue({ data: { data: [p1, p2, p3] } });
+
+    render(
+      <TestProviders>
+        <RecentlyViewed />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Tres")).toBeInTheDocument();
+    });
+    const titles = screen
+      .getAllByRole("link")
+      .map((link) => link.textContent)
+      .filter((text): text is string => Boolean(text));
+    const order = ["Tres", "Dos", "Uno"].map((title) =>
+      titles.findIndex((text) => text.includes(title)),
+    );
+    expect(order).toEqual([...order].sort((a, b) => a - b));
   });
 
   it("excludes the current product from the rail", async () => {
     recordProductView("p1");
     recordProductView("p2");
     const p1 = productFixture({ id: "p1", title: "Chaqueta vintage" });
-    vi.mocked(api.get).mockImplementation(async (url: string) => {
-      if (url === "/products/p1") return { data: p1 };
-      throw new Error(`unexpected url ${url}`);
-    });
+    vi.mocked(api.get).mockResolvedValue({ data: { data: [p1] } });
 
     render(
       <TestProviders>
@@ -115,21 +144,18 @@ describe("RecentlyViewed", () => {
     await waitFor(() => {
       expect(screen.getByText("Chaqueta vintage")).toBeInTheDocument();
     });
-    expect(api.get).not.toHaveBeenCalledWith("/products/p2");
+    expect(api.get).toHaveBeenCalledWith("/products?ids=p1&limit=1");
   });
 
-  // A listing viewed in the past can be deleted, unapproved, or otherwise
-  // inaccessible by the time the rail renders — it should just drop out
-  // silently rather than break the rest of the rail.
-  it("drops a product that fails to load instead of breaking the rail", async () => {
+  // A listing viewed in the past can be deleted, unapproved, or sold since —
+  // the batch endpoint just omits it from its response, and the rail should
+  // drop it silently rather than error or show a gap.
+  it("drops a product missing from the batch response instead of breaking the rail", async () => {
     recordProductView("p1");
     recordProductView("p2");
     const p2 = productFixture({ id: "p2", title: "Vestido floral" });
-    vi.mocked(api.get).mockImplementation(async (url: string) => {
-      if (url === "/products/p1") throw new Error("Not found");
-      if (url === "/products/p2") return { data: p2 };
-      throw new Error(`unexpected url ${url}`);
-    });
+    // p1 is absent from the response — no longer visible/approved.
+    vi.mocked(api.get).mockResolvedValue({ data: { data: [p2] } });
 
     render(
       <TestProviders>
@@ -141,6 +167,41 @@ describe("RecentlyViewed", () => {
       expect(screen.getByText("Vestido floral")).toBeInTheDocument();
     });
     expect(screen.queryByText("Chaqueta vintage")).not.toBeInTheDocument();
+  });
+});
+
+describe("RecentlyViewedSection", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  // Regression: this wrapper's themed background/padding must not render as
+  // a visible blank gap for the common case (no viewing history yet).
+  it("renders nothing at all when there is no viewing history", () => {
+    const { container } = render(
+      <TestProviders>
+        <RecentlyViewedSection />
+      </TestProviders>,
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("renders the themed section wrapper around the rail when there is history", async () => {
+    recordProductView("p1");
+    const p1 = productFixture({ id: "p1", title: "Chaqueta vintage" });
+    vi.mocked(api.get).mockResolvedValue({ data: { data: [p1] } });
+
+    render(
+      <TestProviders>
+        <RecentlyViewedSection />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Chaqueta vintage")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Vistos recientemente")).toBeInTheDocument();
   });
 });
 

@@ -182,11 +182,19 @@ export function ProductDetail({
   // Skips the seller's own listing — visiting your own product page while
   // managing it isn't the kind of "browsing interest" this history is for,
   // and would otherwise clutter the visitor's own recently-viewed rail with
-  // their own inventory. Called unconditionally (before the loading/error
-  // early returns below) since hooks can't be called conditionally; `data`
-  // is simply undefined until the product loads.
+  // their own inventory. Waits on `isAuthLoading` too: `user` starts out
+  // `null` before the profile fetch resolves, indistinguishable from a
+  // genuinely anonymous visitor — recording while that's still unsettled
+  // could record a seller's own product (seeded via `initialData`, so
+  // `data` is often ready before auth is) with no way to undo it once auth
+  // resolves and reveals they were the owner all along. Called
+  // unconditionally (before the loading/error early returns below) since
+  // hooks can't be called conditionally; `data` is simply undefined until
+  // the product loads.
   useRecordProductView(
-    data && user?.id !== data.sellerId ? data.id : undefined,
+    data && !isAuthLoading && user?.id !== data.sellerId
+      ? data.id
+      : undefined,
   );
 
   const addToCart = useMutation({
