@@ -21,6 +21,9 @@ export interface Product {
   // Set once the garment has been bought. Every listing is one-of-a-kind, so a
   // non-null value means it is gone: the cart has to be able to say so.
   soldAt?: string | null;
+  // Seller-controlled, independent of soldAt/isApproved: temporarily hides an
+  // otherwise-live listing from the catalog without deleting it.
+  pausedAt?: string | null;
   rejectionReason?: string | null;
   createdAt: string;
   updatedAt: string;

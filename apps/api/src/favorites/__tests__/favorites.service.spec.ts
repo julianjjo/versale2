@@ -313,6 +313,23 @@ describe('FavoritesService', () => {
       expect(mockPrismaService.client.favorite.upsert).not.toHaveBeenCalled();
     });
 
+    // Same reasoning as the unapproved case above: the seller took this
+    // listing out of the catalog on purpose, so it shouldn't be favoritable
+    // via a guessed or leaked productId either.
+    it('should refuse to favorite a product the seller has paused', async () => {
+      const userId = 'user1';
+      const productId = 'product1';
+
+      mockProductsService.findRaw.mockResolvedValue(
+        approvedProduct({ id: productId, pausedAt: new Date() }),
+      );
+
+      await expect(service.addFavorite(userId, productId)).rejects.toThrow(
+        'Este producto no está disponible para agregar a favoritos',
+      );
+      expect(mockPrismaService.client.favorite.upsert).not.toHaveBeenCalled();
+    });
+
     it('should refuse to let a seller favorite their own product', async () => {
       const userId = 'seller1';
       const productId = 'product1';

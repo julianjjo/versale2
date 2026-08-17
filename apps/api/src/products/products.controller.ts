@@ -99,6 +99,29 @@ export class ProductsController {
     return this.productsService.remove(id, req.user.id, req.user.role as Role);
   }
 
+  // Two segments (':id/pause', ':id/unpause'), so neither collides with the
+  // bare ':id' routes above regardless of declaration order — same reasoning
+  // as 'sellers/:id' and ':id/related'.
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/pause')
+  async pause(@Param('id') id: string, @Req() req: AuthRequest) {
+    return this.productsService.pauseProduct(
+      id,
+      req.user.id,
+      req.user.role as Role,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/unpause')
+  async unpause(@Param('id') id: string, @Req() req: AuthRequest) {
+    return this.productsService.unpauseProduct(
+      id,
+      req.user.id,
+      req.user.role as Role,
+    );
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Get('admin/all')

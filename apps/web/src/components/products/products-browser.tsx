@@ -501,13 +501,27 @@ export function ProductCard({
               Sin imagen
             </div>
           )}
-          {!product.isApproved && (
+          {/* Only reachable via the Favoritos page: the public catalog's own
+              findAll already excludes anything not approved/unpaused, but a
+              Favorite row survives its product later being rejected or
+              paused (see favorites.service.ts), so this card still has to
+              tell the two states apart there. */}
+          {!product.isApproved ? (
             <Badge
               variant="warning"
               className="absolute left-3 top-3 z-10 uppercase tracking-[0.1em]"
             >
               Pendiente
             </Badge>
+          ) : (
+            product.pausedAt && (
+              <Badge
+                variant="warning"
+                className="absolute left-3 top-3 z-10 uppercase tracking-[0.1em]"
+              >
+                Pausado
+              </Badge>
+            )
           )}
           {!isOwn && (
             <FavoriteButton

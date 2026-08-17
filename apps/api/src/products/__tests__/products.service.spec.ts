@@ -685,6 +685,230 @@ describe('ProductsService', () => {
     });
   });
 
+  describe('pauseProduct', () => {
+    it('should throw NotFoundException when the product does not exist', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.pauseProduct('missing', 'seller1', Role.USER),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPrismaService.client.product.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw error if user is not the seller and not an admin', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        isApproved: true,
+        soldAt: null,
+      });
+
+      await expect(
+        service.pauseProduct('product1', 'seller2', Role.USER),
+      ).rejects.toThrow('No tienes autorización para pausar este producto');
+      expect(mockPrismaService.client.product.update).not.toHaveBeenCalled();
+    });
+
+    it('should refuse to pause a product that has been sold', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        isApproved: true,
+        soldAt: new Date(),
+      });
+
+      await expect(
+        service.pauseProduct('product1', 'seller1', Role.USER),
+      ).rejects.toThrow('Este producto ya fue vendido y no se puede pausar');
+      expect(mockPrismaService.client.product.update).not.toHaveBeenCalled();
+    });
+
+    // A pending or rejected listing is already invisible to buyers for a
+    // stronger reason; pausing one would leave a `pausedAt` an admin's later
+    // approval wouldn't explain.
+    it('should refuse to pause a product that is not currently approved', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        isApproved: false,
+        soldAt: null,
+      });
+
+      await expect(
+        service.pauseProduct('product1', 'seller1', Role.USER),
+      ).rejects.toThrow('Solo puedes pausar una publicación aprobada');
+      expect(mockPrismaService.client.product.update).not.toHaveBeenCalled();
+    });
+
+    it('should set pausedAt for the owning seller', async () => {
+      const existingProduct = {
+        id: 'product1',
+        sellerId: 'seller1',
+        isApproved: true,
+        soldAt: null,
+      };
+      const pausedProduct = { ...existingProduct, pausedAt: new Date() };
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        existingProduct,
+      );
+      mockPrismaService.client.product.update.mockResolvedValue(pausedProduct);
+
+      const result = await service.pauseProduct(
+        'product1',
+        'seller1',
+        Role.USER,
+      );
+
+      expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
+        where: { id: 'product1', soldAt: null, isApproved: true },
+        data: { pausedAt: expect.any(Date) },
+        include: { seller: { select: { id: true, name: true } } },
+      });
+      expect(result).toEqual(pausedProduct);
+    });
+
+    it('should allow an admin to pause a product they do not own', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        isApproved: true,
+        soldAt: null,
+      });
+      mockPrismaService.client.product.update.mockResolvedValue({});
+
+      await service.pauseProduct('product1', 'admin1', Role.ADMIN);
+
+      expect(mockPrismaService.client.product.update).toHaveBeenCalled();
+    });
+
+    // Mirrors update()/remove()'s own concurrent-checkout regression, but the
+    // where-clause here also re-asserts `isApproved: true` (not just
+    // `soldAt: null`), so this P2025 can now be triggered by either a
+    // mid-flight sale OR a concurrent rejection/moderated-edit — the message
+    // covers both instead of incorrectly claiming the product was sold.
+    it('should translate a P2025 from a mid-flight sale or approval change into a single accurate error', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        isApproved: true,
+        soldAt: null,
+      });
+      mockPrismaService.client.product.update.mockRejectedValue(
+        notFoundError(),
+      );
+
+      await expect(
+        service.pauseProduct('product1', 'seller1', Role.USER),
+      ).rejects.toThrow(
+        'Este producto ya no se puede pausar: fue vendido o dejó de estar aprobado',
+      );
+    });
+  });
+
+  describe('unpauseProduct', () => {
+    it('should throw NotFoundException when the product does not exist', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.unpauseProduct('missing', 'seller1', Role.USER),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPrismaService.client.product.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw error if user is not the seller and not an admin', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        soldAt: null,
+        pausedAt: new Date(),
+      });
+
+      await expect(
+        service.unpauseProduct('product1', 'seller2', Role.USER),
+      ).rejects.toThrow('No tienes autorización para reactivar este producto');
+      expect(mockPrismaService.client.product.update).not.toHaveBeenCalled();
+    });
+
+    it('should refuse to unpause a product that has been sold', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        soldAt: new Date(),
+        pausedAt: new Date(),
+      });
+
+      await expect(
+        service.unpauseProduct('product1', 'seller1', Role.USER),
+      ).rejects.toThrow('Este producto ya fue vendido y no se puede reactivar');
+      expect(mockPrismaService.client.product.update).not.toHaveBeenCalled();
+    });
+
+    // Unlike pauseProduct(), unpausing has no isApproved guard: a listing can
+    // become unapproved again while paused (a moderated-field edit sends it
+    // back to review), and clearing pausedAt on it is still a valid action —
+    // it just means the listing will be visible once re-approved.
+    it('should clear pausedAt even for a listing that is currently unapproved', async () => {
+      const existingProduct = {
+        id: 'product1',
+        sellerId: 'seller1',
+        isApproved: false,
+        soldAt: null,
+        pausedAt: new Date(),
+      };
+      const unpausedProduct = { ...existingProduct, pausedAt: null };
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        existingProduct,
+      );
+      mockPrismaService.client.product.update.mockResolvedValue(
+        unpausedProduct,
+      );
+
+      const result = await service.unpauseProduct(
+        'product1',
+        'seller1',
+        Role.USER,
+      );
+
+      expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
+        where: { id: 'product1', soldAt: null },
+        data: { pausedAt: null },
+        include: { seller: { select: { id: true, name: true } } },
+      });
+      expect(result).toEqual(unpausedProduct);
+    });
+
+    it('should allow an admin to unpause a product they do not own', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        isApproved: true,
+        soldAt: null,
+        pausedAt: new Date(),
+      });
+      mockPrismaService.client.product.update.mockResolvedValue({});
+
+      await service.unpauseProduct('product1', 'admin1', Role.ADMIN);
+
+      expect(mockPrismaService.client.product.update).toHaveBeenCalled();
+    });
+
+    it('should translate a P2025 mid-flight sale into the same "already sold" error', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        soldAt: null,
+        pausedAt: new Date(),
+      });
+      mockPrismaService.client.product.update.mockRejectedValue(
+        notFoundError(),
+      );
+
+      await expect(
+        service.unpauseProduct('product1', 'seller1', Role.USER),
+      ).rejects.toThrow('Este producto ya fue vendido y no se puede reactivar');
+    });
+  });
+
   describe('remove', () => {
     // `OrderItem.productId` is ON DELETE RESTRICT, so the delete would raise a raw
     // Prisma error; with no exception filter registered that reached the admin as
@@ -990,6 +1214,7 @@ describe('ProductsService', () => {
         where: {
           isApproved: true,
           soldAt: null,
+          pausedAt: null,
           OR: [
             { title: { contains: 'test' } },
             { description: { contains: 'test' } },
@@ -1012,6 +1237,7 @@ describe('ProductsService', () => {
         where: {
           isApproved: true,
           soldAt: null,
+          pausedAt: null,
           OR: [
             { title: { contains: 'test' } },
             { description: { contains: 'test' } },
@@ -1095,11 +1321,21 @@ describe('ProductsService', () => {
 
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { isApproved: true, soldAt: null, category: 'Jackets' },
+          where: {
+            isApproved: true,
+            soldAt: null,
+            pausedAt: null,
+            category: 'Jackets',
+          },
         }),
       );
       expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
-        where: { isApproved: true, soldAt: null, category: 'Jackets' },
+        where: {
+          isApproved: true,
+          soldAt: null,
+          pausedAt: null,
+          category: 'Jackets',
+        },
       });
     });
   });
@@ -1174,6 +1410,7 @@ describe('ProductsService', () => {
         where: {
           isApproved: true,
           soldAt: null,
+          pausedAt: null,
           price: { gte: 10000, lte: 50000 },
         },
         skip: 0,
@@ -1193,11 +1430,21 @@ describe('ProductsService', () => {
 
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { isApproved: true, soldAt: null, sellerId: 'seller1' },
+          where: {
+            isApproved: true,
+            soldAt: null,
+            pausedAt: null,
+            sellerId: 'seller1',
+          },
         }),
       );
       expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
-        where: { isApproved: true, soldAt: null, sellerId: 'seller1' },
+        where: {
+          isApproved: true,
+          soldAt: null,
+          pausedAt: null,
+          sellerId: 'seller1',
+        },
       });
     });
 
@@ -1207,8 +1454,8 @@ describe('ProductsService', () => {
 
       await service.findAll({ sellerId: 'seller1' });
 
-      const where = mockPrismaService.client.product.findMany.mock.calls[0][0]
-        .where;
+      const where =
+        mockPrismaService.client.product.findMany.mock.calls[0][0].where;
       expect(where.isApproved).toBe(true);
       expect(where.soldAt).toBeNull();
     });
@@ -1224,6 +1471,7 @@ describe('ProductsService', () => {
           where: {
             isApproved: true,
             soldAt: null,
+            pausedAt: null,
             sellerId: 'seller1',
             OR: [
               { title: { contains: 'jacket' } },
@@ -1257,9 +1505,10 @@ describe('ProductsService', () => {
       // The existence gate must count every listing the seller has ever
       // created, not just currently-approved ones — see the "pending
       // re-review" regression test below for why.
-      expect(
-        mockPrismaService.client.product.count,
-      ).toHaveBeenNthCalledWith(1, { where: { sellerId: 'seller1' } });
+      expect(mockPrismaService.client.product.count).toHaveBeenNthCalledWith(
+        1,
+        { where: { sellerId: 'seller1' } },
+      );
       expect(result).toEqual({
         id: 'seller1',
         name: 'Bob',
@@ -1333,7 +1582,7 @@ describe('ProductsService', () => {
     // flips it back to isApproved: false pending re-review (see `update()`).
     // Gating existence on "currently approved" instead of "ever listed"
     // would 404 this seller's OWN profile the moment they touch their price.
-    it("should not 404 a seller whose only listing is pending re-review after an edit", async () => {
+    it('should not 404 a seller whose only listing is pending re-review after an edit', async () => {
       mockPrismaService.client.user.findUnique.mockResolvedValue({
         id: 'seller1',
         name: 'Bob',
@@ -1400,23 +1649,20 @@ describe('ProductsService', () => {
         { id: 'p2', title: 'Another jacket' },
         { id: 'p3', title: 'Yet another jacket' },
       ];
-      mockPrismaService.client.product.findMany.mockResolvedValue(
-        mockRelated,
-      );
+      mockPrismaService.client.product.findMany.mockResolvedValue(mockRelated);
 
       const result = await service.getRelatedProducts('p1');
 
-      expect(mockPrismaService.client.product.findUnique).toHaveBeenCalledWith(
-        {
-          where: { id: 'p1' },
-          select: { category: true, isApproved: true },
-        },
-      );
+      expect(mockPrismaService.client.product.findUnique).toHaveBeenCalledWith({
+        where: { id: 'p1' },
+        select: { category: true, isApproved: true },
+      });
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith({
         where: {
           category: 'Jackets',
           isApproved: true,
           soldAt: null,
+          pausedAt: null,
           id: { not: 'p1' },
         },
         take: 4,
@@ -1438,8 +1684,8 @@ describe('ProductsService', () => {
 
       await service.getRelatedProducts('p1');
 
-      const where = mockPrismaService.client.product.findMany.mock
-        .calls[0][0].where;
+      const where =
+        mockPrismaService.client.product.findMany.mock.calls[0][0].where;
       expect(where.id).toEqual({ not: 'p1' });
     });
 
@@ -1494,7 +1740,12 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenNthCalledWith(
         1,
         {
-          where: { isApproved: true, soldAt: null, brand: { not: null } },
+          where: {
+            isApproved: true,
+            soldAt: null,
+            pausedAt: null,
+            brand: { not: null },
+          },
           select: { brand: true },
           distinct: ['brand'],
           orderBy: { brand: 'asc' },
@@ -1503,7 +1754,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenNthCalledWith(
         2,
         {
-          where: { isApproved: true, soldAt: null },
+          where: { isApproved: true, soldAt: null, pausedAt: null },
           select: { category: true },
           distinct: ['category'],
           orderBy: { category: 'asc' },
@@ -1584,7 +1835,7 @@ describe('ProductsService', () => {
       );
     });
 
-    it('should filter to approved listings that are not sold', async () => {
+    it('should filter to approved listings that are not sold or paused', async () => {
       mockPrismaService.client.product.findMany.mockResolvedValue([]);
       mockPrismaService.client.product.count.mockResolvedValue(0);
 
@@ -1592,7 +1843,29 @@ describe('ProductsService', () => {
 
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { sellerId: 'seller1', isApproved: true, soldAt: null },
+          where: {
+            sellerId: 'seller1',
+            isApproved: true,
+            soldAt: null,
+            pausedAt: null,
+          },
+        }),
+      );
+    });
+
+    it('should filter to paused listings regardless of approval state', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+
+      await service.findAllMine('seller1', { status: 'paused' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            sellerId: 'seller1',
+            pausedAt: { not: null },
+            soldAt: null,
+          },
         }),
       );
     });
@@ -1674,6 +1947,7 @@ describe('ProductsService', () => {
             sellerId: 'seller1',
             isApproved: true,
             soldAt: null,
+            pausedAt: null,
             OR: [
               { title: { contains: 'lino' } },
               { description: { contains: 'lino' } },

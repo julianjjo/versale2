@@ -19,6 +19,8 @@ describe('ProductsController', () => {
     create: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
+    pauseProduct: jest.fn(),
+    unpauseProduct: jest.fn(),
     findAllForAdmin: jest.fn(),
     findAllMine: jest.fn(),
     approveProduct: jest.fn(),
@@ -81,9 +83,7 @@ describe('ProductsController', () => {
 
       const result = await controller.getSellerProfile('seller1');
 
-      expect(productsService.getSellerProfile).toHaveBeenCalledWith(
-        'seller1',
-      );
+      expect(productsService.getSellerProfile).toHaveBeenCalledWith('seller1');
       expect(result).toEqual(mockResult);
     });
   });
@@ -291,6 +291,70 @@ describe('ProductsController', () => {
         productId,
         userId,
         'ADMIN',
+      );
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('pause', () => {
+    it('should call productsService.pauseProduct with id, userId and role from request', async () => {
+      const userId = 'user1';
+      const productId = 'product1';
+      const mockReq = {
+        user: { id: userId, email: 'test@example.com', role: 'USER' },
+      } as AuthRequest;
+
+      const mockResult = { id: productId, pausedAt: new Date() };
+
+      mockProductsService.pauseProduct.mockResolvedValue(mockResult);
+
+      const result = await controller.pause(productId, mockReq);
+
+      expect(productsService.pauseProduct).toHaveBeenCalledWith(
+        productId,
+        userId,
+        'USER',
+      );
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should call productsService.pauseProduct with the ADMIN role when an admin makes the request', async () => {
+      const userId = 'admin1';
+      const productId = 'product1';
+      const mockReq = {
+        user: { id: userId, email: 'admin@example.com', role: 'ADMIN' },
+      } as AuthRequest;
+
+      mockProductsService.pauseProduct.mockResolvedValue({ id: productId });
+
+      await controller.pause(productId, mockReq);
+
+      expect(productsService.pauseProduct).toHaveBeenCalledWith(
+        productId,
+        userId,
+        'ADMIN',
+      );
+    });
+  });
+
+  describe('unpause', () => {
+    it('should call productsService.unpauseProduct with id, userId and role from request', async () => {
+      const userId = 'user1';
+      const productId = 'product1';
+      const mockReq = {
+        user: { id: userId, email: 'test@example.com', role: 'USER' },
+      } as AuthRequest;
+
+      const mockResult = { id: productId, pausedAt: null };
+
+      mockProductsService.unpauseProduct.mockResolvedValue(mockResult);
+
+      const result = await controller.unpause(productId, mockReq);
+
+      expect(productsService.unpauseProduct).toHaveBeenCalledWith(
+        productId,
+        userId,
+        'USER',
       );
       expect(result).toEqual(mockResult);
     });

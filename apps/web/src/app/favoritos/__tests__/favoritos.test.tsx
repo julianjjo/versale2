@@ -146,6 +146,32 @@ describe("FavoritosPage", () => {
     expect(api.get).not.toHaveBeenCalledWith("/favorites/ids");
   });
 
+  // A Favorite row survives its product later being paused by the seller
+  // (favorites.service.ts's own comment on why), so this page — unlike the
+  // public catalog, which just excludes it from findAll — has to say so.
+  it("marca con el badge Pausado un favorito que el vendedor pausó", async () => {
+    const pausedFavorite = {
+      ...mockFavorites[0],
+      product: { ...mockFavorites[0]!.product, pausedAt: new Date().toISOString() },
+    };
+    vi.mocked(api.get).mockResolvedValue({
+      data: {
+        data: [pausedFavorite],
+        meta: { total: 1, page: 1, limit: 100, pages: 1 },
+      },
+    });
+    render(
+      <TestProviders>
+        <FavoritosPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Pausado")).toBeInTheDocument();
+  });
+
   it("muestra un estado vacío cuando no hay favoritos", async () => {
     vi.mocked(api.get).mockResolvedValue({
       data: { data: [], meta: { total: 0, page: 1, limit: 100, pages: 0 } },

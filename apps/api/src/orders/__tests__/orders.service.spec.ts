@@ -210,11 +210,50 @@ describe('OrdersService', () => {
 
       await service.createOrder(userId, createOrderDto);
 
-      // Compare-and-swap: only rows that are still unsold may be claimed.
+      // Compare-and-swap: only rows that are still unsold AND unpaused may be
+      // claimed.
       expect(mockTx.product.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['product1'] }, soldAt: null },
+        where: { id: { in: ['product1'] }, soldAt: null, pausedAt: null },
         data: { soldAt: expect.any(Date) },
       });
+    });
+
+    // Regression: the per-item pausedAt check earlier in this same method only
+    // sees the cart's initial snapshot, read before this updateMany commits.
+    // Without `pausedAt: null` in this compare-and-swap too, a seller pausing
+    // the product in that window wouldn't stop the sale — the row would end up
+    // both sold and paused.
+    it('should abort the order when a racing pause claimed the product first', async () => {
+      const userId = 'user1';
+      mockTx.cart.findUnique.mockResolvedValue({
+        id: 'cart1',
+        userId,
+        items: [
+          {
+            id: 'item1',
+            productId: 'product1',
+            quantity: 1,
+            priceAtAdd: 10.0,
+            product: {
+              id: 'product1',
+              title: 'Product 1',
+              isApproved: true,
+              soldAt: null,
+              pausedAt: null,
+              price: 10.0,
+              sellerId: 'sellerA',
+            },
+          },
+        ],
+      });
+      mockTx.order.create.mockResolvedValue({ id: 'order1' });
+      // The compare-and-swap matched no row: a concurrent pause got there first.
+      mockTx.product.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.createOrder(userId, createOrderDto)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockTx.cartItem.deleteMany).not.toHaveBeenCalled();
     });
 
     it('should refuse to check out a product that is already sold', async () => {
@@ -242,6 +281,37 @@ describe('OrdersService', () => {
 
       await expect(service.createOrder(userId, createOrderDto)).rejects.toThrow(
         'El producto Camisa de lino ya fue vendido',
+      );
+      expect(mockTx.order.create).not.toHaveBeenCalled();
+      expect(mockTx.cartItem.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('should refuse to check out a product the seller has paused', async () => {
+      const userId = 'user1';
+      mockTx.cart.findUnique.mockResolvedValue({
+        id: 'cart1',
+        userId,
+        items: [
+          {
+            id: 'item1',
+            productId: 'product1',
+            quantity: 1,
+            priceAtAdd: 10.0,
+            product: {
+              id: 'product1',
+              title: 'Camisa de lino',
+              isApproved: true,
+              soldAt: null,
+              pausedAt: new Date(),
+              price: 10.0,
+              sellerId: 'sellerA',
+            },
+          },
+        ],
+      });
+
+      await expect(service.createOrder(userId, createOrderDto)).rejects.toThrow(
+        'El vendedor pausó el producto Camisa de lino y ya no está disponible',
       );
       expect(mockTx.order.create).not.toHaveBeenCalled();
       expect(mockTx.cartItem.deleteMany).not.toHaveBeenCalled();

@@ -357,6 +357,10 @@ export function ProductDetail({
   // writes the review here — so the page has to say it is gone rather than
   // offering an add-to-cart the API would reject.
   const isSold = Boolean(data.soldAt);
+  // The seller's own temporary-hide toggle: still a normal, approved listing
+  // (unlike isSold/isApproved), just not currently buyable — so this only
+  // needs to swap out the buy button, not gate the rest of the page.
+  const isPaused = Boolean(data.pausedAt);
   const ownReview = user
     ? reviews.find((review) => review.userId === user.id)
     : undefined;
@@ -442,7 +446,24 @@ export function ProductDetail({
               here offered 1–99 and every value above 1 came back as a 400. */}
           {isSold ? (
             <Badge variant="warning">Ya se vendió</Badge>
-          ) : !isOwn && data.isApproved ? (
+          ) : isOwn ? (
+            <Badge variant="info">
+              {/* A moderated-field edit sent back to review while paused
+                  (isApproved:false, pausedAt still set) is a materially
+                  different, more actionable state than "just paused" — the
+                  seller still needs re-approval regardless of unpausing, and
+                  the plain paused message alone would hide that. */}
+              {isPaused && !data.isApproved
+                ? "Pausaste esta publicación y además está pendiente de revisión"
+                : isPaused
+                  ? "Pausaste esta publicación: no la ven los compradores"
+                  : "Esta es tu publicación"}
+            </Badge>
+          ) : isPaused && data.isApproved ? (
+            <Badge variant="warning">
+              El vendedor pausó esta publicación temporalmente
+            </Badge>
+          ) : data.isApproved ? (
             <div className="flex items-end gap-3 pt-2">
               <Button
                 variant="accent"
@@ -453,8 +474,6 @@ export function ProductDetail({
                 {addToCart.isPending ? "Agregando…" : "Agregar al carrito"}
               </Button>
             </div>
-          ) : isOwn ? (
-            <Badge variant="info">Esta es tu publicación</Badge>
           ) : (
             <Badge variant="warning">Aún no disponible</Badge>
           )}

@@ -32,6 +32,7 @@ export const FAVORITE_PRODUCT_SELECT = {
   sellerId: true,
   isApproved: true,
   soldAt: true,
+  pausedAt: true,
   createdAt: true,
   updatedAt: true,
   images: true,
@@ -114,8 +115,9 @@ export class FavoritesService {
     // ProductsService#findOne's `canView` check): an unapproved listing isn't
     // shown to buyers, so it can't be bookmarked either — otherwise a guessed
     // or leaked productId would let someone favorite (and keep seeing full
-    // details of) a listing moderation never approved.
-    if (!product.isApproved) {
+    // details of) a listing moderation never approved. A paused listing gets
+    // the same treatment: the seller took it out of the catalog on purpose.
+    if (!product.isApproved || product.pausedAt) {
       throw new BadRequestException(
         'Este producto no está disponible para agregar a favoritos',
       );

@@ -25,11 +25,16 @@ function isSold(item: CartItem): boolean {
   return Boolean(item.product?.soldAt);
 }
 
+function isPaused(item: CartItem): boolean {
+  return Boolean(item.product?.pausedAt);
+}
+
 function isUnavailable(item: CartItem): boolean {
-  // Vendida (soldAt) o devuelta a moderación por el vendedor (isApproved en
-  // false sin haberse vendido): en ambos casos esa línea ya no se puede
-  // pagar, y el API aborta toda la transacción del checkout si se intenta.
-  return isSold(item) || item.product?.isApproved === false;
+  // Vendida (soldAt), devuelta a moderación por el vendedor (isApproved en
+  // false sin haberse vendido), o pausada temporalmente por el vendedor: en
+  // los tres casos esa línea ya no se puede pagar, y el API aborta toda la
+  // transacción del checkout si se intenta.
+  return isSold(item) || item.product?.isApproved === false || isPaused(item);
 }
 
 // La API oculta un producto no aprobado a cualquiera que no sea su vendedor o
@@ -523,6 +528,9 @@ function CartItemRow({
   isRemoving: boolean;
 }) {
   const sold = isSold(item);
+  // No `&& !sold` needed: its one use below is already inside the `sold ?`
+  // branch of the same ternary, which short-circuits before this is read.
+  const paused = isPaused(item);
   const unavailable = isUnavailable(item);
   const viewable = isProductPageViewable(item);
   const title = item.product?.title ?? item.productId;
@@ -568,7 +576,11 @@ function CartItemRow({
           )}
           {unavailable && (
             <Badge variant="warning" className="mt-2">
-              {sold ? "Ya se vendió" : "Ya no está disponible"}
+              {sold
+                ? "Ya se vendió"
+                : paused
+                  ? "El vendedor la pausó temporalmente"
+                  : "Ya no está disponible"}
             </Badge>
           )}
         </div>

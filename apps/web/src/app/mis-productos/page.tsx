@@ -29,12 +29,19 @@ import { conditionLabel } from "@/lib/product-condition";
 import type { Product } from "@/lib/types";
 import Link from "next/link";
 
-type StatusFilter = "all" | "pending" | "approved" | "rejected" | "sold";
+type StatusFilter =
+  | "all"
+  | "pending"
+  | "approved"
+  | "paused"
+  | "rejected"
+  | "sold";
 
 const STATUS_TABS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "Todos" },
   { value: "pending", label: "Pendientes" },
   { value: "approved", label: "Aprobados" },
+  { value: "paused", label: "Pausados" },
   { value: "rejected", label: "Rechazados" },
   { value: "sold", label: "Vendidos" },
 ];
@@ -43,6 +50,7 @@ const EMPTY_STATE_COPY: Record<StatusFilter, string> = {
   all: "Aún no has publicado ningún producto",
   pending: "No tienes publicaciones pendientes",
   approved: "No tienes publicaciones aprobadas",
+  paused: "No tienes publicaciones pausadas",
   rejected: "No tienes publicaciones rechazadas",
   sold: "Todavía no has vendido nada",
 };
@@ -174,6 +182,22 @@ function MisProductosList() {
     onSuccess: (_data, id) => invalidate(id),
     onError: (err) =>
       setError(extractApiError(err, "No pudimos eliminar la publicación")),
+  });
+
+  const pauseToggle = useMutation({
+    mutationFn: async ({ id, pause }: { id: string; pause: boolean }) => {
+      await api.patch(`/products/${id}/${pause ? "pause" : "unpause"}`);
+    },
+    onSuccess: (_data, { id }) => invalidate(id),
+    onError: (err, { pause }) =>
+      setError(
+        extractApiError(
+          err,
+          pause
+            ? "No pudimos pausar la publicación"
+            : "No pudimos reactivar la publicación",
+        ),
+      ),
   });
 
   const handleEditSubmit = (e: React.FormEvent) => {
@@ -319,8 +343,15 @@ function MisProductosList() {
           {products.map((product, index) => {
             const isRejected = !product.isApproved && !!product.rejectedAt;
             const isSold = !!product.soldAt;
-            const isApprovedActive = product.isApproved && !isSold;
+            const isPaused = !!product.pausedAt;
             const canEditOrDelete = !isSold;
+            // Pausing requires the listing to currently be approved (mirrors
+            // pauseProduct()'s own guard), but reactivating does not — a
+            // paused listing can be sent back to review by a later moderated
+            // edit, and the backend still lets it be unpaused from that state
+            // (see unpauseProduct()'s own comment). Gating on isApproved alone
+            // would make the button vanish exactly when a seller needs it.
+            const canTogglePause = (product.isApproved || isPaused) && !isSold;
 
             return (
               <Card key={product.id} data-testid={`mine-product-${product.id}`}>
@@ -359,21 +390,53 @@ function MisProductosList() {
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
+                    {/* Precedence matches ProductCard's own paused-badge logic
+                        (products-browser.tsx): moderation status (rechazado/
+                        pendiente) wins over "pausado" so the two surfaces never
+                        tell a different story about the same listing — a
+                        listing paused, then sent back to review by a later
+                        edit, is not-approved-and-paused at once, and this
+                        shows the more actionable "needs review" fact first. */}
                     {isSold ? (
                       <Badge variant="warning">Vendido</Badge>
-                    ) : isApprovedActive ? (
-                      <Badge variant="success">Aprobado</Badge>
                     ) : isRejected ? (
                       <Badge variant="danger">Rechazado</Badge>
-                    ) : (
+                    ) : !product.isApproved ? (
                       <Badge variant="warning">Pendiente</Badge>
+                    ) : isPaused ? (
+                      <Badge variant="default">Pausado</Badge>
+                    ) : (
+                      <Badge variant="success">Aprobado</Badge>
+                    )}
+                    {canTogglePause && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() =>
+                          pauseToggle.mutate({
+                            id: product.id,
+                            pause: !isPaused,
+                          })
+                        }
+                        disabled={
+                          pauseToggle.isPending ||
+                          remove.isPending ||
+                          update.isPending
+                        }
+                      >
+                        {isPaused ? "Reactivar" : "Pausar"}
+                      </Button>
                     )}
                     {canEditOrDelete && (
                       <Button
                         size="sm"
                         variant="secondary"
                         onClick={() => openEdit(product)}
-                        disabled={remove.isPending || update.isPending}
+                        disabled={
+                          remove.isPending ||
+                          update.isPending ||
+                          pauseToggle.isPending
+                        }
                       >
                         Editar
                       </Button>
@@ -388,7 +451,11 @@ function MisProductosList() {
                             remove.mutate(product.id);
                           }
                         }}
-                        disabled={remove.isPending || update.isPending}
+                        disabled={
+                          remove.isPending ||
+                          update.isPending ||
+                          pauseToggle.isPending
+                        }
                       >
                         Eliminar
                       </Button>

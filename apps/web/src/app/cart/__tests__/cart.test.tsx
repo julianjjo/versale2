@@ -441,6 +441,53 @@ describe("CartPage", () => {
     });
   });
 
+  // El vendedor pausó la publicación después de que se agregó al carrito: es
+  // un caso distinto de "volvió a moderación" (isApproved sigue en true) y de
+  // "se vendió" (soldAt sigue null), así que necesita su propia etiqueta —
+  // pero el mismo tratamiento de "no disponible": excluida del total, el pago
+  // bloqueado, y removible con el mismo botón.
+  it("marca las prendas que el vendedor pausó como no disponibles y bloquea el pago", async () => {
+    const pausedCart = {
+      ...mockCart,
+      items: [
+        {
+          ...mockCart.items[0]!,
+          product: {
+            ...mockCart.items[0]!.product,
+            pausedAt: new Date().toISOString(),
+          },
+        },
+        mockCart.items[1]!,
+      ],
+    };
+    vi.mocked(api.get).mockResolvedValue({ data: pausedCart });
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByText("El vendedor la pausó temporalmente"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Ya se vendió")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ya no está disponible")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/una prenda de tu carrito ya no está disponible/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /pagar/i })).toBeDisabled();
+    // A paused listing is still approved, so the API still lets anyone view
+    // its page — the title stays a navigable link, unlike the back-to-
+    // moderation case above.
+    expect(
+      screen.getByRole("link", { name: "Cotton t-shirt" }),
+    ).toBeInTheDocument();
+  });
+
   it("bloquea el pago y marca los campos si la dirección está en blanco", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockCart });
     const user = userEvent.setup();
