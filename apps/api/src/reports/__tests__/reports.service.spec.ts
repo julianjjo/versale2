@@ -74,7 +74,9 @@ describe('ReportsService', () => {
       );
 
       expect(mockProductsService.findRaw).toHaveBeenCalledWith('product1');
-      expect(mockPrismaService.client.productReport.upsert).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.client.productReport.upsert,
+      ).toHaveBeenCalledWith({
         where: {
           productId_reporterId: { productId: 'product1', reporterId: 'buyer1' },
         },
@@ -82,8 +84,6 @@ describe('ReportsService', () => {
           reason: 'Parece una estafa',
           category: ReportCategory.FRAUD,
           status: ReportStatus.OPEN,
-          reviewedById: null,
-          reviewedAt: null,
         },
         create: {
           productId: 'product1',
@@ -144,7 +144,8 @@ describe('ReportsService', () => {
         ReportCategory.MISMATCH,
       );
 
-      const call = mockPrismaService.client.productReport.upsert.mock.calls[0][0];
+      const call =
+        mockPrismaService.client.productReport.upsert.mock.calls[0][0];
       // `createdAt` deliberately stays untouched on a re-report — it's
       // "first reported at", not "last activity" (that's `updatedAt`,
       // which Prisma bumps on its own and isn't part of this update object).
@@ -152,8 +153,6 @@ describe('ReportsService', () => {
         reason: 'Motivo actualizado',
         category: ReportCategory.MISMATCH,
         status: ReportStatus.OPEN,
-        reviewedById: null,
-        reviewedAt: null,
       });
     });
 
@@ -177,10 +176,14 @@ describe('ReportsService', () => {
         ReportCategory.FRAUD,
       );
 
-      const call = mockPrismaService.client.productReport.upsert.mock.calls[0][0];
+      const call =
+        mockPrismaService.client.productReport.upsert.mock.calls[0][0];
       expect(call.update.status).toBe(ReportStatus.OPEN);
-      expect(call.update.reviewedById).toBeNull();
-      expect(call.update.reviewedAt).toBeNull();
+      // reviewedById/reviewedAt are deliberately NOT part of the update: they
+      // record who last reviewed this report, and reopening it shouldn't
+      // erase that history — only a fresh dismiss() overwrites it.
+      expect(call.update).not.toHaveProperty('reviewedById');
+      expect(call.update).not.toHaveProperty('reviewedAt');
     });
   });
 
@@ -202,7 +205,9 @@ describe('ReportsService', () => {
 
       const result = await service.getAll({ page: '1', limit: '20' });
 
-      expect(mockPrismaService.client.productReport.findMany).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.client.productReport.findMany,
+      ).toHaveBeenCalledWith({
         where: { status: ReportStatus.OPEN },
         skip: 0,
         take: 20,
@@ -213,9 +218,11 @@ describe('ReportsService', () => {
         },
         orderBy: { updatedAt: 'desc' },
       });
-      expect(mockPrismaService.client.productReport.count).toHaveBeenCalledWith({
-        where: { status: ReportStatus.OPEN },
-      });
+      expect(mockPrismaService.client.productReport.count).toHaveBeenCalledWith(
+        {
+          where: { status: ReportStatus.OPEN },
+        },
+      );
       expect(result).toEqual({
         data: mockReports,
         meta: { total: 1, page: 1, limit: 20, pages: 1 },
@@ -228,8 +235,15 @@ describe('ReportsService', () => {
 
       await service.getAll({ status: 'dismissed' });
 
-      expect(mockPrismaService.client.productReport.findMany).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.client.productReport.findMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({ where: { status: ReportStatus.DISMISSED } }),
+      );
+      expect(mockPrismaService.client.productReport.count).toHaveBeenCalledWith(
+        {
+          where: { status: ReportStatus.DISMISSED },
+        },
       );
     });
 
@@ -239,9 +253,40 @@ describe('ReportsService', () => {
 
       await service.getAll({ status: 'all' });
 
-      expect(mockPrismaService.client.productReport.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: {} }),
+      expect(
+        mockPrismaService.client.productReport.findMany,
+      ).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+      expect(mockPrismaService.client.productReport.count).toHaveBeenCalledWith(
+        {
+          where: {},
+        },
       );
+    });
+
+    // The status value comes straight off a query string, which can arrive
+    // in any case — the filter should not silently degrade to the OPEN
+    // default just because a caller sent 'DISMISSED' (matching the Prisma
+    // enum's own casing) instead of 'dismissed'.
+    it('should treat the status filter case-insensitively', async () => {
+      mockPrismaService.client.productReport.findMany.mockResolvedValue([]);
+      mockPrismaService.client.productReport.count.mockResolvedValue(0);
+
+      await service.getAll({ status: 'DISMISSED' });
+
+      expect(
+        mockPrismaService.client.productReport.findMany,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { status: ReportStatus.DISMISSED } }),
+      );
+    });
+
+    it('should reject an unrecognized status value instead of silently defaulting to open', async () => {
+      await expect(service.getAll({ status: 'garbage' })).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(
+        mockPrismaService.client.productReport.findMany,
+      ).not.toHaveBeenCalled();
     });
 
     it('should default to the standard page size when no query is given', async () => {
@@ -250,9 +295,9 @@ describe('ReportsService', () => {
 
       await service.getAll(undefined);
 
-      expect(mockPrismaService.client.productReport.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ skip: 0, take: 10 }),
-      );
+      expect(
+        mockPrismaService.client.productReport.findMany,
+      ).toHaveBeenCalledWith(expect.objectContaining({ skip: 0, take: 10 }));
     });
   });
 
@@ -270,8 +315,10 @@ describe('ReportsService', () => {
 
       const result = await service.dismiss('report1', 'admin1');
 
-      expect(mockPrismaService.client.productReport.update).toHaveBeenCalledWith({
-        where: { id: 'report1' },
+      expect(
+        mockPrismaService.client.productReport.update,
+      ).toHaveBeenCalledWith({
+        where: { id: 'report1', status: ReportStatus.OPEN },
         data: {
           status: ReportStatus.DISMISSED,
           reviewedById: 'admin1',
@@ -290,8 +337,30 @@ describe('ReportsService', () => {
         NotFoundException,
       );
       await expect(service.dismiss('report1', 'admin1')).rejects.toThrow(
-        'Este reporte ya no existe',
+        'Este reporte ya no existe o ya fue revisado',
       );
+    });
+
+    // The `status: OPEN` guard in the where clause is what makes this a
+    // safe compare-and-swap: two admins dismissing the same report (two
+    // open tabs, a retried click) both hit `update`, but only the first
+    // one's `where` still matches — Prisma reports the second as P2025
+    // instead of silently overwriting the first admin's reviewedById/
+    // reviewedAt.
+    it('should not let a second dismiss of an already-dismissed report overwrite the first', async () => {
+      mockPrismaService.client.productReport.update.mockRejectedValue(
+        notFoundError(),
+      );
+
+      await expect(service.dismiss('report1', 'admin2')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(
+        mockPrismaService.client.productReport.update,
+      ).toHaveBeenCalledWith({
+        where: { id: 'report1', status: ReportStatus.OPEN },
+        data: expect.objectContaining({ reviewedById: 'admin2' }),
+      });
     });
   });
 });

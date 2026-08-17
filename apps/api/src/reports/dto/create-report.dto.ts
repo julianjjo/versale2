@@ -13,7 +13,9 @@ export class CreateReportDto {
   category!: ReportCategory;
 
   @IsString({ message: 'El motivo debe ser un texto' })
-  @IsNotEmpty({ message: 'Cuéntanos por qué estás reportando esta publicación' })
+  @IsNotEmpty({
+    message: 'Cuéntanos por qué estás reportando esta publicación',
+  })
   @MaxLength(500, {
     message: 'El motivo no puede superar los 500 caracteres',
   })

@@ -37,10 +37,7 @@ describe('CreateReportDto with the global ValidationPipe', () => {
 
   it('rejects a missing category', async () => {
     await expect(
-      pipe.transform(
-        { productId: 'product1', reason: 'Motivo' },
-        metadata,
-      ),
+      pipe.transform({ productId: 'product1', reason: 'Motivo' }, metadata),
     ).rejects.toThrow(BadRequestException);
   });
 

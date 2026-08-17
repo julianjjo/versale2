@@ -223,9 +223,10 @@ model ProductReport {
   // unbounded from one reporter retrying the same product, while still
   // letting them refine their reason (see ReportsService#create).
   @@unique([productId, reporterId])
-  // The admin queue always loads "every report, newest first".
-  @@index([createdAt])
-  // The admin queue's default view filters on status and sorts by updatedAt.
+  // The admin queue's default view filters on status and sorts by updatedAt —
+  // this covers it end to end. There's deliberately no separate @@index on
+  // createdAt alone: nothing in reports.service.ts filters or sorts on it by
+  // itself, so a second index there would just cost writes for no reads.
   @@index([status, updatedAt])
 }
 

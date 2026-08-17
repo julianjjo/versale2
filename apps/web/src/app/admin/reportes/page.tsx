@@ -11,7 +11,7 @@ import { useState } from "react";
 import { api, extractApiError } from "@/lib/api";
 import { Spinner, Card, EmptyState, Button, Badge } from "@/components/ui";
 import { Pager } from "@/components/admin/pager";
-import { reportCategoryLabel } from "@/lib/report-category";
+import { reportCategoryLabel, reportCategoryBadgeVariant } from "@/lib/report-category";
 import type { ProductReport } from "@/lib/types";
 
 type StatusFilter = "open" | "dismissed" | "all";
@@ -33,6 +33,9 @@ export default function AdminReportsPage() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<StatusFilter>("open");
   const [page, setPage] = useState(1);
+  const [lastSeenPages, setLastSeenPages] = useState<number | undefined>(
+    undefined,
+  );
 
   const { data, isLoading, isFetching, isError } = useQuery({
     queryKey: ["admin-reports", status, page],
@@ -50,7 +53,7 @@ export default function AdminReportsPage() {
 
   const dismiss = useMutation({
     mutationFn: async (id: string) => {
-      await api.delete(`/reports/${id}`);
+      await api.patch(`/reports/${id}/dismiss`);
     },
     onSuccess: () => {
       setError(null);
@@ -62,6 +65,17 @@ export default function AdminReportsPage() {
 
   const reports = data?.data ?? [];
   const meta = data?.meta;
+
+  // Dismissing the last open report on a page shrinks `meta.pages` without
+  // `page` following it down — Pager only clamps its own button clicks, and
+  // renders nothing once `pages <= 1`, leaving no way back except switching
+  // tabs. Clamped inline during render (same pattern as admin/products and
+  // mis-productos) rather than in a useEffect, which would setState after an
+  // extra committed render instead of before this one paints.
+  if (meta && meta.pages !== lastSeenPages) {
+    setLastSeenPages(meta.pages);
+    setPage((currentPage) => Math.min(currentPage, Math.max(1, meta.pages)));
+  }
 
   const setTab = (next: StatusFilter) => {
     setStatus(next);
@@ -132,7 +146,7 @@ export default function AdminReportsPage() {
                         Producto eliminado
                       </p>
                     )}
-                    <Badge variant="warning">
+                    <Badge variant={reportCategoryBadgeVariant(report.category)}>
                       {reportCategoryLabel(report.category)}
                     </Badge>
                     {report.status === "DISMISSED" && (
@@ -169,11 +183,15 @@ export default function AdminReportsPage() {
                     size="sm"
                     variant="secondary"
                     onClick={() => {
-                      if (confirm("¿Descartar este reporte?")) {
+                      if (
+                        confirm(
+                          "¿Marcar este reporte como revisado y descartarlo? Podrás verlo luego en la pestaña Descartados.",
+                        )
+                      ) {
                         dismiss.mutate(report.id);
                       }
                     }}
-                    disabled={dismiss.isPending}
+                    disabled={dismiss.isPending && dismiss.variables === report.id}
                   >
                     Descartar
                   </Button>

@@ -1,3 +1,5 @@
+import type { ReportCategory } from "./report-category";
+
 export interface User {
   id: string;
   email: string;
@@ -125,9 +127,11 @@ export interface ProductReport {
   productId: string;
   reporterId: string;
   reason: string;
-  category: string;
+  category: ReportCategory;
   status: ReportStatus;
-  reviewedById: string | null;
+  // Who/when reviewed it is surfaced entirely through `reviewer` below — the
+  // raw id isn't read anywhere, so it isn't modeled here even though the API
+  // response also includes it.
   reviewedAt: string | null;
   createdAt: string;
   updatedAt: string;

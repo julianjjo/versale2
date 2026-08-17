@@ -78,10 +78,7 @@ describe('ReportsController', () => {
 
       const result = await controller.dismiss(mockReq, 'report1');
 
-      expect(reportsService.dismiss).toHaveBeenCalledWith(
-        'report1',
-        'admin1',
-      );
+      expect(reportsService.dismiss).toHaveBeenCalledWith('report1', 'admin1');
       expect(result).toEqual(mockResult);
     });
   });

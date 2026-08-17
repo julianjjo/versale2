@@ -2,7 +2,7 @@ import {
   Controller,
   Get,
   Post,
-  Delete,
+  Patch,
   Param,
   Body,
   Query,
@@ -41,7 +41,7 @@ export class ReportsController {
 
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
-  @Delete(':id')
+  @Patch(':id/dismiss')
   async dismiss(@Req() req: AuthRequest, @Param('id') id: string) {
     return this.reportsService.dismiss(id, req.user.id);
   }
