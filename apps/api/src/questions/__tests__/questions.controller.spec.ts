@@ -5,7 +5,6 @@ import { AuthRequest } from '../../types/request.types';
 
 describe('QuestionsController', () => {
   let controller: QuestionsController;
-  let questionsService: QuestionsService;
 
   const mockQuestionsService = {
     create: jest.fn(),
@@ -23,7 +22,6 @@ describe('QuestionsController', () => {
     }).compile();
 
     controller = module.get<QuestionsController>(QuestionsController);
-    questionsService = module.get<QuestionsService>(QuestionsService);
   });
 
   afterEach(() => {
@@ -43,7 +41,7 @@ describe('QuestionsController', () => {
         question: '¿La talla es de hombre o de mujer?',
       });
 
-      expect(questionsService.create).toHaveBeenCalledWith(
+      expect(mockQuestionsService.create).toHaveBeenCalledWith(
         'buyer1',
         'product1',
         '¿La talla es de hombre o de mujer?',
@@ -64,7 +62,7 @@ describe('QuestionsController', () => {
         answer: 'Es de mujer',
       });
 
-      expect(questionsService.answer).toHaveBeenCalledWith(
+      expect(mockQuestionsService.answer).toHaveBeenCalledWith(
         'question1',
         'seller1',
         'Es de mujer',
@@ -83,7 +81,7 @@ describe('QuestionsController', () => {
 
       const result = await controller.remove(mockReq, 'question1');
 
-      expect(questionsService.remove).toHaveBeenCalledWith(
+      expect(mockQuestionsService.remove).toHaveBeenCalledWith(
         'question1',
         'buyer1',
         'USER',
@@ -103,7 +101,7 @@ describe('QuestionsController', () => {
 
       const result = await controller.getAllForAdmin(query);
 
-      expect(questionsService.getAllForAdmin).toHaveBeenCalledWith(query);
+      expect(mockQuestionsService.getAllForAdmin).toHaveBeenCalledWith(query);
       expect(result).toEqual(mockResult);
     });
   });

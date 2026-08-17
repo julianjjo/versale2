@@ -8,7 +8,6 @@ import { Role } from '../role.enum';
 
 describe('UsersController', () => {
   let controller: UsersController;
-  let usersService: UsersService;
 
   const mockUsersService = {
     findAll: jest.fn(),
@@ -24,7 +23,6 @@ describe('UsersController', () => {
     }).compile();
 
     controller = module.get<UsersController>(UsersController);
-    usersService = module.get<UsersService>(UsersService);
   });
 
   afterEach(() => {
@@ -43,7 +41,7 @@ describe('UsersController', () => {
 
       const result = await controller.findAll(query);
 
-      expect(usersService.findAll).toHaveBeenCalledWith(query);
+      expect(mockUsersService.findAll).toHaveBeenCalledWith(query);
       expect(result).toEqual(mockResult);
     });
   });
@@ -61,7 +59,7 @@ describe('UsersController', () => {
 
       const result = await controller.findOne(userId);
 
-      expect(usersService.findOne).toHaveBeenCalledWith(userId);
+      expect(mockUsersService.findOne).toHaveBeenCalledWith(userId);
       expect(result).toEqual(mockResult);
     });
 
@@ -96,7 +94,10 @@ describe('UsersController', () => {
 
       const result = await controller.update(userId, updateUserDto);
 
-      expect(usersService.update).toHaveBeenCalledWith(userId, updateUserDto);
+      expect(mockUsersService.update).toHaveBeenCalledWith(
+        userId,
+        updateUserDto,
+      );
       expect(result).toEqual(mockResult);
     });
   });
@@ -116,7 +117,7 @@ describe('UsersController', () => {
 
       const result = await controller.remove(userId, mockReq);
 
-      expect(usersService.remove).toHaveBeenCalledWith(userId, requesterId);
+      expect(mockUsersService.remove).toHaveBeenCalledWith(userId, requesterId);
       expect(result).toEqual(mockResult);
     });
   });
@@ -138,7 +139,7 @@ describe('UsersController', () => {
 
       const result = await controller.getProfile(mockReq);
 
-      expect(usersService.findOne).toHaveBeenCalledWith(userId);
+      expect(mockUsersService.findOne).toHaveBeenCalledWith(userId);
       expect(result).toEqual(mockResult);
     });
   });
@@ -162,9 +163,13 @@ describe('UsersController', () => {
 
       const result = await controller.updateProfile(mockReq, updateUserDto);
 
-      expect(usersService.update).toHaveBeenCalledWith(userId, updateUserDto, {
-        isSelfService: true,
-      });
+      expect(mockUsersService.update).toHaveBeenCalledWith(
+        userId,
+        updateUserDto,
+        {
+          isSelfService: true,
+        },
+      );
       expect(result).toEqual(mockResult);
     });
   });

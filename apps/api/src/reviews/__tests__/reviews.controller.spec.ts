@@ -8,7 +8,6 @@ import { Role } from '../../users/role.enum';
 
 describe('ReviewsController', () => {
   let controller: ReviewsController;
-  let reviewsService: ReviewsService;
 
   const mockReviewsService = {
     findAllByProduct: jest.fn(),
@@ -31,7 +30,6 @@ describe('ReviewsController', () => {
     }).compile();
 
     controller = module.get<ReviewsController>(ReviewsController);
-    reviewsService = module.get<ReviewsService>(ReviewsService);
   });
 
   afterEach(() => {
@@ -53,7 +51,9 @@ describe('ReviewsController', () => {
 
       const result = await controller.getReviewsByProduct(productId);
 
-      expect(reviewsService.findAllByProduct).toHaveBeenCalledWith(productId);
+      expect(mockReviewsService.findAllByProduct).toHaveBeenCalledWith(
+        productId,
+      );
       expect(result).toEqual(mockResult);
     });
   });
@@ -81,7 +81,7 @@ describe('ReviewsController', () => {
 
       const result = await controller.createReview(mockReq, body, res);
 
-      expect(reviewsService.create).toHaveBeenCalledWith(
+      expect(mockReviewsService.create).toHaveBeenCalledWith(
         body,
         userId,
         body.productId,
@@ -134,7 +134,7 @@ describe('ReviewsController', () => {
 
       const result = await controller.updateReview(mockReq, reviewId, body);
 
-      expect(reviewsService.update).toHaveBeenCalledWith(
+      expect(mockReviewsService.update).toHaveBeenCalledWith(
         reviewId,
         body,
         userId,
@@ -158,7 +158,7 @@ describe('ReviewsController', () => {
 
       const result = await controller.replyToReview(mockReq, reviewId, body);
 
-      expect(reviewsService.replyToReview).toHaveBeenCalledWith(
+      expect(mockReviewsService.replyToReview).toHaveBeenCalledWith(
         reviewId,
         sellerId,
         body.reply,
@@ -183,7 +183,7 @@ describe('ReviewsController', () => {
 
       const result = await controller.deleteReview(mockReq, reviewId);
 
-      expect(reviewsService.remove).toHaveBeenCalledWith(
+      expect(mockReviewsService.remove).toHaveBeenCalledWith(
         reviewId,
         userId,
         Role.USER,
@@ -201,7 +201,7 @@ describe('ReviewsController', () => {
 
       await controller.deleteReview(mockReq, reviewId);
 
-      expect(reviewsService.remove).toHaveBeenCalledWith(
+      expect(mockReviewsService.remove).toHaveBeenCalledWith(
         reviewId,
         'admin1',
         Role.ADMIN,
@@ -222,7 +222,7 @@ describe('ReviewsController', () => {
 
       const result = await controller.markHelpful(mockReq, reviewId);
 
-      expect(reviewsService.markHelpful).toHaveBeenCalledWith(
+      expect(mockReviewsService.markHelpful).toHaveBeenCalledWith(
         reviewId,
         userId,
       );
@@ -243,7 +243,7 @@ describe('ReviewsController', () => {
 
       const result = await controller.unmarkHelpful(mockReq, reviewId);
 
-      expect(reviewsService.unmarkHelpful).toHaveBeenCalledWith(
+      expect(mockReviewsService.unmarkHelpful).toHaveBeenCalledWith(
         reviewId,
         userId,
       );
@@ -263,7 +263,7 @@ describe('ReviewsController', () => {
 
       const result = await controller.getAllReviews(query);
 
-      expect(reviewsService.getAllReviews).toHaveBeenCalledWith(query);
+      expect(mockReviewsService.getAllReviews).toHaveBeenCalledWith(query);
       expect(result).toEqual(mockResult);
     });
   });

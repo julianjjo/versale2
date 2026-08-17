@@ -16,7 +16,6 @@ import { Role } from '../../users/role.enum';
 
 describe('OrdersController', () => {
   let controller: OrdersController;
-  let ordersService: OrdersService;
 
   const mockOrdersService = {
     createOrder: jest.fn(),
@@ -38,7 +37,6 @@ describe('OrdersController', () => {
     }).compile();
 
     controller = module.get<OrdersController>(OrdersController);
-    ordersService = module.get<OrdersService>(OrdersService);
   });
 
   afterEach(() => {
@@ -72,7 +70,7 @@ describe('OrdersController', () => {
 
       const result = await controller.createOrder(mockReq, body);
 
-      expect(ordersService.createOrder).toHaveBeenCalledWith(userId, body);
+      expect(mockOrdersService.createOrder).toHaveBeenCalledWith(userId, body);
       expect(result).toEqual(mockResult);
     });
   });
@@ -99,7 +97,10 @@ describe('OrdersController', () => {
 
       const result = await controller.getUserOrders(mockReq, query);
 
-      expect(ordersService.getUserOrders).toHaveBeenCalledWith(userId, query);
+      expect(mockOrdersService.getUserOrders).toHaveBeenCalledWith(
+        userId,
+        query,
+      );
       expect(result).toEqual(mockResult);
     });
   });
@@ -122,7 +123,7 @@ describe('OrdersController', () => {
 
       const result = await controller.getOrderById(mockReq, orderId);
 
-      expect(ordersService.getOrderById).toHaveBeenCalledWith(
+      expect(mockOrdersService.getOrderById).toHaveBeenCalledWith(
         orderId,
         userId,
         'USER',
@@ -146,7 +147,7 @@ describe('OrdersController', () => {
 
       const result = await controller.getOrderById(mockReq, orderId);
 
-      expect(ordersService.getOrderById).toHaveBeenCalledWith(
+      expect(mockOrdersService.getOrderById).toHaveBeenCalledWith(
         orderId,
         'admin1',
         'ADMIN',
@@ -168,7 +169,7 @@ describe('OrdersController', () => {
 
       const result = await controller.cancelOrder(mockReq, orderId);
 
-      expect(ordersService.cancelOwnOrder).toHaveBeenCalledWith(
+      expect(mockOrdersService.cancelOwnOrder).toHaveBeenCalledWith(
         userId,
         orderId,
       );
@@ -192,7 +193,7 @@ describe('OrdersController', () => {
 
       const result = await controller.getMySales(mockReq, query);
 
-      expect(ordersService.getMySales).toHaveBeenCalledWith(userId, query);
+      expect(mockOrdersService.getMySales).toHaveBeenCalledWith(userId, query);
       expect(result).toEqual(mockResult);
     });
   });
@@ -215,7 +216,7 @@ describe('OrdersController', () => {
 
       const result = await controller.shipOwnSale(mockReq, orderId, body);
 
-      expect(ordersService.shipOwnSale).toHaveBeenCalledWith(
+      expect(mockOrdersService.shipOwnSale).toHaveBeenCalledWith(
         userId,
         orderId,
         'ABC123',
@@ -236,7 +237,7 @@ describe('OrdersController', () => {
 
       const result = await controller.getAllOrders(query);
 
-      expect(ordersService.getAllOrders).toHaveBeenCalledWith(query);
+      expect(mockOrdersService.getAllOrders).toHaveBeenCalledWith(query);
       expect(result).toEqual(mockResult);
     });
   });
@@ -250,7 +251,7 @@ describe('OrdersController', () => {
 
       const result = await controller.exportOrders(query);
 
-      expect(ordersService.exportOrdersCsv).toHaveBeenCalledWith(query);
+      expect(mockOrdersService.exportOrdersCsv).toHaveBeenCalledWith(query);
       expect(result).toBe(csv);
     });
   });
@@ -267,7 +268,7 @@ describe('OrdersController', () => {
 
       const result = await controller.getOrderStats();
 
-      expect(ordersService.getOrderStats).toHaveBeenCalledTimes(1);
+      expect(mockOrdersService.getOrderStats).toHaveBeenCalledTimes(1);
       expect(result).toEqual(mockResult);
     });
 
@@ -295,7 +296,7 @@ describe('OrdersController', () => {
 
       const result = await controller.updateOrderStatus(orderId, body);
 
-      expect(ordersService.updateOrderStatus).toHaveBeenCalledWith(
+      expect(mockOrdersService.updateOrderStatus).toHaveBeenCalledWith(
         orderId,
         OrderStatus.PAID,
       );

@@ -5,7 +5,6 @@ import { AuthRequest } from '../../../src/types/request.types';
 
 describe('CartController', () => {
   let controller: CartController;
-  let cartService: CartService;
 
   const mockCartService = {
     getCart: jest.fn(),
@@ -22,7 +21,6 @@ describe('CartController', () => {
     }).compile();
 
     controller = module.get<CartController>(CartController);
-    cartService = module.get<CartService>(CartService);
   });
 
   afterEach(() => {
@@ -46,7 +44,7 @@ describe('CartController', () => {
 
       const result = await controller.getCart(mockReq);
 
-      expect(cartService.getCart).toHaveBeenCalledWith(userId);
+      expect(mockCartService.getCart).toHaveBeenCalledWith(userId);
       expect(result).toEqual(mockCart);
     });
   });
@@ -73,7 +71,7 @@ describe('CartController', () => {
 
       const result = await controller.addItem(mockReq, body);
 
-      expect(cartService.addItem).toHaveBeenCalledWith(
+      expect(mockCartService.addItem).toHaveBeenCalledWith(
         userId,
         productId,
         quantity,
@@ -101,7 +99,7 @@ describe('CartController', () => {
 
       const result = await controller.updateItem(mockReq, itemId, body);
 
-      expect(cartService.updateItem).toHaveBeenCalledWith(
+      expect(mockCartService.updateItem).toHaveBeenCalledWith(
         itemId,
         quantity,
         userId,
@@ -126,7 +124,7 @@ describe('CartController', () => {
 
       const result = await controller.removeItem(mockReq, itemId);
 
-      expect(cartService.removeItem).toHaveBeenCalledWith(itemId, userId);
+      expect(mockCartService.removeItem).toHaveBeenCalledWith(itemId, userId);
       expect(result).toEqual(mockResult);
     });
   });
@@ -144,7 +142,7 @@ describe('CartController', () => {
 
       const result = await controller.clearCart(mockReq);
 
-      expect(cartService.clearCart).toHaveBeenCalledWith(userId);
+      expect(mockCartService.clearCart).toHaveBeenCalledWith(userId);
       expect(result).toEqual(mockResult);
     });
   });

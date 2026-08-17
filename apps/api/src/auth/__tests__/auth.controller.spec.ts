@@ -4,7 +4,6 @@ import { AuthService } from '../auth.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
-  let authService: AuthService;
 
   const mockAuthService = {
     signup: jest.fn(),
@@ -21,7 +20,6 @@ describe('AuthController', () => {
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
-    authService = module.get<AuthService>(AuthService);
   });
 
   afterEach(() => {
@@ -50,7 +48,7 @@ describe('AuthController', () => {
 
       const result = await controller.signup(signupDto);
 
-      expect(authService.signup).toHaveBeenCalledWith(
+      expect(mockAuthService.signup).toHaveBeenCalledWith(
         signupDto.email,
         signupDto.password,
         signupDto.name,
@@ -80,7 +78,7 @@ describe('AuthController', () => {
 
       const result = await controller.login(loginDto);
 
-      expect(authService.login).toHaveBeenCalledWith(
+      expect(mockAuthService.login).toHaveBeenCalledWith(
         loginDto.email,
         loginDto.password,
       );
@@ -100,7 +98,7 @@ describe('AuthController', () => {
 
       const result = await controller.forgotPassword(dto);
 
-      expect(authService.forgotPassword).toHaveBeenCalledWith(dto.email);
+      expect(mockAuthService.forgotPassword).toHaveBeenCalledWith(dto.email);
       expect(result).toEqual(mockResult);
     });
   });
@@ -116,7 +114,7 @@ describe('AuthController', () => {
 
       const result = await controller.resetPassword(dto);
 
-      expect(authService.resetPassword).toHaveBeenCalledWith(
+      expect(mockAuthService.resetPassword).toHaveBeenCalledWith(
         dto.token,
         dto.password,
       );
@@ -133,7 +131,7 @@ describe('AuthController', () => {
 
       const result = await controller.verifyEmail(dto);
 
-      expect(authService.verifyEmail).toHaveBeenCalledWith(dto.token);
+      expect(mockAuthService.verifyEmail).toHaveBeenCalledWith(dto.token);
       expect(result).toEqual(mockResult);
     });
   });

@@ -6,7 +6,6 @@ import { AuthRequest } from '../../types/request.types';
 
 describe('ReportsController', () => {
   let controller: ReportsController;
-  let reportsService: ReportsService;
 
   const mockReportsService = {
     create: jest.fn(),
@@ -21,7 +20,6 @@ describe('ReportsController', () => {
     }).compile();
 
     controller = module.get<ReportsController>(ReportsController);
-    reportsService = module.get<ReportsService>(ReportsService);
   });
 
   afterEach(() => {
@@ -42,7 +40,7 @@ describe('ReportsController', () => {
         category: ReportCategory.FRAUD,
       });
 
-      expect(reportsService.create).toHaveBeenCalledWith(
+      expect(mockReportsService.create).toHaveBeenCalledWith(
         'buyer1',
         'product1',
         'Parece una estafa',
@@ -63,7 +61,7 @@ describe('ReportsController', () => {
 
       const result = await controller.getAll(query);
 
-      expect(reportsService.getAll).toHaveBeenCalledWith(query);
+      expect(mockReportsService.getAll).toHaveBeenCalledWith(query);
       expect(result).toEqual(mockResult);
     });
   });
@@ -78,7 +76,10 @@ describe('ReportsController', () => {
 
       const result = await controller.dismiss(mockReq, 'report1');
 
-      expect(reportsService.dismiss).toHaveBeenCalledWith('report1', 'admin1');
+      expect(mockReportsService.dismiss).toHaveBeenCalledWith(
+        'report1',
+        'admin1',
+      );
       expect(result).toEqual(mockResult);
     });
   });
