@@ -97,6 +97,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
     });
+    // Drop any queries cached under the previous (possibly anonymous or
+    // different-user) session before adopting the new one.
+    queryClient.clear();
     tokenStore.set(res.data.access_token);
     setUser(res.data.user);
   };
@@ -107,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       name,
       password,
     });
+    queryClient.clear();
     tokenStore.set(res.data.access_token);
     setUser(res.data.user);
   };
