@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   useQuery,
@@ -61,6 +61,31 @@ function formatStat(count: number, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
+// Mirrors the DTOs' own cap (apps/api/src/products/dto/bulk-pause.dto.ts,
+// bulk-unpause.dto.ts): enforced here too so a seller who selects across
+// many pages gets a clear, actionable message instead of only finding out
+// after the request 400s.
+const MAX_BULK_ACTION = 100;
+
+function isBulkPausable(product: Product): boolean {
+  return product.isApproved && !product.pausedAt && !product.soldAt;
+}
+
+// No isApproved requirement — mirrors unpauseProduct()'s own rule: a paused
+// listing sent back to review by a later moderated edit is still valid to
+// reactivate.
+function isBulkUnpausable(product: Product): boolean {
+  return !!product.pausedAt && !product.soldAt;
+}
+
+// The checkbox is offered whenever either bulk action could apply to a row
+// — matches this page's own per-row canTogglePause condition exactly
+// ((isApproved || isPaused) && !isSold), just split into the two halves the
+// two separate bulk buttons below need.
+function isBulkSelectable(product: Product): boolean {
+  return isBulkPausable(product) || isBulkUnpausable(product);
+}
+
 export default function MisProductosPage() {
   const router = useRouter();
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -99,6 +124,10 @@ function MisProductosList() {
     undefined,
   );
   const [error, setError] = useState<string | null>(null);
+  // Distinct from `error`: a partial-success outcome isn't a failure, so it
+  // isn't styled or announced as one.
+  const [notice, setNotice] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editTarget, setEditTarget] = useState<Product | null>(null);
   const [editForm, setEditForm] = useState<EditForm>({
     title: "",
@@ -144,6 +173,19 @@ function MisProductosList() {
     }
   };
 
+  // A row resolved individually (edited, deleted, paused/unpaused one at a
+  // time) shouldn't linger in a bulk selection made before that — its
+  // eligibility for either bulk action may have just changed, or it may be
+  // gone from this tab entirely.
+  const discardSelected = (id: string) => {
+    setSelectedIds((current) => {
+      if (!current.has(id)) return current;
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+  };
+
   const openEdit = (product: Product) => {
     setError(null);
     setEditError(null);
@@ -173,6 +215,7 @@ function MisProductosList() {
     },
     onSuccess: (_data, { id }) => {
       invalidate(id);
+      discardSelected(id);
       setEditTarget(null);
     },
     onError: (err) =>
@@ -183,7 +226,10 @@ function MisProductosList() {
     mutationFn: async (id: string) => {
       await api.delete(`/products/${id}`);
     },
-    onSuccess: (_data, id) => invalidate(id),
+    onSuccess: (_data, id) => {
+      invalidate(id);
+      discardSelected(id);
+    },
     onError: (err) =>
       setError(extractApiError(err, "No pudimos eliminar la publicación")),
   });
@@ -192,7 +238,10 @@ function MisProductosList() {
     mutationFn: async ({ id, pause }: { id: string; pause: boolean }) => {
       await api.patch(`/products/${id}/${pause ? "pause" : "unpause"}`);
     },
-    onSuccess: (_data, { id }) => invalidate(id),
+    onSuccess: (_data, { id }) => {
+      invalidate(id);
+      discardSelected(id);
+    },
     onError: (err, { pause }) =>
       setError(
         extractApiError(
@@ -202,6 +251,76 @@ function MisProductosList() {
             : "No pudimos reactivar la publicación",
         ),
       ),
+  });
+
+  const bulkPause = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const res = await api.patch<{ paused: number; requested: number }>(
+        "/products/bulk-pause",
+        { ids },
+      );
+      return res.data;
+    },
+    onSuccess: (result, ids) => {
+      ids.forEach((id) => invalidate(id));
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+      setError(null);
+      // A shortfall can come from more than one cause (sold, already paused,
+      // no longer approved, or — since the checkbox is shared with
+      // bulk-unpause — a row that was only ever unpause-eligible). The
+      // all-or-nothing case gets its own wording: "las demás" reads as a
+      // race that spared some of the batch, which is misleading when none
+      // of it went through.
+      setNotice(
+        result.paused === result.requested
+          ? null
+          : result.paused === 0
+            ? "Ninguna de las publicaciones seleccionadas estaba disponible para pausar."
+            : `Se pausaron ${result.paused} de ${result.requested} publicaciones. Las demás ya no estaban disponibles para pausar.`,
+      );
+    },
+    onError: (err) => {
+      setNotice(null);
+      setError(
+        extractApiError(err, "No pudimos pausar las publicaciones seleccionadas"),
+      );
+    },
+  });
+
+  const bulkUnpause = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const res = await api.patch<{ unpaused: number; requested: number }>(
+        "/products/bulk-unpause",
+        { ids },
+      );
+      return res.data;
+    },
+    onSuccess: (result, ids) => {
+      ids.forEach((id) => invalidate(id));
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+      setError(null);
+      setNotice(
+        result.unpaused === result.requested
+          ? null
+          : result.unpaused === 0
+            ? "Ninguna de las publicaciones seleccionadas estaba disponible para reactivar."
+            : `Se reactivaron ${result.unpaused} de ${result.requested} publicaciones. Las demás ya no estaban disponibles para reactivar.`,
+      );
+    },
+    onError: (err) => {
+      setNotice(null);
+      setError(
+        extractApiError(err, "No pudimos reactivar las publicaciones seleccionadas"),
+      );
+    },
   });
 
   const handleEditSubmit = (e: React.FormEvent) => {
@@ -255,9 +374,78 @@ function MisProductosList() {
   const setTab = (next: StatusFilter) => {
     setStatus(next);
     setPage(1);
+    // A selection made under one status filter doesn't carry meaning under
+    // another — e.g. a paused item selected before switching to "Pendientes"
+    // would leave the bulk bar counting a row no longer even on screen.
+    setSelectedIds(new Set());
   };
 
   const isFiltered = Boolean(search) || status !== "all";
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const eligibleOnPage = products.filter(isBulkSelectable);
+  const someEligibleSelected = eligibleOnPage.some((product) =>
+    selectedIds.has(product.id),
+  );
+  const allEligibleSelected =
+    eligibleOnPage.length > 0 &&
+    eligibleOnPage.every((product) => selectedIds.has(product.id));
+  const selectAllRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate =
+        someEligibleSelected && !allEligibleSelected;
+    }
+  }, [someEligibleSelected, allEligibleSelected]);
+
+  const toggleSelectAllOnPage = () => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allEligibleSelected) {
+        eligibleOnPage.forEach((product) => next.delete(product.id));
+      } else {
+        eligibleOnPage.forEach((product) => next.add(product.id));
+      }
+      return next;
+    });
+  };
+
+  const exceedsBulkLimit = selectedIds.size > MAX_BULK_ACTION;
+
+  // The checkbox above is shared by both bulk actions (isBulkSelectable), so
+  // a selection can legitimately hold ids only one of the two actions can do
+  // anything with — e.g. an already-paused row is selectable (to reactivate)
+  // but isn't pause-eligible. Disabling a button when NONE of the
+  // currently-verifiable selection (ids whose product data is loaded on this
+  // page) is eligible for that specific action closes the common case —
+  // selecting every eligible row on a single status tab, then reaching for
+  // the wrong button. A selection spanning another page falls back to the
+  // existing send-and-report-shortfall behavior.
+  const selectedOnPage = products.filter((product) =>
+    selectedIds.has(product.id),
+  );
+  const selectionFullyOnPage = selectedOnPage.length === selectedIds.size;
+  const noneSelectedCanBePaused =
+    selectionFullyOnPage &&
+    selectedOnPage.length > 0 &&
+    !selectedOnPage.some(isBulkPausable);
+  const noneSelectedCanBeUnpaused =
+    selectionFullyOnPage &&
+    selectedOnPage.length > 0 &&
+    !selectedOnPage.some(isBulkUnpausable);
+
+  const bulkActionPending = bulkPause.isPending || bulkUnpause.isPending;
 
   return (
     <PageContainer size="wide">
@@ -313,6 +501,60 @@ function MisProductosList() {
         </p>
       )}
 
+      {notice && (
+        <p className="mb-3 text-sm text-text-primary" role="status">
+          {notice}
+        </p>
+      )}
+
+      {selectedIds.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface-muted px-4 py-2">
+          <span className="text-sm text-text-primary">
+            {selectedIds.size} seleccionada
+            {selectedIds.size === 1 ? "" : "s"}
+            {exceedsBulkLimit && ` (máximo ${MAX_BULK_ACTION} por lote)`}
+          </span>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => bulkPause.mutate(Array.from(selectedIds))}
+            disabled={
+              bulkActionPending || exceedsBulkLimit || noneSelectedCanBePaused
+            }
+          >
+            {bulkPause.isPending ? (
+              <Spinner className="h-4 w-4" />
+            ) : (
+              "Pausar seleccionadas"
+            )}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => bulkUnpause.mutate(Array.from(selectedIds))}
+            disabled={
+              bulkActionPending ||
+              exceedsBulkLimit ||
+              noneSelectedCanBeUnpaused
+            }
+          >
+            {bulkUnpause.isPending ? (
+              <Spinner className="h-4 w-4" />
+            ) : (
+              "Reactivar seleccionadas"
+            )}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setSelectedIds(new Set())}
+            disabled={bulkActionPending}
+          >
+            Cancelar selección
+          </Button>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
           <Spinner className="h-5 w-5" /> Cargando…
@@ -344,6 +586,19 @@ function MisProductosList() {
         />
       ) : (
         <div className="space-y-3" aria-busy={isFetching}>
+          {eligibleOnPage.length > 0 && (
+            <label className="flex items-center gap-2 text-xs text-text-muted">
+              <input
+                ref={selectAllRef}
+                type="checkbox"
+                aria-label="Seleccionar todas las elegibles en esta página"
+                checked={allEligibleSelected}
+                onChange={toggleSelectAllOnPage}
+                disabled={bulkActionPending}
+              />
+              Seleccionar todas las elegibles en esta página
+            </label>
+          )}
           {products.map((product, index) => {
             const isRejected = !product.isApproved && !!product.rejectedAt;
             const isSold = !!product.soldAt;
@@ -355,11 +610,22 @@ function MisProductosList() {
             // edit, and the backend still lets it be unpaused from that state
             // (see unpauseProduct()'s own comment). Gating on isApproved alone
             // would make the button vanish exactly when a seller needs it.
-            const canTogglePause = (product.isApproved || isPaused) && !isSold;
+            // Same rule as the bulk-selection checkbox below (isBulkSelectable).
+            const canTogglePause = isBulkSelectable(product);
 
             return (
               <Card key={product.id} data-testid={`mine-product-${product.id}`}>
                 <div className="flex flex-wrap items-center gap-4">
+                  {isBulkSelectable(product) && (
+                    <input
+                      type="checkbox"
+                      aria-label={`Seleccionar ${product.title} (#${product.id.slice(0, 8)})`}
+                      checked={selectedIds.has(product.id)}
+                      onChange={() => toggleSelected(product.id)}
+                      disabled={bulkActionPending}
+                      className="h-4 w-4 flex-shrink-0"
+                    />
+                  )}
                   <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
                     {product.images?.[0] ? (
                       <img
@@ -443,7 +709,8 @@ function MisProductosList() {
                         disabled={
                           pauseToggle.isPending ||
                           remove.isPending ||
-                          update.isPending
+                          update.isPending ||
+                          bulkActionPending
                         }
                       >
                         {isPaused ? "Reactivar" : "Pausar"}
@@ -457,7 +724,8 @@ function MisProductosList() {
                         disabled={
                           remove.isPending ||
                           update.isPending ||
-                          pauseToggle.isPending
+                          pauseToggle.isPending ||
+                          bulkActionPending
                         }
                       >
                         Editar
@@ -476,7 +744,8 @@ function MisProductosList() {
                         disabled={
                           remove.isPending ||
                           update.isPending ||
-                          pauseToggle.isPending
+                          pauseToggle.isPending ||
+                          bulkActionPending
                         }
                       >
                         Eliminar

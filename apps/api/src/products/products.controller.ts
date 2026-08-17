@@ -18,6 +18,8 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { RejectProductDto } from './dto/reject-product.dto';
 import { BulkApproveDto } from './dto/bulk-approve.dto';
 import { BulkRejectDto } from './dto/bulk-reject.dto';
+import { BulkPauseDto } from './dto/bulk-pause.dto';
+import { BulkUnpauseDto } from './dto/bulk-unpause.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -77,6 +79,36 @@ export class ProductsController {
     @Req() req: AuthRequest,
   ) {
     return this.productsService.create(createProductDto, req.user.id);
+  }
+
+  // Declared before ':id' below, same reasoning as 'mine' above: a
+  // single-segment literal PATCH route has to come first or ':id' (also
+  // PATCH, also one segment) would swallow 'bulk-pause'/'bulk-unpause' as if
+  // they were product ids.
+  @UseGuards(JwtAuthGuard)
+  @Patch('bulk-pause')
+  async bulkPauseProducts(
+    @Body() bulkPauseDto: BulkPauseDto,
+    @Req() req: AuthRequest,
+  ) {
+    return this.productsService.bulkPause(
+      bulkPauseDto.ids,
+      req.user.id,
+      req.user.role as Role,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('bulk-unpause')
+  async bulkUnpauseProducts(
+    @Body() bulkUnpauseDto: BulkUnpauseDto,
+    @Req() req: AuthRequest,
+  ) {
+    return this.productsService.bulkUnpause(
+      bulkUnpauseDto.ids,
+      req.user.id,
+      req.user.role as Role,
+    );
   }
 
   @UseGuards(JwtAuthGuard)

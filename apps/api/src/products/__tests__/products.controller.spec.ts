@@ -26,6 +26,8 @@ describe('ProductsController', () => {
     rejectProduct: jest.fn(),
     bulkApprove: jest.fn(),
     bulkReject: jest.fn(),
+    bulkPause: jest.fn(),
+    bulkUnpause: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -354,6 +356,52 @@ describe('ProductsController', () => {
 
       expect(mockProductsService.unpauseProduct).toHaveBeenCalledWith(
         productId,
+        userId,
+        'USER',
+      );
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('bulkPauseProducts', () => {
+    it('should call productsService.bulkPause with the ids array, userId and role from request', async () => {
+      const userId = 'user1';
+      const mockReq = {
+        user: { id: userId, email: 'test@example.com', role: 'USER' },
+      } as AuthRequest;
+      const mockResult = { paused: 2, requested: 2 };
+      mockProductsService.bulkPause.mockResolvedValue(mockResult);
+
+      const result = await controller.bulkPauseProducts(
+        { ids: ['product1', 'product2'] },
+        mockReq,
+      );
+
+      expect(mockProductsService.bulkPause).toHaveBeenCalledWith(
+        ['product1', 'product2'],
+        userId,
+        'USER',
+      );
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('bulkUnpauseProducts', () => {
+    it('should call productsService.bulkUnpause with the ids array, userId and role from request', async () => {
+      const userId = 'user1';
+      const mockReq = {
+        user: { id: userId, email: 'test@example.com', role: 'USER' },
+      } as AuthRequest;
+      const mockResult = { unpaused: 2, requested: 2 };
+      mockProductsService.bulkUnpause.mockResolvedValue(mockResult);
+
+      const result = await controller.bulkUnpauseProducts(
+        { ids: ['product1', 'product2'] },
+        mockReq,
+      );
+
+      expect(mockProductsService.bulkUnpause).toHaveBeenCalledWith(
+        ['product1', 'product2'],
         userId,
         'USER',
       );
