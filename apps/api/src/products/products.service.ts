@@ -13,6 +13,7 @@ import { Role } from '../users/role.enum';
 import { ProductSortBy } from './product-sort.enum';
 import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
+import { logAndSwallow } from '../common/log-and-swallow';
 import { VERIFIED_PURCHASE_STATUSES } from '../orders/order-status.enum';
 
 // findOne() filters each review's helpfulVotes by this id when there's no
@@ -88,13 +89,17 @@ export class ProductsService {
   // larger restructure. An unrecognized or missing value falls back to the
   // browsing default rather than erroring, since this reads directly off
   // the query string and a stale/bookmarked URL should never 400.
+  // A duplicated query key (?x=a&x=b) arrives as an array; every filter
+  // below takes the first value rather than silently discarding the whole
+  // filter, matching what a caller expects from repeating a query param.
+  private firstValue(value: unknown): unknown {
+    return Array.isArray(value) ? (value as unknown[])[0] : value;
+  }
+
   private resolveSortOrder(
     sortBy: unknown,
   ): Prisma.ProductOrderByWithRelationInput[] {
-    // A duplicated query key (?sortBy=a&sortBy=b) arrives as an array; take
-    // the first value rather than silently discarding the request, the way
-    // `brand`/`category` normalize their own possibly-array input below.
-    const value = Array.isArray(sortBy) ? (sortBy as unknown[])[0] : sortBy;
+    const value = this.firstValue(sortBy);
     if (
       value &&
       Object.values(ProductSortBy).includes(value as ProductSortBy)
@@ -150,20 +155,27 @@ export class ProductsService {
 
   async findAll(query: Record<string, unknown> = {}) {
     const {
-      search,
+      search: rawSearch,
       minPrice,
       maxPrice,
-      size,
-      brand,
-      category,
-      condition,
-      sellerId,
+      size: rawSize,
+      brand: rawBrand,
+      category: rawCategory,
+      condition: rawCondition,
+      sellerId: rawSellerId,
       sortBy,
       page = 1,
       limit = 10,
     } = query;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
     const orderBy = this.resolveSortOrder(sortBy);
+
+    const search = this.firstValue(rawSearch);
+    const size = this.firstValue(rawSize);
+    const brand = this.firstValue(rawBrand);
+    const category = this.firstValue(rawCategory);
+    const condition = this.firstValue(rawCondition);
+    const sellerId = this.firstValue(rawSellerId);
 
     // Sold items are one-of-a-kind: once bought they leave the public catalog.
     const where: Prisma.ProductWhereInput = { ...PUBLICLY_VISIBLE };
@@ -418,10 +430,14 @@ export class ProductsService {
     // and a page view has no reason to wait on it.
     if (requester?.id !== product.sellerId) {
       this.prisma.client.product
-        .update({ where: { id }, data: { viewCount: { increment: 1 } } })
-        .catch((error: unknown) => {
-          this.logger.error('Failed to record a product view', error as Error);
-        });
+        .update({
+          where: { id },
+          data: { viewCount: { increment: 1 } },
+          // Discarded either way (fire-and-forget) — no reason to have
+          // Prisma fetch and serialize the rest of the row back.
+          select: { id: true },
+        })
+        .catch(logAndSwallow(this.logger, 'Failed to record a product view'));
     }
 
     // Mirrors ReviewsService.findAllByProduct's own verifiedPurchase
@@ -728,8 +744,9 @@ export class ProductsService {
   // (title, description, brand, category) so a seller with many listings
   // can find one without paging through every status tab by hand.
   async findAllMine(sellerId: string, query: Record<string, unknown> = {}) {
-    const { search, status, page = 1, limit = 10 } = query;
+    const { search: rawSearch, status, page = 1, limit = 10 } = query;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
+    const search = this.firstValue(rawSearch);
 
     // A seller's own dashboard has two more buckets than the admin queue:
     // "vendido" (soldAt set) and "pausado" (pausedAt set) both sit outside

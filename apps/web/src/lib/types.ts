@@ -32,9 +32,10 @@ export interface Product {
   images?: string[] | null;
   seller?: { id: string; name: string };
   // Detail-page views from anyone other than this listing's own seller (see
-  // ProductsService#findOne). Undefined wherever a narrower Prisma `select`
-  // (cart items, order items, favorites) doesn't ask for it — only the
-  // catalog/detail reads and the seller's own /products/mine include it.
+  // ProductsService#findOne). A plain scalar column, so it's present
+  // anywhere the API embeds the full product (cart items, order items,
+  // catalog, detail, /products/mine) — optional here only because
+  // FavoritesService's narrower FAVORITE_PRODUCT_SELECT doesn't list it.
   viewCount?: number;
   // favoritedBy/questions are only populated on the seller's own listings
   // (GET /products/mine) alongside viewCount, as the per-listing

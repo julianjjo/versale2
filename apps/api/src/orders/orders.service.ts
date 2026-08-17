@@ -14,6 +14,7 @@ import { Role } from '../users/role.enum';
 import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
 import { toCsv, withExcelCompat } from '../common/csv';
+import { logAndSwallow } from '../common/log-and-swallow';
 import { NotificationsService } from '../notifications/notifications.service';
 
 // Maps a target order status to the notification "flavor" a recipient sees
@@ -100,7 +101,7 @@ export class OrdersService {
     try {
       await fn();
     } catch (error) {
-      this.logger.error('Failed to send an order notification', error as Error);
+      logAndSwallow(this.logger, 'Failed to send an order notification')(error);
     }
   }
 

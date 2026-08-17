@@ -392,6 +392,9 @@ describe('ProductsService', () => {
       await expect(service.findOne(productId, null)).rejects.toThrow(
         NotFoundException,
       );
+      // Access was denied — a rejected visitor's request must not still
+      // count as "interest" in a listing they were never shown.
+      expect(mockPrismaService.client.product.update).not.toHaveBeenCalled();
     });
 
     // Being sold takes a listing out of the catalog, not off the web: the
@@ -475,6 +478,7 @@ describe('ProductsService', () => {
       await expect(
         service.findOne(productId, { id: 'someoneElse', role: Role.USER }),
       ).rejects.toThrow(NotFoundException);
+      expect(mockPrismaService.client.product.update).not.toHaveBeenCalled();
     });
 
     it('should record a view for an anonymous visitor', async () => {
@@ -494,6 +498,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
         where: { id: productId },
         data: { viewCount: { increment: 1 } },
+        select: { id: true },
       });
     });
 
@@ -514,6 +519,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
         where: { id: productId },
         data: { viewCount: { increment: 1 } },
+        select: { id: true },
       });
     });
 
@@ -534,6 +540,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
         where: { id: productId },
         data: { viewCount: { increment: 1 } },
+        select: { id: true },
       });
     });
 
@@ -1605,6 +1612,32 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           orderBy: [{ price: 'asc' }, { id: 'asc' }],
+        }),
+      );
+    });
+
+    // Regression: the same duplicated-query-key normalization sortBy already
+    // gets above must also apply to the other facet filters — otherwise a
+    // repeated ?category=... would silently drop the filter (returning the
+    // whole unfiltered catalog) instead of honoring the first value.
+    it('should honor the first value when a facet filter arrives as an array (duplicated query key)', async () => {
+      await service.findAll({
+        category: ['Jeans', 'Tops'],
+        size: ['M', 'L'],
+        brand: ['Levi', 'Zara'],
+        condition: ['Good', 'New'],
+        sellerId: ['seller1', 'seller2'],
+      });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            category: 'Jeans',
+            size: 'M',
+            brand: { contains: 'Levi' },
+            condition: 'Good',
+            sellerId: 'seller1',
+          }) as Record<string, unknown>,
         }),
       );
     });
