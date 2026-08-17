@@ -31,6 +31,7 @@ model User {
   reviewedReports ProductReport[] @relation("ProductReportReviewer")
   productQuestions ProductQuestion[]
   reviewHelpfulVotes ReviewHelpfulVote[]
+  notifications Notification[]
 }
 
 enum Role {
@@ -117,6 +118,7 @@ model Order {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   items         OrderItem[] @relation("OrderItemOrder")
+  notifications Notification[]
 
   // Order history is always "this user's orders, newest first".
   @@index([userId, createdAt])
@@ -266,4 +268,34 @@ model ProductQuestion {
 
   // The product page always loads its Q&A newest-first.
   @@index([productId, createdAt])
+}
+
+enum NotificationType {
+  ORDER_SHIPPED
+  ORDER_CANCELLED
+  ORDER_STATUS_CHANGED
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  // Left as the default RESTRICT (matching Review/Favorite/Order/
+  // ProductReport/ProductQuestion's User relations) — a notification is a
+  // record of something that happened to this account, not disposable
+  // metadata, so it doesn't get a cascade of its own.
+  user      User             @relation(fields: [userId], references: [id])
+  type      NotificationType
+  message   String
+  orderId   String?
+  // Optional and SET NULL: nothing in this API deletes an Order today, but
+  // if that ever changes, a notification about it should survive as history
+  // rather than block the delete or vanish with it.
+  order     Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  // The notification bell always loads "mine, newest first".
+  @@index([userId, createdAt])
+  // ...and needs an unread count/list without scanning every notification.
+  @@index([userId, read])
 }

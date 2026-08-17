@@ -6,10 +6,11 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { NotificationType, Prisma } from '@prisma/client';
 import { OrderStatus } from '../order-status.enum';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { Role } from '../../users/role.enum';
+import { NotificationsService } from '../../notifications/notifications.service';
 
 // Simulates the error Prisma throws when the compare-and-swap `where` clause
 // (id + the status just read) matches no row — the shape a second writer
@@ -25,6 +26,10 @@ function staleStatusError() {
 describe('OrdersService', () => {
   let service: OrdersService;
   let prismaService: PrismaService;
+
+  const mockNotificationsService = {
+    create: jest.fn(),
+  };
 
   const shippingAddress = {
     street: 'Calle 72 #10-34',
@@ -80,6 +85,7 @@ describe('OrdersService', () => {
       providers: [
         OrdersService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: NotificationsService, useValue: mockNotificationsService },
       ],
     }).compile();
 
@@ -1063,6 +1069,7 @@ describe('OrdersService', () => {
       mockPrismaService.client.order.findUnique.mockResolvedValue({
         id: orderId,
         status: OrderStatus.PENDING,
+        userId: 'buyer1',
       });
       mockPrismaService.client.order.update.mockResolvedValue(mockOrder);
 
@@ -1073,6 +1080,14 @@ describe('OrdersService', () => {
         data: { status: OrderStatus.PAID },
       });
       expect(result).toEqual(mockOrder);
+      // PAID isn't SHIPPED or CANCELLED, so it falls back to the generic
+      // status-changed notification type.
+      expect(mockNotificationsService.create).toHaveBeenCalledWith(
+        'buyer1',
+        NotificationType.ORDER_STATUS_CHANGED,
+        'Tu pedido cambió de estado a Pagado.',
+        orderId,
+      );
     });
 
     it('should reject the write as a conflict if the status changed since it was read', async () => {
@@ -1089,12 +1104,14 @@ describe('OrdersService', () => {
       ).rejects.toThrow(
         'Este pedido cambió de estado mientras se procesaba tu solicitud. Actualiza la página e inténtalo de nuevo.',
       );
+      expect(mockNotificationsService.create).not.toHaveBeenCalled();
     });
 
     it('should allow cancelling an order that has not shipped yet, releasing its garments', async () => {
       mockPrismaService.client.order.findUnique.mockResolvedValue({
         id: 'order1',
         status: OrderStatus.PAID,
+        userId: 'buyer1',
       });
       mockTx.orderItem.findMany.mockResolvedValue([
         { productId: 'product1' },
@@ -1122,12 +1139,19 @@ describe('OrdersService', () => {
         data: { soldAt: null },
       });
       expect(result).toEqual({ id: 'order1', status: OrderStatus.CANCELLED });
+      expect(mockNotificationsService.create).toHaveBeenCalledWith(
+        'buyer1',
+        NotificationType.ORDER_CANCELLED,
+        'Tu pedido cambió de estado a Cancelado.',
+        'order1',
+      );
     });
 
     it('should not release any garment when the transition is not a cancellation', async () => {
       mockPrismaService.client.order.findUnique.mockResolvedValue({
         id: 'order1',
         status: OrderStatus.PAID,
+        userId: 'buyer1',
       });
       mockPrismaService.client.order.update.mockResolvedValue({
         id: 'order1',
@@ -1141,6 +1165,12 @@ describe('OrdersService', () => {
         where: { id: 'order1', status: OrderStatus.PAID },
         data: { status: OrderStatus.SHIPPED },
       });
+      expect(mockNotificationsService.create).toHaveBeenCalledWith(
+        'buyer1',
+        NotificationType.ORDER_SHIPPED,
+        'Tu pedido cambió de estado a Enviado.',
+        'order1',
+      );
     });
 
     // Regression: a buyer cancelling and an admin marking SHIPPED can both
@@ -1220,6 +1250,7 @@ describe('OrdersService', () => {
         id: 'order1',
         userId: 'buyer1',
         status: OrderStatus.PENDING,
+        items: [{ product: { sellerId: 'seller1' } }],
       });
       mockTx.orderItem.findMany.mockResolvedValue([{ productId: 'product1' }]);
       mockTx.order.update.mockResolvedValue({
@@ -1238,6 +1269,13 @@ describe('OrdersService', () => {
         data: { soldAt: null },
       });
       expect(result).toEqual({ id: 'order1', status: OrderStatus.CANCELLED });
+      // The seller, not the buyer who just cancelled.
+      expect(mockNotificationsService.create).toHaveBeenCalledWith(
+        'seller1',
+        NotificationType.ORDER_CANCELLED,
+        'El comprador canceló un pedido que incluía uno de tus productos.',
+        'order1',
+      );
     });
 
     it('should cancel a paid order the same way, since it has not shipped yet', async () => {
@@ -1245,6 +1283,7 @@ describe('OrdersService', () => {
         id: 'order1',
         userId: 'buyer1',
         status: OrderStatus.PAID,
+        items: [{ product: { sellerId: 'seller1' } }],
       });
       mockTx.orderItem.findMany.mockResolvedValue([]);
       mockTx.order.update.mockResolvedValue({
@@ -1258,6 +1297,44 @@ describe('OrdersService', () => {
         where: { id: 'order1', status: OrderStatus.PAID },
         data: { status: OrderStatus.CANCELLED },
       });
+    });
+
+    it('should notify each distinct seller only once when a mixed-cart order has repeated sellers', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        userId: 'buyer1',
+        status: OrderStatus.PENDING,
+        items: [
+          { product: { sellerId: 'seller1' } },
+          { product: { sellerId: 'seller1' } },
+          { product: { sellerId: 'seller2' } },
+        ],
+      });
+      mockTx.orderItem.findMany.mockResolvedValue([
+        { productId: 'product1' },
+        { productId: 'product2' },
+        { productId: 'product3' },
+      ]);
+      mockTx.order.update.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.CANCELLED,
+      });
+
+      await service.cancelOwnOrder('buyer1', 'order1');
+
+      expect(mockNotificationsService.create).toHaveBeenCalledTimes(2);
+      expect(mockNotificationsService.create).toHaveBeenCalledWith(
+        'seller1',
+        NotificationType.ORDER_CANCELLED,
+        expect.any(String),
+        'order1',
+      );
+      expect(mockNotificationsService.create).toHaveBeenCalledWith(
+        'seller2',
+        NotificationType.ORDER_CANCELLED,
+        expect.any(String),
+        'order1',
+      );
     });
 
     it('should reject the cancellation as a conflict if an admin shipped it in the meantime', async () => {
@@ -1452,6 +1529,7 @@ describe('OrdersService', () => {
       mockPrismaService.client.order.findUnique.mockResolvedValue({
         id: 'order1',
         status: OrderStatus.PAID,
+        userId: 'buyer1',
         items: [{ product: { sellerId } }, { product: { sellerId } }],
       });
       mockPrismaService.client.order.update.mockResolvedValue({
@@ -1471,6 +1549,13 @@ describe('OrdersService', () => {
         status: OrderStatus.SHIPPED,
         trackingNumber: 'ABC123',
       });
+      // The buyer, not the seller who just shipped it.
+      expect(mockNotificationsService.create).toHaveBeenCalledWith(
+        'buyer1',
+        NotificationType.ORDER_SHIPPED,
+        'Tu pedido fue enviado. Número de guía: ABC123',
+        'order1',
+      );
     });
 
     it('should store a null tracking number when none is provided', async () => {
@@ -1478,6 +1563,7 @@ describe('OrdersService', () => {
       mockPrismaService.client.order.findUnique.mockResolvedValue({
         id: 'order1',
         status: OrderStatus.PAID,
+        userId: 'buyer1',
         items: [{ product: { sellerId } }],
       });
       mockPrismaService.client.order.update.mockResolvedValue({
@@ -1491,6 +1577,12 @@ describe('OrdersService', () => {
         where: { id: 'order1', status: OrderStatus.PAID },
         data: { status: OrderStatus.SHIPPED, trackingNumber: null },
       });
+      expect(mockNotificationsService.create).toHaveBeenCalledWith(
+        'buyer1',
+        NotificationType.ORDER_SHIPPED,
+        'Tu pedido fue enviado.',
+        'order1',
+      );
     });
 
     it('should refuse a seller with no products in the order', async () => {
@@ -1576,6 +1668,7 @@ describe('OrdersService', () => {
       ).rejects.toThrow(
         'Este pedido cambió de estado mientras se procesaba tu solicitud. Actualiza la página e inténtalo de nuevo.',
       );
+      expect(mockNotificationsService.create).not.toHaveBeenCalled();
     });
   });
 });

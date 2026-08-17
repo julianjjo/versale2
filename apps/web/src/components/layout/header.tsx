@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui";
+import { NotificationBell } from "./notification-bell";
 
 export function Header() {
   const router = useRouter();
@@ -151,6 +152,7 @@ export function Header() {
           {!isLoading &&
             (user ? (
               <>
+                <NotificationBell />
                 {/* Full name only at `lg`+, where the row has room; below
                     that, "Mi perfil" lives in the "Más" menu instead (see
                     MoreMenu in the nav above). */}
@@ -194,6 +196,7 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-1 md:hidden">
+          {user && <NotificationBell />}
           {user && (
             <Link
               href="/cart"

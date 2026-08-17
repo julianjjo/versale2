@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
+import { NotificationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ORDER_STATUS_LABEL, OrderStatus } from './order-status.enum';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -12,6 +13,18 @@ import { Role } from '../users/role.enum';
 import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
 import { toCsv, withExcelCompat } from '../common/csv';
+import { NotificationsService } from '../notifications/notifications.service';
+
+// Maps a target order status to the notification "flavor" a recipient sees
+// in the bell dropdown — SHIPPED/CANCELLED get their own icon-friendly type,
+// every other transition (PAID, DELIVERED) falls back to the generic one.
+function notificationTypeForStatus(status: OrderStatus): NotificationType {
+  if (status === OrderStatus.SHIPPED) return NotificationType.ORDER_SHIPPED;
+  if (status === OrderStatus.CANCELLED) {
+    return NotificationType.ORDER_CANCELLED;
+  }
+  return NotificationType.ORDER_STATUS_CHANGED;
+}
 
 // exportOrdersCsv() has no pagination UI to bound it the way getAllOrders()
 // has — it hands back every matching row in one response — so this is a hard
@@ -37,9 +50,9 @@ function formatShippingAddress(address: unknown): string {
 // Shared by getAllOrders() (admin) and exportOrdersCsv() — both search the
 // same admin-facing order list by the same three fields, so they'd otherwise
 // drift into two copies of the identical filter.
-function buildOrderSearchWhere(search: any): any {
-  if (!search) return {};
-  const term = String(search);
+function buildOrderSearchWhere(search: unknown): Prisma.OrderWhereInput {
+  if (typeof search !== 'string' || !search) return {};
+  const term = search;
   return {
     OR: [
       { id: { contains: term } },
@@ -71,7 +84,10 @@ const PAID_STATUSES: OrderStatus[] = [
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async createOrder(userId: string, dto: CreateOrderDto) {
     // The global ValidationPipe already rejects a missing address, but guard
@@ -206,13 +222,13 @@ export class OrdersService {
   // product title) and filterable by status, paginated the same way every
   // other list endpoint in this API is. Mirrors `getAllOrders` (admin) and
   // `getMySales` (seller) below rather than introducing a third shape.
-  async getUserOrders(userId: string, query: any = {}) {
-    const { search, status, page, limit } = query ?? {};
+  async getUserOrders(userId: string, query: Record<string, unknown> = {}) {
+    const { search, status, page, limit } = query;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
-    const where: any = { userId };
-    if (search) {
-      const term = String(search);
+    const where: Prisma.OrderWhereInput = { userId };
+    if (typeof search === 'string' && search) {
+      const term = search;
       where.OR = [
         { id: { contains: term } },
         { items: { some: { product: { is: { title: { contains: term } } } } } },
@@ -281,11 +297,11 @@ export class OrdersService {
     return order;
   }
 
-  async getAllOrders(query: any = {}) {
-    const { search, page, limit } = query ?? {};
+  async getAllOrders(query: Record<string, unknown> = {}) {
+    const { search, page, limit } = query;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
-    const where: any = buildOrderSearchWhere(search);
+    const where = buildOrderSearchWhere(search);
 
     const [orders, total] = await Promise.all([
       this.prisma.client.order.findMany({
@@ -316,9 +332,9 @@ export class OrdersService {
   // looking at" actually matches the admin's current search — but unpaged
   // (up to MAX_EXPORT_ROWS) since a CSV is meant to be the whole result set,
   // not one page of it.
-  async exportOrdersCsv(query: any = {}) {
-    const { search } = query ?? {};
-    const where: any = buildOrderSearchWhere(search);
+  async exportOrdersCsv(query: Record<string, unknown> = {}) {
+    const { search } = query;
+    const where = buildOrderSearchWhere(search);
 
     // The admin uses this file for record-keeping and dispute resolution, so
     // a silently-truncated export would be worse than none at all — hence
@@ -403,13 +419,15 @@ export class OrdersService {
   // Searchable (by order id, buyer name, or one of the seller's own product
   // titles) and filterable by status, mirroring getUserOrders (buyer) and
   // getAllOrders (admin) rather than introducing a third filtering shape.
-  async getMySales(sellerId: string, query: any = {}) {
-    const { search, status, page, limit } = query ?? {};
+  async getMySales(sellerId: string, query: Record<string, unknown> = {}) {
+    const { search, status, page, limit } = query;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
-    const where: any = { items: { some: { product: { sellerId } } } };
-    if (search) {
-      const term = String(search);
+    const where: Prisma.OrderWhereInput = {
+      items: { some: { product: { sellerId } } },
+    };
+    if (typeof search === 'string' && search) {
+      const term = search;
       where.OR = [
         { id: { contains: term } },
         { user: { is: { name: { contains: term } } } },
@@ -472,6 +490,7 @@ export class OrdersService {
       select: {
         id: true,
         status: true,
+        userId: true,
         items: { select: { product: { select: { sellerId: true } } } },
       },
     });
@@ -502,13 +521,26 @@ export class OrdersService {
     }
 
     try {
-      return await this.prisma.client.order.update({
+      const updated = await this.prisma.client.order.update({
         where: { id, status: OrderStatus.PAID },
         data: {
           status: OrderStatus.SHIPPED,
           trackingNumber: trackingNumber || null,
         },
       });
+
+      // The buyer, not the seller who just shipped it — this is the whole
+      // point of the notification.
+      await this.notifications.create(
+        order.userId,
+        NotificationType.ORDER_SHIPPED,
+        trackingNumber
+          ? `Tu pedido fue enviado. Número de guía: ${trackingNumber}`
+          : 'Tu pedido fue enviado.',
+        order.id,
+      );
+
+      return updated;
     } catch (error) {
       translatePrismaError(error, {
         P2025: () => {
@@ -523,14 +555,26 @@ export class OrdersService {
   async updateOrderStatus(id: string, status: OrderStatus) {
     const order = await this.prisma.client.order.findUnique({
       where: { id },
-      select: { id: true, status: true },
+      select: { id: true, status: true, userId: true },
     });
 
     if (!order) {
       throw new NotFoundException(`No se encontró el pedido con ID ${id}`);
     }
 
-    return this.transitionStatus(order, status);
+    const updated = await this.transitionStatus(order, status);
+
+    // An admin-driven change reaches the buyer, whatever the new status is —
+    // ship/cancel below have their own, more specific messages for their own
+    // (self-service) paths.
+    await this.notifications.create(
+      order.userId,
+      notificationTypeForStatus(status),
+      `Tu pedido cambió de estado a ${ORDER_STATUS_LABEL[status]}.`,
+      order.id,
+    );
+
+    return updated;
   }
 
   // A buyer can only ever move their own order to CANCELLED — never to any
@@ -542,7 +586,12 @@ export class OrdersService {
   async cancelOwnOrder(userId: string, id: string) {
     const order = await this.prisma.client.order.findUnique({
       where: { id },
-      select: { id: true, userId: true, status: true },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        items: { select: { product: { select: { sellerId: true } } } },
+      },
     });
 
     if (!order) {
@@ -555,7 +604,25 @@ export class OrdersService {
       );
     }
 
-    return this.transitionStatus(order, OrderStatus.CANCELLED);
+    const updated = await this.transitionStatus(order, OrderStatus.CANCELLED);
+
+    // The seller(s), not the buyer who just cancelled — deduplicated since a
+    // mixed-cart order can list the same seller's product more than once.
+    const sellerIds = [
+      ...new Set(order.items.map((item) => item.product.sellerId)),
+    ];
+    await Promise.all(
+      sellerIds.map((sellerId) =>
+        this.notifications.create(
+          sellerId,
+          NotificationType.ORDER_CANCELLED,
+          'El comprador canceló un pedido que incluía uno de tus productos.',
+          order.id,
+        ),
+      ),
+    );
+
+    return updated;
   }
 
   private async transitionStatus(
