@@ -260,7 +260,30 @@ export function ProductDetail({
       setError(extractApiError(err, "No pudimos eliminar tu reseña")),
   });
 
-  const loginRedirect = (reason: "cart" | "review") =>
+  const toggleHelpful = useMutation({
+    mutationFn: async ({
+      reviewId,
+      voted,
+    }: {
+      reviewId: string;
+      voted: boolean;
+    }) => {
+      // `voted` is the state *before* this click — true means "un-mark it",
+      // matching FavoriteButton's own isFavorite-before-toggle convention.
+      if (voted) {
+        await api.delete(`/reviews/${reviewId}/helpful`);
+      } else {
+        await api.post(`/reviews/${reviewId}/helpful`);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product", id] });
+    },
+    onError: (err) =>
+      setError(extractApiError(err, "No pudimos registrar tu voto")),
+  });
+
+  const loginRedirect = (reason: "cart" | "review" | "helpful") =>
     loginRedirectUrl(id, reason);
 
   const handleAddToCart = () => {
@@ -299,6 +322,15 @@ export function ProductDetail({
     if (confirm("¿Eliminar tu reseña? Esta acción no se puede deshacer.")) {
       deleteReview.mutate(reviewId);
     }
+  };
+
+  const handleToggleHelpful = (review: Review) => {
+    setError(null);
+    if (!user) {
+      router.push(loginRedirect("helpful"));
+      return;
+    }
+    toggleHelpful.mutate({ reviewId: review.id, voted: !!review.votedByMe });
   };
 
   if (isLoading) {
@@ -566,6 +598,31 @@ export function ProductDetail({
                       {new Date(review.createdAt).toLocaleDateString("es-CO")}
                     </p>
                   </>
+                )}
+
+                {/* A reviewer can't vote on their own review — the API
+                    rejects it, and offering the control here would just be a
+                    button that always errors. */}
+                {review.userId !== user?.id && (
+                  <Button
+                    size="sm"
+                    variant={review.votedByMe ? "accent" : "secondary"}
+                    className="mt-3"
+                    // `toggleHelpful` is one mutation shared by every review
+                    // card, so disabling on `isPending` alone would lock every
+                    // OTHER review's button too while this one's request is in
+                    // flight — checking `variables` scopes the disabled state
+                    // to the review that was actually clicked.
+                    disabled={
+                      toggleHelpful.isPending &&
+                      toggleHelpful.variables?.reviewId === review.id
+                    }
+                    aria-pressed={!!review.votedByMe}
+                    onClick={() => handleToggleHelpful(review)}
+                  >
+                    {review.votedByMe ? "Útil" : "¿Te fue útil?"}
+                    {!!review.helpfulCount && ` (${review.helpfulCount})`}
+                  </Button>
                 )}
 
                 {review.id === ownReview?.id &&

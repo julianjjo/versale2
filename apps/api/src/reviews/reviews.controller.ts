@@ -81,6 +81,21 @@ export class ReviewsController {
     return this.reviewsService.remove(id, userId, req.user.role as Role);
   }
 
+  // Two segments (':id/helpful'), so it never collides with the bare ':id'
+  // routes above regardless of declaration order — same reasoning as
+  // ReviewsController's own ':id/reply'.
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/helpful')
+  async markHelpful(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.reviewsService.markHelpful(id, req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id/helpful')
+  async unmarkHelpful(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.reviewsService.unmarkHelpful(id, req.user.id);
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Get('admin/all')

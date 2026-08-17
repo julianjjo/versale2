@@ -17,6 +17,8 @@ describe('ReviewsController', () => {
     remove: jest.fn(),
     getAllReviews: jest.fn(),
     replyToReview: jest.fn(),
+    markHelpful: jest.fn(),
+    unmarkHelpful: jest.fn(),
   };
 
   const createMockRes = () =>
@@ -204,6 +206,48 @@ describe('ReviewsController', () => {
         'admin1',
         Role.ADMIN,
       );
+    });
+  });
+
+  describe('markHelpful', () => {
+    it("should call reviewsService.markHelpful with the review id and the caller's id", async () => {
+      const userId = 'buyer1';
+      const reviewId = 'review1';
+      const mockReq = {
+        user: { id: userId, email: 'buyer@example.com', role: 'USER' },
+      } as AuthRequest;
+
+      const mockResult = { helpfulCount: 1, votedByMe: true };
+      mockReviewsService.markHelpful.mockResolvedValue(mockResult);
+
+      const result = await controller.markHelpful(mockReq, reviewId);
+
+      expect(reviewsService.markHelpful).toHaveBeenCalledWith(
+        reviewId,
+        userId,
+      );
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('unmarkHelpful', () => {
+    it("should call reviewsService.unmarkHelpful with the review id and the caller's id", async () => {
+      const userId = 'buyer1';
+      const reviewId = 'review1';
+      const mockReq = {
+        user: { id: userId, email: 'buyer@example.com', role: 'USER' },
+      } as AuthRequest;
+
+      const mockResult = { helpfulCount: 0, votedByMe: false };
+      mockReviewsService.unmarkHelpful.mockResolvedValue(mockResult);
+
+      const result = await controller.unmarkHelpful(mockReq, reviewId);
+
+      expect(reviewsService.unmarkHelpful).toHaveBeenCalledWith(
+        reviewId,
+        userId,
+      );
+      expect(result).toEqual(mockResult);
     });
   });
 

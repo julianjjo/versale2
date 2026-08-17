@@ -793,6 +793,145 @@ describe("ProductDetail", () => {
     ).toBeNull();
   });
 
+  it("no muestra el botón ¿Te fue útil? en la reseña propia", async () => {
+    authState.user = { id: "u1", email: "bob@b.c", name: "Bob", role: "USER" };
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Love it!")).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("button", { name: /¿te fue útil\?/i }),
+    ).toBeNull();
+  });
+
+  it("pide inicio de sesión al marcar una reseña como útil sin sesión", async () => {
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Love it!")).toBeInTheDocument();
+    });
+    await user.click(
+      screen.getByRole("button", { name: /¿te fue útil\?/i }),
+    );
+
+    expect(pushMock).toHaveBeenCalledWith(
+      "/login?next=%2Fproducts%2Fp1&reason=helpful",
+    );
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it("marca como útil la reseña de otra persona", async () => {
+    authState.user = { id: "u2", email: "charlie@b.c", name: "Charlie", role: "USER" };
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    vi.mocked(api.post).mockResolvedValue({
+      data: { helpfulCount: 1, votedByMe: true },
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Love it!")).toBeInTheDocument();
+    });
+    await user.click(
+      screen.getByRole("button", { name: /¿te fue útil\?/i }),
+    );
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith("/reviews/r1/helpful");
+    });
+  });
+
+  it("quita el voto útil de una reseña ya marcada", async () => {
+    authState.user = { id: "u2", email: "charlie@b.c", name: "Charlie", role: "USER" };
+    const votedProduct = {
+      ...mockProduct,
+      reviews: [
+        { ...mockProduct.reviews[0], helpfulCount: 1, votedByMe: true },
+      ],
+    };
+    vi.mocked(api.get).mockImplementation(mockProductGet(votedProduct));
+    vi.mocked(api.delete).mockResolvedValue({
+      data: { helpfulCount: 0, votedByMe: false },
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    const helpfulButton = await screen.findByRole("button", {
+      name: /útil \(1\)/i,
+    });
+    await user.click(helpfulButton);
+
+    await waitFor(() => {
+      expect(api.delete).toHaveBeenCalledWith("/reviews/r1/helpful");
+    });
+  });
+
+  it("no deshabilita el botón útil de otra reseña mientras se vota en la primera", async () => {
+    authState.user = { id: "u3", email: "dana@b.c", name: "Dana", role: "USER" };
+    const twoReviewProduct = {
+      ...mockProduct,
+      reviews: [
+        mockProduct.reviews[0],
+        {
+          id: "r2",
+          productId: "p1",
+          userId: "u4",
+          rating: 4,
+          comment: "Buena calidad",
+          createdAt: new Date().toISOString(),
+          user: { id: "u4", name: "Erin" },
+        },
+      ],
+    };
+    vi.mocked(api.get).mockImplementation(mockProductGet(twoReviewProduct));
+    // Never resolves during the test — keeps the vote on r1 "in flight" so we
+    // can assert r2's button isn't collaterally disabled by the shared mutation.
+    vi.mocked(api.post).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Love it!")).toBeInTheDocument();
+      expect(screen.getByText("Buena calidad")).toBeInTheDocument();
+    });
+
+    const helpfulButtons = screen.getAllByRole("button", {
+      name: /¿te fue útil\?/i,
+    });
+    expect(helpfulButtons).toHaveLength(2);
+    await user.click(helpfulButtons[0]);
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith("/reviews/r1/helpful");
+    });
+    expect(helpfulButtons[0]).toBeDisabled();
+    expect(helpfulButtons[1]).toBeEnabled();
+  });
+
   it("oculta el formulario de nueva reseña cuando el comprador ya tiene una", async () => {
     authState.user = { id: "u1", email: "bob@b.c", name: "Bob", role: "USER" };
     vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));

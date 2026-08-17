@@ -101,6 +101,11 @@ export interface Review {
   sellerReply?: string | null;
   sellerRepliedAt?: string | null;
   verifiedPurchase?: boolean;
+  // Only populated by GET /products/:id (the page that renders the "¿Te
+  // fue útil?" button) — the admin review queue and the legacy
+  // /reviews/product/:id list have no reader for either field.
+  helpfulCount?: number;
+  votedByMe?: boolean;
   user?: { id: string; name: string };
   product?: { id: string; title: string };
 }
