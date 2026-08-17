@@ -29,6 +29,7 @@ describe('OrdersService', () => {
 
   const mockNotificationsService = {
     create: jest.fn(),
+    createMany: jest.fn(),
   };
 
   const shippingAddress = {
@@ -1112,6 +1113,7 @@ describe('OrdersService', () => {
         id: 'order1',
         status: OrderStatus.PAID,
         userId: 'buyer1',
+        items: [{ product: { sellerId: 'seller1' } }],
       });
       mockTx.orderItem.findMany.mockResolvedValue([
         { productId: 'product1' },
@@ -1145,6 +1147,17 @@ describe('OrdersService', () => {
         'Tu pedido cambió de estado a Cancelado.',
         'order1',
       );
+      // An admin cancelling an order tells the seller(s) too — the same
+      // thing a buyer's own cancellation already does.
+      expect(mockNotificationsService.createMany).toHaveBeenCalledWith([
+        {
+          userId: 'seller1',
+          type: NotificationType.ORDER_CANCELLED,
+          message:
+            'El comprador canceló un pedido que incluía uno de tus productos.',
+          orderId: 'order1',
+        },
+      ]);
     });
 
     it('should not release any garment when the transition is not a cancellation', async () => {
@@ -1270,12 +1283,15 @@ describe('OrdersService', () => {
       });
       expect(result).toEqual({ id: 'order1', status: OrderStatus.CANCELLED });
       // The seller, not the buyer who just cancelled.
-      expect(mockNotificationsService.create).toHaveBeenCalledWith(
-        'seller1',
-        NotificationType.ORDER_CANCELLED,
-        'El comprador canceló un pedido que incluía uno de tus productos.',
-        'order1',
-      );
+      expect(mockNotificationsService.createMany).toHaveBeenCalledWith([
+        {
+          userId: 'seller1',
+          type: NotificationType.ORDER_CANCELLED,
+          message:
+            'El comprador canceló un pedido que incluía uno de tus productos.',
+          orderId: 'order1',
+        },
+      ]);
     });
 
     it('should cancel a paid order the same way, since it has not shipped yet', async () => {
@@ -1322,18 +1338,22 @@ describe('OrdersService', () => {
 
       await service.cancelOwnOrder('buyer1', 'order1');
 
-      expect(mockNotificationsService.create).toHaveBeenCalledTimes(2);
-      expect(mockNotificationsService.create).toHaveBeenCalledWith(
-        'seller1',
-        NotificationType.ORDER_CANCELLED,
-        expect.any(String),
-        'order1',
-      );
-      expect(mockNotificationsService.create).toHaveBeenCalledWith(
-        'seller2',
-        NotificationType.ORDER_CANCELLED,
-        expect.any(String),
-        'order1',
+      expect(mockNotificationsService.createMany).toHaveBeenCalledTimes(1);
+      const [recipients] = mockNotificationsService.createMany.mock.calls[0];
+      expect(recipients).toHaveLength(2);
+      expect(recipients).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            userId: 'seller1',
+            type: NotificationType.ORDER_CANCELLED,
+            orderId: 'order1',
+          }),
+          expect.objectContaining({
+            userId: 'seller2',
+            type: NotificationType.ORDER_CANCELLED,
+            orderId: 'order1',
+          }),
+        ]),
       );
     });
 
@@ -1556,6 +1576,31 @@ describe('OrdersService', () => {
         'Tu pedido fue enviado. Número de guía: ABC123',
         'order1',
       );
+    });
+
+    // Regression: the order is already durably marked SHIPPED by the time the
+    // notification insert runs — a transient failure there (a DB blip, a bug
+    // in NotificationsService) must not turn an already-successful ship
+    // action into a failed response for the seller who just triggered it.
+    it('should still succeed when sending the notification fails', async () => {
+      const sellerId = 'seller1';
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.PAID,
+        userId: 'buyer1',
+        items: [{ product: { sellerId } }],
+      });
+      mockPrismaService.client.order.update.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.SHIPPED,
+      });
+      mockNotificationsService.create.mockRejectedValueOnce(
+        new Error('notifications table is down'),
+      );
+
+      const result = await service.shipOwnSale(sellerId, 'order1', undefined);
+
+      expect(result).toEqual({ id: 'order1', status: OrderStatus.SHIPPED });
     });
 
     it('should store a null tracking number when none is provided', async () => {

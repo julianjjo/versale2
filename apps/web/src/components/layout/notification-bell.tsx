@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, extractApiError } from "@/lib/api";
 import type { Notification, PaginatedResponse } from "@/lib/types";
 
 // Cheap enough to poll on a fixed interval instead of wiring up a socket:
@@ -13,9 +13,15 @@ const UNREAD_COUNT_REFETCH_MS = 30_000;
 
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const queryClient = useQueryClient();
+  // Header renders this component in both a desktop and a mobile container
+  // (CSS `hidden`/`flex` picks which one shows), so two instances exist in
+  // the DOM at once — a hardcoded id would collide and leave aria-controls
+  // pointing at an ambiguous target.
+  const panelId = useId();
 
   const { data: unread } = useQuery<{ count: number }>({
     queryKey: ["notifications", "unread-count"],
@@ -39,11 +45,17 @@ export function NotificationBell() {
   const markAsRead = useMutation({
     mutationFn: (id: string) => api.patch(`/notifications/${id}/read`),
     onSuccess: invalidate,
+    onError: (err) =>
+      setError(extractApiError(err, "No pudimos marcar la notificación como leída")),
   });
 
   const markAllAsRead = useMutation({
     mutationFn: () => api.patch("/notifications/read-all"),
     onSuccess: invalidate,
+    onError: (err) =>
+      setError(
+        extractApiError(err, "No pudimos marcar las notificaciones como leídas"),
+      ),
   });
 
   useEffect(() => {
@@ -75,10 +87,13 @@ export function NotificationBell() {
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => setIsOpen((v) => !v)}
+        onClick={() => {
+          setError(null);
+          setIsOpen((v) => !v);
+        }}
         aria-haspopup="true"
         aria-expanded={isOpen}
-        aria-controls="notification-panel"
+        aria-controls={panelId}
         aria-label={
           count > 0 ? `Notificaciones, ${count} sin leer` : "Notificaciones"
         }
@@ -95,9 +110,15 @@ export function NotificationBell() {
         )}
       </button>
 
+      {error && (
+        <span role="alert" className="sr-only">
+          {error}
+        </span>
+      )}
+
       {isOpen && (
         <div
-          id="notification-panel"
+          id={panelId}
           role="dialog"
           aria-label="Notificaciones"
           className="absolute right-0 top-full z-50 mt-2 w-80 max-w-[90vw] overflow-hidden rounded-2xl border border-border bg-surface shadow-lg"

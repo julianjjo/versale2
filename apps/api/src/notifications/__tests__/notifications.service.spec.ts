@@ -20,6 +20,7 @@ describe('NotificationsService', () => {
     client: {
       notification: {
         create: jest.fn(),
+        createMany: jest.fn(),
         findMany: jest.fn(),
         findUnique: jest.fn(),
         update: jest.fn(),
@@ -97,6 +98,58 @@ describe('NotificationsService', () => {
           },
         },
       );
+    });
+  });
+
+  describe('createMany', () => {
+    it('creates one notification per recipient in a single batched insert', async () => {
+      mockPrismaService.client.notification.createMany.mockResolvedValue({
+        count: 2,
+      });
+
+      const result = await service.createMany([
+        {
+          userId: 'seller1',
+          type: NotificationType.ORDER_CANCELLED,
+          message: 'msg1',
+          orderId: 'order1',
+        },
+        {
+          userId: 'seller2',
+          type: NotificationType.ORDER_CANCELLED,
+          message: 'msg1',
+          orderId: 'order1',
+        },
+      ]);
+
+      expect(
+        mockPrismaService.client.notification.createMany,
+      ).toHaveBeenCalledWith({
+        data: [
+          {
+            userId: 'seller1',
+            type: NotificationType.ORDER_CANCELLED,
+            message: 'msg1',
+            orderId: 'order1',
+          },
+          {
+            userId: 'seller2',
+            type: NotificationType.ORDER_CANCELLED,
+            message: 'msg1',
+            orderId: 'order1',
+          },
+        ],
+      });
+      expect(result).toEqual({ count: 2 });
+    });
+
+    it('skips the database call entirely for an empty recipient list', async () => {
+      const result = await service.createMany([]);
+
+      expect(
+        mockPrismaService.client.notification.createMany,
+      ).not.toHaveBeenCalled();
+      expect(result).toEqual({ count: 0 });
     });
   });
 

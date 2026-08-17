@@ -154,6 +154,25 @@ describe("NotificationBell", () => {
     expect(api.patch).toHaveBeenCalledWith("/notifications/notif1/read");
   });
 
+  it("muestra un mensaje de error si falla marcar como leída", async () => {
+    vi.mocked(api.get).mockImplementation(mockGet(1));
+    vi.mocked(api.patch).mockRejectedValue(new Error("network down"));
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <NotificationBell />
+      </TestProviders>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: /notificaciones/i }));
+    const unread = await screen.findByText(
+      "Tu pedido fue enviado. Número de guía: ABC123",
+    );
+    await user.click(unread);
+
+    expect(await screen.findByText("network down")).toBeInTheDocument();
+  });
+
   it("no vuelve a marcar como leída una notificación ya leída", async () => {
     vi.mocked(api.get).mockImplementation(mockGet(1));
     vi.mocked(api.patch).mockResolvedValue({ data: {} });

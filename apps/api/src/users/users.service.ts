@@ -47,7 +47,7 @@ export class UsersService {
   }
 
   async findAll(query: Record<string, unknown> = {}) {
-    const { search, role, page, limit } = query;
+    const { search, role, page, limit } = query ?? {};
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const where: Prisma.UserWhereInput = {};

@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -84,10 +85,46 @@ const PAID_STATUSES: OrderStatus[] = [
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
   ) {}
+
+  // A notification is a side effect of an order mutation that has already
+  // committed — it must never turn an otherwise-successful ship/cancel/
+  // status-change into a failed response just because the notification
+  // insert hit a transient error.
+  private async notifySafely(fn: () => Promise<unknown>): Promise<void> {
+    try {
+      await fn();
+    } catch (error) {
+      this.logger.error('Failed to send an order notification', error as Error);
+    }
+  }
+
+  // Shared by cancelOwnOrder (buyer-initiated) and updateOrderStatus
+  // (admin-initiated, when the new status is CANCELLED): every distinct
+  // seller with a product on the order gets told, in one batched insert
+  // rather than one round-trip per seller.
+  private async notifySellersOfCancellation(order: {
+    id: string;
+    items: { product: { sellerId: string } }[];
+  }): Promise<void> {
+    const sellerIds = [
+      ...new Set(order.items.map((item) => item.product.sellerId)),
+    ];
+    await this.notifications.createMany(
+      sellerIds.map((sellerId) => ({
+        userId: sellerId,
+        type: NotificationType.ORDER_CANCELLED,
+        message:
+          'El comprador canceló un pedido que incluía uno de tus productos.',
+        orderId: order.id,
+      })),
+    );
+  }
 
   async createOrder(userId: string, dto: CreateOrderDto) {
     // The global ValidationPipe already rejects a missing address, but guard
@@ -223,7 +260,7 @@ export class OrdersService {
   // other list endpoint in this API is. Mirrors `getAllOrders` (admin) and
   // `getMySales` (seller) below rather than introducing a third shape.
   async getUserOrders(userId: string, query: Record<string, unknown> = {}) {
-    const { search, status, page, limit } = query;
+    const { search, status, page, limit } = query ?? {};
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const where: Prisma.OrderWhereInput = { userId };
@@ -298,7 +335,7 @@ export class OrdersService {
   }
 
   async getAllOrders(query: Record<string, unknown> = {}) {
-    const { search, page, limit } = query;
+    const { search, page, limit } = query ?? {};
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const where = buildOrderSearchWhere(search);
@@ -333,7 +370,7 @@ export class OrdersService {
   // (up to MAX_EXPORT_ROWS) since a CSV is meant to be the whole result set,
   // not one page of it.
   async exportOrdersCsv(query: Record<string, unknown> = {}) {
-    const { search } = query;
+    const { search } = query ?? {};
     const where = buildOrderSearchWhere(search);
 
     // The admin uses this file for record-keeping and dispute resolution, so
@@ -420,7 +457,7 @@ export class OrdersService {
   // titles) and filterable by status, mirroring getUserOrders (buyer) and
   // getAllOrders (admin) rather than introducing a third filtering shape.
   async getMySales(sellerId: string, query: Record<string, unknown> = {}) {
-    const { search, status, page, limit } = query;
+    const { search, status, page, limit } = query ?? {};
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const where: Prisma.OrderWhereInput = {
@@ -520,27 +557,15 @@ export class OrdersService {
       );
     }
 
+    let updated;
     try {
-      const updated = await this.prisma.client.order.update({
+      updated = await this.prisma.client.order.update({
         where: { id, status: OrderStatus.PAID },
         data: {
           status: OrderStatus.SHIPPED,
           trackingNumber: trackingNumber || null,
         },
       });
-
-      // The buyer, not the seller who just shipped it — this is the whole
-      // point of the notification.
-      await this.notifications.create(
-        order.userId,
-        NotificationType.ORDER_SHIPPED,
-        trackingNumber
-          ? `Tu pedido fue enviado. Número de guía: ${trackingNumber}`
-          : 'Tu pedido fue enviado.',
-        order.id,
-      );
-
-      return updated;
     } catch (error) {
       translatePrismaError(error, {
         P2025: () => {
@@ -550,12 +575,34 @@ export class OrdersService {
         },
       });
     }
+
+    // The buyer, not the seller who just shipped it — this is the whole
+    // point of the notification. Kept outside the try/catch above so a
+    // notification failure is never mistaken for the order-conflict error
+    // that catch exists to translate.
+    await this.notifySafely(() =>
+      this.notifications.create(
+        order.userId,
+        NotificationType.ORDER_SHIPPED,
+        trackingNumber
+          ? `Tu pedido fue enviado. Número de guía: ${trackingNumber}`
+          : 'Tu pedido fue enviado.',
+        order.id,
+      ),
+    );
+
+    return updated;
   }
 
   async updateOrderStatus(id: string, status: OrderStatus) {
     const order = await this.prisma.client.order.findUnique({
       where: { id },
-      select: { id: true, status: true, userId: true },
+      select: {
+        id: true,
+        status: true,
+        userId: true,
+        items: { select: { product: { select: { sellerId: true } } } },
+      },
     });
 
     if (!order) {
@@ -567,12 +614,22 @@ export class OrdersService {
     // An admin-driven change reaches the buyer, whatever the new status is —
     // ship/cancel below have their own, more specific messages for their own
     // (self-service) paths.
-    await this.notifications.create(
-      order.userId,
-      notificationTypeForStatus(status),
-      `Tu pedido cambió de estado a ${ORDER_STATUS_LABEL[status]}.`,
-      order.id,
+    await this.notifySafely(() =>
+      this.notifications.create(
+        order.userId,
+        notificationTypeForStatus(status),
+        `Tu pedido cambió de estado a ${ORDER_STATUS_LABEL[status]}.`,
+        order.id,
+      ),
     );
+
+    // An admin cancelling an order is the same event a buyer's own
+    // cancellation is, from a seller's point of view — mirror
+    // cancelOwnOrder's seller notification here too, or a seller only ever
+    // hears about a cancellation the buyer triggered themselves.
+    if (status === OrderStatus.CANCELLED) {
+      await this.notifySafely(() => this.notifySellersOfCancellation(order));
+    }
 
     return updated;
   }
@@ -606,21 +663,8 @@ export class OrdersService {
 
     const updated = await this.transitionStatus(order, OrderStatus.CANCELLED);
 
-    // The seller(s), not the buyer who just cancelled — deduplicated since a
-    // mixed-cart order can list the same seller's product more than once.
-    const sellerIds = [
-      ...new Set(order.items.map((item) => item.product.sellerId)),
-    ];
-    await Promise.all(
-      sellerIds.map((sellerId) =>
-        this.notifications.create(
-          sellerId,
-          NotificationType.ORDER_CANCELLED,
-          'El comprador canceló un pedido que incluía uno de tus productos.',
-          order.id,
-        ),
-      ),
-    );
+    // The seller(s), not the buyer who just cancelled.
+    await this.notifySafely(() => this.notifySellersOfCancellation(order));
 
     return updated;
   }

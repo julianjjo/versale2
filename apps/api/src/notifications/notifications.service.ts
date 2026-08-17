@@ -27,11 +27,26 @@ export class NotificationsService {
     });
   }
 
+  // Sibling to create() for the multi-recipient case (e.g. every distinct
+  // seller on a cancelled mixed-cart order): one INSERT instead of N
+  // round-trips through create().
+  async createMany(
+    recipients: {
+      userId: string;
+      type: NotificationType;
+      message: string;
+      orderId?: string;
+    }[],
+  ) {
+    if (recipients.length === 0) return { count: 0 };
+    return this.prisma.client.notification.createMany({ data: recipients });
+  }
+
   // The bell's dropdown: this user's notifications, newest first, optionally
   // narrowed to just the unread ones. Mirrors FavoritesService#findAll's own
   // pagination shape rather than introducing a fourth one.
   async findAll(userId: string, query: Record<string, unknown> = {}) {
-    const { page, limit, unreadOnly } = query;
+    const { page, limit, unreadOnly } = query ?? {};
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const where: { userId: string; read?: boolean } = { userId };
