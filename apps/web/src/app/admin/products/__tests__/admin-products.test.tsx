@@ -274,6 +274,112 @@ describe("AdminProductsPage", () => {
     expect(within(card).getByLabelText(/seleccionar aprobada/i)).toBeInTheDocument();
   });
 
+  // Regression: the bulk-selection checkbox is shared by both actions
+  // (isBulkSelectable), so a moderator on the "Aprobados" tab who selects
+  // every eligible (reject-only) row must not be able to fire "Aprobar
+  // seleccionadas" at all — every prior version silently no-opped 100% of
+  // the batch instead.
+  it("deshabilita Aprobar seleccionadas cuando ninguna seleccionada es aprobable", async () => {
+    const approved = productFixture({
+      id: "p24",
+      title: "Aprobada",
+      isApproved: true,
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([approved]) });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("admin-product-p24");
+    await user.click(screen.getByLabelText(/seleccionar aprobada/i));
+
+    expect(
+      screen.getByRole("button", { name: "Aprobar seleccionadas" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Rechazar seleccionadas" }),
+    ).toBeEnabled();
+  });
+
+  // Symmetric case: a "Rechazados" tab full of already-rejected rows is
+  // approve-only-eligible (re-approval), so "Rechazar seleccionadas" must be
+  // disabled for that same reason.
+  it("deshabilita Rechazar seleccionadas cuando ninguna seleccionada es rechazable", async () => {
+    const rejected = productFixture({
+      id: "p25",
+      title: "Rechazada",
+      rejectedAt: new Date("2026-01-15T10:00:00Z").toISOString(),
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([rejected]) });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("admin-product-p25");
+    await user.click(screen.getByLabelText(/seleccionar rechazada/i));
+
+    expect(
+      screen.getByRole("button", { name: "Rechazar seleccionadas" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Aprobar seleccionadas" }),
+    ).toBeEnabled();
+  });
+
+  // A mixed selection (one row eligible for each action) must leave both
+  // buttons enabled and submit successfully.
+  it("mantiene ambos botones habilitados con una selección mixta y rechaza en lote solo las elegibles", async () => {
+    const pending = productFixture({ id: "p26", title: "Pendiente" });
+    const approved = productFixture({
+      id: "p27",
+      title: "Aprobada",
+      isApproved: true,
+    });
+    vi.mocked(api.get).mockResolvedValue({
+      data: paginated([pending, approved]),
+    });
+    vi.mocked(api.patch).mockResolvedValue({
+      data: { rejected: 2, requested: 2 },
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("admin-product-p26");
+    await user.click(screen.getByLabelText(/seleccionar pendiente/i));
+    await user.click(screen.getByLabelText(/seleccionar aprobada/i));
+
+    expect(
+      screen.getByRole("button", { name: "Aprobar seleccionadas" }),
+    ).toBeEnabled();
+    const rejectButton = screen.getByRole("button", {
+      name: "Rechazar seleccionadas",
+    });
+    expect(rejectButton).toBeEnabled();
+
+    await user.click(rejectButton);
+    const dialog = screen.getByRole("dialog");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Rechazar seleccionadas" }),
+    );
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/products/admin/bulk-reject", {
+        ids: ["p26", "p27"],
+        reason: undefined,
+      });
+    });
+  });
+
   it("aprueba en lote las publicaciones seleccionadas", async () => {
     const first = productFixture({ id: "p30", title: "Primera pendiente" });
     const second = productFixture({ id: "p31", title: "Segunda pendiente" });
@@ -376,9 +482,12 @@ describe("AdminProductsPage", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  // Regression: a single-item shortfall used to always render "publicaciones"
-  // (plural) even when requested === 1.
-  it("usa el singular en el aviso cuando solo se solicitó una publicación", async () => {
+  // Regression: an all-or-nothing shortfall ("0 de N") used to reuse the
+  // partial-shortfall wording ("Se aprobaron 0 de N... Las demás ya no
+  // estaban disponibles"), which reads like a race that spared some of the
+  // batch when actually none of it went through (e.g. the one selected item
+  // was sold or otherwise resolved between page load and the click).
+  it("usa un aviso distinto cuando ninguna de las seleccionadas se pudo aprobar", async () => {
     const only = productFixture({ id: "p42", title: "Bufanda" });
     vi.mocked(api.get).mockResolvedValue({ data: paginated([only]) });
     vi.mocked(api.patch).mockResolvedValue({
@@ -399,7 +508,9 @@ describe("AdminProductsPage", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(/se aprobaron 0 de 1 publicación\. /i),
+        screen.getByText(
+          /ninguna de las publicaciones seleccionadas estaba disponible para aprobar\./i,
+        ),
       ).toBeInTheDocument();
     });
   });
