@@ -96,6 +96,17 @@ export class ProductsService {
     return Array.isArray(value) ? (value as unknown[])[0] : value;
   }
 
+  // Shared by rejectProduct (single item) and bulkReject (batch): what
+  // "rejecting a product" writes, in one place so the two can't drift apart
+  // the way APPROVE_DATA already guards against for approve.
+  private buildRejectData(reason?: string) {
+    return {
+      isApproved: false,
+      rejectedAt: new Date(),
+      rejectionReason: reason ?? null,
+    };
+  }
+
   private resolveSortOrder(
     sortBy: unknown,
   ): Prisma.ProductOrderByWithRelationInput[] {
@@ -933,11 +944,7 @@ export class ProductsService {
     try {
       return await this.prisma.client.product.update({
         where: { id, soldAt: null },
-        data: {
-          isApproved: false,
-          rejectedAt: new Date(),
-          rejectionReason: reason ?? null,
-        },
+        data: this.buildRejectData(reason),
       });
     } catch (error) {
       translatePrismaError(error, {
@@ -948,5 +955,25 @@ export class ProductsService {
         },
       });
     }
+  }
+
+  // Same batching shape as bulkApprove above, for the opposite action: a
+  // moderator clearing a backlog of pending listings (or taking down
+  // approved ones that turned out to violate policy) currently rejects them
+  // one at a time. `rejectedAt: null` in the where clause is the single
+  // condition covering both states rejectProduct()'s own eligibility check
+  // allows (pending or currently-approved) — an already-rejected product is
+  // silently excluded instead of being redundantly rewritten with a new
+  // reason/timestamp, and `soldAt: null` re-asserts the same compare-and-swap
+  // as every other moderation action here.
+  async bulkReject(ids: string[], reason?: string) {
+    const uniqueIds = Array.from(new Set(ids));
+
+    const result = await this.prisma.client.product.updateMany({
+      where: { id: { in: uniqueIds }, rejectedAt: null, soldAt: null },
+      data: this.buildRejectData(reason),
+    });
+
+    return { rejected: result.count, requested: uniqueIds.length };
   }
 }

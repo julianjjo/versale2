@@ -17,6 +17,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { RejectProductDto } from './dto/reject-product.dto';
 import { BulkApproveDto } from './dto/bulk-approve.dto';
+import { BulkRejectDto } from './dto/bulk-reject.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -137,6 +138,18 @@ export class ProductsController {
   @Patch('admin/bulk-approve')
   async bulkApproveProducts(@Body() bulkApproveDto: BulkApproveDto) {
     return this.productsService.bulkApprove(bulkApproveDto.ids);
+  }
+
+  // Same two-segment reasoning as admin/bulk-approve above, relative to the
+  // three-segment admin/:id/reject below.
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Patch('admin/bulk-reject')
+  async bulkRejectProducts(@Body() bulkRejectDto: BulkRejectDto) {
+    return this.productsService.bulkReject(
+      bulkRejectDto.ids,
+      bulkRejectDto.reason,
+    );
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
