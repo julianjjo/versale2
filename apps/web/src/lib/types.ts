@@ -31,6 +31,7 @@ export interface Product {
   seller?: { id: string; name: string };
   _count?: { reviews: number };
   reviews?: Review[];
+  questions?: ProductQuestion[];
   // Populated by the public catalog listing (GET /products) and the
   // favorites list (GET /favorites) — null means no reviews yet, undefined
   // means this response never computes it (e.g. a seller's own listings or
@@ -100,6 +101,17 @@ export interface Review {
   verifiedPurchase?: boolean;
   user?: { id: string; name: string };
   product?: { id: string; title: string };
+}
+
+export interface ProductQuestion {
+  id: string;
+  productId: string;
+  askerId: string;
+  question: string;
+  answer: string | null;
+  answeredAt: string | null;
+  createdAt: string;
+  asker?: { id: string; name: string };
 }
 
 export interface ProductReport {

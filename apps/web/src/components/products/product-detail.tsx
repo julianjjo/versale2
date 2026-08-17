@@ -25,6 +25,7 @@ import { tokenStore } from "@/lib/token";
 import type { Product, Review } from "@/lib/types";
 import { FavoriteButton } from "@/components/products/favorite-button";
 import { ReportProductButton } from "@/components/products/report-product-button";
+import { ProductQuestions } from "@/components/products/product-questions";
 import { ProductCard } from "@/components/products/products-browser";
 import { ProductGallery } from "@/components/products/product-gallery";
 
@@ -683,6 +684,14 @@ export function ProductDetail({
         )}
       </section>
 
+      <ProductQuestions
+        key={data.id}
+        productId={data.id}
+        isOwn={isOwn}
+        isApproved={data.isApproved}
+        questions={data.questions ?? []}
+      />
+
       {!isAuthLoading && !user && (
         <p className="mt-4 text-sm text-text-muted">
           <a
@@ -691,7 +700,8 @@ export function ProductDetail({
           >
             Inicia sesión
           </a>{" "}
-          para agregar este producto a tu carrito o escribir una reseña.
+          para agregar este producto a tu carrito, escribir una reseña o hacer
+          una pregunta.
         </p>
       )}
 

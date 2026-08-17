@@ -28,6 +28,7 @@ model User {
   reviews       Review[]
   favorites     Favorite[]
   productReports ProductReport[]
+  productQuestions ProductQuestion[]
 }
 
 enum Role {
@@ -65,6 +66,7 @@ model Product {
   cartItems     CartItem[] @relation("CartItemProduct")
   favoritedBy   Favorite[]
   reports       ProductReport[]
+  questions     ProductQuestion[]
 
   // The public catalog always filters on isApproved + soldAt + pausedAt and
   // sorts by createdAt desc, so this covers the hottest query in the product
@@ -197,4 +199,26 @@ model ProductReport {
   @@unique([productId, reporterId])
   // The admin queue always loads "every report, newest first".
   @@index([createdAt])
+}
+
+model ProductQuestion {
+  id         String   @id @default(uuid())
+  productId  String
+  // Cascades like ProductReport's: once the product is gone, a question
+  // about it has nothing left to answer, and must not stand in the way of
+  // deleting the listing the way a plain RESTRICT would.
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  askerId    String
+  // Left as the default RESTRICT (matching Review/Favorite/Order/
+  // ProductReport's User relations) — deleting an asker's account is a
+  // separate concern from the question they asked.
+  asker      User     @relation(fields: [askerId], references: [id])
+  question   String
+  answer     String?
+  answeredAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // The product page always loads its Q&A newest-first.
+  @@index([productId, createdAt])
 }
