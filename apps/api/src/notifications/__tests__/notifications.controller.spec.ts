@@ -5,7 +5,6 @@ import { AuthRequest } from '../../types/request.types';
 
 describe('NotificationsController', () => {
   let controller: NotificationsController;
-  let notificationsService: NotificationsService;
 
   const mockNotificationsService = {
     findAll: jest.fn(),
@@ -27,9 +26,6 @@ describe('NotificationsController', () => {
     }).compile();
 
     controller = module.get<NotificationsController>(NotificationsController);
-    notificationsService = module.get<NotificationsService>(
-      NotificationsService,
-    );
   });
 
   afterEach(() => {
@@ -47,7 +43,7 @@ describe('NotificationsController', () => {
 
       const result = await controller.findAll(mockReq, query);
 
-      expect(notificationsService.findAll).toHaveBeenCalledWith(
+      expect(mockNotificationsService.findAll).toHaveBeenCalledWith(
         'user1',
         query,
       );
@@ -61,7 +57,7 @@ describe('NotificationsController', () => {
 
       const result = await controller.getUnreadCount(mockReq);
 
-      expect(notificationsService.getUnreadCount).toHaveBeenCalledWith(
+      expect(mockNotificationsService.getUnreadCount).toHaveBeenCalledWith(
         'user1',
       );
       expect(result).toEqual({ count: 3 });
@@ -76,7 +72,7 @@ describe('NotificationsController', () => {
 
       const result = await controller.markAllAsRead(mockReq);
 
-      expect(notificationsService.markAllAsRead).toHaveBeenCalledWith(
+      expect(mockNotificationsService.markAllAsRead).toHaveBeenCalledWith(
         'user1',
       );
       expect(result).toEqual({ success: true });
@@ -90,7 +86,7 @@ describe('NotificationsController', () => {
 
       const result = await controller.markAsRead(mockReq, 'notif1');
 
-      expect(notificationsService.markAsRead).toHaveBeenCalledWith(
+      expect(mockNotificationsService.markAsRead).toHaveBeenCalledWith(
         'user1',
         'notif1',
       );

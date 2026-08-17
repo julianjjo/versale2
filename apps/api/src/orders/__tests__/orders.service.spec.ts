@@ -25,7 +25,6 @@ function staleStatusError() {
 
 describe('OrdersService', () => {
   let service: OrdersService;
-  let prismaService: PrismaService;
 
   const mockNotificationsService = {
     create: jest.fn(),
@@ -91,7 +90,6 @@ describe('OrdersService', () => {
     }).compile();
 
     service = module.get<OrdersService>(OrdersService);
-    prismaService = module.get<PrismaService>(PrismaService);
   });
 
   afterEach(() => {
@@ -221,7 +219,7 @@ describe('OrdersService', () => {
       // claimed.
       expect(mockTx.product.updateMany).toHaveBeenCalledWith({
         where: { id: { in: ['product1'] }, soldAt: null, pausedAt: null },
-        data: { soldAt: expect.any(Date) },
+        data: { soldAt: expect.any(Date) as Date },
       });
     });
 
@@ -687,7 +685,8 @@ describe('OrdersService', () => {
         status: OrderStatus.PAID,
       });
 
-      const [[callArgs]] = mockPrismaService.client.order.findMany.mock.calls;
+      const [[callArgs]] = mockPrismaService.client.order.findMany.mock
+        .calls as [[{ where: { userId: string } }]];
       expect(callArgs.where.userId).toBe(userId);
     });
   });
@@ -1339,7 +1338,15 @@ describe('OrdersService', () => {
       await service.cancelOwnOrder('buyer1', 'order1');
 
       expect(mockNotificationsService.createMany).toHaveBeenCalledTimes(1);
-      const [recipients] = mockNotificationsService.createMany.mock.calls[0];
+      const [recipients] = mockNotificationsService.createMany.mock
+        .calls[0] as [
+        Array<{
+          userId: string;
+          type: NotificationType;
+          message: string;
+          orderId: string;
+        }>,
+      ];
       expect(recipients).toHaveLength(2);
       expect(recipients).toEqual(
         expect.arrayContaining([
@@ -1535,11 +1542,21 @@ describe('OrdersService', () => {
 
       await service.getMySales(sellerId, { search: 'zapatos' });
 
-      const [[callArgs]] = mockPrismaService.client.order.findMany.mock.calls;
+      interface MySalesOrClause {
+        id?: { contains: string };
+        user?: { is: { name: { contains: string } } };
+        items?: {
+          some: {
+            product: { is: { sellerId: string; title: { contains: string } } };
+          };
+        };
+      }
+      const [[callArgs]] = mockPrismaService.client.order.findMany.mock
+        .calls as [[{ where: { OR: MySalesOrClause[] } }]];
       const titleClause = callArgs.where.OR.find(
-        (clause: any) => clause.items?.some?.product?.is?.title,
+        (clause) => clause.items?.some?.product?.is?.title,
       );
-      expect(titleClause.items.some.product.is.sellerId).toBe(sellerId);
+      expect(titleClause?.items?.some.product.is.sellerId).toBe(sellerId);
     });
   });
 

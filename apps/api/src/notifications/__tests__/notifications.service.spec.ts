@@ -164,14 +164,14 @@ describe('NotificationsService', () => {
 
       const result = await service.findAll(userId, { page: '1', limit: '10' });
 
-      expect(mockPrismaService.client.notification.findMany).toHaveBeenCalledWith(
-        {
-          where: { userId },
-          skip: 0,
-          take: 10,
-          orderBy: { createdAt: 'desc' },
-        },
-      );
+      expect(
+        mockPrismaService.client.notification.findMany,
+      ).toHaveBeenCalledWith({
+        where: { userId },
+        skip: 0,
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+      });
       expect(result).toEqual({
         data: mockNotifications,
         meta: { total: 1, page: 1, limit: 10, pages: 1 },
@@ -185,7 +185,9 @@ describe('NotificationsService', () => {
 
       await service.findAll(userId, { unreadOnly: 'true' });
 
-      expect(mockPrismaService.client.notification.findMany).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.client.notification.findMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({ where: { userId, read: false } }),
       );
       expect(mockPrismaService.client.notification.count).toHaveBeenCalledWith({
@@ -199,14 +201,16 @@ describe('NotificationsService', () => {
 
       await service.findAll('user1', {});
 
-      expect(mockPrismaService.client.notification.findMany).toHaveBeenCalledWith(
+      expect(
+        mockPrismaService.client.notification.findMany,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({ where: { userId: 'user1' } }),
       );
     });
   });
 
   describe('getUnreadCount', () => {
-    it('should count only this user\'s unread notifications', async () => {
+    it("should count only this user's unread notifications", async () => {
       mockPrismaService.client.notification.count.mockResolvedValue(4);
 
       const result = await service.getUnreadCount('user1');
@@ -241,10 +245,12 @@ describe('NotificationsService', () => {
     it('should throw NotFoundException for an unknown notification id', async () => {
       mockPrismaService.client.notification.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.markAsRead('user1', 'nonexistent'),
-      ).rejects.toThrow(NotFoundException);
-      expect(mockPrismaService.client.notification.update).not.toHaveBeenCalled();
+      await expect(service.markAsRead('user1', 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(
+        mockPrismaService.client.notification.update,
+      ).not.toHaveBeenCalled();
     });
 
     it("should refuse to mark another user's notification as read", async () => {
@@ -253,10 +259,12 @@ describe('NotificationsService', () => {
         userId: 'someoneElse',
       });
 
-      await expect(
-        service.markAsRead('user1', 'notif1'),
-      ).rejects.toThrow(ForbiddenException);
-      expect(mockPrismaService.client.notification.update).not.toHaveBeenCalled();
+      await expect(service.markAsRead('user1', 'notif1')).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(
+        mockPrismaService.client.notification.update,
+      ).not.toHaveBeenCalled();
     });
 
     it('should surface a 404 if the notification is deleted mid-request', async () => {
@@ -268,9 +276,9 @@ describe('NotificationsService', () => {
         notFoundError(),
       );
 
-      await expect(
-        service.markAsRead('user1', 'notif1'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.markAsRead('user1', 'notif1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -282,12 +290,12 @@ describe('NotificationsService', () => {
 
       const result = await service.markAllAsRead('user1');
 
-      expect(mockPrismaService.client.notification.updateMany).toHaveBeenCalledWith(
-        {
-          where: { userId: 'user1', read: false },
-          data: { read: true },
-        },
-      );
+      expect(
+        mockPrismaService.client.notification.updateMany,
+      ).toHaveBeenCalledWith({
+        where: { userId: 'user1', read: false },
+        data: { read: true },
+      });
       expect(result).toEqual({ success: true });
     });
   });
