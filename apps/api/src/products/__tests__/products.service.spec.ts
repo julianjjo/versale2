@@ -1126,6 +1126,184 @@ describe('ProductsService', () => {
     });
   });
 
+  describe('bulkPause', () => {
+    it('should pause every requested product owned by the caller', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 2,
+      });
+
+      const result = await service.bulkPause(
+        ['product1', 'product2'],
+        'seller1',
+        Role.USER,
+      );
+
+      expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: ['product1', 'product2'] },
+          soldAt: null,
+          isApproved: true,
+          pausedAt: null,
+          sellerId: 'seller1',
+        },
+        data: { pausedAt: expect.any(Date) as Date },
+      });
+      expect(result).toEqual({ paused: 2, requested: 2 });
+    });
+
+    // Mirrors pauseProduct()'s compare-and-swap: a product that's sold,
+    // unapproved, already paused, or owned by someone else is silently
+    // excluded from the count instead of failing the whole batch.
+    it('should silently exclude ids the caller cannot pause instead of failing the whole batch', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      const result = await service.bulkPause(
+        ['product1', 'product2'],
+        'seller1',
+        Role.USER,
+      );
+
+      expect(result).toEqual({ paused: 1, requested: 2 });
+    });
+
+    it('should not scope the where-clause by sellerId for an admin', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      await service.bulkPause(['product1'], 'admin1', Role.ADMIN);
+
+      const [[{ where }]] = mockPrismaService.client.product.updateMany.mock
+        .calls as [[{ where: Record<string, unknown> }]];
+      expect(where.sellerId).toBeUndefined();
+    });
+
+    it('should scope the where-clause by sellerId for a regular user', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 0,
+      });
+
+      await service.bulkPause(['product1'], 'seller1', Role.USER);
+
+      expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            sellerId: 'seller1',
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('should de-duplicate requested ids before counting them or querying', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      const result = await service.bulkPause(
+        ['product1', 'product1'],
+        'seller1',
+        Role.USER,
+      );
+
+      expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: { in: ['product1'] },
+          }) as Record<string, unknown>,
+        }),
+      );
+      expect(result).toEqual({ paused: 1, requested: 1 });
+    });
+  });
+
+  describe('bulkUnpause', () => {
+    it('should unpause every requested product owned by the caller', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 2,
+      });
+
+      const result = await service.bulkUnpause(
+        ['product1', 'product2'],
+        'seller1',
+        Role.USER,
+      );
+
+      expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: ['product1', 'product2'] },
+          soldAt: null,
+          pausedAt: { not: null },
+          sellerId: 'seller1',
+        },
+        data: { pausedAt: null },
+      });
+      expect(result).toEqual({ unpaused: 2, requested: 2 });
+    });
+
+    // Unlike bulkPause, there's no isApproved guard here — same reasoning as
+    // the single-item unpauseProduct().
+    it('should not require isApproved in the where-clause', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      await service.bulkUnpause(['product1'], 'seller1', Role.USER);
+
+      const [[{ where }]] = mockPrismaService.client.product.updateMany.mock
+        .calls as [[{ where: Record<string, unknown> }]];
+      expect(where.isApproved).toBeUndefined();
+    });
+
+    it('should silently exclude ids the caller cannot unpause instead of failing the whole batch', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      const result = await service.bulkUnpause(
+        ['product1', 'product2'],
+        'seller1',
+        Role.USER,
+      );
+
+      expect(result).toEqual({ unpaused: 1, requested: 2 });
+    });
+
+    it('should not scope the where-clause by sellerId for an admin', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      await service.bulkUnpause(['product1'], 'admin1', Role.ADMIN);
+
+      const [[{ where }]] = mockPrismaService.client.product.updateMany.mock
+        .calls as [[{ where: Record<string, unknown> }]];
+      expect(where.sellerId).toBeUndefined();
+    });
+
+    it('should de-duplicate requested ids before counting them or querying', async () => {
+      mockPrismaService.client.product.updateMany.mockResolvedValue({
+        count: 1,
+      });
+
+      const result = await service.bulkUnpause(
+        ['product1', 'product1'],
+        'seller1',
+        Role.USER,
+      );
+
+      expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: { in: ['product1'] },
+          }) as Record<string, unknown>,
+        }),
+      );
+      expect(result).toEqual({ unpaused: 1, requested: 1 });
+    });
+  });
+
   describe('remove', () => {
     // `OrderItem.productId` is ON DELETE RESTRICT, so the delete would raise a raw
     // Prisma error; with no exception filter registered that reached the admin as
