@@ -152,6 +152,66 @@ describe("useAuth", () => {
     });
   });
 
+  it("login clears the React Query cache before adopting the new user", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    mockedApi.get.mockResolvedValue({ data: null });
+    mockedApi.post.mockResolvedValue({
+      data: {
+        access_token: "tok",
+        user: { id: "u2", email: "x@y.z", name: "Bob", role: "USER" },
+      },
+    });
+
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryData(["cart", "anonymous"], { dummy: true });
+    expect(queryClient.getQueryCache().getAll().length).toBeGreaterThan(0);
+
+    function localWrapper({ children }: { children: ReactNode }) {
+      return <TestProviders client={queryClient}>{children}</TestProviders>;
+    }
+
+    const { result } = renderHook(() => useAuth(), { wrapper: localWrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.login("x@y.z", "secret123");
+    });
+
+    expect(queryClient.getQueryCache().getAll().length).toBe(0);
+    expect(result.current.user).toEqual({
+      id: "u2",
+      email: "x@y.z",
+      name: "Bob",
+      role: "USER",
+    });
+  });
+
+  it("login leaves the cache and user untouched when the API call fails", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    mockedApi.get.mockResolvedValue({ data: null });
+    mockedApi.post.mockRejectedValue(new Error("Invalid credentials"));
+
+    const queryClient = createTestQueryClient();
+    const clearSpy = vi.spyOn(queryClient, "clear");
+
+    function localWrapper({ children }: { children: ReactNode }) {
+      return <TestProviders client={queryClient}>{children}</TestProviders>;
+    }
+
+    const { result } = renderHook(() => useAuth(), { wrapper: localWrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await expect(
+        result.current.login("x@y.z", "wrong"),
+      ).rejects.toThrow("Invalid credentials");
+    });
+
+    expect(clearSpy).not.toHaveBeenCalled();
+    expect(mockedTokenStore.set).not.toHaveBeenCalled();
+    expect(result.current.user).toBeNull();
+  });
+
   it("signup sets the token and user", async () => {
     mockedTokenStore.get.mockReturnValue(null);
     mockedApi.get.mockResolvedValue({ data: null });
@@ -176,6 +236,61 @@ describe("useAuth", () => {
     });
     expect(mockedTokenStore.set).toHaveBeenCalledWith("tok2");
     expect(result.current.user?.name).toBe("Sam");
+  });
+
+  it("signup clears the React Query cache before adopting the new user", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    mockedApi.get.mockResolvedValue({ data: null });
+    mockedApi.post.mockResolvedValue({
+      data: {
+        access_token: "tok2",
+        user: { id: "u3", email: "s@t.u", name: "Sam", role: "USER" },
+      },
+    });
+
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryData(["favorites", "anonymous"], { dummy: true });
+    expect(queryClient.getQueryCache().getAll().length).toBeGreaterThan(0);
+
+    function localWrapper({ children }: { children: ReactNode }) {
+      return <TestProviders client={queryClient}>{children}</TestProviders>;
+    }
+
+    const { result } = renderHook(() => useAuth(), { wrapper: localWrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.signup("s@t.u", "Sam", "password");
+    });
+
+    expect(queryClient.getQueryCache().getAll().length).toBe(0);
+    expect(result.current.user?.name).toBe("Sam");
+  });
+
+  it("signup leaves the cache and user untouched when the API call fails", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    mockedApi.get.mockResolvedValue({ data: null });
+    mockedApi.post.mockRejectedValue(new Error("Email already in use"));
+
+    const queryClient = createTestQueryClient();
+    const clearSpy = vi.spyOn(queryClient, "clear");
+
+    function localWrapper({ children }: { children: ReactNode }) {
+      return <TestProviders client={queryClient}>{children}</TestProviders>;
+    }
+
+    const { result } = renderHook(() => useAuth(), { wrapper: localWrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await expect(
+        result.current.signup("s@t.u", "Sam", "password"),
+      ).rejects.toThrow("Email already in use");
+    });
+
+    expect(clearSpy).not.toHaveBeenCalled();
+    expect(mockedTokenStore.set).not.toHaveBeenCalled();
+    expect(result.current.user).toBeNull();
   });
 
   it("logout clears token and user", async () => {
