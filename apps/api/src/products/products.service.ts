@@ -14,6 +14,11 @@ import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
 import { VERIFIED_PURCHASE_STATUSES } from '../orders/order-status.enum';
 
+// findOne() filters each review's helpfulVotes by this id when there's no
+// logged-in requester — never a real user id, so it always yields an empty
+// array instead of needing a second, conditionally-shaped Prisma query.
+const NO_ANONYMOUS_VOTER_ID = '__anonymous__';
+
 // Fields moderation actually judges: if a seller changes any of them the
 // listing has to be reviewed again before going back to the public catalog.
 const MODERATED_FIELDS = [
@@ -347,6 +352,16 @@ export class ProductsService {
               sellerReply: true,
               sellerRepliedAt: true,
               user: { select: { id: true, name: true } },
+              _count: { select: { helpfulVotes: true } },
+              // Filtered to the requester's own vote (rather than a plain
+              // boolean field) so the same static `select` shape works
+              // whether there's a logged-in requester or not: an anonymous
+              // visitor's id can never match a real vote's userId, so this
+              // always resolves to an empty array for them.
+              helpfulVotes: {
+                where: { userId: requester?.id ?? NO_ANONYMOUS_VOTER_ID },
+                select: { id: true },
+              },
             },
             orderBy: { createdAt: 'desc' },
           },
@@ -400,10 +415,15 @@ export class ProductsService {
     const verifiedBuyerId = sale?.order.userId;
     return {
       ...product,
-      reviews: product.reviews.map((review) => ({
-        ...review,
-        verifiedPurchase: review.userId === verifiedBuyerId,
-      })),
+      reviews: product.reviews.map((review) => {
+        const { _count, helpfulVotes, ...rest } = review;
+        return {
+          ...rest,
+          verifiedPurchase: review.userId === verifiedBuyerId,
+          helpfulCount: _count.helpfulVotes,
+          votedByMe: helpfulVotes.length > 0,
+        };
+      }),
     };
   }
 

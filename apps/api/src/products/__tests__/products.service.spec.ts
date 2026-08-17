@@ -154,6 +154,13 @@ describe('ProductsService', () => {
               sellerReply: true,
               sellerRepliedAt: true,
               user: { select: { id: true, name: true } },
+              _count: { select: { helpfulVotes: true } },
+              helpfulVotes: {
+                // No requester was passed in for this call, so the sentinel
+                // id from ProductsService's NO_ANONYMOUS_VOTER_ID is used.
+                where: { userId: '__anonymous__' },
+                select: { id: true },
+              },
             },
             orderBy: { createdAt: 'desc' },
           },
@@ -183,8 +190,20 @@ describe('ProductsService', () => {
         sellerId: 'seller1',
         isApproved: true,
         reviews: [
-          { id: 'r1', userId: 'buyer1', rating: 5 },
-          { id: 'r2', userId: 'someoneElse', rating: 3 },
+          {
+            id: 'r1',
+            userId: 'buyer1',
+            rating: 5,
+            _count: { helpfulVotes: 2 },
+            helpfulVotes: [],
+          },
+          {
+            id: 'r2',
+            userId: 'someoneElse',
+            rating: 3,
+            _count: { helpfulVotes: 0 },
+            helpfulVotes: [],
+          },
         ],
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -206,8 +225,22 @@ describe('ProductsService', () => {
         },
       );
       expect(result.reviews).toEqual([
-        { id: 'r1', userId: 'buyer1', rating: 5, verifiedPurchase: true },
-        { id: 'r2', userId: 'someoneElse', rating: 3, verifiedPurchase: false },
+        {
+          id: 'r1',
+          userId: 'buyer1',
+          rating: 5,
+          verifiedPurchase: true,
+          helpfulCount: 2,
+          votedByMe: false,
+        },
+        {
+          id: 'r2',
+          userId: 'someoneElse',
+          rating: 3,
+          verifiedPurchase: false,
+          helpfulCount: 0,
+          votedByMe: false,
+        },
       ]);
     });
 
@@ -217,7 +250,15 @@ describe('ProductsService', () => {
         id: productId,
         sellerId: 'seller1',
         isApproved: true,
-        reviews: [{ id: 'r1', userId: 'buyer1', rating: 4 }],
+        reviews: [
+          {
+            id: 'r1',
+            userId: 'buyer1',
+            rating: 4,
+            _count: { helpfulVotes: 0 },
+            helpfulVotes: [],
+          },
+        ],
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
@@ -227,8 +268,58 @@ describe('ProductsService', () => {
       const result = await service.findOne(productId);
 
       expect(result.reviews).toEqual([
-        { id: 'r1', userId: 'buyer1', rating: 4, verifiedPurchase: false },
+        {
+          id: 'r1',
+          userId: 'buyer1',
+          rating: 4,
+          verifiedPurchase: false,
+          helpfulCount: 0,
+          votedByMe: false,
+        },
       ]);
+    });
+
+    it("marks votedByMe true when the logged-in requester's own vote comes back in helpfulVotes", async () => {
+      const productId = 'product1';
+      const requester = { id: 'buyer1', role: Role.USER };
+      const mockProduct = {
+        id: productId,
+        sellerId: 'seller1',
+        isApproved: true,
+        reviews: [
+          {
+            id: 'r1',
+            userId: 'someoneElse',
+            rating: 5,
+            _count: { helpfulVotes: 1 },
+            helpfulVotes: [{ id: 'vote1' }],
+          },
+        ],
+      };
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+
+      const result = await service.findOne(productId, requester);
+
+      expect(mockPrismaService.client.product.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: expect.objectContaining({
+            reviews: expect.objectContaining({
+              select: expect.objectContaining({
+                helpfulVotes: {
+                  where: { userId: requester.id },
+                  select: { id: true },
+                },
+              }),
+            }),
+          }),
+        }),
+      );
+      expect(result.reviews[0]).toMatchObject({
+        helpfulCount: 1,
+        votedByMe: true,
+      });
     });
 
     it('should throw NotFoundException if product not found', async () => {

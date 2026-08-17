@@ -1,7 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Prisma } from '@prisma/client';
 import { ReviewsService } from '../reviews.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { Role } from '../../users/role.enum';
 
 describe('ReviewsService', () => {
@@ -20,6 +25,12 @@ describe('ReviewsService', () => {
         update: jest.fn(),
         delete: jest.fn(),
         findMany: jest.fn(),
+        count: jest.fn(),
+      },
+      reviewHelpfulVote: {
+        upsert: jest.fn(),
+        delete: jest.fn(),
+        findUnique: jest.fn(),
         count: jest.fn(),
       },
       orderItem: {
@@ -478,6 +489,115 @@ describe('ReviewsService', () => {
       await expect(
         service.replyToReview('nonexistent', 'seller1', 'Hola'),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('markHelpful', () => {
+    it('upserts a vote and returns the updated count with votedByMe true', async () => {
+      const reviewId = 'review1';
+      const userId = 'buyer1';
+
+      mockPrismaService.client.review.findUnique.mockResolvedValue({
+        userId: 'author1',
+      });
+      mockPrismaService.client.reviewHelpfulVote.upsert.mockResolvedValue({});
+      mockPrismaService.client.reviewHelpfulVote.count.mockResolvedValue(3);
+      mockPrismaService.client.reviewHelpfulVote.findUnique.mockResolvedValue({
+        id: 'vote1',
+      });
+
+      const result = await service.markHelpful(reviewId, userId);
+
+      expect(
+        mockPrismaService.client.reviewHelpfulVote.upsert,
+      ).toHaveBeenCalledWith({
+        where: { reviewId_userId: { reviewId, userId } },
+        update: {},
+        create: { reviewId, userId },
+      });
+      expect(result).toEqual({ helpfulCount: 3, votedByMe: true });
+    });
+
+    it('marking twice is a no-op, not an error', async () => {
+      mockPrismaService.client.review.findUnique.mockResolvedValue({
+        userId: 'author1',
+      });
+      mockPrismaService.client.reviewHelpfulVote.upsert.mockResolvedValue({});
+      mockPrismaService.client.reviewHelpfulVote.count.mockResolvedValue(1);
+      mockPrismaService.client.reviewHelpfulVote.findUnique.mockResolvedValue({
+        id: 'vote1',
+      });
+
+      await expect(
+        service.markHelpful('review1', 'buyer1'),
+      ).resolves.toEqual({ helpfulCount: 1, votedByMe: true });
+    });
+
+    it('throws NotFoundException when the review does not exist', async () => {
+      mockPrismaService.client.review.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.markHelpful('nonexistent', 'buyer1'),
+      ).rejects.toThrow(NotFoundException);
+      expect(
+        mockPrismaService.client.reviewHelpfulVote.upsert,
+      ).not.toHaveBeenCalled();
+    });
+
+    it("rejects a reviewer marking their own review as helpful", async () => {
+      const userId = 'author1';
+
+      mockPrismaService.client.review.findUnique.mockResolvedValue({
+        userId,
+      });
+
+      await expect(service.markHelpful('review1', userId)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.markHelpful('review1', userId)).rejects.toThrow(
+        'No puedes marcar como útil tu propia reseña',
+      );
+      expect(
+        mockPrismaService.client.reviewHelpfulVote.upsert,
+      ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('unmarkHelpful', () => {
+    it('deletes the vote and returns the updated count with votedByMe false', async () => {
+      const reviewId = 'review1';
+      const userId = 'buyer1';
+
+      mockPrismaService.client.reviewHelpfulVote.delete.mockResolvedValue({});
+      mockPrismaService.client.reviewHelpfulVote.count.mockResolvedValue(0);
+      mockPrismaService.client.reviewHelpfulVote.findUnique.mockResolvedValue(
+        null,
+      );
+
+      const result = await service.unmarkHelpful(reviewId, userId);
+
+      expect(
+        mockPrismaService.client.reviewHelpfulVote.delete,
+      ).toHaveBeenCalledWith({
+        where: { reviewId_userId: { reviewId, userId } },
+      });
+      expect(result).toEqual({ helpfulCount: 0, votedByMe: false });
+    });
+
+    it('translates a concurrent double-unvote (P2025) into a clean NotFoundException', async () => {
+      mockPrismaService.client.reviewHelpfulVote.delete.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('No record found', {
+          code: 'P2025',
+          clientVersion: 'test',
+        }),
+      );
+
+      await expect(
+        service.unmarkHelpful('review1', 'buyer1'),
+      ).rejects.toThrow(NotFoundException);
+      await expect(
+        service.unmarkHelpful('review1', 'buyer1'),
+      ).rejects.toThrow('No has marcado esta reseña como útil');
     });
   });
 

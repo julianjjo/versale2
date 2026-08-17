@@ -30,6 +30,7 @@ model User {
   productReports ProductReport[] @relation("ProductReportReporter")
   reviewedReports ProductReport[] @relation("ProductReportReviewer")
   productQuestions ProductQuestion[]
+  reviewHelpfulVotes ReviewHelpfulVote[]
 }
 
 enum Role {
@@ -155,9 +156,25 @@ model Review {
   sellerReply     String?
   sellerRepliedAt DateTime?
   createdAt       DateTime @default(now())
+  helpfulVotes    ReviewHelpfulVote[]
 
   // Every product page loads its reviews newest-first.
   @@index([productId, createdAt])
+}
+
+model ReviewHelpfulVote {
+  id        String   @id @default(uuid())
+  reviewId  String
+  // Cascades: once the review is gone (author deletes it, admin moderates it
+  // away) the votes on it have nothing left to count toward and must not
+  // block that deletion the way a plain RESTRICT would.
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  // A voter can mark a given review helpful only once.
+  @@unique([reviewId, userId])
 }
 
 model Favorite {
