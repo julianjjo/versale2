@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ReportCategory } from '@prisma/client';
 import { ReportsController } from '../reports.controller';
 import { ReportsService } from '../reports.service';
 import { AuthRequest } from '../../types/request.types';
@@ -38,12 +39,14 @@ describe('ReportsController', () => {
       const result = await controller.create(mockReq, {
         productId: 'product1',
         reason: 'Parece una estafa',
+        category: ReportCategory.FRAUD,
       });
 
       expect(reportsService.create).toHaveBeenCalledWith(
         'buyer1',
         'product1',
         'Parece una estafa',
+        ReportCategory.FRAUD,
       );
       expect(result).toEqual(mockResult);
     });
@@ -66,13 +69,16 @@ describe('ReportsController', () => {
   });
 
   describe('dismiss', () => {
-    it('should call reportsService.dismiss with the report id', async () => {
-      const mockResult = { success: true };
+    it("should call reportsService.dismiss with the report id and the admin's id", async () => {
+      const mockReq = {
+        user: { id: 'admin1', email: 'a@b.c', role: 'ADMIN' },
+      } as AuthRequest;
+      const mockResult = { id: 'report1', status: 'DISMISSED' };
       mockReportsService.dismiss.mockResolvedValue(mockResult);
 
-      const result = await controller.dismiss('report1');
+      const result = await controller.dismiss(mockReq, 'report1');
 
-      expect(reportsService.dismiss).toHaveBeenCalledWith('report1');
+      expect(reportsService.dismiss).toHaveBeenCalledWith('report1', 'admin1');
       expect(result).toEqual(mockResult);
     });
   });

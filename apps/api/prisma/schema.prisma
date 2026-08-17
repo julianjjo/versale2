@@ -27,7 +27,8 @@ model User {
   cart          Cart?
   reviews       Review[]
   favorites     Favorite[]
-  productReports ProductReport[]
+  productReports ProductReport[] @relation("ProductReportReporter")
+  reviewedReports ProductReport[] @relation("ProductReportReviewer")
   productQuestions ProductQuestion[]
 }
 
@@ -173,6 +174,18 @@ model Favorite {
   @@index([userId, createdAt])
 }
 
+enum ReportStatus {
+  OPEN
+  DISMISSED
+}
+
+enum ReportCategory {
+  FRAUD
+  INAPPROPRIATE
+  MISMATCH
+  OTHER
+}
+
 model ProductReport {
   id         String   @id @default(uuid())
   productId  String
@@ -187,8 +200,21 @@ model ProductReport {
   // User relations) — deleting a reporter's account is a separate concern
   // from resolving what they reported, and shouldn't quietly erase reports
   // still open against other products.
-  reporter   User     @relation(fields: [reporterId], references: [id])
+  reporter   User     @relation("ProductReportReporter", fields: [reporterId], references: [id])
   reason     String
+  category   ReportCategory @default(OTHER)
+  // OPEN until an admin acts on it — dismiss() now updates this row instead
+  // of deleting it, so there's a durable record of every report an admin has
+  // ever ruled on, not just the ones still awaiting review.
+  status       ReportStatus @default(OPEN)
+  reviewedById String?
+  // Unlike `reporter` above, this is optional, so Prisma's own default for an
+  // optional relation applies: ON DELETE SET NULL. Deliberately not
+  // RESTRICT — an admin's account being deleted shouldn't block on every
+  // report they ever reviewed; the audit entry (status, reviewedAt) survives
+  // with reviewedById simply cleared.
+  reviewer     User?        @relation("ProductReportReviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -197,8 +223,11 @@ model ProductReport {
   // unbounded from one reporter retrying the same product, while still
   // letting them refine their reason (see ReportsService#create).
   @@unique([productId, reporterId])
-  // The admin queue always loads "every report, newest first".
-  @@index([createdAt])
+  // The admin queue's default view filters on status and sorts by updatedAt —
+  // this covers it end to end. There's deliberately no separate @@index on
+  // createdAt alone: nothing in reports.service.ts filters or sorts on it by
+  // itself, so a second index there would just cost writes for no reads.
+  @@index([status, updatedAt])
 }
 
 model ProductQuestion {

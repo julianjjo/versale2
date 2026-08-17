@@ -9,22 +9,41 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 import { api, extractApiError } from "@/lib/api";
-import { Spinner, Card, EmptyState, Button } from "@/components/ui";
+import { Spinner, Card, EmptyState, Button, Badge } from "@/components/ui";
 import { Pager } from "@/components/admin/pager";
+import { reportCategoryLabel, reportCategoryBadgeVariant } from "@/lib/report-category";
 import type { ProductReport } from "@/lib/types";
+
+type StatusFilter = "open" | "dismissed" | "all";
+
+const STATUS_TABS: { value: StatusFilter; label: string }[] = [
+  { value: "open", label: "Abiertos" },
+  { value: "dismissed", label: "Descartados" },
+  { value: "all", label: "Todos" },
+];
+
+const EMPTY_STATE_COPY: Record<StatusFilter, string> = {
+  open: "No hay reportes abiertos",
+  dismissed: "No hay reportes descartados",
+  all: "No hay reportes",
+};
 
 export default function AdminReportsPage() {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<StatusFilter>("open");
   const [page, setPage] = useState(1);
+  const [lastSeenPages, setLastSeenPages] = useState<number | undefined>(
+    undefined,
+  );
 
   const { data, isLoading, isFetching, isError } = useQuery({
-    queryKey: ["admin-reports", page],
+    queryKey: ["admin-reports", status, page],
     queryFn: async () => {
       const res = await api.get<{
         data: ProductReport[];
         meta: { total: number; page: number; pages: number };
-      }>(`/reports/admin/all?page=${page}&limit=20`);
+      }>(`/reports/admin/all?status=${status}&page=${page}&limit=20`);
       return res.data;
     },
     // Igual que en las otras listas del panel: se conserva la página anterior
@@ -34,7 +53,7 @@ export default function AdminReportsPage() {
 
   const dismiss = useMutation({
     mutationFn: async (id: string) => {
-      await api.delete(`/reports/${id}`);
+      await api.patch(`/reports/${id}/dismiss`);
     },
     onSuccess: () => {
       setError(null);
@@ -47,11 +66,45 @@ export default function AdminReportsPage() {
   const reports = data?.data ?? [];
   const meta = data?.meta;
 
+  // Dismissing the last open report on a page shrinks `meta.pages` without
+  // `page` following it down — Pager only clamps its own button clicks, and
+  // renders nothing once `pages <= 1`, leaving no way back except switching
+  // tabs. Clamped inline during render (same pattern as admin/products and
+  // mis-productos) rather than in a useEffect, which would setState after an
+  // extra committed render instead of before this one paints.
+  if (meta && meta.pages !== lastSeenPages) {
+    setLastSeenPages(meta.pages);
+    setPage((currentPage) => Math.min(currentPage, Math.max(1, meta.pages)));
+  }
+
+  const setTab = (next: StatusFilter) => {
+    setStatus(next);
+    setPage(1);
+  };
+
   return (
     <div>
       <h2 className="heading-section mb-4 text-text-primary">
         Publicaciones reportadas
       </h2>
+
+      <div
+        className="mb-4 flex flex-wrap gap-2"
+        role="group"
+        aria-label="Filtrar por estado"
+      >
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            aria-pressed={status === tab.value}
+            onClick={() => setTab(tab.value)}
+            className={`filter-pill ${status === tab.value ? "is-active" : ""}`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       {error && (
         <p className="mb-3 text-sm text-danger" role="alert">
@@ -67,8 +120,12 @@ export default function AdminReportsPage() {
         <EmptyState title="No pudimos cargar los reportes" />
       ) : reports.length === 0 ? (
         <EmptyState
-          title="No hay reportes"
-          description="Cuando un comprador reporte una publicación, aparecerá aquí."
+          title={EMPTY_STATE_COPY[status]}
+          description={
+            status === "open"
+              ? "Cuando un comprador reporte una publicación, aparecerá aquí."
+              : undefined
+          }
         />
       ) : (
         <div className="space-y-3" aria-busy={isFetching}>
@@ -76,18 +133,26 @@ export default function AdminReportsPage() {
             <Card key={report.id}>
               <div className="flex flex-wrap items-start gap-4">
                 <div className="min-w-0 flex-1">
-                  {report.product ? (
-                    <Link
-                      href={`/products/${report.product.id}?preview=1`}
-                      className="block truncate font-medium text-text-primary hover:underline"
-                    >
-                      {report.product.title}
-                    </Link>
-                  ) : (
-                    <p className="truncate font-medium text-text-primary">
-                      Producto eliminado
-                    </p>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {report.product ? (
+                      <Link
+                        href={`/products/${report.product.id}?preview=1`}
+                        className="truncate font-medium text-text-primary hover:underline"
+                      >
+                        {report.product.title}
+                      </Link>
+                    ) : (
+                      <p className="truncate font-medium text-text-primary">
+                        Producto eliminado
+                      </p>
+                    )}
+                    <Badge variant={reportCategoryBadgeVariant(report.category)}>
+                      {reportCategoryLabel(report.category)}
+                    </Badge>
+                    {report.status === "DISMISSED" && (
+                      <Badge variant="default">Descartado</Badge>
+                    )}
+                  </div>
                   <p className="mt-1 text-xs text-text-muted">
                     Reportado por {report.reporter?.name ?? "Usuario eliminado"}
                     {" · "}
@@ -100,19 +165,37 @@ export default function AdminReportsPage() {
                   <p className="mt-2 whitespace-pre-line text-sm text-text-primary">
                     {report.reason}
                   </p>
+                  {report.status === "DISMISSED" && report.reviewedAt && (
+                    <p className="mt-2 text-xs text-text-muted">
+                      Descartado por{" "}
+                      {report.reviewer?.name ?? "un administrador eliminado"}
+                      {" · "}
+                      {new Date(report.reviewedAt).toLocaleDateString("es-CO", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </p>
+                  )}
                 </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    if (confirm("¿Descartar este reporte?")) {
-                      dismiss.mutate(report.id);
-                    }
-                  }}
-                  disabled={dismiss.isPending}
-                >
-                  Descartar
-                </Button>
+                {report.status === "OPEN" && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      if (
+                        confirm(
+                          "¿Marcar este reporte como revisado y descartarlo? Podrás verlo luego en la pestaña Descartados.",
+                        )
+                      ) {
+                        dismiss.mutate(report.id);
+                      }
+                    }}
+                    disabled={dismiss.isPending && dismiss.variables === report.id}
+                  >
+                    Descartar
+                  </Button>
+                )}
               </div>
             </Card>
           ))}

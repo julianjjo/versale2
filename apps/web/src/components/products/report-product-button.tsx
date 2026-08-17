@@ -5,21 +5,24 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { loginRedirectUrl, useAuth } from "@/lib/auth";
 import { api, extractApiError } from "@/lib/api";
-import { Button, Textarea } from "@/components/ui";
+import { Button, Textarea, Select } from "@/components/ui";
+import { REPORT_CATEGORY_OPTIONS } from "@/lib/report-category";
 
 export function ReportProductButton({ productId }: { productId: string }) {
   const router = useRouter();
   const { user, isLoading: isAuthLoading } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [category, setCategory] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const reportProduct = useMutation({
     mutationFn: async () => {
-      await api.post("/reports", { productId, reason });
+      await api.post("/reports", { productId, category, reason });
     },
     onSuccess: () => {
       setIsOpen(false);
+      setCategory("");
       setReason("");
     },
     onError: (err) =>
@@ -73,8 +76,21 @@ export function ReportProductButton({ productId }: { productId: string }) {
 
       {isOpen && (
         <form onSubmit={handleSubmit} className="mt-2 max-w-md space-y-2">
+          <Select
+            label="Motivo del reporte"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            required
+          >
+            <option value="">Selecciona un motivo</option>
+            {REPORT_CATEGORY_OPTIONS.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </Select>
           <Textarea
-            label="¿Por qué quieres reportar esta publicación?"
+            label="Cuéntanos más"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
@@ -87,7 +103,9 @@ export function ReportProductButton({ productId }: { productId: string }) {
               type="submit"
               variant="danger"
               size="sm"
-              disabled={reportProduct.isPending || !reason.trim()}
+              disabled={
+                reportProduct.isPending || !category || !reason.trim()
+              }
             >
               {reportProduct.isPending ? "Enviando…" : "Enviar reporte"}
             </Button>
