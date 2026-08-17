@@ -528,7 +528,9 @@ function CartItemRow({
   isRemoving: boolean;
 }) {
   const sold = isSold(item);
-  const paused = isPaused(item) && !sold;
+  // No `&& !sold` needed: its one use below is already inside the `sold ?`
+  // branch of the same ternary, which short-circuits before this is read.
+  const paused = isPaused(item);
   const unavailable = isUnavailable(item);
   const viewable = isProductPageViewable(item);
   const title = item.product?.title ?? item.productId;

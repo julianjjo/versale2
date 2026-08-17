@@ -426,6 +426,37 @@ describe("ProductDetail", () => {
     ).toBeInTheDocument();
   });
 
+  // Regression: a moderated-field edit while paused sends the listing back to
+  // review (isApproved:false) without clearing pausedAt — the seller needs to
+  // know it's also pending re-approval, not just "paused", since that's the
+  // more actionable fact.
+  it("le dice al propio vendedor que su publicación pausada también está en revisión", async () => {
+    authState.user = {
+      id: "s1",
+      email: "seller@b.c",
+      name: "Alice",
+      role: "USER",
+    };
+    const pausedAndPendingProduct = {
+      ...mockProduct,
+      isApproved: false,
+      pausedAt: new Date().toISOString(),
+    };
+    vi.mocked(api.get).mockResolvedValue({ data: pausedAndPendingProduct });
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/pausaste esta publicación y además está pendiente de revisión/i),
+    ).toBeInTheDocument();
+  });
+
   it("pide inicio de sesión al agregar a favoritos sin sesión", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
     const user = userEvent.setup();

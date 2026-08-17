@@ -80,15 +80,18 @@ export class OrdersService {
           );
         }
 
-        if (product.pausedAt) {
-          throw new BadRequestException(
-            `El vendedor pausó el producto ${product.title} y ya no está disponible`,
-          );
-        }
-
         if (product.sellerId === userId) {
           throw new BadRequestException(
             `No puedes comprar tu propio producto: ${product.title}`,
+          );
+        }
+
+        // Checked after the self-purchase guard so a seller who somehow has
+        // their own paused listing in their cart sees the more fundamental
+        // "you can't buy your own product" message, not this one.
+        if (product.pausedAt) {
+          throw new BadRequestException(
+            `El vendedor pausó el producto ${product.title} y ya no está disponible`,
           );
         }
 
@@ -136,17 +139,23 @@ export class OrdersService {
       });
 
       // Compare-and-swap in the same transaction: only rows that are still
-      // unsold are flipped, so if a racing checkout already claimed one of them
-      // the count comes back short and the whole order is rolled back.
+      // unsold AND unpaused are flipped, so if a racing checkout already
+      // claimed one of them, or a seller paused one mid-checkout, the count
+      // comes back short and the whole order is rolled back. Without the
+      // `pausedAt: null` re-assertion here, a seller pausing a listing in the
+      // window between this transaction's initial cart read and this write
+      // would not stop the sale — the product would end up both sold and
+      // paused, since the earlier per-item `pausedAt` check above only saw
+      // the stale, pre-pause snapshot.
       const productIds = orderItems.map((item) => item.productId);
       const sold = await tx.product.updateMany({
-        where: { id: { in: productIds }, soldAt: null },
+        where: { id: { in: productIds }, soldAt: null, pausedAt: null },
         data: { soldAt: new Date() },
       });
 
       if (sold.count !== productIds.length) {
         throw new BadRequestException(
-          'Alguno de los productos de tu carrito acaba de ser vendido. Actualiza tu carrito e inténtalo de nuevo',
+          'Alguno de los productos de tu carrito ya no está disponible (fue vendido o pausado). Actualiza tu carrito e inténtalo de nuevo',
         );
       }
 

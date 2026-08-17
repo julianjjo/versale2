@@ -432,6 +432,14 @@ export default function AdminProductsPage() {
                     ) : (
                       <Badge variant="warning">Pendiente</Badge>
                     )}
+                    {/* Independent of the moderation badge above: a listing
+                        the seller paused stays hidden from the catalog no
+                        matter what an admin does here, so approving/
+                        rejecting it without this would give no indication
+                        it still won't show up. */}
+                    {product.pausedAt && (
+                      <Badge variant="default">Pausado por el vendedor</Badge>
+                    )}
                     {/* Same eligibility rule as the bulk-select checkbox
                         above (isBulkApprovable): excludes sold listings, since
                         the API already refuses to approve one. */}

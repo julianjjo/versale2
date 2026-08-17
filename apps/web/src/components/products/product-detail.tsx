@@ -448,9 +448,16 @@ export function ProductDetail({
             <Badge variant="warning">Ya se vendió</Badge>
           ) : isOwn ? (
             <Badge variant="info">
-              {isPaused
-                ? "Pausaste esta publicación: no la ven los compradores"
-                : "Esta es tu publicación"}
+              {/* A moderated-field edit sent back to review while paused
+                  (isApproved:false, pausedAt still set) is a materially
+                  different, more actionable state than "just paused" — the
+                  seller still needs re-approval regardless of unpausing, and
+                  the plain paused message alone would hide that. */}
+              {isPaused && !data.isApproved
+                ? "Pausaste esta publicación y además está pendiente de revisión"
+                : isPaused
+                  ? "Pausaste esta publicación: no la ven los compradores"
+                  : "Esta es tu publicación"}
             </Badge>
           ) : isPaused && data.isApproved ? (
             <Badge variant="warning">

@@ -89,6 +89,30 @@ describe("AdminProductsPage", () => {
     ).toBeInTheDocument();
   });
 
+  // Regression: pausedAt is independent of isApproved/rejectedAt, so an admin
+  // approving/rejecting a paused listing previously had no indication it
+  // still wouldn't show up in the catalog either way.
+  it("muestra que una publicación aprobada fue pausada por el vendedor", async () => {
+    const pausedApproved = productFixture({
+      id: "p9",
+      title: "Falda pausada",
+      isApproved: true,
+      pausedAt: new Date("2026-02-10T10:00:00Z").toISOString(),
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([pausedApproved]) });
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    const card = await screen.findByTestId("admin-product-p9");
+    expect(within(card).getByText("Aprobado")).toBeInTheDocument();
+    expect(
+      within(card).getByText("Pausado por el vendedor"),
+    ).toBeInTheDocument();
+  });
+
   it("no muestra Rechazar para una publicación aprobada y ya vendida", async () => {
     const sold = productFixture({
       id: "p3",

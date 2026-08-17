@@ -524,12 +524,17 @@ export class ProductsService {
   // Lets a seller temporarily hide an otherwise-live listing from the public
   // catalog without deleting it or sending it back through re-review — e.g.
   // taking a break, or the garment is spoken for outside the site for now.
-  // Gated on `isApproved` (unlike update()/remove(), which only gate on
-  // soldAt): a pending or rejected listing is already invisible to buyers for
-  // a stronger reason, and pausing one would leave a dangling `pausedAt` an
-  // admin's later approval wouldn't explain — the seller would have to
-  // separately remember to unpause a listing they never saw approved yet.
-  async pauseProduct(id: string, userId: string, role: Role) {
+  // Shared by pauseProduct/unpauseProduct: both need the same "is this mine
+  // (or am I an admin), and is it still unsold" preamble that update()/
+  // remove() also repeat — kept as its own private helper (rather than
+  // folding into those pre-existing, independently-tested methods) so this
+  // PR's two new call sites stop duplicating it a third and fourth time.
+  private async findOwnedUnsoldProduct(
+    id: string,
+    userId: string,
+    role: Role,
+    actionVerb: string,
+  ) {
     const product = await this.prisma.client.product.findUnique({
       where: { id },
     });
@@ -540,15 +545,31 @@ export class ProductsService {
 
     if (product.sellerId !== userId && role !== Role.ADMIN) {
       throw new ForbiddenException(
-        'No tienes autorización para pausar este producto',
+        `No tienes autorización para ${actionVerb} este producto`,
       );
     }
 
     if (product.soldAt) {
       throw new BadRequestException(
-        'Este producto ya fue vendido y no se puede pausar',
+        `Este producto ya fue vendido y no se puede ${actionVerb}`,
       );
     }
+
+    return product;
+  }
+
+  // Gated on `isApproved` (unlike update()/remove(), which only gate on
+  // soldAt): a pending or rejected listing is already invisible to buyers for
+  // a stronger reason, and pausing one would leave a dangling `pausedAt` an
+  // admin's later approval wouldn't explain — the seller would have to
+  // separately remember to unpause a listing they never saw approved yet.
+  async pauseProduct(id: string, userId: string, role: Role) {
+    const product = await this.findOwnedUnsoldProduct(
+      id,
+      userId,
+      role,
+      'pausar',
+    );
 
     if (!product.isApproved) {
       throw new BadRequestException(
@@ -557,8 +578,13 @@ export class ProductsService {
     }
 
     try {
+      // `isApproved: true` re-asserted here, not just at the read above: a
+      // concurrent rejection or moderated-field edit landing between the read
+      // and this write would otherwise still flip pausedAt, leaving exactly
+      // the dangling paused-but-unapproved state the isApproved guard above
+      // exists to prevent.
       return await this.prisma.client.product.update({
-        where: { id, soldAt: null },
+        where: { id, soldAt: null, isApproved: true },
         data: { pausedAt: new Date() },
         include: { seller: { select: { id: true, name: true } } },
       });
@@ -566,7 +592,7 @@ export class ProductsService {
       translatePrismaError(error, {
         P2025: () => {
           throw new BadRequestException(
-            'Este producto ya fue vendido y no se puede pausar',
+            'Este producto ya no se puede pausar: fue vendido o dejó de estar aprobado',
           );
         },
       });
@@ -579,25 +605,7 @@ export class ProductsService {
   // unpausing it just means it will be visible again once it's re-approved,
   // same as any other pending listing.
   async unpauseProduct(id: string, userId: string, role: Role) {
-    const product = await this.prisma.client.product.findUnique({
-      where: { id },
-    });
-
-    if (!product) {
-      throw new NotFoundException(`Producto con ID ${id} no encontrado`);
-    }
-
-    if (product.sellerId !== userId && role !== Role.ADMIN) {
-      throw new ForbiddenException(
-        'No tienes autorización para reactivar este producto',
-      );
-    }
-
-    if (product.soldAt) {
-      throw new BadRequestException(
-        'Este producto ya fue vendido y no se puede reactivar',
-      );
-    }
+    await this.findOwnedUnsoldProduct(id, userId, role, 'reactivar');
 
     try {
       return await this.prisma.client.product.update({

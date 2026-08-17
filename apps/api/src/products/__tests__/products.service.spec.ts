@@ -760,7 +760,7 @@ describe('ProductsService', () => {
       );
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: 'product1', soldAt: null },
+        where: { id: 'product1', soldAt: null, isApproved: true },
         data: { pausedAt: expect.any(Date) },
         include: { seller: { select: { id: true, name: true } } },
       });
@@ -781,12 +781,12 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.update).toHaveBeenCalled();
     });
 
-    // Mirrors update()/remove()'s own concurrent-checkout regression: the
-    // initial read only drives the checks above, so a checkout that sells the
-    // product afterward makes the conditional `soldAt: null` update match no
-    // row. Prisma raises P2025 for that, and it must still read as "already
-    // sold" rather than an unhandled exception.
-    it('should translate a P2025 mid-flight sale into the same "already sold" error', async () => {
+    // Mirrors update()/remove()'s own concurrent-checkout regression, but the
+    // where-clause here also re-asserts `isApproved: true` (not just
+    // `soldAt: null`), so this P2025 can now be triggered by either a
+    // mid-flight sale OR a concurrent rejection/moderated-edit — the message
+    // covers both instead of incorrectly claiming the product was sold.
+    it('should translate a P2025 from a mid-flight sale or approval change into a single accurate error', async () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: 'product1',
         sellerId: 'seller1',
@@ -799,7 +799,9 @@ describe('ProductsService', () => {
 
       await expect(
         service.pauseProduct('product1', 'seller1', Role.USER),
-      ).rejects.toThrow('Este producto ya fue vendido y no se puede pausar');
+      ).rejects.toThrow(
+        'Este producto ya no se puede pausar: fue vendido o dejó de estar aprobado',
+      );
     });
   });
 
@@ -873,6 +875,21 @@ describe('ProductsService', () => {
         include: { seller: { select: { id: true, name: true } } },
       });
       expect(result).toEqual(unpausedProduct);
+    });
+
+    it('should allow an admin to unpause a product they do not own', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        isApproved: true,
+        soldAt: null,
+        pausedAt: new Date(),
+      });
+      mockPrismaService.client.product.update.mockResolvedValue({});
+
+      await service.unpauseProduct('product1', 'admin1', Role.ADMIN);
+
+      expect(mockPrismaService.client.product.update).toHaveBeenCalled();
     });
 
     it('should translate a P2025 mid-flight sale into the same "already sold" error', async () => {
