@@ -729,13 +729,16 @@ export class ProductsService {
 
   // Same batching shape as the admin moderation bulk actions
   // (bulkApprove/bulkReject): a seller with many listings (going on
-  // vacation, restocking) currently pauses them one at a time. `sellerId`
-  // scopes the where-clause to the caller's own listings unless they're an
-  // admin, mirroring findOwnedUnsoldProduct's own ownership rule — a
-  // non-owned, sold, unapproved, or already-paused id slipped into the
-  // request is silently excluded from the count instead of failing the
-  // whole batch, same compare-and-swap shape as every other bulk action
-  // here.
+  // vacation, restocking) currently pauses them one at a time. Unlike
+  // those two (admin-only, so ownership never enters their where-clause),
+  // this is the first bulk action that folds an OWNERSHIP check into the
+  // same silent-exclusion bucket as state (sold/unapproved/already-paused)
+  // rather than throwing — a deliberate choice, not just following
+  // findOwnedUnsoldProduct's precedent (which throws ForbiddenException
+  // for a non-owner on the single-item path). Silent exclusion is at
+  // least as private here: a prober gets no signal distinguishing "not
+  // yours" from "already in that state" from "doesn't exist" in the
+  // response, only that it wasn't counted.
   async bulkPause(ids: string[], userId: string, role: Role) {
     const uniqueIds = Array.from(new Set(ids));
 

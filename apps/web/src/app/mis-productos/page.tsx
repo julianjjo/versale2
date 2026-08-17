@@ -262,7 +262,13 @@ function MisProductosList() {
       return res.data;
     },
     onSuccess: (result, ids) => {
-      ids.forEach((id) => invalidate(id));
+      // The blanket list-level keys only need one invalidation for the
+      // whole batch — only the per-product cache entry (the seller's own
+      // preview, reached via this row's title link) needs one per id.
+      invalidate();
+      ids.forEach((id) =>
+        queryClient.invalidateQueries({ queryKey: ["product", id] }),
+      );
       setSelectedIds((current) => {
         const next = new Set(current);
         ids.forEach((id) => next.delete(id));
@@ -300,7 +306,10 @@ function MisProductosList() {
       return res.data;
     },
     onSuccess: (result, ids) => {
-      ids.forEach((id) => invalidate(id));
+      invalidate();
+      ids.forEach((id) =>
+        queryClient.invalidateQueries({ queryKey: ["product", id] }),
+      );
       setSelectedIds((current) => {
         const next = new Set(current);
         ids.forEach((id) => next.delete(id));
@@ -378,6 +387,11 @@ function MisProductosList() {
     // another — e.g. a paused item selected before switching to "Pendientes"
     // would leave the bulk bar counting a row no longer even on screen.
     setSelectedIds(new Set());
+    // Same reasoning for a bulk action's outcome notice: it describes a
+    // batch that's no longer even in view once the tab changes, and would
+    // otherwise linger on screen until another bulk action happens to
+    // overwrite it.
+    setNotice(null);
   };
 
   const isFiltered = Boolean(search) || status !== "all";
@@ -482,6 +496,12 @@ function MisProductosList() {
               type="button"
               aria-pressed={status === tab.value}
               onClick={() => setTab(tab.value)}
+              // Switching tabs clears the current selection (see setTab) —
+              // disabled while a bulk action is in flight, same as every
+              // other selection-changing control, so a batch's outcome
+              // notice can't end up describing a tab the seller already
+              // left.
+              disabled={bulkActionPending}
               className={`filter-pill ${status === tab.value ? "is-active" : ""}`}
             >
               {tab.label}

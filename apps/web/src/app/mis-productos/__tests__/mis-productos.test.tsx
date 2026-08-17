@@ -978,4 +978,241 @@ describe("MisProductosPage", () => {
     });
     expect(screen.getByLabelText(/seleccionar dos/i)).toBeChecked();
   });
+
+  // The frontend intentionally doesn't pre-filter by eligibility before
+  // sending — it sends the whole selection and lets the backend's
+  // compare-and-swap silently exclude what a given action can't touch,
+  // same design as bulkApprove/bulkReject.
+  it("envía la selección completa a Pausar seleccionadas aunque incluya una publicación ya pausada", async () => {
+    const approved = productFixture({
+      id: "p39",
+      title: "Aprobada",
+      isApproved: true,
+    });
+    const paused = productFixture({
+      id: "p40",
+      title: "Pausada",
+      isApproved: true,
+      pausedAt: new Date("2026-02-05T10:00:00Z").toISOString(),
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([approved, paused]) });
+    vi.mocked(api.patch).mockResolvedValue({
+      data: { paused: 1, requested: 2 },
+    });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("mine-product-p39");
+    await user.click(screen.getByLabelText(/seleccionar aprobada/i));
+    await user.click(screen.getByLabelText(/seleccionar pausada/i));
+
+    // Mixed selection: eligible for at least one of the two actions each,
+    // so neither button is disabled by the none-eligible safety check.
+    const pauseButton = screen.getByRole("button", {
+      name: "Pausar seleccionadas",
+    });
+    expect(pauseButton).toBeEnabled();
+    await user.click(pauseButton);
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/products/bulk-pause", {
+        ids: ["p39", "p40"],
+      });
+    });
+  });
+
+  it("muestra un aviso de éxito parcial al pausar en lote", async () => {
+    const first = productFixture({ id: "p41", title: "Chaqueta", isApproved: true });
+    const second = productFixture({ id: "p42", title: "Camiseta", isApproved: true });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([first, second]) });
+    vi.mocked(api.patch).mockResolvedValue({
+      data: { paused: 1, requested: 2 },
+    });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("mine-product-p41");
+    await user.click(
+      screen.getByLabelText(/seleccionar todas las elegibles en esta página/i),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Pausar seleccionadas" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          /se pausaron 1 de 2 publicaciones\. las demás ya no estaban disponibles para pausar\./i,
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("muestra un aviso de éxito parcial al reactivar en lote", async () => {
+    const first = productFixture({
+      id: "p43",
+      title: "Falda",
+      isApproved: true,
+      pausedAt: new Date("2026-02-05T10:00:00Z").toISOString(),
+    });
+    const second = productFixture({
+      id: "p44",
+      title: "Vestido",
+      isApproved: true,
+      pausedAt: new Date("2026-02-05T10:00:00Z").toISOString(),
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([first, second]) });
+    vi.mocked(api.patch).mockResolvedValue({
+      data: { unpaused: 1, requested: 2 },
+    });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("mine-product-p43");
+    await user.click(
+      screen.getByLabelText(/seleccionar todas las elegibles en esta página/i),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Reactivar seleccionadas" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          /se reactivaron 1 de 2 publicaciones\. las demás ya no estaban disponibles para reactivar\./i,
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("muestra un aviso distinto cuando ninguna de las seleccionadas se pudo reactivar", async () => {
+    const paused = productFixture({
+      id: "p45",
+      title: "Pausada",
+      isApproved: true,
+      pausedAt: new Date("2026-02-05T10:00:00Z").toISOString(),
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([paused]) });
+    vi.mocked(api.patch).mockResolvedValue({
+      data: { unpaused: 0, requested: 1 },
+    });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("mine-product-p45");
+    await user.click(screen.getByLabelText(/seleccionar pausada/i));
+    await user.click(
+      screen.getByRole("button", { name: "Reactivar seleccionadas" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          /ninguna de las publicaciones seleccionadas estaba disponible para reactivar\./i,
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
+  // Regression: a bulk action's outcome notice used to linger after
+  // switching tabs, describing a batch no longer even in view.
+  it("limpia el aviso de éxito parcial al cambiar de pestaña de estado", async () => {
+    const approved = productFixture({
+      id: "p46",
+      title: "Aprobada",
+      isApproved: true,
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([approved]) });
+    vi.mocked(api.patch).mockResolvedValue({
+      data: { paused: 0, requested: 1 },
+    });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("mine-product-p46");
+    await user.click(screen.getByLabelText(/seleccionar aprobada/i));
+    await user.click(
+      screen.getByRole("button", { name: "Pausar seleccionadas" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/ninguna de las publicaciones seleccionadas/i),
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Pendientes" }));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText(/ninguna de las publicaciones seleccionadas/i),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  // Regression: every other selection-changing control was already disabled
+  // mid-bulk-action, but the status tabs weren't — switching tabs while a
+  // request was in flight wiped the selection out from under it.
+  it("deshabilita las pestañas de estado mientras una acción en lote está en curso", async () => {
+    const approved = productFixture({
+      id: "p47",
+      title: "Aprobada",
+      isApproved: true,
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([approved]) });
+    let resolvePause!: () => void;
+    vi.mocked(api.patch).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePause = () =>
+            resolve({ data: { paused: 1, requested: 1 } });
+        }),
+    );
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("mine-product-p47");
+    await user.click(screen.getByLabelText(/seleccionar aprobada/i));
+    await user.click(
+      screen.getByRole("button", { name: "Pausar seleccionadas" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Pendientes" }),
+      ).toBeDisabled();
+    });
+
+    resolvePause();
+  });
 });
