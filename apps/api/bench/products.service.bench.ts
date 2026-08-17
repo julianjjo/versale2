@@ -24,6 +24,11 @@ const prismaStub = {
       findMany: () => Promise.resolve(page),
       count: () => Promise.resolve(catalogSize),
       findUnique: () => Promise.resolve(detailedProduct),
+      // findOne()'s view-count increment fires for any requester that
+      // isn't the product's own seller — the 'u1' requester below never
+      // is, so this needs a stub too or the bench crashes on its first
+      // iteration.
+      update: () => Promise.resolve(detailedProduct),
     },
     // findAll() also fetches each page's average rating via a review
     // groupBy — an empty result (no reviews) keeps this bench measuring

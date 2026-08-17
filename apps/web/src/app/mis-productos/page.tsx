@@ -57,6 +57,10 @@ const EMPTY_STATE_COPY: Record<StatusFilter, string> = {
 
 type EditForm = { title: string; description: string; price: string };
 
+function formatStat(count: number, singular: string, plural: string): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
 export default function MisProductosPage() {
   const router = useRouter();
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -382,6 +386,24 @@ function MisProductosList() {
                     </p>
                     <p className="mt-1 text-xs text-text-muted">
                       Condición: {conditionLabel(product.condition)}
+                    </p>
+                    <p
+                      className="mt-1 text-xs text-text-muted"
+                      data-testid={`mine-product-stats-${product.id}`}
+                    >
+                      {formatStat(product.viewCount ?? 0, "vista", "vistas")}
+                      {" · "}
+                      {formatStat(
+                        product._count?.favoritedBy ?? 0,
+                        "favorito",
+                        "favoritos",
+                      )}
+                      {" · "}
+                      {formatStat(
+                        product._count?.questions ?? 0,
+                        "pregunta",
+                        "preguntas",
+                      )}
                     </p>
                     {isRejected && product.rejectionReason && (
                       <p className="mt-1 text-xs text-danger">

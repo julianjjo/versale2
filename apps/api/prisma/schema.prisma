@@ -61,6 +61,10 @@ model Product {
   // again. Orthogonal to isApproved/soldAt the same way soldAt already sits
   // outside the isApproved/rejectedAt moderation partition.
   pausedAt      DateTime?
+  // Counts detail-page views from anyone other than the product's own
+  // seller (see ProductsService#findOne) — a seller re-checking their own
+  // listing shouldn't inflate the interest signal they're trying to read.
+  viewCount     Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   orders        OrderItem[]

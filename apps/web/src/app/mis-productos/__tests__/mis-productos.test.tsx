@@ -124,6 +124,48 @@ describe("MisProductosPage", () => {
     );
   });
 
+  it("muestra las vistas, favoritos y preguntas de cada publicación", async () => {
+    const product = productFixture({
+      id: "p1",
+      title: "Chaqueta con estadísticas",
+      viewCount: 12,
+      _count: { reviews: 0, favoritedBy: 1, questions: 3 },
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([product]) });
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    const stats = await screen.findByTestId("mine-product-stats-p1");
+    expect(stats).toHaveTextContent("12 vistas");
+    expect(stats).toHaveTextContent("1 favorito");
+    expect(stats).toHaveTextContent("3 preguntas");
+  });
+
+  it("muestra 0 y usa singular cuando la publicación no tiene interacción todavía", async () => {
+    const product = productFixture({
+      id: "p1",
+      title: "Chaqueta nueva",
+      viewCount: 1,
+      _count: { reviews: 0, favoritedBy: 0, questions: 0 },
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([product]) });
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    const stats = await screen.findByTestId("mine-product-stats-p1");
+    expect(stats).toHaveTextContent("1 vista");
+    expect(stats).toHaveTextContent("0 favoritos");
+    expect(stats).toHaveTextContent("0 preguntas");
+  });
+
   it("muestra un error, no el estado vacío, cuando la lista falla al cargar", async () => {
     vi.mocked(api.get).mockRejectedValue(new Error("network down"));
 

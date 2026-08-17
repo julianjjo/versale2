@@ -31,7 +31,16 @@ export interface Product {
   updatedAt: string;
   images?: string[] | null;
   seller?: { id: string; name: string };
-  _count?: { reviews: number };
+  // Detail-page views from anyone other than this listing's own seller (see
+  // ProductsService#findOne). A plain scalar column, so it's present
+  // anywhere the API embeds the full product (cart items, order items,
+  // catalog, detail, /products/mine) — optional here only because
+  // FavoritesService's narrower FAVORITE_PRODUCT_SELECT doesn't list it.
+  viewCount?: number;
+  // favoritedBy/questions are only populated on the seller's own listings
+  // (GET /products/mine) alongside viewCount, as the per-listing
+  // performance stats mis-productos renders.
+  _count?: { reviews: number; favoritedBy?: number; questions?: number };
   reviews?: Review[];
   questions?: ProductQuestion[];
   // Populated by the public catalog listing (GET /products) and the

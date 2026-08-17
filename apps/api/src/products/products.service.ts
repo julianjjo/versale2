@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
@@ -12,6 +13,7 @@ import { Role } from '../users/role.enum';
 import { ProductSortBy } from './product-sort.enum';
 import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
+import { logAndSwallow } from '../common/log-and-swallow';
 import { VERIFIED_PURCHASE_STATUSES } from '../orders/order-status.enum';
 
 // findOne() filters each review's helpfulVotes by this id when there's no
@@ -76,6 +78,8 @@ const SORT_ORDER_BY: Record<
 
 @Injectable()
 export class ProductsService {
+  private readonly logger = new Logger(ProductsService.name);
+
   constructor(private prisma: PrismaService) {}
 
   // Only `price` is sortable beyond the default recency order: rating is
@@ -85,13 +89,17 @@ export class ProductsService {
   // larger restructure. An unrecognized or missing value falls back to the
   // browsing default rather than erroring, since this reads directly off
   // the query string and a stale/bookmarked URL should never 400.
+  // A duplicated query key (?x=a&x=b) arrives as an array; every filter
+  // below takes the first value rather than silently discarding the whole
+  // filter, matching what a caller expects from repeating a query param.
+  private firstValue(value: unknown): unknown {
+    return Array.isArray(value) ? (value as unknown[])[0] : value;
+  }
+
   private resolveSortOrder(
     sortBy: unknown,
   ): Prisma.ProductOrderByWithRelationInput[] {
-    // A duplicated query key (?sortBy=a&sortBy=b) arrives as an array; take
-    // the first value rather than silently discarding the request, the way
-    // `brand`/`category` normalize their own possibly-array input below.
-    const value = Array.isArray(sortBy) ? sortBy[0] : sortBy;
+    const value = this.firstValue(sortBy);
     if (
       value &&
       Object.values(ProductSortBy).includes(value as ProductSortBy)
@@ -145,16 +153,16 @@ export class ProductsService {
     });
   }
 
-  async findAll(query: any) {
+  async findAll(query: Record<string, unknown> = {}) {
     const {
-      search,
+      search: rawSearch,
       minPrice,
       maxPrice,
-      size,
-      brand,
-      category,
-      condition,
-      sellerId,
+      size: rawSize,
+      brand: rawBrand,
+      category: rawCategory,
+      condition: rawCondition,
+      sellerId: rawSellerId,
       sortBy,
       page = 1,
       limit = 10,
@@ -162,37 +170,43 @@ export class ProductsService {
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
     const orderBy = this.resolveSortOrder(sortBy);
 
-    // Sold items are one-of-a-kind: once bought they leave the public catalog.
-    const where: any = { ...PUBLICLY_VISIBLE };
+    const search = this.firstValue(rawSearch);
+    const size = this.firstValue(rawSize);
+    const brand = this.firstValue(rawBrand);
+    const category = this.firstValue(rawCategory);
+    const condition = this.firstValue(rawCondition);
+    const sellerId = this.firstValue(rawSellerId);
 
-    if (search) {
-      where.OR = this.searchTextWhere(String(search));
+    // Sold items are one-of-a-kind: once bought they leave the public catalog.
+    const where: Prisma.ProductWhereInput = { ...PUBLICLY_VISIBLE };
+
+    if (typeof search === 'string' && search) {
+      where.OR = this.searchTextWhere(search);
     }
 
     // Powers a seller's public profile page (their other listings), reusing
     // the same catalog visibility rules above rather than a bespoke query —
     // a seller's profile shows exactly what any buyer could already find by
     // browsing, never a private preview of unapproved or sold stock.
-    if (sellerId) {
-      where.sellerId = String(sellerId);
+    if (typeof sellerId === 'string' && sellerId) {
+      where.sellerId = sellerId;
     }
 
-    if (minPrice !== undefined) {
-      where.price = { ...where.price, gte: Number(minPrice) };
-    }
-    if (maxPrice !== undefined) {
-      where.price = { ...where.price, lte: Number(maxPrice) };
-    }
-    if (size) {
+    const priceFilter: Prisma.FloatFilter = {};
+    if (minPrice !== undefined) priceFilter.gte = Number(minPrice);
+    if (maxPrice !== undefined) priceFilter.lte = Number(maxPrice);
+    if (Object.keys(priceFilter).length > 0) where.price = priceFilter;
+
+    if (typeof size === 'string' && size) {
       where.size = size;
     }
-    if (brand) {
-      where.brand = { contains: String(brand) };
+    if (typeof brand === 'string' && brand) {
+      where.brand = { contains: brand };
     }
-    if (category) {
-      where.category = String(category);
+    if (typeof category === 'string' && category) {
+      where.category = category;
     }
-    if (condition) {
+    if (typeof condition === 'string' && condition) {
       where.condition = condition;
     }
 
@@ -407,6 +421,23 @@ export class ProductsService {
       if (!canView) {
         throw new NotFoundException(`Producto con ID ${id} no encontrado`);
       }
+    }
+
+    // Counts detail-page interest from anyone other than the product's own
+    // seller — a seller re-checking their own listing isn't the signal this
+    // number exists to show them. Fire-and-forget: a transient DB error here
+    // must not turn an otherwise-successful product read into a failed one,
+    // and a page view has no reason to wait on it.
+    if (requester?.id !== product.sellerId) {
+      this.prisma.client.product
+        .update({
+          where: { id },
+          data: { viewCount: { increment: 1 } },
+          // Discarded either way (fire-and-forget) — no reason to have
+          // Prisma fetch and serialize the rest of the row back.
+          select: { id: true },
+        })
+        .catch(logAndSwallow(this.logger, 'Failed to record a product view'));
     }
 
     // Mirrors ReviewsService.findAllByProduct's own verifiedPurchase
@@ -712,9 +743,10 @@ export class ProductsService {
   // Searchable across the same fields as the public catalog's findAll
   // (title, description, brand, category) so a seller with many listings
   // can find one without paging through every status tab by hand.
-  async findAllMine(sellerId: string, query: any) {
-    const { search, status, page = 1, limit = 10 } = query;
+  async findAllMine(sellerId: string, query: Record<string, unknown> = {}) {
+    const { search: rawSearch, status, page = 1, limit = 10 } = query;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
+    const search = this.firstValue(rawSearch);
 
     // A seller's own dashboard has two more buckets than the admin queue:
     // "vendido" (soldAt set) and "pausado" (pausedAt set) both sit outside
@@ -722,7 +754,7 @@ export class ProductsService {
     // listing must stop showing up under "aprobados" here even though
     // admin's findAllForAdmin still counts it there (that view tracks
     // moderation history, this one tracks what's actually sellable).
-    const where: any = { sellerId };
+    const where: Prisma.ProductWhereInput = { sellerId };
     if (status === 'pending') {
       where.isApproved = false;
       where.rejectedAt = null;
@@ -741,8 +773,8 @@ export class ProductsService {
       where.soldAt = null;
     }
 
-    if (search) {
-      where.OR = this.searchTextWhere(String(search));
+    if (typeof search === 'string' && search) {
+      where.OR = this.searchTextWhere(search);
     }
 
     const [products, total] = await Promise.all([
@@ -753,7 +785,12 @@ export class ProductsService {
         orderBy: { createdAt: 'desc' },
         include: {
           seller: { select: { id: true, name: true } },
-          _count: { select: { reviews: true } },
+          // favoritedBy/questions round out `viewCount` (a plain scalar
+          // column, already included by default) into the seller's full
+          // per-listing performance picture on /mis-productos.
+          _count: {
+            select: { reviews: true, favoritedBy: true, questions: true },
+          },
         },
       }),
       this.prisma.client.product.count({ where }),
@@ -770,13 +807,13 @@ export class ProductsService {
     };
   }
 
-  async findAllForAdmin(query: any) {
+  async findAllForAdmin(query: Record<string, unknown> = {}) {
     const { status, page = 1, limit = 10 } = query;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     // Admins see everything, sold items included: an approved product that has
     // been bought stays in the "aprobados" bucket, it just left the catalog.
-    const where: any = {};
+    const where: Prisma.ProductWhereInput = {};
     if (status === 'pending') {
       where.isApproved = false;
       where.rejectedAt = null;
