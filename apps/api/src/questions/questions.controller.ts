@@ -2,9 +2,11 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
   Req,
 } from '@nestjs/common';
@@ -13,6 +15,8 @@ import { QuestionsService } from './questions.service';
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { AnswerQuestionDto } from './dto/answer-question.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { Role } from '../users/role.enum';
 
 @Controller('questions')
@@ -27,6 +31,13 @@ export class QuestionsController {
       body.productId,
       body.question,
     );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('admin/all')
+  async getAllForAdmin(@Query() query: any) {
+    return this.questionsService.getAllForAdmin(query);
   }
 
   @UseGuards(JwtAuthGuard)

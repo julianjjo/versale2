@@ -12,6 +12,7 @@ const TABS = [
   { href: "/admin/users", label: "Usuarios" },
   { href: "/admin/reviews", label: "Reseñas" },
   { href: "/admin/reportes", label: "Reportes" },
+  { href: "/admin/preguntas", label: "Preguntas" },
 ];
 
 function AdminBrand() {

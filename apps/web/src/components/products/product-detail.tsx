@@ -26,6 +26,7 @@ import type { Product, Review } from "@/lib/types";
 import { FavoriteButton } from "@/components/products/favorite-button";
 import { ReportProductButton } from "@/components/products/report-product-button";
 import { ProductQuestions } from "@/components/products/product-questions";
+import { SellerReplyBlock } from "@/components/products/seller-reply-block";
 import { ProductCard } from "@/components/products/products-browser";
 import { ProductGallery } from "@/components/products/product-gallery";
 
@@ -594,14 +595,7 @@ export function ProductDetail({
                   )}
 
                 {review.sellerReply && (
-                  <div className="mt-3 rounded-md border border-border bg-surface-muted p-3">
-                    <p className="text-xs font-semibold text-text-primary">
-                      Respuesta del vendedor
-                    </p>
-                    <p className="mt-1 text-sm text-text-primary">
-                      {review.sellerReply}
-                    </p>
-                  </div>
+                  <SellerReplyBlock text={review.sellerReply} />
                 )}
 
                 {isOwn &&

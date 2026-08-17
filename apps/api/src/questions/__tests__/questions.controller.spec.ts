@@ -11,6 +11,7 @@ describe('QuestionsController', () => {
     create: jest.fn(),
     answer: jest.fn(),
     remove: jest.fn(),
+    getAllForAdmin: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -87,6 +88,22 @@ describe('QuestionsController', () => {
         'buyer1',
         'USER',
       );
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('getAllForAdmin', () => {
+    it('should call questionsService.getAllForAdmin with the query', async () => {
+      const query = { page: '1', limit: '20' };
+      const mockResult = {
+        data: [],
+        meta: { total: 0, page: 1, limit: 20, pages: 0 },
+      };
+      mockQuestionsService.getAllForAdmin.mockResolvedValue(mockResult);
+
+      const result = await controller.getAllForAdmin(query);
+
+      expect(questionsService.getAllForAdmin).toHaveBeenCalledWith(query);
       expect(result).toEqual(mockResult);
     });
   });

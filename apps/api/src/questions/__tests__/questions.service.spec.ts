@@ -4,10 +4,21 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { QuestionsService } from '../questions.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProductsService } from '../../products/products.service';
 import { Role } from '../../users/role.enum';
+
+// Simulates the error Prisma throws when `update`/`delete`'s where clause
+// matches no row — the shape a concurrent delete (a double-click, two tabs,
+// or the question's own cascade-deleted product) would trigger.
+function notFoundError() {
+  return new Prisma.PrismaClientKnownRequestError('No record found', {
+    code: 'P2025',
+    clientVersion: 'test',
+  });
+}
 
 describe('QuestionsService', () => {
   let service: QuestionsService;
@@ -19,6 +30,8 @@ describe('QuestionsService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+        findMany: jest.fn(),
+        count: jest.fn(),
       },
     },
   };
@@ -67,13 +80,15 @@ describe('QuestionsService', () => {
       );
 
       expect(mockProductsService.findRaw).toHaveBeenCalledWith('product1');
+      // No `include` — the caller (ProductQuestions) discards this response
+      // and refetches the product instead, so joining `asker` here would be
+      // a join nobody reads.
       expect(mockPrismaService.client.productQuestion.create).toHaveBeenCalledWith({
         data: {
           productId: 'product1',
           askerId: 'buyer1',
           question: '¿Es talla M o L?',
         },
-        include: { asker: { select: { id: true, name: true } } },
       });
       expect(result).toEqual(mockQuestion);
     });
@@ -149,7 +164,6 @@ describe('QuestionsService', () => {
       expect(mockPrismaService.client.productQuestion.update).toHaveBeenCalledWith({
         where: { id: 'question1' },
         data: { answer: 'Es talla M', answeredAt: expect.any(Date) },
-        include: { asker: { select: { id: true, name: true } } },
       });
       expect(result).toEqual(answered);
     });
@@ -199,6 +213,29 @@ describe('QuestionsService', () => {
         service.answer('question1', 'admin1', 'Es talla M'),
       ).rejects.toThrow(ForbiddenException);
     });
+
+    // Regression: unlike Review (ON DELETE RESTRICT), ProductQuestion
+    // cascades when its product is deleted — the initial read only drives
+    // the ownership check above, so a concurrent product delete taking this
+    // question with it makes the write below match no row. Prisma raises
+    // P2025 for that, and it must read as "question no longer exists"
+    // instead of an unhandled 500.
+    it('should translate a P2025 from a concurrent delete into a 404', async () => {
+      mockPrismaService.client.productQuestion.findUnique.mockResolvedValue({
+        id: 'question1',
+        product: { sellerId: 'seller1' },
+      });
+      mockPrismaService.client.productQuestion.update.mockRejectedValue(
+        notFoundError(),
+      );
+
+      await expect(
+        service.answer('question1', 'seller1', 'Es talla M'),
+      ).rejects.toThrow(NotFoundException);
+      await expect(
+        service.answer('question1', 'seller1', 'Es talla M'),
+      ).rejects.toThrow('No se encontró la pregunta con ID question1');
+    });
   });
 
   describe('remove', () => {
@@ -216,7 +253,7 @@ describe('QuestionsService', () => {
       expect(mockPrismaService.client.productQuestion.delete).toHaveBeenCalledWith({
         where: { id: 'question1' },
       });
-      expect(result).toEqual({ id: 'question1' });
+      expect(result).toEqual({ success: true });
     });
 
     it('should let an admin delete any question', async () => {
@@ -264,6 +301,69 @@ describe('QuestionsService', () => {
       expect(
         mockPrismaService.client.productQuestion.delete,
       ).not.toHaveBeenCalled();
+    });
+
+    // Regression: a double-click, two open tabs, or another admin dismissing
+    // the same question moments earlier all make this delete match no row.
+    it('should translate a P2025 from a concurrent delete into a 404', async () => {
+      mockPrismaService.client.productQuestion.findUnique.mockResolvedValue({
+        id: 'question1',
+        askerId: 'buyer1',
+      });
+      mockPrismaService.client.productQuestion.delete.mockRejectedValue(
+        notFoundError(),
+      );
+
+      await expect(
+        service.remove('question1', 'buyer1', Role.USER),
+      ).rejects.toThrow(NotFoundException);
+      await expect(
+        service.remove('question1', 'buyer1', Role.USER),
+      ).rejects.toThrow('No se encontró la pregunta con ID question1');
+    });
+  });
+
+  describe('getAllForAdmin', () => {
+    it('should return paginated questions with asker and product info', async () => {
+      const mockQuestions = [
+        {
+          id: 'question1',
+          question: '¿Es talla M?',
+          asker: { id: 'buyer1', name: 'Alice' },
+          product: { id: 'product1', title: 'Chaqueta' },
+        },
+      ];
+      mockPrismaService.client.productQuestion.findMany.mockResolvedValue(
+        mockQuestions,
+      );
+      mockPrismaService.client.productQuestion.count.mockResolvedValue(1);
+
+      const result = await service.getAllForAdmin({ page: '1', limit: '20' });
+
+      expect(mockPrismaService.client.productQuestion.findMany).toHaveBeenCalledWith({
+        skip: 0,
+        take: 20,
+        include: {
+          asker: { select: { id: true, name: true } },
+          product: { select: { id: true, title: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(result).toEqual({
+        data: mockQuestions,
+        meta: { total: 1, page: 1, limit: 20, pages: 1 },
+      });
+    });
+
+    it('should default to the standard page size when no query is given', async () => {
+      mockPrismaService.client.productQuestion.findMany.mockResolvedValue([]);
+      mockPrismaService.client.productQuestion.count.mockResolvedValue(0);
+
+      await service.getAllForAdmin(undefined);
+
+      expect(mockPrismaService.client.productQuestion.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 10 }),
+      );
     });
   });
 });

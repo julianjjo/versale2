@@ -354,6 +354,7 @@ export class ProductsService {
           questions: {
             select: {
               id: true,
+              productId: true,
               question: true,
               answer: true,
               answeredAt: true,

@@ -1,8 +1,5 @@
-import { Transform } from 'class-transformer';
 import { IsString, IsNotEmpty, Matches, MaxLength } from 'class-validator';
-
-const Trim = () =>
-  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value));
+import { Trim } from '../../common/trim.decorator';
 
 export class AnswerQuestionDto {
   @IsString({ message: 'La respuesta debe ser un texto' })

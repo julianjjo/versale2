@@ -112,6 +112,10 @@ export interface ProductQuestion {
   answeredAt: string | null;
   createdAt: string;
   asker?: { id: string; name: string };
+  // Only populated by the admin listing (GET /questions/admin/all) — the
+  // embedded copy on GET /products/:id has no need for it, since the buyer
+  // is already looking at that exact product's page.
+  product?: { id: string; title: string };
 }
 
 export interface ProductReport {

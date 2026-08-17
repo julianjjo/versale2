@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Button, Textarea, Card } from "@/components/ui";
+import { SellerReplyBlock } from "@/components/products/seller-reply-block";
 import type { ProductQuestion } from "@/lib/types";
 
 export function ProductQuestions({
@@ -25,6 +26,15 @@ export function ProductQuestions({
   const [answeringId, setAnsweringId] = useState<string | null>(null);
   const [answerText, setAnswerText] = useState("");
 
+  // Read in the (async) mutation callbacks below to check "is this response
+  // for the question still open in the editor" against the *latest* value,
+  // not whatever `answeringId` this callback's own closure happened to
+  // capture when the mutation was created.
+  const answeringIdRef = useRef(answeringId);
+  useEffect(() => {
+    answeringIdRef.current = answeringId;
+  }, [answeringId]);
+
   // Questions are embedded in GET /products/:id (see ProductsService#findOne),
   // so refreshing that same cached product after any mutation here is enough
   // to show the result — no separate questions query to keep in sync.
@@ -38,7 +48,6 @@ export function ProductQuestions({
     onSuccess: () => {
       invalidate();
       setQuestionText("");
-      setError(null);
     },
     onError: (err) =>
       setError(extractApiError(err, "No pudimos enviar tu pregunta")),
@@ -48,11 +57,16 @@ export function ProductQuestions({
     mutationFn: async ({ id, answer }: { id: string; answer: string }) => {
       await api.patch(`/questions/${id}/answer`, { answer });
     },
-    onSuccess: () => {
+    // Only clears the editor if it's still open on the question this
+    // response is actually for — otherwise a slow save for question A
+    // completing after the seller has already moved on to answering
+    // question B would wipe B's in-progress draft out from under them.
+    onSuccess: (_data, variables) => {
       invalidate();
-      setAnsweringId(null);
-      setAnswerText("");
-      setError(null);
+      if (answeringIdRef.current === variables.id) {
+        setAnsweringId(null);
+        setAnswerText("");
+      }
     },
     onError: (err) =>
       setError(extractApiError(err, "No pudimos guardar la respuesta")),
@@ -62,10 +76,7 @@ export function ProductQuestions({
     mutationFn: async (id: string) => {
       await api.delete(`/questions/${id}`);
     },
-    onSuccess: () => {
-      invalidate();
-      setError(null);
-    },
+    onSuccess: () => invalidate(),
     onError: (err) =>
       setError(extractApiError(err, "No pudimos eliminar la pregunta")),
   });
@@ -76,10 +87,37 @@ export function ProductQuestions({
     askQuestion.mutate();
   };
 
+  // Switching to a different question's answer box while the current one has
+  // unsaved text would otherwise silently discard it — this is the only
+  // place that can happen, since submitting or cancelling both clear it
+  // through their own paths.
+  const startAnswering = (q: ProductQuestion) => {
+    if (
+      answeringId &&
+      answeringId !== q.id &&
+      answerText.trim() &&
+      !confirm(
+        "Tienes una respuesta sin guardar. ¿Descartarla y responder esta otra pregunta?",
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setAnsweringId(q.id);
+    setAnswerText(q.answer ?? "");
+  };
+
   const handleAnswerSubmit = (e: React.FormEvent, id: string) => {
     e.preventDefault();
     setError(null);
     answerQuestion.mutate({ id, answer: answerText });
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm("¿Eliminar esta pregunta?")) {
+      setError(null);
+      deleteQuestion.mutate(id);
+    }
   };
 
   return (
@@ -108,14 +146,7 @@ export function ProductQuestions({
                 {new Date(q.createdAt).toLocaleDateString("es-CO")}
               </p>
 
-              {q.answer && (
-                <div className="mt-3 rounded-md border border-border bg-surface-muted p-3">
-                  <p className="text-xs font-semibold text-text-primary">
-                    Respuesta del vendedor
-                  </p>
-                  <p className="mt-1 text-sm text-text-primary">{q.answer}</p>
-                </div>
-              )}
+              {q.answer && <SellerReplyBlock text={q.answer} />}
 
               <div className="mt-3 flex flex-wrap gap-2">
                 {isOwn &&
@@ -129,12 +160,15 @@ export function ProductQuestions({
                         value={answerText}
                         onChange={(e) => setAnswerText(e.target.value)}
                         rows={2}
+                        maxLength={1000}
                       />
                       <div className="flex gap-2">
                         <Button
                           type="submit"
                           size="sm"
-                          disabled={answerQuestion.isPending}
+                          disabled={
+                            answerQuestion.isPending || !answerText.trim()
+                          }
                         >
                           {answerQuestion.isPending
                             ? "Guardando…"
@@ -155,10 +189,7 @@ export function ProductQuestions({
                     <Button
                       size="sm"
                       variant="secondary"
-                      onClick={() => {
-                        setAnsweringId(q.id);
-                        setAnswerText(q.answer ?? "");
-                      }}
+                      onClick={() => startAnswering(q)}
                     >
                       {q.answer ? "Editar respuesta" : "Responder"}
                     </Button>
@@ -168,12 +199,11 @@ export function ProductQuestions({
                   <Button
                     size="sm"
                     variant="danger"
-                    onClick={() => {
-                      if (confirm("¿Eliminar esta pregunta?")) {
-                        deleteQuestion.mutate(q.id);
-                      }
-                    }}
-                    disabled={deleteQuestion.isPending}
+                    onClick={() => handleDelete(q.id)}
+                    disabled={
+                      deleteQuestion.isPending &&
+                      deleteQuestion.variables === q.id
+                    }
                   >
                     Eliminar
                   </Button>
