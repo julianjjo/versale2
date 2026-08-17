@@ -92,16 +92,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [router, clearAuthState]);
 
+  // Shared by login() and signup(): drops any queries cached under the
+  // previous (possibly anonymous or different-user) session before adopting
+  // the new one.
+  const adoptSession = useCallback(
+    (data: AuthResponse) => {
+      queryClient.clear();
+      tokenStore.set(data.access_token);
+      setUser(data.user);
+    },
+    [queryClient],
+  );
+
   const login = async (email: string, password: string) => {
     const res = await api.post<AuthResponse>("/auth/login", {
       email,
       password,
     });
-    // Drop any queries cached under the previous (possibly anonymous or
-    // different-user) session before adopting the new one.
-    queryClient.clear();
-    tokenStore.set(res.data.access_token);
-    setUser(res.data.user);
+    adoptSession(res.data);
   };
 
   const signup = async (email: string, name: string, password: string) => {
@@ -110,9 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       name,
       password,
     });
-    queryClient.clear();
-    tokenStore.set(res.data.access_token);
-    setUser(res.data.user);
+    adoptSession(res.data);
   };
 
   const logout = () => {
