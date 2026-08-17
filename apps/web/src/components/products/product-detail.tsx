@@ -608,7 +608,15 @@ export function ProductDetail({
                     size="sm"
                     variant={review.votedByMe ? "accent" : "secondary"}
                     className="mt-3"
-                    disabled={toggleHelpful.isPending}
+                    // `toggleHelpful` is one mutation shared by every review
+                    // card, so disabling on `isPending` alone would lock every
+                    // OTHER review's button too while this one's request is in
+                    // flight — checking `variables` scopes the disabled state
+                    // to the review that was actually clicked.
+                    disabled={
+                      toggleHelpful.isPending &&
+                      toggleHelpful.variables?.reviewId === review.id
+                    }
                     aria-pressed={!!review.votedByMe}
                     onClick={() => handleToggleHelpful(review)}
                   >

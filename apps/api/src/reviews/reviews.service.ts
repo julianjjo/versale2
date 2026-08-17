@@ -170,16 +170,45 @@ export class ReviewsService {
       );
     }
 
-    await this.prisma.client.reviewHelpfulVote.upsert({
-      where: { reviewId_userId: { reviewId, userId } },
-      update: {},
-      create: { reviewId, userId },
-    });
+    try {
+      await this.prisma.client.reviewHelpfulVote.upsert({
+        where: { reviewId_userId: { reviewId, userId } },
+        update: {},
+        create: { reviewId, userId },
+      });
+    } catch (error) {
+      translatePrismaError(error, {
+        // The review existed one query ago but can vanish before this write
+        // lands (its author deletes it, or admin moderation removes it) —
+        // the upsert's FK on reviewId then fails instead of silently
+        // creating an orphaned vote.
+        P2003: () => {
+          throw new NotFoundException(
+            `No se encontró la reseña con ID ${reviewId}`,
+          );
+        },
+      });
+    }
 
-    return this.getHelpfulSummary(reviewId, userId);
+    return this.getHelpfulSummary(reviewId, true);
   }
 
   async unmarkHelpful(reviewId: string, userId: string) {
+    // Mirrors markHelpful's own existence check: without it, unmarking a
+    // vote on a reviewId that never existed still 404s (via P2025 below),
+    // but with the wrong message — "you haven't voted" instead of "this
+    // review doesn't exist".
+    const review = await this.prisma.client.review.findUnique({
+      where: { id: reviewId },
+      select: { id: true },
+    });
+
+    if (!review) {
+      throw new NotFoundException(
+        `No se encontró la reseña con ID ${reviewId}`,
+      );
+    }
+
     try {
       await this.prisma.client.reviewHelpfulVote.delete({
         where: { reviewId_userId: { reviewId, userId } },
@@ -195,19 +224,19 @@ export class ReviewsService {
       });
     }
 
-    return this.getHelpfulSummary(reviewId, userId);
+    return this.getHelpfulSummary(reviewId, false);
   }
 
-  private async getHelpfulSummary(reviewId: string, userId: string) {
-    const [helpfulCount, myVote] = await Promise.all([
-      this.prisma.client.reviewHelpfulVote.count({ where: { reviewId } }),
-      this.prisma.client.reviewHelpfulVote.findUnique({
-        where: { reviewId_userId: { reviewId, userId } },
-        select: { id: true },
-      }),
-    ]);
+  // `votedByMe` is passed in rather than re-queried: by the time either
+  // caller reaches here, its own upsert/delete already settled that fact
+  // for this exact (reviewId, userId) pair — only the aggregate count can
+  // still change from other users' concurrent votes.
+  private async getHelpfulSummary(reviewId: string, votedByMe: boolean) {
+    const helpfulCount = await this.prisma.client.reviewHelpfulVote.count({
+      where: { reviewId },
+    });
 
-    return { helpfulCount, votedByMe: !!myVote };
+    return { helpfulCount, votedByMe };
   }
 
   async remove(id: string, userId: string, role: Role) {

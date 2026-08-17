@@ -502,9 +502,6 @@ describe('ReviewsService', () => {
       });
       mockPrismaService.client.reviewHelpfulVote.upsert.mockResolvedValue({});
       mockPrismaService.client.reviewHelpfulVote.count.mockResolvedValue(3);
-      mockPrismaService.client.reviewHelpfulVote.findUnique.mockResolvedValue({
-        id: 'vote1',
-      });
 
       const result = await service.markHelpful(reviewId, userId);
 
@@ -515,6 +512,12 @@ describe('ReviewsService', () => {
         update: {},
         create: { reviewId, userId },
       });
+      expect(
+        mockPrismaService.client.reviewHelpfulVote.count,
+      ).toHaveBeenCalledWith({ where: { reviewId } });
+      expect(
+        mockPrismaService.client.reviewHelpfulVote.findUnique,
+      ).not.toHaveBeenCalled();
       expect(result).toEqual({ helpfulCount: 3, votedByMe: true });
     });
 
@@ -524,9 +527,6 @@ describe('ReviewsService', () => {
       });
       mockPrismaService.client.reviewHelpfulVote.upsert.mockResolvedValue({});
       mockPrismaService.client.reviewHelpfulVote.count.mockResolvedValue(1);
-      mockPrismaService.client.reviewHelpfulVote.findUnique.mockResolvedValue({
-        id: 'vote1',
-      });
 
       await expect(
         service.markHelpful('review1', 'buyer1'),
@@ -561,6 +561,25 @@ describe('ReviewsService', () => {
         mockPrismaService.client.reviewHelpfulVote.upsert,
       ).not.toHaveBeenCalled();
     });
+
+    it('translates a mid-flight review deletion (P2003) into a clean NotFoundException', async () => {
+      mockPrismaService.client.review.findUnique.mockResolvedValue({
+        userId: 'author1',
+      });
+      mockPrismaService.client.reviewHelpfulVote.upsert.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError(
+          'Foreign key constraint failed',
+          { code: 'P2003', clientVersion: 'test' },
+        ),
+      );
+
+      await expect(
+        service.markHelpful('review1', 'buyer1'),
+      ).rejects.toThrow(NotFoundException);
+      await expect(
+        service.markHelpful('review1', 'buyer1'),
+      ).rejects.toThrow('No se encontró la reseña con ID review1');
+    });
   });
 
   describe('unmarkHelpful', () => {
@@ -568,11 +587,11 @@ describe('ReviewsService', () => {
       const reviewId = 'review1';
       const userId = 'buyer1';
 
+      mockPrismaService.client.review.findUnique.mockResolvedValue({
+        id: reviewId,
+      });
       mockPrismaService.client.reviewHelpfulVote.delete.mockResolvedValue({});
       mockPrismaService.client.reviewHelpfulVote.count.mockResolvedValue(0);
-      mockPrismaService.client.reviewHelpfulVote.findUnique.mockResolvedValue(
-        null,
-      );
 
       const result = await service.unmarkHelpful(reviewId, userId);
 
@@ -581,10 +600,30 @@ describe('ReviewsService', () => {
       ).toHaveBeenCalledWith({
         where: { reviewId_userId: { reviewId, userId } },
       });
+      expect(
+        mockPrismaService.client.reviewHelpfulVote.findUnique,
+      ).not.toHaveBeenCalled();
       expect(result).toEqual({ helpfulCount: 0, votedByMe: false });
     });
 
+    it('throws NotFoundException when the review does not exist', async () => {
+      mockPrismaService.client.review.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.unmarkHelpful('nonexistent', 'buyer1'),
+      ).rejects.toThrow(NotFoundException);
+      await expect(
+        service.unmarkHelpful('nonexistent', 'buyer1'),
+      ).rejects.toThrow('No se encontró la reseña con ID nonexistent');
+      expect(
+        mockPrismaService.client.reviewHelpfulVote.delete,
+      ).not.toHaveBeenCalled();
+    });
+
     it('translates a concurrent double-unvote (P2025) into a clean NotFoundException', async () => {
+      mockPrismaService.client.review.findUnique.mockResolvedValue({
+        id: 'review1',
+      });
       mockPrismaService.client.reviewHelpfulVote.delete.mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError('No record found', {
           code: 'P2025',
