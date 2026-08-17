@@ -83,7 +83,12 @@ describe('OrdersController', () => {
       const mockReq = {
         user: { id: userId, email: 'test@example.com', role: 'USER' },
       } as AuthRequest;
-      const query = { search: 'chaqueta', status: 'PAID', page: '1', limit: '10' };
+      const query = {
+        search: 'chaqueta',
+        status: 'PAID',
+        page: '1',
+        limit: '10',
+      };
 
       const mockResult = {
         data: [{ id: 'order1', userId, totalAmount: 100.0 }],
@@ -316,7 +321,11 @@ describe('OrdersController', () => {
           // stand-in so they don't crash on `undefined.id`.
           canActivate: (context: ExecutionContext) => {
             const req = context.switchToHttp().getRequest();
-            req.user = { id: 'seller1', email: 'seller@example.com', role: 'USER' };
+            req.user = {
+              id: 'seller1',
+              email: 'seller@example.com',
+              role: 'USER',
+            };
             return true;
           },
         })

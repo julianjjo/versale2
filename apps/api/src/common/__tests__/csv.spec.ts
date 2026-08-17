@@ -1,4 +1,4 @@
-import { toCsv } from '../csv';
+import { toCsv, withExcelCompat } from '../csv';
 
 describe('toCsv', () => {
   it('writes the header row followed by one row per input item', () => {
@@ -57,5 +57,43 @@ describe('toCsv', () => {
     ]);
 
     expect(csv).toBe('ID');
+  });
+
+  it.each(['=', '+', '-', '@'])(
+    'prefixes a field beginning with %s with a quote to neutralize spreadsheet formula injection',
+    (trigger) => {
+      const csv = toCsv(
+        [{ name: `${trigger}2+2` }],
+        [{ header: 'Nombre', value: (r) => r.name }],
+      );
+
+      expect(csv).toBe(`Nombre\r\n'${trigger}2+2`);
+    },
+  );
+
+  it('does not prefix a field that merely contains a formula-trigger character mid-string', () => {
+    const csv = toCsv(
+      [{ note: 'total: -5' }],
+      [{ header: 'Nota', value: (r) => r.note }],
+    );
+
+    expect(csv).toBe('Nota\r\ntotal: -5');
+  });
+
+  it('quotes a neutralized field that also needs RFC 4180 escaping', () => {
+    const csv = toCsv(
+      [{ formula: '=A1,B1' }],
+      [{ header: 'Fórmula', value: (r) => r.formula }],
+    );
+
+    expect(csv).toBe('Fórmula\r\n"\'=A1,B1"');
+  });
+});
+
+describe('withExcelCompat', () => {
+  it('prepends a UTF-8 BOM and a sep=, hint line before the given body', () => {
+    const result = withExcelCompat('ID,Nombre\r\n1,Ana');
+
+    expect(result).toBe('\uFEFFsep=,\r\nID,Nombre\r\n1,Ana');
   });
 });

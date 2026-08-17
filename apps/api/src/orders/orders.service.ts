@@ -11,7 +11,7 @@ import { MAX_ITEM_QUANTITY } from '../cart/dto/cart.dto';
 import { Role } from '../users/role.enum';
 import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
-import { toCsv } from '../common/csv';
+import { toCsv, withExcelCompat } from '../common/csv';
 
 // exportOrdersCsv() has no pagination UI to bound it the way getAllOrders()
 // has — it hands back every matching row in one response — so this is a hard
@@ -32,6 +32,21 @@ function formatShippingAddress(address: unknown): string {
         typeof value === 'string' && value.trim() !== '',
     )
     .join(', ');
+}
+
+// Shared by getAllOrders() (admin) and exportOrdersCsv() — both search the
+// same admin-facing order list by the same three fields, so they'd otherwise
+// drift into two copies of the identical filter.
+function buildOrderSearchWhere(search: any): any {
+  if (!search) return {};
+  const term = String(search);
+  return {
+    OR: [
+      { id: { contains: term } },
+      { user: { is: { name: { contains: term } } } },
+      { user: { is: { email: { contains: term } } } },
+    ],
+  };
 }
 
 // Legal moves of the order lifecycle. DELIVERED and CANCELLED are terminal, and
@@ -270,15 +285,7 @@ export class OrdersService {
     const { search, page, limit } = query ?? {};
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
-    const where: any = {};
-    if (search) {
-      const term = String(search);
-      where.OR = [
-        { id: { contains: term } },
-        { user: { is: { name: { contains: term } } } },
-        { user: { is: { email: { contains: term } } } },
-      ];
-    }
+    const where: any = buildOrderSearchWhere(search);
 
     const [orders, total] = await Promise.all([
       this.prisma.client.order.findMany({
@@ -311,28 +318,26 @@ export class OrdersService {
   // not one page of it.
   async exportOrdersCsv(query: any = {}) {
     const { search } = query ?? {};
+    const where: any = buildOrderSearchWhere(search);
 
-    const where: any = {};
-    if (search) {
-      const term = String(search);
-      where.OR = [
-        { id: { contains: term } },
-        { user: { is: { name: { contains: term } } } },
-        { user: { is: { email: { contains: term } } } },
-      ];
-    }
+    // The admin uses this file for record-keeping and dispute resolution, so
+    // a silently-truncated export would be worse than none at all — hence
+    // the count alongside the capped findMany, purely to know whether to
+    // warn.
+    const [orders, total] = await Promise.all([
+      this.prisma.client.order.findMany({
+        where,
+        take: MAX_EXPORT_ROWS,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { name: true, email: true } },
+          _count: { select: { items: true } },
+        },
+      }),
+      this.prisma.client.order.count({ where }),
+    ]);
 
-    const orders = await this.prisma.client.order.findMany({
-      where,
-      take: MAX_EXPORT_ROWS,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: { select: { name: true, email: true } },
-        _count: { select: { items: true } },
-      },
-    });
-
-    return toCsv(orders, [
+    const csv = toCsv(orders, [
       { header: 'ID', value: (o) => o.id },
       { header: 'Comprador', value: (o) => o.user?.name },
       { header: 'Correo', value: (o) => o.user?.email },
@@ -346,6 +351,16 @@ export class OrdersService {
       { header: 'Guía de envío', value: (o) => o.trackingNumber },
       { header: 'Creado', value: (o) => o.createdAt.toISOString() },
     ]);
+
+    // `orderBy: createdAt desc` means a truncation always drops the OLDEST
+    // matches — exactly the ones a months-old dispute would need — so the
+    // warning has to name the gap, not just gesture at "there's more".
+    const notice =
+      total > MAX_EXPORT_ROWS
+        ? `Mostrando los ${MAX_EXPORT_ROWS} pedidos más recientes de ${total} que coinciden con la búsqueda. Refina la búsqueda para ver el resto.\r\n`
+        : '';
+
+    return withExcelCompat(notice + csv);
   }
 
   // Dashboard totals, aggregated by the database. The admin overview used to

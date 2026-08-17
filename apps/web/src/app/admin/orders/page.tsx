@@ -6,7 +6,7 @@ import {
   useQueryClient,
   keepPreviousData,
 } from "@tanstack/react-query";
-import { api, extractApiError } from "@/lib/api";
+import { api, extractApiError, extractBlobApiError } from "@/lib/api";
 import {
   Spinner,
   Card,
@@ -82,9 +82,13 @@ export default function AdminOrdersPage() {
       link.href = url;
       link.download = "pedidos.csv";
       link.click();
-      URL.revokeObjectURL(url);
+      // Revoking synchronously right after click() races Safari's download
+      // kickoff (which isn't guaranteed synchronous) and can truncate the
+      // file — yielding a tick first is the standard fix; Chrome/Firefox are
+      // unaffected either way.
+      setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch (err) {
-      setError(extractApiError(err, "No pudimos generar el archivo CSV"));
+      setError(await extractBlobApiError(err, "No pudimos generar el archivo CSV"));
     } finally {
       setIsExporting(false);
     }
