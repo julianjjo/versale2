@@ -158,6 +158,19 @@ describe('ProductsService', () => {
             orderBy: { createdAt: 'desc' },
           },
           _count: { select: { reviews: true } },
+          questions: {
+            select: {
+              id: true,
+              productId: true,
+              question: true,
+              answer: true,
+              answeredAt: true,
+              createdAt: true,
+              askerId: true,
+              asker: { select: { id: true, name: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+          },
         },
       });
       expect(result).toEqual(mockProduct);
