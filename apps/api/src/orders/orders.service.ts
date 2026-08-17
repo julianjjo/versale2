@@ -11,6 +11,28 @@ import { MAX_ITEM_QUANTITY } from '../cart/dto/cart.dto';
 import { Role } from '../users/role.enum';
 import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
+import { toCsv } from '../common/csv';
+
+// exportOrdersCsv() has no pagination UI to bound it the way getAllOrders()
+// has — it hands back every matching row in one response — so this is a hard
+// technical ceiling rather than a page size, matching
+// FavoritesService#findAllIds's own MAX_FAVORITE_IDS.
+const MAX_EXPORT_ROWS = 5000;
+
+// The admin export's one address column has to render the same untyped Json
+// blob apps/web/src/app/cart/page.tsx's addressFieldValue() already treats
+// defensively (never assume a shape, never let a non-string field like a
+// pasted array reach display).
+function formatShippingAddress(address: unknown): string {
+  if (!address || typeof address !== 'object') return '';
+  const a = address as Record<string, unknown>;
+  return [a.street, a.city, a.state, a.zip, a.country]
+    .filter(
+      (value): value is string =>
+        typeof value === 'string' && value.trim() !== '',
+    )
+    .join(', ');
+}
 
 // Legal moves of the order lifecycle. DELIVERED and CANCELLED are terminal, and
 // an order can only be cancelled while it has not shipped yet.
@@ -281,6 +303,49 @@ export class OrdersService {
         pages: Math.ceil(total / limitNum),
       },
     };
+  }
+
+  // Mirrors getAllOrders()'s own `search` filter so "download what I'm
+  // looking at" actually matches the admin's current search — but unpaged
+  // (up to MAX_EXPORT_ROWS) since a CSV is meant to be the whole result set,
+  // not one page of it.
+  async exportOrdersCsv(query: any = {}) {
+    const { search } = query ?? {};
+
+    const where: any = {};
+    if (search) {
+      const term = String(search);
+      where.OR = [
+        { id: { contains: term } },
+        { user: { is: { name: { contains: term } } } },
+        { user: { is: { email: { contains: term } } } },
+      ];
+    }
+
+    const orders = await this.prisma.client.order.findMany({
+      where,
+      take: MAX_EXPORT_ROWS,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { name: true, email: true } },
+        _count: { select: { items: true } },
+      },
+    });
+
+    return toCsv(orders, [
+      { header: 'ID', value: (o) => o.id },
+      { header: 'Comprador', value: (o) => o.user?.name },
+      { header: 'Correo', value: (o) => o.user?.email },
+      { header: 'Estado', value: (o) => ORDER_STATUS_LABEL[o.status] },
+      { header: 'Total', value: (o) => o.totalAmount },
+      { header: 'Productos', value: (o) => o._count.items },
+      {
+        header: 'Dirección de envío',
+        value: (o) => formatShippingAddress(o.shippingAddress),
+      },
+      { header: 'Guía de envío', value: (o) => o.trackingNumber },
+      { header: 'Creado', value: (o) => o.createdAt.toISOString() },
+    ]);
   }
 
   // Dashboard totals, aggregated by the database. The admin overview used to

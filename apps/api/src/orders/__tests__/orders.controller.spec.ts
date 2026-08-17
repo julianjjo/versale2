@@ -23,6 +23,7 @@ describe('OrdersController', () => {
     getUserOrders: jest.fn(),
     getOrderById: jest.fn(),
     getAllOrders: jest.fn(),
+    exportOrdersCsv: jest.fn(),
     getOrderStats: jest.fn(),
     updateOrderStatus: jest.fn(),
     cancelOwnOrder: jest.fn(),
@@ -232,6 +233,20 @@ describe('OrdersController', () => {
 
       expect(ordersService.getAllOrders).toHaveBeenCalledWith(query);
       expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('exportOrders', () => {
+    it('should call ordersService.exportOrdersCsv with query and return the CSV body', async () => {
+      const query = { search: 'ana' };
+      const csv = 'ID,Comprador\r\norder1,Ana';
+
+      mockOrdersService.exportOrdersCsv.mockResolvedValue(csv);
+
+      const result = await controller.exportOrders(query);
+
+      expect(ordersService.exportOrdersCsv).toHaveBeenCalledWith(query);
+      expect(result).toBe(csv);
     });
   });
 

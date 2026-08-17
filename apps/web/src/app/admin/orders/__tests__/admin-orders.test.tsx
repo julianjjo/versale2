@@ -142,4 +142,68 @@ describe("AdminOrdersPage", () => {
       { timeout: 5000 },
     );
   });
+
+  it("descarga el CSV de pedidos con el término de búsqueda actual", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.startsWith("/orders/admin/export")) {
+        return { data: new Blob(["ID,Comprador"], { type: "text/csv" }) };
+      }
+      return { data: paginated([orderFixture("aaaaaaaa1")]) };
+    });
+    // jsdom no implementa la API real de Blob URLs — solo verificamos que se
+    // invoque, no el manejo del archivo en sí (fuera del alcance de un test
+    // de componente).
+    const createObjectURL = vi.fn().mockReturnValue("blob:mock");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { ...URL, createObjectURL, revokeObjectURL });
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AdminOrdersPage />
+      </TestProviders>,
+    );
+
+    await screen.findByText(/Pedido #aaaaaaaa/, undefined, { timeout: 5000 });
+    await user.click(screen.getByRole("button", { name: "Descargar CSV" }));
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith(
+        "/orders/admin/export?search=",
+        { responseType: "blob" },
+      );
+    });
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(clickSpy).toHaveBeenCalled();
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:mock");
+
+    clickSpy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it("muestra un error si la exportación a CSV falla", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.startsWith("/orders/admin/export")) {
+        throw new Error("500");
+      }
+      return { data: paginated([orderFixture("aaaaaaaa1")]) };
+    });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AdminOrdersPage />
+      </TestProviders>,
+    );
+
+    await screen.findByText(/Pedido #aaaaaaaa/, undefined, { timeout: 5000 });
+    await user.click(screen.getByRole("button", { name: "Descargar CSV" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("500");
+    });
+  });
 });

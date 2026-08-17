@@ -819,6 +819,94 @@ describe('OrdersService', () => {
     });
   });
 
+  describe('exportOrdersCsv', () => {
+    it('returns a CSV with one row per order, Spanish status labels, and no pagination args', async () => {
+      const mockOrders = [
+        {
+          id: 'order1',
+          status: OrderStatus.PAID,
+          totalAmount: 50000,
+          trackingNumber: 'ABC123',
+          shippingAddress: {
+            street: 'Calle 1',
+            city: 'Bogotá',
+            state: 'Cundinamarca',
+            zip: '110111',
+            country: 'Colombia',
+          },
+          createdAt: new Date('2026-01-15T10:00:00.000Z'),
+          user: { name: 'Ana Gómez', email: 'ana@example.com' },
+          _count: { items: 2 },
+        },
+      ];
+
+      mockPrismaService.client.order.findMany.mockResolvedValue(mockOrders);
+
+      const csv = await service.exportOrdersCsv();
+
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
+        where: {},
+        take: 5000,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { name: true, email: true } },
+          _count: { select: { items: true } },
+        },
+      });
+      expect(csv).toBe(
+        'ID,Comprador,Correo,Estado,Total,Productos,Dirección de envío,Guía de envío,Creado\r\n' +
+          'order1,Ana Gómez,ana@example.com,Pagado,50000,2,"Calle 1, Bogotá, Cundinamarca, 110111, Colombia",ABC123,2026-01-15T10:00:00.000Z',
+      );
+    });
+
+    it('filters by buyer name, buyer email, or order id when search is provided', async () => {
+      mockPrismaService.client.order.findMany.mockResolvedValue([]);
+
+      await service.exportOrdersCsv({ search: 'ana@example.com' });
+
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              { id: { contains: 'ana@example.com' } },
+              { user: { is: { name: { contains: 'ana@example.com' } } } },
+              { user: { is: { email: { contains: 'ana@example.com' } } } },
+            ],
+          },
+        }),
+      );
+    });
+
+    it('renders just the header row when there are no matching orders', async () => {
+      mockPrismaService.client.order.findMany.mockResolvedValue([]);
+
+      const csv = await service.exportOrdersCsv();
+
+      expect(csv).toBe(
+        'ID,Comprador,Correo,Estado,Total,Productos,Dirección de envío,Guía de envío,Creado',
+      );
+    });
+
+    it('renders an incomplete shipping address by only joining the fields present', async () => {
+      mockPrismaService.client.order.findMany.mockResolvedValue([
+        {
+          id: 'order1',
+          status: OrderStatus.PENDING,
+          totalAmount: 1000,
+          trackingNumber: null,
+          shippingAddress: { street: 'Calle 1', city: 'Bogotá' },
+          createdAt: new Date('2026-01-15T10:00:00.000Z'),
+          user: { name: 'Ana', email: 'ana@example.com' },
+          _count: { items: 1 },
+        },
+      ]);
+
+      const csv = await service.exportOrdersCsv();
+
+      expect(csv).toContain('"Calle 1, Bogotá"');
+    });
+  });
+
   describe('getOrderStats', () => {
     it('should aggregate in the database with groupBy instead of loading orders into JS', async () => {
       mockPrismaService.client.order.groupBy.mockResolvedValue([]);
