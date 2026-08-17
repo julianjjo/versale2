@@ -33,7 +33,6 @@ function foreignKeyViolationError() {
 
 describe('ProductsService', () => {
   let service: ProductsService;
-  let prismaService: PrismaService;
 
   const mockPrismaService = {
     client: {
@@ -67,7 +66,6 @@ describe('ProductsService', () => {
     }).compile();
 
     service = module.get<ProductsService>(ProductsService);
-    prismaService = module.get<PrismaService>(PrismaService);
     // findOne() always fires this alongside the product read now, whether or
     // not a test cares about verifiedPurchase — default to "never sold" so
     // every other findOne test doesn't have to set this up itself.
@@ -76,6 +74,11 @@ describe('ProductsService', () => {
     // not a test cares about ratings — default to "no reviews yet" so every
     // other findAll test doesn't have to set this up itself.
     mockPrismaService.client.review.groupBy.mockResolvedValue([]);
+    // findOne() fires a fire-and-forget view-count increment for any
+    // non-owner requester — default it to a resolved promise so every other
+    // findOne test doesn't have to stub it just to avoid an unhandled
+    // rejection.
+    mockPrismaService.client.product.update.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -311,9 +314,9 @@ describe('ProductsService', () => {
                   where: { userId: requester.id },
                   select: { id: true },
                 },
-              }),
-            }),
-          }),
+              }) as Record<string, unknown>,
+            }) as Record<string, unknown>,
+          }) as Record<string, unknown>,
         }),
       );
       expect(result.reviews[0]).toMatchObject({
@@ -472,6 +475,109 @@ describe('ProductsService', () => {
       await expect(
         service.findOne(productId, { id: 'someoneElse', role: Role.USER }),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should record a view for an anonymous visitor', async () => {
+      const productId = 'product1';
+      const mockProduct = {
+        id: productId,
+        sellerId: 'seller1',
+        isApproved: true,
+        reviews: [],
+      };
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+
+      await service.findOne(productId, null);
+
+      expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
+        where: { id: productId },
+        data: { viewCount: { increment: 1 } },
+      });
+    });
+
+    it('should record a view for a buyer who is not the seller', async () => {
+      const productId = 'product1';
+      const mockProduct = {
+        id: productId,
+        sellerId: 'seller1',
+        isApproved: true,
+        reviews: [],
+      };
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+
+      await service.findOne(productId, { id: 'buyer1', role: Role.USER });
+
+      expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
+        where: { id: productId },
+        data: { viewCount: { increment: 1 } },
+      });
+    });
+
+    it('should record a view for an admin browsing the listing', async () => {
+      const productId = 'product1';
+      const mockProduct = {
+        id: productId,
+        sellerId: 'seller1',
+        isApproved: true,
+        reviews: [],
+      };
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+
+      await service.findOne(productId, { id: 'admin1', role: Role.ADMIN });
+
+      expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
+        where: { id: productId },
+        data: { viewCount: { increment: 1 } },
+      });
+    });
+
+    // The view counter exists to tell a seller how much buyer interest their
+    // own listing gets — their own preview visits aren't that signal.
+    it("should not record a view when the requester is the listing's own seller", async () => {
+      const productId = 'product1';
+      const mockProduct = {
+        id: productId,
+        sellerId: 'seller1',
+        isApproved: true,
+        reviews: [],
+      };
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+
+      await service.findOne(productId, { id: 'seller1', role: Role.USER });
+
+      expect(mockPrismaService.client.product.update).not.toHaveBeenCalled();
+    });
+
+    // Regression: the view-count increment is a side effect fired after the
+    // product has already been successfully read — a transient failure
+    // there must not turn an otherwise-successful product page load into a
+    // failed one.
+    it('should still resolve the product read when the view-count increment fails', async () => {
+      const productId = 'product1';
+      const mockProduct = {
+        id: productId,
+        sellerId: 'seller1',
+        isApproved: true,
+        reviews: [],
+      };
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+      mockPrismaService.client.product.update.mockRejectedValue(
+        new Error('product table is down'),
+      );
+
+      await expect(service.findOne(productId, null)).resolves.toEqual(
+        mockProduct,
+      );
     });
   });
 
@@ -865,7 +971,7 @@ describe('ProductsService', () => {
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
         where: { id: 'product1', soldAt: null, isApproved: true },
-        data: { pausedAt: expect.any(Date) },
+        data: { pausedAt: expect.any(Date) as Date },
         include: { seller: { select: { id: true, name: true } } },
       });
       expect(result).toEqual(pausedProduct);
@@ -1558,8 +1664,8 @@ describe('ProductsService', () => {
 
       await service.findAll({ sellerId: 'seller1' });
 
-      const where =
-        mockPrismaService.client.product.findMany.mock.calls[0][0].where;
+      const [[{ where }]] = mockPrismaService.client.product.findMany.mock
+        .calls as [[{ where: { isApproved: boolean; soldAt: unknown } }]];
       expect(where.isApproved).toBe(true);
       expect(where.soldAt).toBeNull();
     });
@@ -1788,8 +1894,8 @@ describe('ProductsService', () => {
 
       await service.getRelatedProducts('p1');
 
-      const where =
-        mockPrismaService.client.product.findMany.mock.calls[0][0].where;
+      const [[{ where }]] = mockPrismaService.client.product.findMany.mock
+        .calls as [[{ where: { id: unknown } }]];
       expect(where.id).toEqual({ not: 'p1' });
     });
 
@@ -1909,7 +2015,9 @@ describe('ProductsService', () => {
         orderBy: { createdAt: 'desc' },
         include: {
           seller: { select: { id: true, name: true } },
-          _count: { select: { reviews: true } },
+          _count: {
+            select: { reviews: true, favoritedBy: true, questions: true },
+          },
         },
       });
       expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
@@ -2069,7 +2177,8 @@ describe('ProductsService', () => {
 
       await service.findAllMine('seller2', { search: 'anything' });
 
-      const [[callArgs]] = mockPrismaService.client.product.findMany.mock.calls;
+      const [[callArgs]] = mockPrismaService.client.product.findMany.mock
+        .calls as [[{ where: { sellerId: string } }]];
       expect(callArgs.where.sellerId).toBe('seller2');
     });
 
@@ -2259,7 +2368,9 @@ describe('ProductsService', () => {
 
       expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ isApproved: false }),
+          where: expect.objectContaining({
+            isApproved: false,
+          }) as Record<string, unknown>,
         }),
       );
     });
@@ -2277,7 +2388,9 @@ describe('ProductsService', () => {
 
       expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ id: { in: ['product1'] } }),
+          where: expect.objectContaining({
+            id: { in: ['product1'] },
+          }) as Record<string, unknown>,
         }),
       );
       expect(result).toEqual({ approved: 1, requested: 1 });
@@ -2377,7 +2490,7 @@ describe('ProductsService', () => {
         where: { id: productId, soldAt: null },
         data: {
           isApproved: false,
-          rejectedAt: expect.any(Date),
+          rejectedAt: expect.any(Date) as Date,
           rejectionReason: 'Fotos borrosas',
         },
       });
@@ -2400,7 +2513,7 @@ describe('ProductsService', () => {
         where: { id: productId, soldAt: null },
         data: {
           isApproved: false,
-          rejectedAt: expect.any(Date),
+          rejectedAt: expect.any(Date) as Date,
           rejectionReason: null,
         },
       });

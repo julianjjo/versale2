@@ -31,7 +31,15 @@ export interface Product {
   updatedAt: string;
   images?: string[] | null;
   seller?: { id: string; name: string };
-  _count?: { reviews: number };
+  // Detail-page views from anyone other than this listing's own seller (see
+  // ProductsService#findOne). Undefined wherever a narrower Prisma `select`
+  // (cart items, order items, favorites) doesn't ask for it — only the
+  // catalog/detail reads and the seller's own /products/mine include it.
+  viewCount?: number;
+  // favoritedBy/questions are only populated on the seller's own listings
+  // (GET /products/mine) alongside viewCount, as the per-listing
+  // performance stats mis-productos renders.
+  _count?: { reviews: number; favoritedBy?: number; questions?: number };
   reviews?: Review[];
   questions?: ProductQuestion[];
   // Populated by the public catalog listing (GET /products) and the
