@@ -1,15 +1,16 @@
-import { Transform } from 'class-transformer';
-import { IsString, IsNotEmpty, MaxLength } from 'class-validator';
-
-// Trim before validating so a whitespace-only reason cannot pass @IsNotEmpty
-// and end up stored (and shown to an admin) as a blank complaint.
-const Trim = () =>
-  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value));
+import { IsEnum, IsString, IsNotEmpty, MaxLength } from 'class-validator';
+import { ReportCategory } from '@prisma/client';
+import { Trim } from '../../common/trim.decorator';
 
 export class CreateReportDto {
   @IsString({ message: 'El producto seleccionado no es válido' })
   @IsNotEmpty({ message: 'Debes indicar el producto que quieres reportar' })
   productId!: string;
+
+  @IsEnum(ReportCategory, {
+    message: 'Selecciona un motivo válido para el reporte',
+  })
+  category!: ReportCategory;
 
   @IsString({ message: 'El motivo debe ser un texto' })
   @IsNotEmpty({ message: 'Cuéntanos por qué estás reportando esta publicación' })

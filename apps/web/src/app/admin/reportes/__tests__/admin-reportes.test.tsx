@@ -23,6 +23,10 @@ function reportsFixture(overrides?: Partial<ProductReport>[]): ProductReport[] {
       productId: "product1",
       reporterId: "user1",
       reason: "Parece una estafa, el precio es demasiado bajo.",
+      category: "FRAUD",
+      status: "OPEN",
+      reviewedById: null,
+      reviewedAt: null,
       createdAt: "2026-08-01T00:00:00.000Z",
       updatedAt: "2026-08-01T00:00:00.000Z",
       reporter: { id: "user1", name: "Usuario Uno" },
@@ -47,7 +51,7 @@ describe("AdminReportsPage", () => {
     vi.clearAllMocks();
   });
 
-  it("muestra el listado de reportes con el producto y el motivo", async () => {
+  it("muestra el listado de reportes con el producto, el motivo y la categoría", async () => {
     vi.mocked(api.get).mockResolvedValue({
       data: paginatedResponse(reportsFixture()),
     });
@@ -66,10 +70,13 @@ describe("AdminReportsPage", () => {
     expect(
       screen.getByText("Parece una estafa, el precio es demasiado bajo."),
     ).toBeInTheDocument();
-    expect(api.get).toHaveBeenCalledWith("/reports/admin/all?page=1&limit=20");
+    expect(screen.getByText("Estafa o fraude")).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith(
+      "/reports/admin/all?status=open&page=1&limit=20",
+    );
   });
 
-  it("muestra un estado vacío cuando no hay reportes", async () => {
+  it("muestra un estado vacío cuando no hay reportes abiertos", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: paginatedResponse([]) });
 
     render(
@@ -79,7 +86,7 @@ describe("AdminReportsPage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("No hay reportes")).toBeInTheDocument();
+      expect(screen.getByText("No hay reportes abiertos")).toBeInTheDocument();
     });
   });
 
@@ -97,7 +104,9 @@ describe("AdminReportsPage", () => {
         screen.getByText("No pudimos cargar los reportes"),
       ).toBeInTheDocument();
     });
-    expect(screen.queryByText("No hay reportes")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("No hay reportes abiertos"),
+    ).not.toBeInTheDocument();
   });
 
   it("muestra 'Producto eliminado' cuando el producto reportado ya no existe", async () => {
@@ -136,9 +145,53 @@ describe("AdminReportsPage", () => {
 
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(
-        "/reports/admin/all?page=2&limit=20",
+        "/reports/admin/all?status=open&page=2&limit=20",
       );
     });
+  });
+
+  it("cambia a la pestaña Descartados y muestra quién y cuándo lo descartó", async () => {
+    const dismissed: ProductReport[] = [
+      {
+        id: "report2",
+        productId: "product2",
+        reporterId: "user2",
+        reason: "Ya no parece sospechoso tras revisarlo.",
+        category: "OTHER",
+        status: "DISMISSED",
+        reviewedById: "admin1",
+        reviewedAt: "2026-08-05T00:00:00.000Z",
+        createdAt: "2026-08-02T00:00:00.000Z",
+        updatedAt: "2026-08-05T00:00:00.000Z",
+        reporter: { id: "user2", name: "Usuario Dos" },
+        reviewer: { id: "admin1", name: "Admin Uno" },
+        product: { id: "product2", title: "Vestido floral" },
+      },
+    ];
+    vi.mocked(api.get).mockResolvedValue({
+      data: paginatedResponse(dismissed),
+    });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AdminReportsPage />
+      </TestProviders>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Descartados" }));
+
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith(
+        "/reports/admin/all?status=dismissed&page=1&limit=20",
+      );
+    });
+    expect(await screen.findByText("Vestido floral")).toBeInTheDocument();
+    expect(screen.getByText(/descartado por admin uno/i)).toBeInTheDocument();
+    // A dismissed report has already been acted on — no more Descartar button.
+    expect(
+      screen.queryByRole("button", { name: /descartar/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("descarta un reporte tras confirmar", async () => {

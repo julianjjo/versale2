@@ -118,14 +118,21 @@ export interface ProductQuestion {
   product?: { id: string; title: string };
 }
 
+export type ReportStatus = "OPEN" | "DISMISSED";
+
 export interface ProductReport {
   id: string;
   productId: string;
   reporterId: string;
   reason: string;
+  category: string;
+  status: ReportStatus;
+  reviewedById: string | null;
+  reviewedAt: string | null;
   createdAt: string;
   updatedAt: string;
   reporter?: { id: string; name: string };
+  reviewer?: { id: string; name: string } | null;
   product?: { id: string; title: string };
 }
 

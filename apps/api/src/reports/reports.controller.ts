@@ -24,7 +24,12 @@ export class ReportsController {
 
   @Post()
   async create(@Req() req: AuthRequest, @Body() body: CreateReportDto) {
-    return this.reportsService.create(req.user.id, body.productId, body.reason);
+    return this.reportsService.create(
+      req.user.id,
+      body.productId,
+      body.reason,
+      body.category,
+    );
   }
 
   @UseGuards(RolesGuard)
@@ -37,7 +42,7 @@ export class ReportsController {
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Delete(':id')
-  async dismiss(@Param('id') id: string) {
-    return this.reportsService.dismiss(id);
+  async dismiss(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.reportsService.dismiss(id, req.user.id);
   }
 }

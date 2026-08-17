@@ -36,6 +36,16 @@ vi.mock("@/lib/api", () => ({
 
 import { api } from "@/lib/api";
 
+// Shared by most tests below: pick a category and type a reason, the two
+// required fields the submit button gates on.
+async function fillForm(user: ReturnType<typeof userEvent.setup>, reason = "Parece una estafa") {
+  await user.selectOptions(
+    screen.getByLabelText(/motivo del reporte/i),
+    "FRAUD",
+  );
+  await user.type(screen.getByLabelText(/cuéntanos más/i), reason);
+}
+
 describe("ReportProductButton", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -90,15 +100,14 @@ describe("ReportProductButton", () => {
       screen.getByRole("button", { name: /reportar publicación/i }),
     );
 
-    expect(
-      screen.getByLabelText(/por qué quieres reportar/i),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/motivo del reporte/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/cuéntanos más/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /enviar reporte/i }),
     ).toBeInTheDocument();
   });
 
-  it("no permite enviar el formulario sin escribir un motivo", async () => {
+  it("no permite enviar el formulario sin escribir un motivo ni elegir una categoría", async () => {
     authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
     const user = userEvent.setup();
     render(
@@ -114,7 +123,27 @@ describe("ReportProductButton", () => {
     expect(screen.getByRole("button", { name: /enviar reporte/i })).toBeDisabled();
   });
 
-  it("envía el reporte y muestra un mensaje de confirmación", async () => {
+  it("no permite enviar con una categoría elegida pero sin motivo escrito", async () => {
+    authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ReportProductButton productId="p1" />
+      </TestProviders>,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /reportar publicación/i }),
+    );
+    await user.selectOptions(
+      screen.getByLabelText(/motivo del reporte/i),
+      "FRAUD",
+    );
+
+    expect(screen.getByRole("button", { name: /enviar reporte/i })).toBeDisabled();
+  });
+
+  it("envía el reporte con la categoría elegida y muestra un mensaje de confirmación", async () => {
     authState.user = { id: "u1", email: "a@b.c", name: "Alice", role: "USER" };
     vi.mocked(api.post).mockResolvedValue({ data: { id: "report1" } });
     const user = userEvent.setup();
@@ -127,15 +156,13 @@ describe("ReportProductButton", () => {
     await user.click(
       screen.getByRole("button", { name: /reportar publicación/i }),
     );
-    await user.type(
-      screen.getByLabelText(/por qué quieres reportar/i),
-      "Parece una estafa",
-    );
+    await fillForm(user, "Parece una estafa");
     await user.click(screen.getByRole("button", { name: /enviar reporte/i }));
 
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith("/reports", {
         productId: "p1",
+        category: "FRAUD",
         reason: "Parece una estafa",
       });
     });
@@ -167,10 +194,7 @@ describe("ReportProductButton", () => {
     await user.click(
       screen.getByRole("button", { name: /reportar publicación/i }),
     );
-    await user.type(
-      screen.getByLabelText(/por qué quieres reportar/i),
-      "Parece una estafa",
-    );
+    await fillForm(user, "Parece una estafa");
     await user.click(screen.getByRole("button", { name: /enviar reporte/i }));
     await screen.findByText(/un administrador revisará esta publicación/i);
 
@@ -206,10 +230,7 @@ describe("ReportProductButton", () => {
     await user.click(
       screen.getByRole("button", { name: /reportar publicación/i }),
     );
-    await user.type(
-      screen.getByLabelText(/por qué quieres reportar/i),
-      "Motivo",
-    );
+    await fillForm(user, "Motivo");
     await user.click(screen.getByRole("button", { name: /enviar reporte/i }));
 
     expect(screen.getByRole("button", { name: /cancelar/i })).toBeDisabled();
@@ -231,10 +252,7 @@ describe("ReportProductButton", () => {
     await user.click(
       screen.getByRole("button", { name: /reportar publicación/i }),
     );
-    await user.type(
-      screen.getByLabelText(/por qué quieres reportar/i),
-      "Motivo",
-    );
+    await fillForm(user, "Motivo");
     await user.click(screen.getByRole("button", { name: /enviar reporte/i }));
 
     expect(
@@ -257,7 +275,7 @@ describe("ReportProductButton", () => {
     await user.click(screen.getByRole("button", { name: /cancelar/i }));
 
     expect(
-      screen.queryByLabelText(/por qué quieres reportar/i),
+      screen.queryByLabelText(/cuéntanos más/i),
     ).not.toBeInTheDocument();
   });
 });

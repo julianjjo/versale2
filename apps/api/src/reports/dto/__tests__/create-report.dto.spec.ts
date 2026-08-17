@@ -1,4 +1,5 @@
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
+import { ReportCategory } from '@prisma/client';
 import { CreateReportDto } from '../create-report.dto';
 
 describe('CreateReportDto with the global ValidationPipe', () => {
@@ -10,34 +11,81 @@ describe('CreateReportDto with the global ValidationPipe', () => {
 
   it('accepts a valid report', async () => {
     const result = await pipe.transform(
-      { productId: 'product1', reason: 'Parece una estafa' },
+      {
+        productId: 'product1',
+        reason: 'Parece una estafa',
+        category: ReportCategory.FRAUD,
+      },
       metadata,
     );
 
-    expect(result).toEqual({ productId: 'product1', reason: 'Parece una estafa' });
+    expect(result).toEqual({
+      productId: 'product1',
+      reason: 'Parece una estafa',
+      category: ReportCategory.FRAUD,
+    });
   });
 
   it('rejects a missing productId', async () => {
     await expect(
-      pipe.transform({ reason: 'Motivo' }, metadata),
+      pipe.transform(
+        { reason: 'Motivo', category: ReportCategory.OTHER },
+        metadata,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects a missing category', async () => {
+    await expect(
+      pipe.transform(
+        { productId: 'product1', reason: 'Motivo' },
+        metadata,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects a category that is not one of the known values', async () => {
+    await expect(
+      pipe.transform(
+        { productId: 'product1', reason: 'Motivo', category: 'NOT_REAL' },
+        metadata,
+      ),
     ).rejects.toThrow(BadRequestException);
   });
 
   it('rejects an empty reason', async () => {
     await expect(
-      pipe.transform({ productId: 'product1', reason: '' }, metadata),
+      pipe.transform(
+        {
+          productId: 'product1',
+          reason: '',
+          category: ReportCategory.OTHER,
+        },
+        metadata,
+      ),
     ).rejects.toThrow(BadRequestException);
   });
 
   it('rejects a whitespace-only reason', async () => {
     await expect(
-      pipe.transform({ productId: 'product1', reason: '   ' }, metadata),
+      pipe.transform(
+        {
+          productId: 'product1',
+          reason: '   ',
+          category: ReportCategory.OTHER,
+        },
+        metadata,
+      ),
     ).rejects.toThrow(BadRequestException);
   });
 
   it('trims the reason before validating and storing it', async () => {
     const result = await pipe.transform(
-      { productId: 'product1', reason: '  Parece una estafa  ' },
+      {
+        productId: 'product1',
+        reason: '  Parece una estafa  ',
+        category: ReportCategory.OTHER,
+      },
       metadata,
     );
 
@@ -47,7 +95,11 @@ describe('CreateReportDto with the global ValidationPipe', () => {
   it('rejects a reason longer than 500 characters', async () => {
     await expect(
       pipe.transform(
-        { productId: 'product1', reason: 'a'.repeat(501) },
+        {
+          productId: 'product1',
+          reason: 'a'.repeat(501),
+          category: ReportCategory.OTHER,
+        },
         metadata,
       ),
     ).rejects.toThrow(BadRequestException);
@@ -58,6 +110,7 @@ describe('CreateReportDto with the global ValidationPipe', () => {
       {
         productId: 'product1',
         reason: 'Parece una estafa',
+        category: ReportCategory.OTHER,
         reporterId: 'someone-else',
       },
       metadata,
@@ -66,6 +119,7 @@ describe('CreateReportDto with the global ValidationPipe', () => {
     expect(result).toEqual({
       productId: 'product1',
       reason: 'Parece una estafa',
+      category: ReportCategory.OTHER,
     });
     expect((result as Record<string, unknown>).reporterId).toBeUndefined();
   });
