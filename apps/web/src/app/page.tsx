@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ProductsBrowser } from "@/components/products/products-browser";
+import { RecentlyViewedSection } from "@/components/products/recently-viewed";
 import { CategoryGrid } from "@/components/marketing/category-grid";
 import { ClosingCTA } from "@/components/marketing/closing-cta";
 
@@ -73,6 +74,8 @@ export default function HomePage() {
       </section>
 
       <ProductsSection />
+
+      <RecentlyViewedSection />
 
       <StorySection />
 

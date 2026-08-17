@@ -96,6 +96,20 @@ export class ProductsService {
     return Array.isArray(value) ? (value as unknown[])[0] : value;
   }
 
+  // Unlike every other findAll filter, `ids` genuinely wants every value, not
+  // just the first — a repeated query param (?ids=a&ids=b) arrives as an
+  // array of individually-encoded values, while a caller building the query
+  // string by hand is more likely to send one comma-separated value
+  // (?ids=a,b); both are accepted so neither shape silently drops ids.
+  private parseIdsFilter(value: unknown): string[] | undefined {
+    const values = Array.isArray(value) ? value : [value];
+    const ids = values
+      .flatMap((v) => (typeof v === 'string' ? v.split(',') : []))
+      .map((v) => v.trim())
+      .filter(Boolean);
+    return ids.length > 0 ? ids : undefined;
+  }
+
   // Shared by rejectProduct (single item) and bulkReject (batch): what
   // "rejecting a product" writes, in one place so the two can't drift apart
   // the way APPROVE_DATA already guards against for approve.
@@ -174,6 +188,7 @@ export class ProductsService {
       category: rawCategory,
       condition: rawCondition,
       sellerId: rawSellerId,
+      ids: rawIds,
       sortBy,
       page = 1,
       limit = 10,
@@ -187,6 +202,7 @@ export class ProductsService {
     const category = this.firstValue(rawCategory);
     const condition = this.firstValue(rawCondition);
     const sellerId = this.firstValue(rawSellerId);
+    const ids = this.parseIdsFilter(rawIds);
 
     // Sold items are one-of-a-kind: once bought they leave the public catalog.
     const where: Prisma.ProductWhereInput = { ...PUBLICLY_VISIBLE };
@@ -201,6 +217,18 @@ export class ProductsService {
     // browsing, never a private preview of unapproved or sold stock.
     if (typeof sellerId === 'string' && sellerId) {
       where.sellerId = sellerId;
+    }
+
+    // Powers the storefront's "recently viewed" rail (a fixed set of ids,
+    // most-recent-first from the visitor's own browser history): reuses the
+    // same public-catalog visibility rule as every other filter here, so a
+    // product that's since sold, been paused, or lost approval silently
+    // drops out of the rail instead of erroring the whole batch — and,
+    // unlike GET /products/:id, this path never touches `viewCount`, since
+    // glancing at a thumbnail card isn't the detail-page interest that
+    // counter exists to measure.
+    if (ids) {
+      where.id = { in: ids };
     }
 
     const priceFilter: Prisma.FloatFilter = {};
