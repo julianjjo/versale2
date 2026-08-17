@@ -254,6 +254,26 @@ describe("AdminProductsPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  // Regression: a currently-approved (not sold) listing can be part of a
+  // bulk-reject batch even though it can't be part of a bulk-approve one —
+  // the checkbox has to appear whenever either bulk action applies.
+  it("ofrece la casilla de selección para una publicación aprobada y no vendida", async () => {
+    const approved = productFixture({
+      id: "p23",
+      title: "Aprobada",
+      isApproved: true,
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([approved]) });
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    const card = await screen.findByTestId("admin-product-p23");
+    expect(within(card).getByLabelText(/seleccionar aprobada/i)).toBeInTheDocument();
+  });
+
   it("aprueba en lote las publicaciones seleccionadas", async () => {
     const first = productFixture({ id: "p30", title: "Primera pendiente" });
     const second = productFixture({ id: "p31", title: "Segunda pendiente" });
@@ -483,6 +503,120 @@ describe("AdminProductsPage", () => {
         ids: ["p60", "p61"],
       });
     });
+  });
+
+  it("rechaza en lote las publicaciones seleccionadas con un motivo compartido", async () => {
+    const first = productFixture({ id: "p70", title: "Primera pendiente" });
+    const second = productFixture({ id: "p71", title: "Segunda pendiente" });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([first, second]) });
+    vi.mocked(api.patch).mockResolvedValue({
+      data: { rejected: 2, requested: 2 },
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("admin-product-p70");
+    await user.click(screen.getByLabelText(/seleccionar primera pendiente/i));
+    await user.click(screen.getByLabelText(/seleccionar segunda pendiente/i));
+
+    await user.click(
+      screen.getByRole("button", { name: "Rechazar seleccionadas" }),
+    );
+
+    const dialog = screen.getByRole("dialog");
+    await user.type(
+      within(dialog).getByLabelText(/motivo/i),
+      "Fotos borrosas",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Rechazar seleccionadas" }),
+    );
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/products/admin/bulk-reject", {
+        ids: ["p70", "p71"],
+        reason: "Fotos borrosas",
+      });
+    });
+    // The selection bar and its checkboxes clear once the batch succeeds,
+    // and the modal closes.
+    await waitFor(() => {
+      expect(screen.queryByText(/seleccionadas$/)).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("cancela el rechazo en lote sin enviar la solicitud", async () => {
+    const only = productFixture({ id: "p72", title: "Única" });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([only]) });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("admin-product-p72");
+    await user.click(screen.getByLabelText(/seleccionar única/i));
+    await user.click(
+      screen.getByRole("button", { name: "Rechazar seleccionadas" }),
+    );
+
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(api.patch).not.toHaveBeenCalled();
+    // The selection itself survives closing the modal — only the reason
+    // draft and the dialog are discarded.
+    expect(screen.getByText("1 seleccionada")).toBeInTheDocument();
+  });
+
+  // Same reasoning as bulkApprove's own shortfall notice: the API's
+  // compare-and-swap can't say which selected ids were already sold,
+  // deleted, or rejected by another admin.
+  it("muestra un aviso, no un error, cuando algunas seleccionadas ya no se pudieron rechazar", async () => {
+    const first = productFixture({ id: "p73", title: "Chaqueta" });
+    const second = productFixture({ id: "p74", title: "Camiseta" });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([first, second]) });
+    vi.mocked(api.patch).mockResolvedValue({
+      data: { rejected: 1, requested: 2 },
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    await screen.findByTestId("admin-product-p73");
+    await user.click(
+      screen.getByLabelText(/seleccionar todas las elegibles en esta página/i),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Rechazar seleccionadas" }),
+    );
+
+    const dialog = screen.getByRole("dialog");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Rechazar seleccionadas" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          /se rechazaron 1 de 2 publicaciones\. las demás ya no estaban disponibles para rechazar\./i,
+        ),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/se rechazaron 1 de 2/i).closest('[role="status"]'),
+    ).not.toBeNull();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("limpia la selección al cambiar de pestaña de estado", async () => {

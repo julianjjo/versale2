@@ -8,7 +8,6 @@ import { AuthRequest } from '../../../src/types/request.types';
 
 describe('ProductsController', () => {
   let controller: ProductsController;
-  let productsService: ProductsService;
 
   const mockProductsService = {
     findAll: jest.fn(),
@@ -26,6 +25,7 @@ describe('ProductsController', () => {
     approveProduct: jest.fn(),
     rejectProduct: jest.fn(),
     bulkApprove: jest.fn(),
+    bulkReject: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -35,7 +35,6 @@ describe('ProductsController', () => {
     }).compile();
 
     controller = module.get<ProductsController>(ProductsController);
-    productsService = module.get<ProductsService>(ProductsService);
   });
 
   afterEach(() => {
@@ -54,7 +53,7 @@ describe('ProductsController', () => {
 
       const result = await controller.findAll(query);
 
-      expect(productsService.findAll).toHaveBeenCalledWith(query);
+      expect(mockProductsService.findAll).toHaveBeenCalledWith(query);
       expect(result).toEqual(mockResult);
     });
   });
@@ -66,7 +65,7 @@ describe('ProductsController', () => {
 
       const result = await controller.getFacets();
 
-      expect(productsService.getFacets).toHaveBeenCalledWith();
+      expect(mockProductsService.getFacets).toHaveBeenCalledWith();
       expect(result).toEqual(mockResult);
     });
   });
@@ -83,7 +82,9 @@ describe('ProductsController', () => {
 
       const result = await controller.getSellerProfile('seller1');
 
-      expect(productsService.getSellerProfile).toHaveBeenCalledWith('seller1');
+      expect(mockProductsService.getSellerProfile).toHaveBeenCalledWith(
+        'seller1',
+      );
       expect(result).toEqual(mockResult);
     });
   });
@@ -95,7 +96,7 @@ describe('ProductsController', () => {
 
       const result = await controller.getRelatedProducts('p1');
 
-      expect(productsService.getRelatedProducts).toHaveBeenCalledWith('p1');
+      expect(mockProductsService.getRelatedProducts).toHaveBeenCalledWith('p1');
       expect(result).toEqual(mockResult);
     });
   });
@@ -118,7 +119,7 @@ describe('ProductsController', () => {
 
       const result = await controller.findOne(productId, mockReq);
 
-      expect(productsService.findOne).toHaveBeenCalledWith(productId, {
+      expect(mockProductsService.findOne).toHaveBeenCalledWith(productId, {
         id: 'user1',
         role: 'USER',
       });
@@ -140,7 +141,7 @@ describe('ProductsController', () => {
 
       const result = await controller.findOne(productId, mockReq);
 
-      expect(productsService.findOne).toHaveBeenCalledWith(productId, null);
+      expect(mockProductsService.findOne).toHaveBeenCalledWith(productId, null);
       expect(result).toEqual(mockProduct);
     });
   });
@@ -171,7 +172,7 @@ describe('ProductsController', () => {
 
       const result = await controller.create(createProductDto, mockReq);
 
-      expect(productsService.create).toHaveBeenCalledWith(
+      expect(mockProductsService.create).toHaveBeenCalledWith(
         createProductDto,
         userId,
       );
@@ -205,7 +206,7 @@ describe('ProductsController', () => {
         mockReq,
       );
 
-      expect(productsService.update).toHaveBeenCalledWith(
+      expect(mockProductsService.update).toHaveBeenCalledWith(
         productId,
         updateProductDto,
         userId,
@@ -238,7 +239,7 @@ describe('ProductsController', () => {
         mockReq,
       );
 
-      expect(productsService.update).toHaveBeenCalledWith(
+      expect(mockProductsService.update).toHaveBeenCalledWith(
         productId,
         updateProductDto,
         userId,
@@ -264,7 +265,7 @@ describe('ProductsController', () => {
 
       const result = await controller.remove(productId, mockReq);
 
-      expect(productsService.remove).toHaveBeenCalledWith(
+      expect(mockProductsService.remove).toHaveBeenCalledWith(
         productId,
         userId,
         'USER',
@@ -287,7 +288,7 @@ describe('ProductsController', () => {
 
       const result = await controller.remove(productId, mockReq);
 
-      expect(productsService.remove).toHaveBeenCalledWith(
+      expect(mockProductsService.remove).toHaveBeenCalledWith(
         productId,
         userId,
         'ADMIN',
@@ -310,7 +311,7 @@ describe('ProductsController', () => {
 
       const result = await controller.pause(productId, mockReq);
 
-      expect(productsService.pauseProduct).toHaveBeenCalledWith(
+      expect(mockProductsService.pauseProduct).toHaveBeenCalledWith(
         productId,
         userId,
         'USER',
@@ -329,7 +330,7 @@ describe('ProductsController', () => {
 
       await controller.pause(productId, mockReq);
 
-      expect(productsService.pauseProduct).toHaveBeenCalledWith(
+      expect(mockProductsService.pauseProduct).toHaveBeenCalledWith(
         productId,
         userId,
         'ADMIN',
@@ -351,7 +352,7 @@ describe('ProductsController', () => {
 
       const result = await controller.unpause(productId, mockReq);
 
-      expect(productsService.unpauseProduct).toHaveBeenCalledWith(
+      expect(mockProductsService.unpauseProduct).toHaveBeenCalledWith(
         productId,
         userId,
         'USER',
@@ -372,7 +373,7 @@ describe('ProductsController', () => {
 
       const result = await controller.findAllForAdmin(query);
 
-      expect(productsService.findAllForAdmin).toHaveBeenCalledWith(query);
+      expect(mockProductsService.findAllForAdmin).toHaveBeenCalledWith(query);
       expect(result).toEqual(mockResult);
     });
   });
@@ -392,7 +393,7 @@ describe('ProductsController', () => {
 
       const result = await controller.findAllMine(query, mockReq);
 
-      expect(productsService.findAllMine).toHaveBeenCalledWith(
+      expect(mockProductsService.findAllMine).toHaveBeenCalledWith(
         'seller1',
         query,
       );
@@ -412,7 +413,9 @@ describe('ProductsController', () => {
 
       const result = await controller.approveProduct(productId);
 
-      expect(productsService.approveProduct).toHaveBeenCalledWith(productId);
+      expect(mockProductsService.approveProduct).toHaveBeenCalledWith(
+        productId,
+      );
       expect(result).toEqual(mockResult);
     });
   });
@@ -426,7 +429,7 @@ describe('ProductsController', () => {
         ids: ['product1', 'product2'],
       });
 
-      expect(productsService.bulkApprove).toHaveBeenCalledWith([
+      expect(mockProductsService.bulkApprove).toHaveBeenCalledWith([
         'product1',
         'product2',
       ]);
@@ -449,7 +452,7 @@ describe('ProductsController', () => {
         reason: 'Descripción incompleta',
       });
 
-      expect(productsService.rejectProduct).toHaveBeenCalledWith(
+      expect(mockProductsService.rejectProduct).toHaveBeenCalledWith(
         productId,
         'Descripción incompleta',
       );
@@ -464,8 +467,41 @@ describe('ProductsController', () => {
 
       const result = await controller.rejectProduct(productId, {});
 
-      expect(productsService.rejectProduct).toHaveBeenCalledWith(
+      expect(mockProductsService.rejectProduct).toHaveBeenCalledWith(
         productId,
+        undefined,
+      );
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('bulkRejectProducts', () => {
+    it('should call productsService.bulkReject with the ids array and reason', async () => {
+      const mockResult = { rejected: 2, requested: 2 };
+      mockProductsService.bulkReject.mockResolvedValue(mockResult);
+
+      const result = await controller.bulkRejectProducts({
+        ids: ['product1', 'product2'],
+        reason: 'Fotos borrosas',
+      });
+
+      expect(mockProductsService.bulkReject).toHaveBeenCalledWith(
+        ['product1', 'product2'],
+        'Fotos borrosas',
+      );
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should call productsService.bulkReject with undefined reason when none is given', async () => {
+      const mockResult = { rejected: 1, requested: 1 };
+      mockProductsService.bulkReject.mockResolvedValue(mockResult);
+
+      const result = await controller.bulkRejectProducts({
+        ids: ['product1'],
+      });
+
+      expect(mockProductsService.bulkReject).toHaveBeenCalledWith(
+        ['product1'],
         undefined,
       );
       expect(result).toEqual(mockResult);
