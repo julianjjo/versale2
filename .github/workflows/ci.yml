@@ -22,6 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -31,11 +33,26 @@ jobs:
       - name: Generate Prisma client
         working-directory: apps/api
         run: npx prisma generate
-      # apps/api has a large pre-existing lint backlog (~1.9k errors); run it
+      # apps/api has a large pre-existing lint backlog (~5.8k errors); run it
       # for visibility but don't block merges on it until that's cleaned up.
       - name: Lint API (non-blocking)
         run: npm run lint --workspace=apps/api
         continue-on-error: true
+      # Mandatory gate: every PR must keep the files it actually touches
+      # lint-clean, even while the pre-existing backlog above is still
+      # being paid down. Only files changed vs. the PR base are linted.
+      - name: Lint changed API files (required)
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin "$GITHUB_BASE_REF" --depth=1
+          CHANGED=$(git diff --name-only --diff-filter=ACMR "origin/$GITHUB_BASE_REF...HEAD" | grep -E '^apps/api/.*\.tsx?$' | sed 's#^apps/api/##' || true)
+          if [ -z "$CHANGED" ]; then
+            echo "No changed API TypeScript files to lint."
+          else
+            echo "Linting changed API files:"
+            echo "$CHANGED"
+            (cd apps/api && echo "$CHANGED" | xargs npx eslint)
+          fi
       - name: Build API
         run: npm run build --workspace=apps/api
       - name: Run API tests
