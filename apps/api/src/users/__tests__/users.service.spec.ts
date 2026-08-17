@@ -10,6 +10,21 @@ import {
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
+// bcryptjs's hash()/compare() are each overloaded (a Promise-returning
+// signature and a Node-callback, void-returning one); jest.spyOn on the
+// bare overloaded function infers a mock whose value type collapses to
+// `never`. Spying through a narrowed, single-signature view of the module
+// picks the Promise overload unambiguously.
+type BcryptHash = (password: string, salt: number | string) => Promise<string>;
+type BcryptCompare = (password: string, hash: string) => Promise<boolean>;
+
+function spyOnBcryptHash() {
+  return jest.spyOn(bcrypt as unknown as { hash: BcryptHash }, 'hash');
+}
+function spyOnBcryptCompare() {
+  return jest.spyOn(bcrypt as unknown as { compare: BcryptCompare }, 'compare');
+}
+
 // Simulates the error Prisma throws when a foreign key with ON DELETE
 // RESTRICT blocks a delete — e.g. deleting a user who still has products,
 // orders, reviews or a cart pointing at them.
@@ -46,7 +61,6 @@ function uniqueConstraintError() {
 
 describe('UsersService', () => {
   let service: UsersService;
-  let prismaService: PrismaService;
 
   const mockUserClient = {
     create: jest.fn(),
@@ -80,7 +94,6 @@ describe('UsersService', () => {
     }).compile();
 
     service = module.get<UsersService>(UsersService);
-    prismaService = module.get<PrismaService>(PrismaService);
   });
 
   afterEach(() => {
@@ -96,9 +109,7 @@ describe('UsersService', () => {
       };
 
       const hashedPassword = 'hashed_password_123';
-      jest
-        .spyOn(bcrypt, 'hash')
-        .mockImplementation(() => Promise.resolve(hashedPassword));
+      spyOnBcryptHash().mockResolvedValue(hashedPassword);
 
       const mockUser = {
         id: 'user1',
@@ -322,9 +333,7 @@ describe('UsersService', () => {
       };
 
       const hashedPassword = 'new_hashed_password';
-      jest
-        .spyOn(bcrypt, 'hash')
-        .mockImplementation(() => Promise.resolve(hashedPassword));
+      spyOnBcryptHash().mockResolvedValue(hashedPassword);
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
       mockPrismaService.client.user.update.mockResolvedValue(mockUpdatedUser);
@@ -369,9 +378,7 @@ describe('UsersService', () => {
 
     it('rejects a self-service password change when the current password is wrong with a 403, not a 401', async () => {
       mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
-      jest
-        .spyOn(bcrypt, 'compare')
-        .mockImplementation(() => Promise.resolve(false));
+      spyOnBcryptCompare().mockResolvedValue(false);
 
       await expect(
         service.update(
@@ -388,12 +395,8 @@ describe('UsersService', () => {
     });
 
     it('changes the password when the current password matches and never persists currentPassword', async () => {
-      jest
-        .spyOn(bcrypt, 'compare')
-        .mockImplementation(() => Promise.resolve(true));
-      jest
-        .spyOn(bcrypt, 'hash')
-        .mockImplementation(() => Promise.resolve('new_hashed_password'));
+      spyOnBcryptCompare().mockResolvedValue(true);
+      spyOnBcryptHash().mockResolvedValue('new_hashed_password');
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
       mockPrismaService.client.user.update.mockResolvedValue(mockUpdatedUser);
@@ -437,9 +440,7 @@ describe('UsersService', () => {
 
     it('keeps the exact Spanish message when the current password is wrong', async () => {
       mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
-      jest
-        .spyOn(bcrypt, 'compare')
-        .mockImplementation(() => Promise.resolve(false));
+      spyOnBcryptCompare().mockResolvedValue(false);
 
       await expect(
         service.update(
@@ -471,9 +472,7 @@ describe('UsersService', () => {
     // kept showing for an email that was never actually verified once the
     // user changed it.
     it('resets isVerified and clears the verification token when the email actually changes', async () => {
-      jest
-        .spyOn(bcrypt, 'compare')
-        .mockImplementation(() => Promise.resolve(true));
+      spyOnBcryptCompare().mockResolvedValue(true);
       mockPrismaService.client.user.findUnique
         // First call: the requester's own record, for the current-password check.
         .mockResolvedValueOnce(storedUser)
@@ -493,15 +492,13 @@ describe('UsersService', () => {
             email: 'new@example.com',
             isVerified: false,
             verificationToken: null,
-          }),
+          }) as Record<string, unknown>,
         }),
       );
     });
 
     it('lets an admin reset another account without its current password', async () => {
-      jest
-        .spyOn(bcrypt, 'hash')
-        .mockImplementation(() => Promise.resolve('admin_reset_hash'));
+      spyOnBcryptHash().mockResolvedValue('admin_reset_hash');
       mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
       mockPrismaService.client.user.update.mockResolvedValue(mockUpdatedUser);
 
@@ -696,7 +693,7 @@ describe('UsersService', () => {
 
       await expect(service.remove(targetId, requesterId)).rejects.toThrow(
         new BadRequestException(
-          'No se puede eliminar a este usuario: tiene productos, pedidos, reseñas, favoritos, reportes, preguntas o un carrito asociados.',
+          'No se puede eliminar a este usuario: tiene productos, pedidos, reseñas, favoritos, reportes, preguntas, notificaciones o un carrito asociados.',
         ),
       );
     });

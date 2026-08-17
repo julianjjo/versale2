@@ -4,6 +4,22 @@ import userEvent from "@testing-library/user-event";
 import { Header } from "../header";
 import { TestProviders } from "@/test-utils/TestProviders";
 
+// A logged-in Header renders NotificationBell, which fires its own
+// GET /notifications/unread-count on mount. Mocked here so existing tests
+// stay focused on nav/auth behavior instead of also having to stub that.
+vi.mock("@/lib/api", () => ({
+  api: {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  },
+  extractApiError: (err: unknown) =>
+    err instanceof Error ? err.message : "Request failed",
+}));
+
+import { api } from "@/lib/api";
+
 const pushMock = vi.fn();
 const refreshMock = vi.fn();
 
@@ -41,6 +57,13 @@ describe("Header", () => {
     vi.clearAllMocks();
     authState.user = null;
     authState.isLoading = false;
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/notifications/unread-count") return { data: { count: 0 } };
+      if (url === "/notifications") {
+        return { data: { data: [], meta: { total: 0, page: 1, limit: 10, pages: 0 } } };
+      }
+      return { data: {} };
+    });
   });
 
   it("muestra la marca en todos los viewports", () => {

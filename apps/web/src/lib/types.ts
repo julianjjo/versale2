@@ -157,3 +157,18 @@ export interface AuthResponse {
   access_token: string;
   user: User;
 }
+
+export type NotificationType =
+  | "ORDER_SHIPPED"
+  | "ORDER_CANCELLED"
+  | "ORDER_STATUS_CHANGED";
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: NotificationType;
+  message: string;
+  orderId: string | null;
+  read: boolean;
+  createdAt: string;
+}

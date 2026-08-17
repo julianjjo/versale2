@@ -1,8 +1,16 @@
 import { bench, describe } from 'vitest';
 import { OrdersService } from '../src/orders/orders.service';
 import type { PrismaService } from '../src/prisma/prisma.service';
+import type { NotificationsService } from '../src/notifications/notifications.service';
 import { Role } from '../src/users/role.enum';
 import { makeCart } from './fixtures';
+
+// createOrder() (the only method benched below) never touches
+// NotificationsService, so this only needs to satisfy the constructor.
+const notificationsStub = {
+  create: () => Promise.resolve(undefined),
+  createMany: () => Promise.resolve({ count: 0 }),
+} as unknown as NotificationsService;
 
 const buyerId = 'buyer-1';
 const smallCart = makeCart(5, buyerId);
@@ -41,7 +49,7 @@ function serviceForCart(cart: ReturnType<typeof makeCart>) {
     },
   } as unknown as PrismaService;
 
-  return new OrdersService(prismaStub);
+  return new OrdersService(prismaStub, notificationsStub);
 }
 
 const smallCartService = serviceForCart(smallCart);

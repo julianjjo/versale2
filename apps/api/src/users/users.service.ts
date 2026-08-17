@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from './role.enum';
@@ -45,13 +46,13 @@ export class UsersService {
     });
   }
 
-  async findAll(query: any = {}) {
+  async findAll(query: Record<string, unknown> = {}) {
     const { search, role, page, limit } = query ?? {};
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
-    const where: any = {};
-    if (search) {
-      const term = String(search);
+    const where: Prisma.UserWhereInput = {};
+    if (typeof search === 'string' && search) {
+      const term = search;
       where.OR = [{ name: { contains: term } }, { email: { contains: term } }];
     }
     // Prisma rejects a value outside the enum with an unhandled error, so an
@@ -226,7 +227,7 @@ export class UsersService {
           throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
         }
 
-        if (target.role === Role.ADMIN) {
+        if (String(target.role) === String(Role.ADMIN)) {
           const adminCount = await tx.user.count({
             where: { role: Role.ADMIN },
           });
@@ -253,15 +254,15 @@ export class UsersService {
           throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
         },
         // Product.sellerId, Order.userId, Review.userId, Cart.userId,
-        // ProductReport.reporterId, and ProductQuestion.askerId are all ON
-        // DELETE RESTRICT, so deleting a user with any of that activity
-        // raises P2003. (ProductReport.reviewedById is the one exception —
-        // it's ON DELETE SET NULL, so reviewing a report never blocks
-        // deleting that admin's own account.) Without this handler it
-        // surfaces as an English 500.
+        // ProductReport.reporterId, ProductQuestion.askerId, and
+        // Notification.userId are all ON DELETE RESTRICT, so deleting a user
+        // with any of that activity raises P2003. (ProductReport.reviewedById
+        // is the one exception — it's ON DELETE SET NULL, so reviewing a
+        // report never blocks deleting that admin's own account.) Without
+        // this handler it surfaces as an English 500.
         P2003: () => {
           throw new BadRequestException(
-            'No se puede eliminar a este usuario: tiene productos, pedidos, reseñas, favoritos, reportes, preguntas o un carrito asociados.',
+            'No se puede eliminar a este usuario: tiene productos, pedidos, reseñas, favoritos, reportes, preguntas, notificaciones o un carrito asociados.',
           );
         },
       });

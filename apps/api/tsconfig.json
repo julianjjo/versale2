@@ -19,7 +19,15 @@
     "paths": {
       "@/*": ["src/*"]
     },
-    "strictPropertyInitialization": false
+    "strictPropertyInitialization": false,
+    "types": [
+      "express",
+      "jest",
+      "multer",
+      "node",
+      "passport-jwt",
+      "supertest"
+    ]
   },
   "exclude": ["node_modules", "dist"]
 }
