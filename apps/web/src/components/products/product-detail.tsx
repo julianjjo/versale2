@@ -24,6 +24,7 @@ import { isTerminalError } from "@/lib/http-error";
 import { tokenStore } from "@/lib/token";
 import type { Product, Review } from "@/lib/types";
 import { FavoriteButton } from "@/components/products/favorite-button";
+import { ShareButton } from "@/components/products/share-button";
 import { ReportProductButton } from "@/components/products/report-product-button";
 import { ProductQuestions } from "@/components/products/product-questions";
 import { SellerReplyBlock } from "@/components/products/seller-reply-block";
@@ -446,9 +447,18 @@ export function ProductDetail({
                   {data.title}
                 </h1>
               </div>
-              {!isOwn && (
-                <FavoriteButton productId={data.id} className="flex-shrink-0" />
-              )}
+              <div className="flex flex-shrink-0 items-center gap-2">
+                <ShareButton
+                  productId={data.id}
+                  title={data.title}
+                  onCopied={() => {
+                    setSuccess("Enlace copiado");
+                    setTimeout(() => setSuccess(null), 3000);
+                  }}
+                  onError={(message) => setError(message)}
+                />
+                {!isOwn && <FavoriteButton productId={data.id} />}
+              </div>
             </div>
             <p className="mt-1 text-sm text-text-muted">{data.category}</p>
             {averageRating !== null && (
