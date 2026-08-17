@@ -47,3 +47,34 @@ export function extractApiError(
   if (err instanceof Error) return err.message;
   return fallback;
 }
+
+// A request made with `responseType: "blob"` (a file download, e.g. the CSV
+// export) gets its ERROR body decoded as a Blob too — axios applies the
+// request's responseType to non-2xx responses the same as 2xx ones — so
+// `extractApiError`'s `.message` read is silently a no-op for it even though
+// the backend sent a normal JSON error body. This re-reads that Blob as
+// text and parses it before falling back to extractApiError's own handling.
+export async function extractBlobApiError(
+  err: unknown,
+  fallback = "Ocurrió un error. Intenta de nuevo.",
+): Promise<string> {
+  if (
+    axios.isAxiosError(err) &&
+    err.response?.data instanceof Blob &&
+    err.response.data.type.includes("json")
+  ) {
+    try {
+      const data = JSON.parse(await err.response.data.text()) as {
+        message?: string | string[];
+      };
+      if (data?.message) {
+        return Array.isArray(data.message)
+          ? data.message.join(", ")
+          : data.message;
+      }
+    } catch {
+      // Not parseable JSON after all — fall through to the generic path.
+    }
+  }
+  return extractApiError(err, fallback);
+}

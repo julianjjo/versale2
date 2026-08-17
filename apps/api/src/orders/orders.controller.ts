@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
   Req,
+  Header,
 } from '@nestjs/common';
 import { AuthRequest } from '../types/request.types';
 import { OrdersService } from './orders.service';
@@ -66,11 +67,7 @@ export class OrdersController {
     @Param('id') id: string,
     @Body() body: ShipSaleDto,
   ) {
-    return this.ordersService.shipOwnSale(
-      req.user.id,
-      id,
-      body.trackingNumber,
-    );
+    return this.ordersService.shipOwnSale(req.user.id, id, body.trackingNumber);
   }
 
   // Admin routes live under the two-segment `admin/*` prefix, so the
@@ -89,6 +86,19 @@ export class OrdersController {
   @Get('admin/all')
   async getAllOrders(@Query() query: any) {
     return this.ordersService.getAllOrders(query);
+  }
+
+  // Two segments (`admin/export`), same shape as `admin/all` and `admin/stats`
+  // above — never collides with the three-segment `admin/:id/status` below.
+  // `@Header` (not a manual `@Res()` write) lets Nest still handle the
+  // response body while adding the two headers a file download needs.
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('admin/export')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="pedidos.csv"')
+  async exportOrders(@Query() query: any) {
+    return this.ordersService.exportOrdersCsv(query);
   }
 
   @UseGuards(RolesGuard)

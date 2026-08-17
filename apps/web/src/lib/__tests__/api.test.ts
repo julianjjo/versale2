@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import axios from "axios";
-import { extractApiError } from "../api";
+import { extractApiError, extractBlobApiError } from "../api";
 
 vi.mock("../token", () => ({
   tokenStore: {
@@ -184,5 +184,84 @@ describe("extractApiError", () => {
     expect(extractApiError("string error", "Default fallback")).toBe(
       "Default fallback",
     );
+  });
+});
+
+describe("extractBlobApiError", () => {
+  it("reads the real backend message out of a Blob-typed error response", async () => {
+    const blob = new Blob([JSON.stringify({ message: "No autorizado" })], {
+      type: "application/json",
+    });
+    const err = new axios.AxiosError(
+      "Request failed",
+      "ERR_BAD_REQUEST",
+      { url: "/x" } as never,
+      null,
+      { status: 403, data: blob } as never,
+    );
+    await expect(extractBlobApiError(err, "fallback")).resolves.toBe(
+      "No autorizado",
+    );
+  });
+
+  it("joins multiple messages from a Blob error body", async () => {
+    const blob = new Blob([JSON.stringify({ message: ["a", "b"] })], {
+      type: "application/json",
+    });
+    const err = new axios.AxiosError(
+      "Request failed",
+      "ERR_BAD_REQUEST",
+      { url: "/x" } as never,
+      null,
+      { status: 400, data: blob } as never,
+    );
+    await expect(extractBlobApiError(err, "fallback")).resolves.toBe("a, b");
+  });
+
+  it("falls back when the Blob isn't JSON-typed", async () => {
+    const blob = new Blob(["ID,Comprador"], { type: "text/csv" });
+    const err = new axios.AxiosError(
+      "Request failed",
+      "ERR_BAD_REQUEST",
+      { url: "/x" } as never,
+      null,
+      { status: 500, data: blob } as never,
+    );
+    await expect(extractBlobApiError(err, "fallback")).resolves.toBe(
+      "fallback",
+    );
+  });
+
+  it("falls back when a Blob claims JSON but the body doesn't parse", async () => {
+    const blob = new Blob(["not valid json"], { type: "application/json" });
+    const err = new axios.AxiosError(
+      "Request failed",
+      "ERR_BAD_REQUEST",
+      { url: "/x" } as never,
+      null,
+      { status: 500, data: blob } as never,
+    );
+    await expect(extractBlobApiError(err, "fallback")).resolves.toBe(
+      "fallback",
+    );
+  });
+
+  it("delegates to extractApiError for a non-Blob response", async () => {
+    const err = new axios.AxiosError(
+      "Request failed",
+      "ERR_BAD_REQUEST",
+      { url: "/x" } as never,
+      null,
+      { status: 400, data: { message: "Bad input" } } as never,
+    );
+    await expect(extractBlobApiError(err, "fallback")).resolves.toBe(
+      "Bad input",
+    );
+  });
+
+  it("returns Error message for a non-axios error, same as extractApiError", async () => {
+    await expect(
+      extractBlobApiError(new Error("boom"), "fallback"),
+    ).resolves.toBe("boom");
   });
 });

@@ -23,6 +23,7 @@ describe('OrdersController', () => {
     getUserOrders: jest.fn(),
     getOrderById: jest.fn(),
     getAllOrders: jest.fn(),
+    exportOrdersCsv: jest.fn(),
     getOrderStats: jest.fn(),
     updateOrderStatus: jest.fn(),
     cancelOwnOrder: jest.fn(),
@@ -82,7 +83,12 @@ describe('OrdersController', () => {
       const mockReq = {
         user: { id: userId, email: 'test@example.com', role: 'USER' },
       } as AuthRequest;
-      const query = { search: 'chaqueta', status: 'PAID', page: '1', limit: '10' };
+      const query = {
+        search: 'chaqueta',
+        status: 'PAID',
+        page: '1',
+        limit: '10',
+      };
 
       const mockResult = {
         data: [{ id: 'order1', userId, totalAmount: 100.0 }],
@@ -235,6 +241,20 @@ describe('OrdersController', () => {
     });
   });
 
+  describe('exportOrders', () => {
+    it('should call ordersService.exportOrdersCsv with query and return the CSV body', async () => {
+      const query = { search: 'ana' };
+      const csv = 'ID,Comprador\r\norder1,Ana';
+
+      mockOrdersService.exportOrdersCsv.mockResolvedValue(csv);
+
+      const result = await controller.exportOrders(query);
+
+      expect(ordersService.exportOrdersCsv).toHaveBeenCalledWith(query);
+      expect(result).toBe(csv);
+    });
+  });
+
   describe('getOrderStats', () => {
     it('should return the aggregate the service produced, untouched', async () => {
       const mockResult = {
@@ -301,7 +321,11 @@ describe('OrdersController', () => {
           // stand-in so they don't crash on `undefined.id`.
           canActivate: (context: ExecutionContext) => {
             const req = context.switchToHttp().getRequest();
-            req.user = { id: 'seller1', email: 'seller@example.com', role: 'USER' };
+            req.user = {
+              id: 'seller1',
+              email: 'seller@example.com',
+              role: 'USER',
+            };
             return true;
           },
         })
