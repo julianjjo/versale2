@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 export function ShareButton({
   productId,
   title,
@@ -16,31 +18,42 @@ export function ShareButton({
   onCopied: () => void;
   onError: (message: string) => void;
 }) {
+  // Same reasoning as FavoriteButton's own pending-disable: without it, a
+  // fast double-click can fire the share sheet or the clipboard write
+  // twice before the first one resolves.
+  const [isSharing, setIsSharing] = useState(false);
+
   const handleClick = async () => {
-    // Built here (inside the click handler — always client-side) instead
-    // of off the current address bar: the current page can be a
-    // `?preview=1` admin/seller preview link, which isn't the URL a
-    // recipient should land on.
-    const url = `${window.location.origin}/products/${productId}`;
-
-    if (typeof navigator.share === "function") {
-      try {
-        await navigator.share({ title, url });
-      } catch {
-        // The visitor dismissed the native share sheet, or the browser
-        // refused for some other reason — either way this isn't a failure
-        // of the click itself, just a share that didn't complete, so
-        // there's nothing to report and no clipboard fallback to fall back
-        // to (the visitor already made a choice via the native UI).
-      }
-      return;
-    }
-
+    setIsSharing(true);
     try {
-      await navigator.clipboard.writeText(url);
-      onCopied();
-    } catch {
-      onError("No pudimos copiar el enlace");
+      // Built here (inside the click handler — always client-side) instead
+      // of off the current address bar: the current page can be a
+      // `?preview=1` admin/seller preview link, which isn't the URL a
+      // recipient should land on.
+      const url = `${window.location.origin}/products/${productId}`;
+
+      if (typeof navigator.share === "function") {
+        try {
+          await navigator.share({ title, url });
+        } catch {
+          // The visitor dismissed the native share sheet, or the browser
+          // refused for some other reason — either way this isn't a
+          // failure of the click itself, just a share that didn't
+          // complete, so there's nothing to report and no clipboard
+          // fallback to fall back to (the visitor already made a choice
+          // via the native UI).
+        }
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(url);
+        onCopied();
+      } catch {
+        onError("No pudimos copiar el enlace");
+      }
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -48,8 +61,9 @@ export function ShareButton({
     <button
       type="button"
       onClick={handleClick}
+      disabled={isSharing}
       aria-label="Compartir esta publicación"
-      className={`inline-flex h-9 w-9 items-center justify-center rounded-full bg-surface/90 text-text-primary shadow-sm backdrop-blur transition-transform hover:scale-105 ${className}`}
+      className={`inline-flex h-9 w-9 items-center justify-center rounded-full bg-surface/90 text-text-primary shadow-sm backdrop-blur transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
     >
       <ShareIcon />
     </button>

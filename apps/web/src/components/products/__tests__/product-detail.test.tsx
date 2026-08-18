@@ -354,6 +354,115 @@ describe("ProductDetail", () => {
     });
   });
 
+  it("comparte la publicación y muestra la confirmación de enlace copiado", async () => {
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    // `userEvent.setup()` installs its own real Clipboard implementation on
+    // `navigator.clipboard` — it must run before these stubs, or it silently
+    // overwrites the mock this test just set up.
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", {
+      value: undefined,
+      configurable: true,
+      writable: true,
+    });
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+      writable: true,
+    });
+
+    try {
+      render(
+        <TestProviders>
+          <ProductDetail />
+        </TestProviders>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+      });
+      await user.click(
+        screen.getByRole("button", { name: "Compartir esta publicación" }),
+      );
+
+      await waitFor(() => {
+        expect(writeText).toHaveBeenCalledWith(
+          `${window.location.origin}/products/p1`,
+        );
+      });
+      expect(await screen.findByText("Enlace copiado")).toBeInTheDocument();
+    } finally {
+      Object.defineProperty(navigator, "share", {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+      Object.defineProperty(navigator, "clipboard", {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+    }
+  });
+
+  // Regression: ShareButton's onCopied/onError used to only ever set their
+  // own banner, so a stale error from an earlier failed action (or vice
+  // versa) could stay on screen alongside the new one.
+  it("copiar el enlace reemplaza un error de agregar al carrito que haya quedado visible", async () => {
+    authState.user = { id: "u2", email: "a@b.c", name: "Alice", role: "USER" };
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    vi.mocked(api.post).mockRejectedValue(new Error("No pudimos agregarlo"));
+    // See the ordering note in the previous test — `userEvent.setup()` must
+    // come before these stubs.
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", {
+      value: undefined,
+      configurable: true,
+      writable: true,
+    });
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+      writable: true,
+    });
+
+    try {
+      render(
+        <TestProviders>
+          <ProductDetail />
+        </TestProviders>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+      });
+      await user.click(
+        screen.getByRole("button", { name: /agregar al carrito/i }),
+      );
+      expect(await screen.findByText("No pudimos agregarlo")).toBeInTheDocument();
+
+      await user.click(
+        screen.getByRole("button", { name: "Compartir esta publicación" }),
+      );
+
+      expect(await screen.findByText("Enlace copiado")).toBeInTheDocument();
+      expect(screen.queryByText("No pudimos agregarlo")).toBeNull();
+    } finally {
+      Object.defineProperty(navigator, "share", {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+      Object.defineProperty(navigator, "clipboard", {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+    }
+  });
+
   it("oculta el botón de agregar al carrito para el vendedor del producto", async () => {
     authState.user = {
       id: "s1",

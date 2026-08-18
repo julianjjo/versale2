@@ -50,6 +50,55 @@ describe("ShareButton", () => {
     });
   });
 
+  it("renders an accessible, labeled button before any interaction", () => {
+    render(
+      <ShareButton
+        productId="p0"
+        title="Chaqueta vintage"
+        className="extra-class"
+        onCopied={onCopied}
+        onError={onError}
+      />,
+    );
+
+    const button = screen.getByRole("button", {
+      name: "Compartir esta publicación",
+    });
+    expect(button).toBeInTheDocument();
+    expect(button).toBeEnabled();
+    expect(button).toHaveClass("extra-class");
+    expect(button.querySelector("svg")).toBeInTheDocument();
+  });
+
+  // Neither the Web Share API nor the Clipboard API is guaranteed on an old
+  // browser — this must not throw uncaught, and should report the same
+  // "couldn't copy" message as a real clipboard failure rather than crash.
+  it("reports an error instead of throwing when neither the Web Share nor Clipboard API is available", async () => {
+    const user = userEvent.setup();
+    stubShare(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: undefined,
+      configurable: true,
+      writable: true,
+    });
+
+    render(
+      <ShareButton
+        productId="p5"
+        title="Gorra"
+        onCopied={onCopied}
+        onError={onError}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /compartir/i }));
+
+    await waitFor(() => {
+      expect(onError).toHaveBeenCalledWith("No pudimos copiar el enlace");
+    });
+    expect(onCopied).not.toHaveBeenCalled();
+  });
+
   it("uses the native share sheet when available, with the canonical product URL", async () => {
     const user = userEvent.setup();
     const shareMock = vi.fn().mockResolvedValue(undefined);

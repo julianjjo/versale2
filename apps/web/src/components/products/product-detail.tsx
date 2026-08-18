@@ -452,10 +452,14 @@ export function ProductDetail({
                   productId={data.id}
                   title={data.title}
                   onCopied={() => {
+                    setError(null);
                     setSuccess("Enlace copiado");
                     setTimeout(() => setSuccess(null), 3000);
                   }}
-                  onError={(message) => setError(message)}
+                  onError={(message) => {
+                    setSuccess(null);
+                    setError(message);
+                  }}
                 />
                 {!isOwn && <FavoriteButton productId={data.id} />}
               </div>
