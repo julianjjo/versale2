@@ -1,9 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ExecutionContext, INestApplication } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-// `esModuleInterop` is off in apps/api, and @types/supertest uses `export =`,
-// so the namespace import is the one that stays callable after compilation.
-import * as request from 'supertest';
+// `esModuleInterop` is off in apps/api, and @types/supertest uses `export =`.
+// The namespace-star form (`import * as request`) stays callable at runtime
+// but type-aware ESLint fails to resolve its type through that form, so the
+// `import = require()` form is used instead — it resolves correctly for both
+// runtime and lint, at the cost of needing one narrow rule exception below.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+import request = require('supertest');
 import { OrdersController } from '../orders.controller';
 import { OrdersService } from '../orders.service';
 import { AuthRequest } from '../../../src/types/request.types';
@@ -16,7 +20,6 @@ import { Role } from '../../users/role.enum';
 
 describe('OrdersController', () => {
   let controller: OrdersController;
-  let ordersService: OrdersService;
 
   const mockOrdersService = {
     createOrder: jest.fn(),
@@ -38,7 +41,6 @@ describe('OrdersController', () => {
     }).compile();
 
     controller = module.get<OrdersController>(OrdersController);
-    ordersService = module.get<OrdersService>(OrdersService);
   });
 
   afterEach(() => {
@@ -72,7 +74,7 @@ describe('OrdersController', () => {
 
       const result = await controller.createOrder(mockReq, body);
 
-      expect(ordersService.createOrder).toHaveBeenCalledWith(userId, body);
+      expect(mockOrdersService.createOrder).toHaveBeenCalledWith(userId, body);
       expect(result).toEqual(mockResult);
     });
   });
@@ -99,7 +101,10 @@ describe('OrdersController', () => {
 
       const result = await controller.getUserOrders(mockReq, query);
 
-      expect(ordersService.getUserOrders).toHaveBeenCalledWith(userId, query);
+      expect(mockOrdersService.getUserOrders).toHaveBeenCalledWith(
+        userId,
+        query,
+      );
       expect(result).toEqual(mockResult);
     });
   });
@@ -122,7 +127,7 @@ describe('OrdersController', () => {
 
       const result = await controller.getOrderById(mockReq, orderId);
 
-      expect(ordersService.getOrderById).toHaveBeenCalledWith(
+      expect(mockOrdersService.getOrderById).toHaveBeenCalledWith(
         orderId,
         userId,
         'USER',
@@ -146,7 +151,7 @@ describe('OrdersController', () => {
 
       const result = await controller.getOrderById(mockReq, orderId);
 
-      expect(ordersService.getOrderById).toHaveBeenCalledWith(
+      expect(mockOrdersService.getOrderById).toHaveBeenCalledWith(
         orderId,
         'admin1',
         'ADMIN',
@@ -168,7 +173,7 @@ describe('OrdersController', () => {
 
       const result = await controller.cancelOrder(mockReq, orderId);
 
-      expect(ordersService.cancelOwnOrder).toHaveBeenCalledWith(
+      expect(mockOrdersService.cancelOwnOrder).toHaveBeenCalledWith(
         userId,
         orderId,
       );
@@ -192,7 +197,7 @@ describe('OrdersController', () => {
 
       const result = await controller.getMySales(mockReq, query);
 
-      expect(ordersService.getMySales).toHaveBeenCalledWith(userId, query);
+      expect(mockOrdersService.getMySales).toHaveBeenCalledWith(userId, query);
       expect(result).toEqual(mockResult);
     });
   });
@@ -215,7 +220,7 @@ describe('OrdersController', () => {
 
       const result = await controller.shipOwnSale(mockReq, orderId, body);
 
-      expect(ordersService.shipOwnSale).toHaveBeenCalledWith(
+      expect(mockOrdersService.shipOwnSale).toHaveBeenCalledWith(
         userId,
         orderId,
         'ABC123',
@@ -236,7 +241,7 @@ describe('OrdersController', () => {
 
       const result = await controller.getAllOrders(query);
 
-      expect(ordersService.getAllOrders).toHaveBeenCalledWith(query);
+      expect(mockOrdersService.getAllOrders).toHaveBeenCalledWith(query);
       expect(result).toEqual(mockResult);
     });
   });
@@ -250,7 +255,7 @@ describe('OrdersController', () => {
 
       const result = await controller.exportOrders(query);
 
-      expect(ordersService.exportOrdersCsv).toHaveBeenCalledWith(query);
+      expect(mockOrdersService.exportOrdersCsv).toHaveBeenCalledWith(query);
       expect(result).toBe(csv);
     });
   });
@@ -267,13 +272,16 @@ describe('OrdersController', () => {
 
       const result = await controller.getOrderStats();
 
-      expect(ordersService.getOrderStats).toHaveBeenCalledTimes(1);
+      expect(mockOrdersService.getOrderStats).toHaveBeenCalledTimes(1);
       expect(result).toEqual(mockResult);
     });
 
     it('is admin-only, like the rest of the admin/* order routes', () => {
       const reflector = new Reflector();
       const requiredRoles = reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
+        // The method reference is only used as a decorator-metadata lookup
+        // key here, never invoked, so there's no unbound-`this` risk.
+        // eslint-disable-next-line @typescript-eslint/unbound-method
         OrdersController.prototype.getOrderStats,
         OrdersController,
       ]);
@@ -295,7 +303,7 @@ describe('OrdersController', () => {
 
       const result = await controller.updateOrderStatus(orderId, body);
 
-      expect(ordersService.updateOrderStatus).toHaveBeenCalledWith(
+      expect(mockOrdersService.updateOrderStatus).toHaveBeenCalledWith(
         orderId,
         OrderStatus.PAID,
       );
@@ -320,7 +328,7 @@ describe('OrdersController', () => {
           // below that read `req.user.id` (getMySales, shipOwnSale) need a
           // stand-in so they don't crash on `undefined.id`.
           canActivate: (context: ExecutionContext) => {
-            const req = context.switchToHttp().getRequest();
+            const req = context.switchToHttp().getRequest<AuthRequest>();
             req.user = {
               id: 'seller1',
               email: 'seller@example.com',

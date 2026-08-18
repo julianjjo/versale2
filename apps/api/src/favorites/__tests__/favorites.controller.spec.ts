@@ -5,7 +5,6 @@ import { AuthRequest } from '../../types/request.types';
 
 describe('FavoritesController', () => {
   let controller: FavoritesController;
-  let favoritesService: FavoritesService;
 
   const mockFavoritesService = {
     findAll: jest.fn(),
@@ -23,7 +22,6 @@ describe('FavoritesController', () => {
     }).compile();
 
     controller = module.get<FavoritesController>(FavoritesController);
-    favoritesService = module.get<FavoritesService>(FavoritesService);
   });
 
   afterEach(() => {
@@ -46,7 +44,7 @@ describe('FavoritesController', () => {
 
       const result = await controller.getFavorites(mockReq, query);
 
-      expect(favoritesService.findAll).toHaveBeenCalledWith(userId, query);
+      expect(mockFavoritesService.findAll).toHaveBeenCalledWith(userId, query);
       expect(result).toEqual(mockResult);
     });
   });
@@ -63,7 +61,7 @@ describe('FavoritesController', () => {
 
       const result = await controller.getFavoriteIds(mockReq);
 
-      expect(favoritesService.findAllIds).toHaveBeenCalledWith(userId);
+      expect(mockFavoritesService.findAllIds).toHaveBeenCalledWith(userId);
       expect(result).toEqual(mockResult);
     });
   });
@@ -81,7 +79,7 @@ describe('FavoritesController', () => {
 
       const result = await controller.addFavorite(mockReq, productId);
 
-      expect(favoritesService.addFavorite).toHaveBeenCalledWith(
+      expect(mockFavoritesService.addFavorite).toHaveBeenCalledWith(
         userId,
         productId,
       );
@@ -102,7 +100,7 @@ describe('FavoritesController', () => {
 
       const result = await controller.removeFavorite(mockReq, productId);
 
-      expect(favoritesService.removeFavorite).toHaveBeenCalledWith(
+      expect(mockFavoritesService.removeFavorite).toHaveBeenCalledWith(
         userId,
         productId,
       );

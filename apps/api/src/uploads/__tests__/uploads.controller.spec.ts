@@ -5,7 +5,6 @@ import { UploadsService } from '../uploads.service';
 
 describe('UploadsController', () => {
   let controller: UploadsController;
-  let service: UploadsService;
 
   const mockService = {
     uploadImages: jest.fn(),
@@ -18,7 +17,6 @@ describe('UploadsController', () => {
     }).compile();
 
     controller = module.get<UploadsController>(UploadsController);
-    service = module.get<UploadsService>(UploadsService);
   });
 
   afterEach(() => {
@@ -43,7 +41,7 @@ describe('UploadsController', () => {
 
     const result = await controller.uploadImages(files);
 
-    expect(service.uploadImages).toHaveBeenCalledWith(files);
+    expect(mockService.uploadImages).toHaveBeenCalledWith(files);
     expect(result).toEqual({ images: serviceResult });
   });
 
