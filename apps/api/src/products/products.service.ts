@@ -727,6 +727,62 @@ export class ProductsService {
     }
   }
 
+  // Same batching shape as the admin moderation bulk actions
+  // (bulkApprove/bulkReject): a seller with many listings (going on
+  // vacation, restocking) currently pauses them one at a time. Unlike
+  // those two (admin-only, so ownership never enters their where-clause),
+  // this is the first bulk action that folds an OWNERSHIP check into the
+  // same silent-exclusion bucket as state (sold/unapproved/already-paused)
+  // rather than throwing — a deliberate choice, not just following
+  // findOwnedUnsoldProduct's precedent (which throws ForbiddenException
+  // for a non-owner on the single-item path). Silent exclusion is at
+  // least as private here: a prober gets no signal distinguishing "not
+  // yours" from "already in that state" from "doesn't exist" in the
+  // response, only that it wasn't counted.
+  async bulkPause(ids: string[], userId: string, role: Role) {
+    const uniqueIds = Array.from(new Set(ids));
+
+    const where: Prisma.ProductWhereInput = {
+      id: { in: uniqueIds },
+      soldAt: null,
+      isApproved: true,
+      pausedAt: null,
+    };
+    if (role !== Role.ADMIN) {
+      where.sellerId = userId;
+    }
+
+    const result = await this.prisma.client.product.updateMany({
+      where,
+      data: { pausedAt: new Date() },
+    });
+
+    return { paused: result.count, requested: uniqueIds.length };
+  }
+
+  // The reactivate half of bulkPause() above — same reasoning as
+  // unpauseProduct(): no isApproved guard, since a paused-but-now-unapproved
+  // listing is still valid to reactivate.
+  async bulkUnpause(ids: string[], userId: string, role: Role) {
+    const uniqueIds = Array.from(new Set(ids));
+
+    const where: Prisma.ProductWhereInput = {
+      id: { in: uniqueIds },
+      soldAt: null,
+      pausedAt: { not: null },
+    };
+    if (role !== Role.ADMIN) {
+      where.sellerId = userId;
+    }
+
+    const result = await this.prisma.client.product.updateMany({
+      where,
+      data: { pausedAt: null },
+    });
+
+    return { unpaused: result.count, requested: uniqueIds.length };
+  }
+
   async remove(id: string, userId: string, role: Role) {
     const product = await this.prisma.client.product.findUnique({
       where: { id },
