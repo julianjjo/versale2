@@ -6,7 +6,7 @@ export class BrevoApiError extends Error {
     readonly status: number,
     detail: string,
   ) {
-    super(`Brevo request failed (${status})`);
+    super(`Brevo request failed (${status}): ${detail}`);
   }
 }
 
