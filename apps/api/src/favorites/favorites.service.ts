@@ -31,7 +31,7 @@ export const FAVORITE_PRODUCT_SELECT = {
   price: true,
   sellerId: true,
   isApproved: true,
-  soldAt: true,
+  status: true,
   pausedAt: true,
   createdAt: true,
   updatedAt: true,
@@ -111,12 +111,16 @@ export class FavoritesService {
     // else) before creating a bookmark that would otherwise dangle.
     const product = await this.productsService.findRaw(productId);
 
-    // Mirrors the public catalog's visibility rule (see
-    // ProductsService#findOne's `canView` check): an unapproved listing isn't
-    // shown to buyers, so it can't be bookmarked either — otherwise a guessed
-    // or leaked productId would let someone favorite (and keep seeing full
-    // details of) a listing moderation never approved. A paused listing gets
-    // the same treatment: the seller took it out of the catalog on purpose.
+    // Unapproved listings can't be bookmarked: they aren't shown to buyers,
+    // so a guessed or leaked productId must not surface their full details
+    // through favorites. Paused ones get the same treatment — the seller took
+    // them out of the catalog on purpose.
+    //
+    // SOLD listings deliberately stay favoritable, unlike the catalog filter:
+    // the detail page remains readable after a sale (the buyer reaches it from
+    // order history), the heart stays usable there, and /favoritos renders the
+    // sold badge off the same `status` field. Only moderation and pause hide
+    // a listing from its own buyer-facing surfaces.
     if (!product.isApproved || product.pausedAt) {
       throw new BadRequestException(
         'Este producto no está disponible para agregar a favoritos',

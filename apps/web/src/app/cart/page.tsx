@@ -22,7 +22,7 @@ import { conditionLabel } from "@/lib/product-condition";
 import type { Cart, CartItem, Order, PaginatedResponse } from "@/lib/types";
 
 function isSold(item: CartItem): boolean {
-  return Boolean(item.product?.soldAt);
+  return item.product?.status === "SOLD";
 }
 
 function isPaused(item: CartItem): boolean {
@@ -30,7 +30,7 @@ function isPaused(item: CartItem): boolean {
 }
 
 function isUnavailable(item: CartItem): boolean {
-  // Vendida (soldAt), devuelta a moderación por el vendedor (isApproved en
+  // Vendida (status SOLD), devuelta a moderación por el vendedor (isApproved en
   // false sin haberse vendido), o pausada temporalmente por el vendedor: en
   // los tres casos esa línea ya no se puede pagar, y el API aborta toda la
   // transacción del checkout si se intenta.

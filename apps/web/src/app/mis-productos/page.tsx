@@ -68,14 +68,14 @@ function formatStat(count: number, singular: string, plural: string): string {
 const MAX_BULK_ACTION = 100;
 
 function isBulkPausable(product: Product): boolean {
-  return product.isApproved && !product.pausedAt && !product.soldAt;
+  return product.isApproved && !product.pausedAt && product.status !== "SOLD";
 }
 
 // No isApproved requirement — mirrors unpauseProduct()'s own rule: a paused
 // listing sent back to review by a later moderated edit is still valid to
 // reactivate.
 function isBulkUnpausable(product: Product): boolean {
-  return !!product.pausedAt && !product.soldAt;
+  return !!product.pausedAt && product.status !== "SOLD";
 }
 
 // The checkbox is offered whenever either bulk action could apply to a row
@@ -621,7 +621,7 @@ function MisProductosList() {
           )}
           {products.map((product, index) => {
             const isRejected = !product.isApproved && !!product.rejectedAt;
-            const isSold = !!product.soldAt;
+            const isSold = product.status === "SOLD";
             const isPaused = !!product.pausedAt;
             const canEditOrDelete = !isSold;
             // Pausing requires the listing to currently be approved (mirrors

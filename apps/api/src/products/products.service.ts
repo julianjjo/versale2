@@ -5,7 +5,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -45,13 +45,14 @@ const APPROVE_DATA = {
 // The public-catalog visibility rule — findAll, getSellerProfile's active
 // count, getFacets, and getRelatedProducts all need "is this listing
 // something a buyer could actually find by browsing", and each independent
-// hand-copy of {isApproved:true, soldAt:null, pausedAt:null} is a chance for
-// the rule to drift if it ever changes. `pausedAt` is the seller's own
-// temporary-hide toggle (see pauseProduct/unpauseProduct below) — orthogonal
-// to moderation and to being sold, exactly like soldAt already is.
+// hand-copy of the rule is a chance for it to drift if it ever changes.
+// `pausedAt` is the seller's own temporary-hide toggle (see
+// pauseProduct/unpauseProduct below) — orthogonal to moderation and to the
+// stock lifecycle (`status`), which is exactly what the stock enum makes
+// explicit: only an AVAILABLE listing can be browsed or bought.
 const PUBLICLY_VISIBLE = {
   isApproved: true,
-  soldAt: null,
+  status: ProductStatus.AVAILABLE,
   pausedAt: null,
 } as const;
 
@@ -448,7 +449,7 @@ export class ProductsService {
     }
 
     // Being sold removes a listing from the catalog (`findAll`/`getFacets`
-    // filter on `soldAt: null`) but NOT from the web: the buyer reaches this
+    // filter on `status: AVAILABLE`) but NOT from the web: the buyer reaches this
     // page from their order history, and it is the only place they can leave a
     // review. Hiding it 404'd those links and made the review flow
     // unreachable. Only moderation state restricts who may look.
@@ -583,10 +584,10 @@ export class ProductsService {
     // someone else's purchase history says they bought. It would also send an
     // already-shipped item back through `needsReview` below, and an unapproved
     // product can no longer be reviewed. The read above is only for the 404/403
-    // checks — the write itself re-asserts `soldAt: null` for non-admins so a
+    // checks — the write itself re-asserts `status: AVAILABLE` for non-admins so a
     // checkout that claims the product between the read and the write still
     // gets rejected instead of silently overwriting a sold listing.
-    if (product.soldAt && role !== Role.ADMIN) {
+    if (product.status !== ProductStatus.AVAILABLE && role !== Role.ADMIN) {
       throw new BadRequestException(
         'Este producto ya fue vendido y no se puede editar',
       );
@@ -603,7 +604,7 @@ export class ProductsService {
       return await this.prisma.client.product.update({
         where: {
           id,
-          ...(role !== Role.ADMIN ? { soldAt: null } : {}),
+          ...(role !== Role.ADMIN ? { status: ProductStatus.AVAILABLE } : {}),
         },
         data: {
           ...updateProductDto,
@@ -652,7 +653,7 @@ export class ProductsService {
       );
     }
 
-    if (product.soldAt) {
+    if (product.status !== ProductStatus.AVAILABLE) {
       throw new BadRequestException(
         `Este producto ya fue vendido y no se puede ${actionVerb}`,
       );
@@ -662,7 +663,7 @@ export class ProductsService {
   }
 
   // Gated on `isApproved` (unlike update()/remove(), which only gate on
-  // soldAt): a pending or rejected listing is already invisible to buyers for
+  // `status`): a pending or rejected listing is already invisible to buyers for
   // a stronger reason, and pausing one would leave a dangling `pausedAt` an
   // admin's later approval wouldn't explain — the seller would have to
   // separately remember to unpause a listing they never saw approved yet.
@@ -687,7 +688,7 @@ export class ProductsService {
       // the dangling paused-but-unapproved state the isApproved guard above
       // exists to prevent.
       return await this.prisma.client.product.update({
-        where: { id, soldAt: null, isApproved: true },
+        where: { id, status: ProductStatus.AVAILABLE, isApproved: true },
         data: { pausedAt: new Date() },
         include: { seller: { select: { id: true, name: true } } },
       });
@@ -712,7 +713,7 @@ export class ProductsService {
 
     try {
       return await this.prisma.client.product.update({
-        where: { id, soldAt: null },
+        where: { id, status: ProductStatus.AVAILABLE },
         data: { pausedAt: null },
         include: { seller: { select: { id: true, name: true } } },
       });
@@ -744,7 +745,7 @@ export class ProductsService {
 
     const where: Prisma.ProductWhereInput = {
       id: { in: uniqueIds },
-      soldAt: null,
+      status: ProductStatus.AVAILABLE,
       isApproved: true,
       pausedAt: null,
     };
@@ -768,7 +769,7 @@ export class ProductsService {
 
     const where: Prisma.ProductWhereInput = {
       id: { in: uniqueIds },
-      soldAt: null,
+      status: ProductStatus.AVAILABLE,
       pausedAt: { not: null },
     };
     if (role !== Role.ADMIN) {
@@ -802,9 +803,9 @@ export class ProductsService {
     // been bought raises a raw Prisma error and, with no exception filter
     // registered, a 500. Refuse it with a Spanish 400 instead. As with update()
     // above, the read here only drives that early check — the delete itself
-    // re-asserts `soldAt: null` so a checkout racing this request still can't
+    // re-asserts `status: AVAILABLE` so a checkout racing this request still can't
     // reach the foreign-key failure this guard exists to prevent.
-    if (product.soldAt) {
+    if (product.status !== ProductStatus.AVAILABLE) {
       throw new BadRequestException(
         'Este producto ya fue vendido y no se puede eliminar: forma parte del historial de un pedido',
       );
@@ -812,7 +813,7 @@ export class ProductsService {
 
     try {
       return await this.prisma.client.product.delete({
-        where: { id, soldAt: null },
+        where: { id, status: ProductStatus.AVAILABLE },
       });
     } catch (error) {
       translatePrismaError(error, {
@@ -822,7 +823,7 @@ export class ProductsService {
           );
         },
         // A CartItem, Review, or OrderItem (even from a cancelled order, which
-        // clears `soldAt` back to null) can still reference this product with
+        // relists it as AVAILABLE) can still reference this product with
         // an ON DELETE RESTRICT foreign key. Prisma raises P2003 for that
         // instead of the P2025 above, and with no handler registered it
         // reached the admin as a raw 500. Refuse it with a Spanish 400.
@@ -844,7 +845,7 @@ export class ProductsService {
     const search = this.firstValue(rawSearch);
 
     // A seller's own dashboard has two more buckets than the admin queue:
-    // "vendido" (soldAt set) and "pausado" (pausedAt set) both sit outside
+    // "vendido" (status SOLD) and "pausado" (pausedAt set) both sit outside
     // isApproved/rejectedAt entirely, and an approved-but-sold-or-paused
     // listing must stop showing up under "aprobados" here even though
     // admin's findAllForAdmin still counts it there (that view tracks
@@ -853,19 +854,19 @@ export class ProductsService {
     if (status === 'pending') {
       where.isApproved = false;
       where.rejectedAt = null;
-      where.soldAt = null;
+      where.status = ProductStatus.AVAILABLE;
     } else if (status === 'approved') {
       where.isApproved = true;
-      where.soldAt = null;
+      where.status = ProductStatus.AVAILABLE;
       where.pausedAt = null;
     } else if (status === 'rejected') {
       where.isApproved = false;
       where.rejectedAt = { not: null };
     } else if (status === 'sold') {
-      where.soldAt = { not: null };
+      where.status = ProductStatus.SOLD;
     } else if (status === 'paused') {
       where.pausedAt = { not: null };
-      where.soldAt = null;
+      where.status = ProductStatus.AVAILABLE;
     }
 
     if (typeof search === 'string' && search) {
@@ -957,10 +958,10 @@ export class ProductsService {
     // buyer's order detail keeps rendering it, so flipping `isApproved` on it
     // would hide it from that buyer (findOne()'s canView check only admits
     // admin/seller) and break their own "Escribir reseña" link. The read here
-    // only drives this check — the write itself re-asserts `soldAt: null` so
+    // only drives this check — the write itself re-asserts `status: AVAILABLE` so
     // a checkout racing this request still can't approve a product out from
     // under the buyer who just bought it.
-    if (product.soldAt) {
+    if (product.status !== ProductStatus.AVAILABLE) {
       throw new BadRequestException(
         'Este producto ya fue vendido y no se puede aprobar: forma parte del historial de un pedido',
       );
@@ -968,7 +969,7 @@ export class ProductsService {
 
     try {
       return await this.prisma.client.product.update({
-        where: { id, soldAt: null },
+        where: { id, status: ProductStatus.AVAILABLE },
         data: APPROVE_DATA,
       });
     } catch (error) {
@@ -984,7 +985,7 @@ export class ProductsService {
 
   // A moderator working through a backlog of pending listings approves them
   // one at a time today; this lets a batch go through in a single request.
-  // `updateMany` (not a loop of individual updates) re-asserts `soldAt: null`
+  // `updateMany` (not a loop of individual updates) re-asserts `status: AVAILABLE`
   // in its own `where`, the same compare-and-swap approveProduct() uses, so a
   // checkout racing this request still can't have one of the selected
   // products approved out from under the buyer who just bought it — it's
@@ -999,7 +1000,7 @@ export class ProductsService {
     const uniqueIds = Array.from(new Set(ids));
 
     const result = await this.prisma.client.product.updateMany({
-      where: { id: { in: uniqueIds }, isApproved: false, soldAt: null },
+      where: { id: { in: uniqueIds }, isApproved: false, status: ProductStatus.AVAILABLE },
       data: APPROVE_DATA,
     });
 
@@ -1019,7 +1020,7 @@ export class ProductsService {
     // false, which findOne()'s canView check then hides from everyone but an
     // admin or the seller — including a buyer who bought this product and
     // reaches it from their own order history to leave a review.
-    if (product.soldAt) {
+    if (product.status !== ProductStatus.AVAILABLE) {
       throw new BadRequestException(
         'Este producto ya fue vendido y no se puede rechazar: forma parte del historial de un pedido',
       );
@@ -1027,7 +1028,7 @@ export class ProductsService {
 
     try {
       return await this.prisma.client.product.update({
-        where: { id, soldAt: null },
+        where: { id, status: ProductStatus.AVAILABLE },
         data: this.buildRejectData(reason),
       });
     } catch (error) {
@@ -1048,13 +1049,13 @@ export class ProductsService {
   // condition covering both states rejectProduct()'s own eligibility check
   // allows (pending or currently-approved) — an already-rejected product is
   // silently excluded instead of being redundantly rewritten with a new
-  // reason/timestamp, and `soldAt: null` re-asserts the same compare-and-swap
+  // reason/timestamp, and `status: AVAILABLE` re-asserts the same compare-and-swap
   // as every other moderation action here.
   async bulkReject(ids: string[], reason?: string) {
     const uniqueIds = Array.from(new Set(ids));
 
     const result = await this.prisma.client.product.updateMany({
-      where: { id: { in: uniqueIds }, rejectedAt: null, soldAt: null },
+      where: { id: { in: uniqueIds }, rejectedAt: null, status: ProductStatus.AVAILABLE },
       data: this.buildRejectData(reason),
     });
 

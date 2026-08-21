@@ -5,7 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { NotificationType, Prisma } from '@prisma/client';
+import { NotificationType, Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ORDER_STATUS_LABEL, OrderStatus } from './order-status.enum';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -165,7 +165,7 @@ export class OrdersService {
 
         // Re-checked inside the transaction so two concurrent checkouts of the
         // same one-of-a-kind garment cannot both succeed.
-        if (product.soldAt) {
+        if (product.status !== ProductStatus.AVAILABLE) {
           throw new BadRequestException(
             `El producto ${product.title} ya fue vendido`,
           );
@@ -198,12 +198,18 @@ export class OrdersService {
           );
         }
 
-        const itemTotal = item.priceAtAdd * item.quantity;
+        // One-of-a-kind garment: whatever a stale cart row might claim, an
+        // order item is written with exactly 1 unit — the DTOs and the cart
+        // service already refuse more at write time, this clamp keeps a
+        // hand-tampered or legacy row from minting a multi-unit line here.
+        const quantity = Math.min(item.quantity, MAX_ITEM_QUANTITY);
+
+        const itemTotal = item.priceAtAdd * quantity;
         totalAmount += itemTotal;
 
         orderItems.push({
           productId: product.id,
-          quantity: item.quantity,
+          quantity,
           price: item.priceAtAdd,
         });
       }
@@ -229,8 +235,8 @@ export class OrdersService {
         },
       });
 
-      // Compare-and-swap in the same transaction: only rows that are still
-      // unsold AND unpaused are flipped, so if a racing checkout already
+      // Compare-and-swap in the same transaction: only rows still AVAILABLE
+      // AND unpaused are flipped to SOLD, so if a racing checkout already
       // claimed one of them, or a seller paused one mid-checkout, the count
       // comes back short and the whole order is rolled back. Without the
       // `pausedAt: null` re-assertion here, a seller pausing a listing in the
@@ -240,8 +246,8 @@ export class OrdersService {
       // the stale, pre-pause snapshot.
       const productIds = orderItems.map((item) => item.productId);
       const sold = await tx.product.updateMany({
-        where: { id: { in: productIds }, soldAt: null, pausedAt: null },
-        data: { soldAt: new Date() },
+        where: { id: { in: productIds }, status: ProductStatus.AVAILABLE, pausedAt: null },
+        data: { status: ProductStatus.SOLD },
       });
 
       if (sold.count !== productIds.length) {
@@ -639,7 +645,7 @@ export class OrdersService {
   // other status, and never someone else's order. `updateOrderStatus` above
   // stays the unrestricted admin path; this is its ownership-checked,
   // single-target sibling, sharing the same transition table and the same
-  // soldAt release so a buyer's cancellation relists the garment exactly like
+  // status release so a buyer's cancellation relists the garment exactly like
   // an admin's does.
   async cancelOwnOrder(userId: string, id: string) {
     const order = await this.prisma.client.order.findUnique({
@@ -696,7 +702,7 @@ export class OrdersService {
       'Este pedido cambió de estado mientras se procesaba tu solicitud. Actualiza la página e inténtalo de nuevo.';
 
     // Cancelling releases the garments the order had claimed. Checkout stamps
-    // `soldAt` to take a one-of-a-kind item off the market; if the sale never
+    // `status: SOLD` to take a one-of-a-kind item off the market; if the sale never
     // completes that stamp has to come back off, otherwise an abandoned
     // checkout destroys the listing for good — gone from the catalog and the
     // facets, and un-addable to any cart, with no way for the seller to relist.
@@ -735,9 +741,17 @@ export class OrdersService {
         });
 
       if (items.length > 0) {
+        // Conditional on SOLD, not unconditional: only the garments THIS order
+        // claimed get relisted. Once roadmap 1.3 wires WITHDRAWN (a seller's
+        // definitive takedown), an unconditional flip back to AVAILABLE would
+        // resurrect listings the seller deliberately withdrew — the status
+        // guard keeps cancellation scoped to what checkout actually sold.
         await tx.product.updateMany({
-          where: { id: { in: items.map((item) => item.productId) } },
-          data: { soldAt: null },
+          where: {
+            id: { in: items.map((item) => item.productId) },
+            status: ProductStatus.SOLD,
+          },
+          data: { status: ProductStatus.AVAILABLE },
         });
       }
 

@@ -52,7 +52,7 @@ const MAX_BULK_ACTION = 100;
 function isBulkApprovable(product: Product): boolean {
   const isPending = !product.isApproved && !product.rejectedAt;
   const isRejected = !product.isApproved && !!product.rejectedAt;
-  return (isPending || isRejected) && !product.soldAt;
+  return (isPending || isRejected) && product.status !== "SOLD";
 }
 
 // Same reasoning as isBulkApprovable, mirroring the per-row "Rechazar"
@@ -60,12 +60,12 @@ function isBulkApprovable(product: Product): boolean {
 // An already-rejected listing has nothing to gain from being rejected again.
 function isBulkRejectable(product: Product): boolean {
   const isPending = !product.isApproved && !product.rejectedAt;
-  return (isPending || product.isApproved) && !product.soldAt;
+  return (isPending || product.isApproved) && product.status !== "SOLD";
 }
 
 // isBulkApprovable and isBulkRejectable between them cover every status a
 // non-sold product can be in (pending, approved, rejected), so this is
-// exactly `!product.soldAt` — spelled out as the union of the two so a
+// exactly `product.status !== "SOLD"` — spelled out as the union of the two so a
 // selected checkbox always maps back to at least one of the two buttons
 // below, rather than asserting the equivalence and hoping it stays true if
 // either predicate's rules change.
@@ -558,7 +558,7 @@ export default function AdminProductsPage() {
                     {/* También disponible sobre una publicación ya aprobada: es la
                         única forma de bajarla del catálogo sin borrar su
                         historial de reseñas/pedidos, que es lo que hace
-                        "Eliminar". Se excluyen las vendidas (soldAt): son
+                        "Eliminar". Se excluyen las vendidas (status SOLD): son
                         historial y no se tocan desde aquí. Misma regla que la
                         casilla de selección en lote (isBulkRejectable). */}
                     {isBulkRejectable(product) && (
