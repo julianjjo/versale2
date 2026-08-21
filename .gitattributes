@@ -1,0 +1,8 @@
+# Normalize all text files to LF in the repo and in every working tree.
+# Without this, contributors on Windows (core.autocrlf=true) and CI/macOS
+# checkouts disagree about EOLs, and `git status` fills up with
+# whitespace-only "modifications" that bury real changes.
+* text=auto eol=lf
+
+# Binary assets — never normalize, never diff.
+*.ico binary

@@ -35,8 +35,11 @@ jobs:
         run: npx prisma generate
       # apps/api has a large pre-existing lint backlog (~5.8k errors); run it
       # for visibility but don't block merges on it until that's cleaned up.
+      # lint:ci (not lint) because the `lint` script carries --fix: a CI lint
+      # must report what a fresh checkout contains, not silently rewrite the
+      # runner's working copy before build/tests run against it.
       - name: Lint API (non-blocking)
-        run: npm run lint --workspace=apps/api
+        run: npm run lint:ci --workspace=apps/api
         continue-on-error: true
       # Mandatory gate: every PR must keep the files it actually touches
       # lint-clean, even while the pre-existing backlog above is still
@@ -123,9 +126,23 @@ jobs:
   # jobs have. e2e is intentionally not a dependency here: it's slower and
   # more environment-sensitive, so it reports status without gating merges
   # until it's proven stable in CI.
+  #
+  # `if: always()` + explicit result check (instead of relying on plain
+  # `needs` semantics): when a required job fails, a plain-needs gate job is
+  # SKIPPED, and a skipped required check renders as a grey/neutral marker —
+  # fail-closed for merging, but easy to misread as "not run yet". Running
+  # the gate unconditionally and failing it explicitly turns that into an
+  # unambiguous red X on the exact commit that broke CI.
   ci:
     name: CI
     runs-on: ubuntu-latest
     needs: [api-tests, web-tests]
+    if: always()
     steps:
+      - name: Fail if any required job did not pass
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: |
+          echo "Required jobs did not all pass:"
+          echo '${{ toJSON(needs) }}'
+          exit 1
       - run: echo "Required checks passed"
