@@ -413,7 +413,7 @@ export function ProductDetail({
   // A sold listing stays readable — its buyer reaches it from order history and
   // writes the review here — so the page has to say it is gone rather than
   // offering an add-to-cart the API would reject.
-  const isSold = Boolean(data.soldAt);
+  const isSold = data.status === "SOLD";
   // The seller's own temporary-hide toggle: still a normal, approved listing
   // (unlike isSold/isApproved), just not currently buyable — so this only
   // needs to swap out the buy button, not gate the rest of the page.

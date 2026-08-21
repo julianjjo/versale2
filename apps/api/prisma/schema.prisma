@@ -39,6 +39,18 @@ enum Role {
   ADMIN
 }
 
+// Stock lifecycle of a one-of-a-kind garment. Deliberately separate from the
+// moderation lifecycle (isApproved/rejectedAt/rejectionReason): a listing can
+// be pending review AND available stock-wise; they answer different questions.
+// WITHDRAWN is reserved for the seller's definitive takedown wired up by
+// "Mis publicaciones" (roadmap 1.3); today only AVAILABLE and SOLD are ever
+// written — the seller's temporary hide toggle remains `pausedAt`.
+enum ProductStatus {
+  AVAILABLE
+  SOLD
+  WITHDRAWN
+}
+
 model Product {
   id            String   @id @default(uuid())
   title         String
@@ -53,7 +65,11 @@ model Product {
   isApproved    Boolean  @default(false) // for admin moderation
   rejectedAt    DateTime?
   rejectionReason String?
-  soldAt        DateTime? // one-of-a-kind item: set once purchased, then it is gone
+  // One-of-a-kind item: checkout flips this to SOLD inside its transaction via
+  // a conditional updateMany({ where: { id, status: AVAILABLE } }) whose row
+  // count serializes concurrent buyers — exactly one checkout wins. The sale
+  // timestamp itself lives on the winning OrderItem's order (createdAt).
+  status        ProductStatus @default(AVAILABLE)
   // Seller-controlled, independent of moderation: set to temporarily hide an
   // otherwise-approved listing from the public catalog without deleting it or
   // sending it back through re-review (see the `update()` needsReview branch,
@@ -75,14 +91,14 @@ model Product {
   reports       ProductReport[]
   questions     ProductQuestion[]
 
-  // The public catalog always filters on isApproved + soldAt + pausedAt and
+  // The public catalog always filters on isApproved + status + pausedAt and
   // sorts by createdAt desc, so this covers the hottest query in the product
   // end to end. Without it every listing page was a full table scan.
-  @@index([isApproved, soldAt, pausedAt, createdAt])
+  @@index([isApproved, status, pausedAt, createdAt])
   // Same shape, for the catalog's price-sorted view (?sortBy=price_asc/desc) —
   // without it, sorting by price degrades to an in-memory sort over every
   // approved/unsold/unpaused row as the catalog grows.
-  @@index([isApproved, soldAt, pausedAt, price])
+  @@index([isApproved, status, pausedAt, price])
   // Admin moderation queue buckets on isApproved + rejectedAt.
   @@index([isApproved, rejectedAt])
   // Resolving a seller's own listings.

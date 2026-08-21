@@ -66,7 +66,7 @@ function productFixture(
     sellerId: "u1",
     isApproved: false,
     rejectedAt: null,
-    soldAt: null,
+    status: "AVAILABLE",
     rejectionReason: null,
     createdAt: new Date("2026-01-10T10:00:00Z").toISOString(),
     updatedAt: new Date("2026-01-10T10:00:00Z").toISOString(),
@@ -213,7 +213,7 @@ describe("MisProductosPage", () => {
       id: "p3",
       title: "Abrigo vendido",
       isApproved: true,
-      soldAt: new Date("2026-02-01T10:00:00Z").toISOString(),
+      status: "SOLD",
     });
     vi.mocked(api.get).mockResolvedValue({ data: paginated([sold]) });
 
@@ -346,7 +346,7 @@ describe("MisProductosPage", () => {
       id: "p15",
       title: "Botas vendidas",
       isApproved: true,
-      soldAt: new Date("2026-02-01T10:00:00Z").toISOString(),
+      status: "SOLD",
     });
     vi.mocked(api.get).mockResolvedValue({ data: paginated([sold]) });
 
@@ -719,7 +719,7 @@ describe("MisProductosPage", () => {
       id: "p22",
       title: "Vendida",
       isApproved: true,
-      soldAt: new Date("2026-02-01T10:00:00Z").toISOString(),
+      status: "SOLD",
     });
     const pending = productFixture({ id: "p23", title: "Pendiente" });
     vi.mocked(api.get).mockResolvedValue({

@@ -30,7 +30,7 @@ function productFixture(
     sellerId: "s1",
     isApproved: false,
     rejectedAt: null,
-    soldAt: null,
+    status: "AVAILABLE",
     rejectionReason: null,
     createdAt: new Date("2026-01-10T10:00:00Z").toISOString(),
     updatedAt: new Date("2026-01-10T10:00:00Z").toISOString(),
@@ -118,7 +118,7 @@ describe("AdminProductsPage", () => {
       id: "p3",
       title: "Abrigo vendido",
       isApproved: true,
-      soldAt: new Date("2026-02-01T10:00:00Z").toISOString(),
+      status: "SOLD",
     });
     vi.mocked(api.get).mockResolvedValue({ data: paginated([sold]) });
     render(
@@ -162,7 +162,7 @@ describe("AdminProductsPage", () => {
       title: "Bufanda vendida",
       isApproved: false,
       rejectedAt: new Date("2026-01-15T10:00:00Z").toISOString(),
-      soldAt: new Date("2026-02-01T10:00:00Z").toISOString(),
+      status: "SOLD",
     });
     vi.mocked(api.get).mockResolvedValue({
       data: paginated([rejectedAndSold]),
@@ -228,7 +228,7 @@ describe("AdminProductsPage", () => {
       id: "p22",
       title: "Vendida",
       isApproved: true,
-      soldAt: new Date("2026-02-01T10:00:00Z").toISOString(),
+      status: "SOLD",
     });
     vi.mocked(api.get).mockResolvedValue({
       data: paginated([pending, rejected, sold]),
@@ -421,7 +421,7 @@ describe("AdminProductsPage", () => {
       id: "p34",
       title: "Tres vendida",
       isApproved: true,
-      soldAt: new Date("2026-02-01T10:00:00Z").toISOString(),
+      status: "SOLD",
     });
     vi.mocked(api.get).mockResolvedValue({
       data: paginated([first, second, sold]),

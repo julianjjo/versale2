@@ -31,7 +31,7 @@ export const FAVORITE_PRODUCT_SELECT = {
   price: true,
   sellerId: true,
   isApproved: true,
-  soldAt: true,
+  status: true,
   pausedAt: true,
   createdAt: true,
   updatedAt: true,

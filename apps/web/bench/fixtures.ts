@@ -26,6 +26,7 @@ export function makeProduct(index: number): Product {
     price: 25000 + index * 1500,
     sellerId: `s${index % 7}`,
     isApproved: index % 9 !== 0,
+    status: index % 17 === 0 ? ("SOLD" as const) : ("AVAILABLE" as const),
     createdAt: BASE_DATE,
     updatedAt: BASE_DATE,
     images: index % 5 === 0 ? null : [`https://example.com/p${index}.jpg`],

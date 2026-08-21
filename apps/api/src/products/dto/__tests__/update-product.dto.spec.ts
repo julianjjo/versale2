@@ -64,7 +64,7 @@ describe('UpdateProductDto with the global ValidationPipe', () => {
 
   it('strips fields the seller must not be able to set', async () => {
     const result = await pipe.transform(
-      { title: 'Chaqueta', isApproved: true, soldAt: null, sellerId: 'otro' },
+      { title: 'Chaqueta', isApproved: true, status: 'AVAILABLE' as const, sellerId: 'otro' },
       metadata,
     );
 

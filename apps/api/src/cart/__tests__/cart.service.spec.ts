@@ -162,7 +162,7 @@ describe('CartService', () => {
         price: 10.0,
         sellerId: 'seller1',
         isApproved: true,
-        soldAt: null,
+        status: "AVAILABLE" as const,
       };
 
       const getCartSpy = jest
@@ -220,7 +220,7 @@ describe('CartService', () => {
         price: 10.0,
         sellerId: 'seller1',
         isApproved: true,
-        soldAt: new Date(),
+        status: "SOLD" as const,
       });
 
       await expect(service.addItem(userId, productId, 1)).rejects.toThrow(
@@ -245,7 +245,7 @@ describe('CartService', () => {
         price: 10.0,
         sellerId: 'seller1',
         isApproved: true,
-        soldAt: null,
+        status: "AVAILABLE" as const,
         pausedAt: new Date(),
       });
 
@@ -284,7 +284,7 @@ describe('CartService', () => {
         price: 10.0,
         sellerId: 'seller1',
         isApproved: false, // Not approved
-        soldAt: null,
+        status: "AVAILABLE" as const,
       };
 
       const getCartSpy = jest
@@ -327,7 +327,7 @@ describe('CartService', () => {
         price: 80.0,
         sellerId: 'seller1',
         isApproved: true,
-        soldAt: null,
+        status: "AVAILABLE" as const,
       };
 
       const getCartSpy = jest
@@ -394,7 +394,7 @@ describe('CartService', () => {
         price: 10.0,
         sellerId: 'seller1',
         isApproved: true,
-        soldAt: null,
+        status: "AVAILABLE" as const,
       };
 
       jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);

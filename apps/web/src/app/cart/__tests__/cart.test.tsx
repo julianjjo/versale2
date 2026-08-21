@@ -348,7 +348,7 @@ describe("CartPage", () => {
           ...mockCart.items[0]!,
           product: {
             ...mockCart.items[0]!.product,
-            soldAt: new Date().toISOString(),
+            status: "SOLD",
           },
         },
         mockCart.items[1]!,
@@ -380,7 +380,7 @@ describe("CartPage", () => {
   });
 
   // Un vendedor puede editar una publicación ya aprobada y devolverla a
-  // moderación (isApproved:false, soldAt sigue null). Antes eso no disparaba
+  // moderación (isApproved:false, status sigue AVAILABLE). Antes eso no disparaba
   // ninguno de los tratamientos de "no disponible": seguía sumando al total y
   // "Pagar" se quedaba habilitado, para que el checkout completo fallara en
   // el servidor sin decir cuál línea fue la causante.
@@ -413,7 +413,7 @@ describe("CartPage", () => {
     expect(
       screen.getByText(/una prenda de tu carrito ya no está disponible/i),
     ).toBeInTheDocument();
-    // Solo la prenda vendida (soldAt) usa el texto "Ya se vendió"; esta no se
+    // Solo la prenda vendida (status SOLD) usa el texto "Ya se vendió"; esta no se
     // vendió, solo volvió a moderación, así que no debe verse esa etiqueta.
     expect(screen.queryByText("Ya se vendió")).not.toBeInTheDocument();
     // La API oculta un producto no aprobado a cualquiera que no sea su
@@ -443,7 +443,7 @@ describe("CartPage", () => {
 
   // El vendedor pausó la publicación después de que se agregó al carrito: es
   // un caso distinto de "volvió a moderación" (isApproved sigue en true) y de
-  // "se vendió" (soldAt sigue null), así que necesita su propia etiqueta —
+  // "se vendió" (status sigue AVAILABLE), así que necesita su propia etiqueta —
   // pero el mismo tratamiento de "no disponible": excluida del total, el pago
   // bloqueado, y removible con el mismo botón.
   it("marca las prendas que el vendedor pausó como no disponibles y bloquea el pago", async () => {
