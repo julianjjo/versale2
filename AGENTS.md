@@ -43,3 +43,4 @@ The root keeps repo-wide workflow, DOX hierarchy rules, and the top-level child 
 - `apps/web/AGENTS.md` — Next.js frontend, React Query, Vitest.
 - `e2e/AGENTS.md` — Playwright suites, fixtures, global setup, seed.
 - `design.md` — Visual design system (tokens, components, accessibility, anti-patterns) adapted from the static reference in `index.html`. Owns all palette, type, spacing, and component-level rules for the web app.
+- `docs/funcionalidades-propuestas.md` — Roadmap de funcionalidades por hitos (v4, revisado con agentes). Cerrado y estable: implementar desde "Orden de implementación del Hito 1"; reabrir solo si cambia una premisa verificada del código o llega tracción real.
