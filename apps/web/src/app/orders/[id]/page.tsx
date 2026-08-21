@@ -18,11 +18,13 @@ import {
 } from "@/components/ui";
 import {
   ORDER_STATUS_LABEL,
+  ORDER_STATUS_REASSURANCE,
   ORDER_STATUS_VARIANT,
   nextStatusesFor,
 } from "@/lib/order-status";
 import { conditionLabel } from "@/lib/product-condition";
 import { isTerminalError } from "@/lib/http-error";
+import { OrderStatusTimeline } from "@/components/orders/order-status-timeline";
 import type { Order } from "@/lib/types";
 
 export default function OrderDetailPage() {
@@ -209,6 +211,16 @@ export default function OrderDetailPage() {
           )}
         </div>
       )}
+
+      <Card className="mb-4">
+        <h2 className="heading-card mb-4">Estado del pedido</h2>
+        <OrderStatusTimeline status={data.status} />
+        {data.status !== "CANCELLED" && (
+          <p className="mt-4 text-sm text-text-muted">
+            {ORDER_STATUS_REASSURANCE[data.status]}
+          </p>
+        )}
+      </Card>
 
       {data.status === "DELIVERED" && (
         <p

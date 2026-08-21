@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import OrderDetailPage from "../page";
 import { TestProviders } from "@/test-utils/TestProviders";
@@ -400,6 +400,45 @@ describe("OrderDetailPage", () => {
     } finally {
       confirmSpy.mockRestore();
     }
+  });
+
+  it("muestra la línea de tiempo del pedido con el paso actual marcado", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: { ...mockOrder, status: "SHIPPED" },
+    });
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Estado del pedido")).toBeInTheDocument();
+    });
+    const timeline = screen.getByRole("list", { name: "Progreso del pedido" });
+    expect(within(timeline).getByText(/Enviado/).closest("li")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+    expect(
+      screen.getByText("Tu pedido está en camino."),
+    ).toBeInTheDocument();
+  });
+
+  it("muestra el aviso de cancelación en vez de la línea de tiempo cuando el pedido fue cancelado", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: { ...mockOrder, status: "CANCELLED" },
+    });
+    render(
+      <TestProviders>
+        <OrderDetailPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Estado del pedido")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Pedido cancelado.")).toBeInTheDocument();
   });
 
   it("no ofrece Cancelar pedido cuando el pedido visto es de otra persona", async () => {
