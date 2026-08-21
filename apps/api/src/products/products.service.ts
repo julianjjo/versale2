@@ -851,9 +851,16 @@ export class ProductsService {
     // admin's findAllForAdmin still counts it there (that view tracks
     // moderation history, this one tracks what's actually sellable).
     const where: Prisma.ProductWhereInput = { sellerId };
+    // The pending/rejected buckets key off rejectionReason, matching the
+    // seller-facing band's closed rule (Rechazado = !isApproved &&
+    // rejectionReason != null; En revisión = !isApproved && reason == null).
+    // Keying the tabs off rejectedAt instead would strand a reason-less
+    // rejection under "Rechazados" while its card reads "En revisión" — the
+    // filter and the badge must tell one story. findAllForAdmin keeps
+    // rejectedAt: that view tracks moderation history, not seller guidance.
     if (status === 'pending') {
       where.isApproved = false;
-      where.rejectedAt = null;
+      where.rejectionReason = null;
       where.status = ProductStatus.AVAILABLE;
     } else if (status === 'approved') {
       where.isApproved = true;
@@ -861,7 +868,7 @@ export class ProductsService {
       where.pausedAt = null;
     } else if (status === 'rejected') {
       where.isApproved = false;
-      where.rejectedAt = { not: null };
+      where.rejectionReason = { not: null };
     } else if (status === 'sold') {
       where.status = ProductStatus.SOLD;
     } else if (status === 'paused') {
