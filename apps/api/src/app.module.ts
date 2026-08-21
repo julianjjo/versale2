@@ -12,6 +12,7 @@ import { FavoritesModule } from './favorites/favorites.module';
 import { ReportsModule } from './reports/reports.module';
 import { QuestionsModule } from './questions/questions.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { BrevoModule } from './notifications/brevo.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { parsePositiveIntEnv } from './common/env';
 
@@ -50,6 +51,7 @@ export const DEFAULT_THROTTLE_LIMIT = parsePositiveIntEnv(
     ReportsModule,
     QuestionsModule,
     NotificationsModule,
+    BrevoModule,
   ],
   providers: [
     {
