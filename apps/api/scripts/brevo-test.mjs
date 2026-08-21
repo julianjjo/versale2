@@ -15,6 +15,7 @@ const KEY = env.BREVO_API_KEY;
 const EMAIL_TO = process.argv[2];
 
 if (!KEY) { console.error('BREVO_API_KEY no configurada'); process.exit(1); }
+if (!env.BREVO_SENDER_EMAIL) { console.error('BREVO_SENDER_EMAIL no configurada'); process.exit(1); }
 if (!EMAIL_TO) { console.error('Uso: node scripts/brevo-test.mjs <email-destinatario>'); process.exit(1); }
 
 const res = await fetch('https://api.brevo.com/v3/smtp/email', {

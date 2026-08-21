@@ -1,4 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+
+/** Error con status HTTP para que los callers distingan fallos de Brevo. */
+export class BrevoApiError extends Error {
+  constructor(
+    readonly status: number,
+    detail: string,
+  ) {
+    super(`Brevo request failed (${status})`);
+  }
+}
 
 /**
  * Brevo (ex-Sendinblue) — email transaccional vía API REST v3.
@@ -10,12 +20,18 @@ import { Injectable, Logger } from '@nestjs/common';
  *   BREVO_SENDER_NAME   — nombre visible del remitente (opcional)
  */
 @Injectable()
-export class BrevoService {
+export class BrevoService implements OnModuleInit {
   private readonly logger = new Logger(BrevoService.name);
-  private readonly apiKey = process.env.BREVO_API_KEY ?? '';
+  private apiKey = '';
 
-  get configured(): boolean {
-    return Boolean(this.apiKey);
+  onModuleInit() {
+    this.apiKey = process.env.BREVO_API_KEY ?? '';
+    if (this.apiKey && !process.env.BREVO_SENDER_EMAIL) {
+      this.logger.warn('BREVO_SENDER_EMAIL falta: los envíos fallarán');
+    }
+    if (!this.apiKey) {
+      this.logger.warn('BREVO_API_KEY no configurada: emails omitidos');
+    }
   }
 
   /** Envía un email transaccional. `html` y `text` son alternativos (al menos uno). */
@@ -24,27 +40,18 @@ export class BrevoService {
     subject: string;
     html?: string;
     text?: string;
-    templateId?: number;
-    params?: Record<string, string>;
-  }): Promise<{ messageId: string } | null> {
-    if (!this.configured) {
-      this.logger.warn('BREVO_API_KEY no configurada: email omitido');
-      return null;
-    }
-    const body: Record<string, unknown> = {
+  }): Promise<Record<string, unknown> | null> {
+    if (!this.apiKey) return null;
+    return this.request('/v3/smtp/email', {
       sender: {
         name: process.env.BREVO_SENDER_NAME ?? 'Versale',
         email: process.env.BREVO_SENDER_EMAIL,
       },
       to: opts.to,
       subject: opts.subject,
-      ...(opts.templateId ? { templateId: opts.templateId } : {}),
-      ...(opts.params ? { params: opts.params } : {}),
       ...(opts.html ? { htmlContent: opts.html } : {}),
       ...(opts.text ? { textContent: opts.text } : {}),
-    };
-    const res = await this.request('/v3/smtp/email', body);
-    return { messageId: (res.messageId as string) ?? '' };
+    });
   }
 
   private async request(
@@ -59,11 +66,12 @@ export class BrevoService {
         'api-key': this.apiKey,
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
       const detail = await res.text();
       this.logger.error(`Brevo ${path} respondió ${res.status}: ${detail}`);
-      throw new Error(`Brevo request failed (${res.status})`);
+      throw new BrevoApiError(res.status, detail);
     }
     try {
       return (await res.json()) as Record<string, unknown>;
