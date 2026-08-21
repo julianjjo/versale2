@@ -81,7 +81,7 @@
 ### 9. Uploads seguros + rate limiting (ítems 1.12 + 1.11)
 
 - [ ] Magic bytes verificados con `file-type`; extensión derivada del MIME validado (no del `originalname`)
-- [ ] `@nestjs/throttler` global (~10 req/min) + límites estrictos en crear producto / reseñar / upload / auth
+- [x] `@nestjs/throttler` global + límites estrictos en auth — ya implementado en main
 - [ ] Tope de ~20 publicaciones activas por vendedor
 - [ ] ✅ Verificación: exceder límite devuelve 429; MIME falsificado rechazado
 
