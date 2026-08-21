@@ -620,7 +620,11 @@ function MisProductosList() {
             </label>
           )}
           {products.map((product, index) => {
-            const isRejected = !product.isApproved && !!product.rejectedAt;
+            // Moderation band, per the roadmap's closed state rule: a rejection
+            // without a written reason reads as "En revisión" to the seller —
+            // an unexplained "Rechazado" is less actionable than silence.
+            const isRejected =
+              !product.isApproved && !!product.rejectionReason;
             const isSold = product.status === "SOLD";
             const isPaused = !!product.pausedAt;
             const canEditOrDelete = !isSold;
@@ -710,11 +714,11 @@ function MisProductosList() {
                     ) : isRejected ? (
                       <Badge variant="danger">Rechazado</Badge>
                     ) : !product.isApproved ? (
-                      <Badge variant="warning">Pendiente</Badge>
+                      <Badge variant="warning">En revisión</Badge>
                     ) : isPaused ? (
                       <Badge variant="default">Pausado</Badge>
                     ) : (
-                      <Badge variant="success">Aprobado</Badge>
+                      <Badge variant="success">Publicado</Badge>
                     )}
                     {canTogglePause && (
                       <Button
@@ -751,6 +755,31 @@ function MisProductosList() {
                         Editar
                       </Button>
                     )}
+                    {/* Roadmap 1.15: relisting a one-of-a-kind garment (or
+                        cloning a good listing) shouldn't mean retyping the
+                        same title/category/size into /sell — preload them.
+                        Available for every own row regardless of status: the
+                        sold case is exactly the relist use case. */}
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        const params = new URLSearchParams({
+                          title: product.title,
+                          category: product.category,
+                          size: product.size,
+                        });
+                        router.push(`/sell?${params.toString()}`);
+                      }}
+                      disabled={
+                        remove.isPending ||
+                        update.isPending ||
+                        pauseToggle.isPending ||
+                        bulkActionPending
+                      }
+                    >
+                      Publicar otro igual
+                    </Button>
                     {canEditOrDelete && (
                       <Button
                         size="sm"

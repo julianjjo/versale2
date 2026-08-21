@@ -118,10 +118,64 @@ describe("MisProductosPage", () => {
     );
 
     const card = await screen.findByTestId("mine-product-p1");
-    expect(within(card).getByText("Pendiente")).toBeInTheDocument();
+    expect(within(card).getByText("En revisión")).toBeInTheDocument();
     expect(api.get).toHaveBeenCalledWith(
       "/products/mine?status=all&page=1&limit=20",
     );
+  });
+
+  it("muestra En revisión (no Rechazado) para un rechazo sin motivo escrito", async () => {
+    // Roadmap's closed band rule: Rechazado requires rejectionReason != null.
+    // A moderator rejecting without a written reason leaves the seller with
+    // nothing actionable, so the band stays "En revisión" even though
+    // rejectedAt is set.
+    const rejectedNoReason = productFixture({
+      id: "p2",
+      title: "Chaqueta rechazada sin motivo",
+      isApproved: false,
+      rejectionReason: null,
+      rejectedAt: new Date("2026-02-01T10:00:00Z").toISOString(),
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([rejectedNoReason]) });
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    const card = await screen.findByTestId("mine-product-p2");
+    expect(within(card).getByText("En revisión")).toBeInTheDocument();
+    expect(within(card).queryByText("Rechazado")).not.toBeInTheDocument();
+  });
+
+  it("Publicar otro igual navega a /sell precargando título, categoría y talla", async () => {
+    const source = productFixture({
+      id: "p3",
+      title: "Jean Levi's 501",
+      category: "Jeans",
+      size: "L",
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([source]) });
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+
+    const card = await screen.findByTestId("mine-product-p3");
+    await user.click(
+      within(card).getByRole("button", { name: "Publicar otro igual" }),
+    );
+
+    const target = pushMock.mock.calls.at(-1)?.[0] as string;
+    const url = new URL(target, "http://localhost");
+    expect(url.pathname).toBe("/sell");
+    expect(url.searchParams.get("title")).toBe("Jean Levi's 501");
+    expect(url.searchParams.get("category")).toBe("Jeans");
+    expect(url.searchParams.get("size")).toBe("L");
   });
 
   it("muestra las vistas, favoritos y preguntas de cada publicación", async () => {
@@ -250,7 +304,7 @@ describe("MisProductosPage", () => {
     );
 
     const card = await screen.findByTestId("mine-product-p12");
-    expect(within(card).getByText("Aprobado")).toBeInTheDocument();
+    expect(within(card).getByText("Publicado")).toBeInTheDocument();
     await user.click(within(card).getByRole("button", { name: "Pausar" }));
 
     await waitFor(() => {
@@ -277,7 +331,7 @@ describe("MisProductosPage", () => {
 
     const card = await screen.findByTestId("mine-product-p13");
     expect(within(card).getByText("Pausado")).toBeInTheDocument();
-    expect(within(card).queryByText("Aprobado")).not.toBeInTheDocument();
+    expect(within(card).queryByText("Publicado")).not.toBeInTheDocument();
     await user.click(within(card).getByRole("button", { name: "Reactivar" }));
 
     await waitFor(() => {
@@ -312,7 +366,7 @@ describe("MisProductosPage", () => {
     // Moderation status wins over "pausado" in the badge (matches
     // ProductCard's own precedence on Favoritos), but the action button
     // must still offer to unpause.
-    expect(within(card).getByText("Pendiente")).toBeInTheDocument();
+    expect(within(card).getByText("En revisión")).toBeInTheDocument();
     expect(within(card).queryByText("Pausado")).not.toBeInTheDocument();
     await user.click(within(card).getByRole("button", { name: "Reactivar" }));
 
