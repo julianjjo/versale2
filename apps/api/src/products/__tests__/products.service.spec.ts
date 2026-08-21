@@ -2340,7 +2340,7 @@ describe('ProductsService', () => {
       });
     });
 
-    it('should filter to pending listings (not approved, not rejected, not sold)', async () => {
+    it('should filter to pending listings (not approved, no rejection reason, not sold)', async () => {
       mockPrismaService.client.product.findMany.mockResolvedValue([]);
       mockPrismaService.client.product.count.mockResolvedValue(0);
 
@@ -2351,7 +2351,7 @@ describe('ProductsService', () => {
           where: {
             sellerId: 'seller1',
             isApproved: false,
-            rejectedAt: null,
+            rejectionReason: null,
             status: "AVAILABLE" as const,
           },
         }),
@@ -2404,7 +2404,7 @@ describe('ProductsService', () => {
           where: {
             sellerId: 'seller1',
             isApproved: false,
-            rejectedAt: { not: null },
+            rejectionReason: { not: null },
           },
         }),
       );

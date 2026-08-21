@@ -285,6 +285,11 @@ describe("MisProductosPage", () => {
     expect(
       within(card).queryByRole("button", { name: "Eliminar" }),
     ).not.toBeInTheDocument();
+    // The sold row is exactly the relist case: "Publicar otro igual" stays
+    // available even though edit/delete are gone.
+    expect(
+      within(card).getByRole("button", { name: "Publicar otro igual" }),
+    ).toBeEnabled();
   });
 
   it("pausa una publicación aprobada al hacer clic en Pausar", async () => {
