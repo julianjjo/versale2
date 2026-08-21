@@ -74,7 +74,7 @@ model Product {
   // otherwise-approved listing from the public catalog without deleting it or
   // sending it back through re-review (see the `update()` needsReview branch,
   // which is unrelated to this). Cleared by the seller to make it visible
-  // again. Orthogonal to isApproved/soldAt the same way soldAt already sits
+  // again. Orthogonal to isApproved/status the same way status already sits
   // outside the isApproved/rejectedAt moderation partition.
   pausedAt      DateTime?
   // Counts detail-page views from anyone other than the product's own
