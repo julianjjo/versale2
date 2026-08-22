@@ -65,7 +65,10 @@ test.describe("Responsive — Home (anonymous)", () => {
     for (const [vp, expectedCols] of expectations) {
       await setViewport(page, vp);
       await page.goto("/products");
-      const grid = page.locator(".products-grid");
+      // `.first()`: la página puede renderizar más de una grilla con esa
+      // clase (p.ej. productos vistos recientemente debajo del catálogo);
+      // la primera es siempre la del catálogo.
+      const grid = page.locator(".products-grid").first();
       await expect(grid).toBeVisible();
 
       const computedCols = await grid.evaluate((el) => {
