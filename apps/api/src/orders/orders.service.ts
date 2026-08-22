@@ -637,6 +637,23 @@ export class OrdersService {
       throw new NotFoundException(`No se encontró el pedido con ID ${id}`);
     }
 
+    // Item 12/13 (decisión cerrada 2.3): la transición a SHIPPED es del
+    // vendedor dueño de los productos (`mine/sales/:id/ship`). El admin
+    // conserva todas las demás transiciones y solo puede enviar por su
+    // cuenta pedidos mixtos (varios vendedores), donde ningún vendedor
+    // individual podría hacerlo.
+    if (status === OrderStatus.SHIPPED) {
+      const sellerIds = new Set(
+        order.items.map((item) => item.product.sellerId),
+      );
+      const isMixedSellerOrder = sellerIds.size > 1;
+      if (!isMixedSellerOrder) {
+        throw new ForbiddenException(
+          'Marcar el envío es responsabilidad del vendedor dueño del pedido',
+        );
+      }
+    }
+
     const updated = await this.transitionStatus(order, status);
 
     // An admin-driven change reaches the buyer, whatever the new status is —
