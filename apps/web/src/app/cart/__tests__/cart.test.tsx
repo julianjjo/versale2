@@ -566,7 +566,9 @@ describe("CartPage", () => {
         },
       });
     });
-    expect(pushMock).toHaveBeenCalledWith("/orders");
+    // Item 7: el checkout aterriza en la confirmación del pedido concreto,
+    // no en el historial.
+    expect(pushMock).toHaveBeenCalledWith("/orders/order1");
   });
 
   it("rellena la dirección con la del pedido anterior al hacer click en el acceso rápido", async () => {
