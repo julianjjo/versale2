@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { randomUUID } from 'crypto';
-import { extname } from 'path';
+import { sniffImageMime } from './magic-bytes';
 
 export interface UploadedFileResult {
   url: string;
@@ -81,6 +81,15 @@ export class UploadsService implements OnModuleInit {
           `El archivo «${file.originalname}» tiene un formato no permitido. Se aceptan: JPG, PNG, WEBP.`,
         );
       }
+      // Item 9: the declared Content-Type is client-controlled. Verify the
+      // actual bytes — a forged mimetype (e.g. HTML declaring image/png)
+      // would otherwise land in the bucket and be served to buyers.
+      const sniffed = sniffImageMime(file.buffer);
+      if (sniffed === null || sniffed !== file.mimetype) {
+        throw new BadRequestException(
+          `El contenido de «${file.originalname}» no corresponde a una imagen ${file.mimetype} válida.`,
+        );
+      }
     }
   }
 
@@ -94,8 +103,10 @@ export class UploadsService implements OnModuleInit {
   private async uploadOne(
     file: Express.Multer.File,
   ): Promise<UploadedFileResult> {
-    const ext =
-      extname(file.originalname).toLowerCase() || this.mimeToExt(file.mimetype);
+    // Item 9: the extension is derived from the VALIDATED mime (the bytes
+    // were proven to match it), never from the client-controlled filename —
+    // 'payload.html' claiming image/png gets stored as .png with png bytes.
+    const ext = this.mimeToExt(file.mimetype);
     const key = `products/${randomUUID()}${ext}`;
 
     try {
