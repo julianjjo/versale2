@@ -44,6 +44,22 @@ export default function TerminosPage() {
           </li>
         </ul>
       </section>
+      {/* Ítem 15 (decisión cerrada 3.3): la monetización se declara antes de
+          tocar dinero. Revisar al activar cobros reales (3.1). */}
+      <section>
+        <h2 className="text-lg font-semibold text-text-primary">
+          Comisiones
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-text-muted">
+          Durante la fase de validación de Versale,{" "}
+          <strong>
+            no cobramos ninguna comisión ni al vendedor ni al comprador
+          </strong>{" "}
+          — el precio que ves es el precio de la prenda. Si en el futuro
+          introducimos comisiones, lo anunciaremos en esta página y en la
+          plataforma con antelación antes de aplicarlas.
+        </p>
+      </section>
     </StaticPage>
   );
 }
