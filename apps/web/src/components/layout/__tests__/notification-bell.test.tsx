@@ -4,6 +4,21 @@ import userEvent from "@testing-library/user-event";
 import { NotificationBell } from "../notification-bell";
 import { TestProviders } from "@/test-utils/TestProviders";
 
+vi.mock("next/link", () => ({
+  default: ({
+    children,
+    href,
+    ...rest
+  }: {
+    children: React.ReactNode;
+    href: string;
+  }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
+
 vi.mock("@/lib/api", () => ({
   api: {
     get: vi.fn(),
@@ -206,6 +221,23 @@ describe("NotificationBell", () => {
     );
 
     expect(api.patch).toHaveBeenCalledWith("/notifications/read-all");
+  });
+
+  it("enlaza al pedido relacionado en vez de dejar al usuario buscarlo a mano", async () => {
+    vi.mocked(api.get).mockImplementation(mockGet(1));
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <NotificationBell />
+      </TestProviders>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: /notificaciones/i }));
+    const link = await screen.findByRole("link", {
+      name: /tu pedido fue enviado/i,
+    });
+
+    expect(link).toHaveAttribute("href", "/orders/order1");
   });
 
   it("cierra el panel al presionar Escape", async () => {

@@ -20,7 +20,12 @@ import {
   Divider,
 } from "@/components/ui";
 import { conditionLabel } from "@/lib/product-condition";
+import { getHttpStatus } from "@/lib/http-error";
 import type { Cart, CartItem, Order, PaginatedResponse } from "@/lib/types";
+
+// How fresh a recovered order has to be to trust it as "the one this
+// checkout attempt just created" (see the checkout mutation's onError).
+const RECENT_ORDER_WINDOW_MS = 30_000;
 
 function isSold(item: CartItem): boolean {
   return item.product?.status === "SOLD";
@@ -243,8 +248,54 @@ export default function CartPage() {
       // THAT order, not hunt for it in a list.
       router.push(`/orders/${created.id}`);
     },
-    onError: (err) =>
-      setError(extractApiError(err, "No pudimos procesar el pago")),
+    onError: async (err) => {
+      // createOrder() commits the order and empties the cart in the same
+      // transaction. If that commit reaches the server but the response
+      // never reaches this tab (connection dropped mid-flight), this handler
+      // fires with no way to tell that apart from a real failure — yet the
+      // buyer's items are already sold and their cart is already gone.
+      //
+      // An empty cart alone isn't proof of that, though: a real, well-formed
+      // failure ("Tu carrito está vacío") fires this same handler whenever
+      // *this* request's own transaction never had items to roll back in the
+      // first place — e.g. a second tab/device already checked out (or a
+      // double-submit already went through) and genuinely emptied the shared
+      // cart before this request's own read of it. `getHttpStatus` is
+      // `undefined` only when no HTTP response ever arrived at all (timeout,
+      // dropped connection) — a real 400 like that one has a status, so
+      // gating recovery on "no response at all" is what tells the two apart.
+      if (getHttpStatus(err) !== undefined) {
+        setError(extractApiError(err, "No pudimos procesar el pago"));
+        return;
+      }
+      try {
+        const { data: freshCart } = await api.get<Cart>('/cart');
+        if (freshCart.items.length === 0) {
+          const { data: recentOrders } = await api.get<
+            PaginatedResponse<Order>
+          >('/orders?limit=1');
+          const justPlaced = recentOrders.data[0];
+          // Belt-and-suspenders even after the network-only gate above: only
+          // trust this as "the order this request just placed" if it's
+          // fresh enough that nothing but this checkout could plausibly have
+          // just created it.
+          const isFreshEnoughToBeOurs =
+            justPlaced &&
+            Date.now() - new Date(justPlaced.createdAt).getTime() <
+              RECENT_ORDER_WINDOW_MS;
+          if (isFreshEnoughToBeOurs) {
+            queryClient.invalidateQueries({ queryKey: ['cart'] });
+            queryClient.invalidateQueries({ queryKey: ['orders'] });
+            router.push(`/orders/${justPlaced.id}`);
+            return;
+          }
+        }
+      } catch {
+        // The recovery check itself failing is not evidence either way —
+        // fall through to the generic failure message below.
+      }
+      setError(extractApiError(err, "No pudimos procesar el pago"));
+    },
   });
 
   const handleCheckout = () => {

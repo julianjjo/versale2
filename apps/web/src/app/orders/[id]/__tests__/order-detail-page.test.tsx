@@ -50,6 +50,7 @@ vi.mock("@/lib/api", () => ({
   api: {
     get: vi.fn(),
     patch: vi.fn(),
+    post: vi.fn(),
   },
   extractApiError: (err: unknown, fallback: string) =>
     err instanceof Error ? err.message : fallback,
@@ -455,5 +456,91 @@ describe("OrderDetailPage", () => {
     expect(
       screen.queryByRole("button", { name: /cancelar pedido/i }),
     ).not.toBeInTheDocument();
+  });
+
+  describe("disputa del comprador — fotos de evidencia", () => {
+    function disputableOrder() {
+      return {
+        ...mockOrder,
+        status: "DELIVERED" as const,
+        deliveredAt: new Date().toISOString(),
+      };
+    }
+
+    function photoFile(name: string) {
+      return new File(["foto"], name, { type: "image/jpeg" });
+    }
+
+    // Regression: el DTO acepta hasta 6 fotos (@ArrayMaxSize(6)) pero el
+    // endpoint de subida solo acepta 5 por request (FilesInterceptor('files',
+    // 5)) — seleccionar 6 fotos de una vez mandaba las 6 en un solo FormData,
+    // que el servidor rechazaba enteras. El fix las divide en lotes de 5.
+    it("divide en lotes de 5 la subida cuando se seleccionan más fotos que el límite por request", async () => {
+      vi.mocked(api.get).mockResolvedValue({ data: disputableOrder() });
+      vi.mocked(api.post).mockImplementation(async (_url, data) => {
+        const count = (data as FormData).getAll("files").length;
+        return {
+          data: {
+            images: Array.from({ length: count }, (_, i) => ({
+              url: `https://bucket/foto-${i}.jpg`,
+              key: `k${i}`,
+            })),
+          },
+        };
+      });
+      const user = userEvent.setup();
+      render(
+        <TestProviders>
+          <OrderDetailPage />
+        </TestProviders>,
+      );
+
+      await user.click(
+        await screen.findByRole("button", { name: /abrir una disputa/i }),
+      );
+      const input = screen.getByLabelText(/fotos de evidencia/i);
+      const files = Array.from({ length: 6 }, (_, i) => photoFile(`f${i}.jpg`));
+      await user.upload(input, files);
+
+      await waitFor(() => {
+        expect(api.post).toHaveBeenCalledTimes(2);
+      });
+      const calls = vi.mocked(api.post).mock.calls;
+      expect((calls[0][1] as FormData).getAll("files")).toHaveLength(5);
+      expect((calls[1][1] as FormData).getAll("files")).toHaveLength(1);
+      // Las 6 fotos terminan subidas pese a haber ido en dos requests.
+      await waitFor(() => {
+        expect(screen.getByText(/^Foto 6:/)).toBeInTheDocument();
+      });
+    });
+
+    it("avisa y trunca la selección cuando supera el máximo de 6 fotos", async () => {
+      vi.mocked(api.get).mockResolvedValue({ data: disputableOrder() });
+      vi.mocked(api.post).mockResolvedValue({
+        data: {
+          images: Array.from({ length: 6 }, (_, i) => ({
+            url: `https://bucket/foto-${i}.jpg`,
+            key: `k${i}`,
+          })),
+        },
+      });
+      const user = userEvent.setup();
+      render(
+        <TestProviders>
+          <OrderDetailPage />
+        </TestProviders>,
+      );
+
+      await user.click(
+        await screen.findByRole("button", { name: /abrir una disputa/i }),
+      );
+      const input = screen.getByLabelText(/fotos de evidencia/i);
+      const files = Array.from({ length: 8 }, (_, i) => photoFile(`f${i}.jpg`));
+      await user.upload(input, files);
+
+      expect(
+        await screen.findByText(/solo se suben las primeras 6 fotos/i),
+      ).toBeInTheDocument();
+    });
   });
 });

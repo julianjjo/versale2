@@ -15,7 +15,7 @@ vi.mock("@/components/products/product-detail", () => ({
   ProductDetail: () => null,
 }));
 
-import ProductPage from "../page";
+import ProductPage, { generateMetadata, truncateDescription } from "../page";
 import { ProductDetail } from "@/components/products/product-detail";
 
 const mockProduct = {
@@ -129,5 +129,57 @@ describe("ProductPage", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(element.type).toBe(ProductDetail);
+  });
+});
+
+describe("truncateDescription", () => {
+  it("no toca una descripción que ya cabe en el límite", () => {
+    expect(truncateDescription("Corta", 160)).toBe("Corta");
+  });
+
+  it("corta por grafema, no por unidad UTF-16, y agrega el sufijo", () => {
+    // "🎉" son 2 unidades UTF-16 (par sustituto) pero 1 solo grafema.
+    const result = truncateDescription("aaaa🎉bbbb", 5);
+    expect(result).toBe("aa...");
+  });
+
+  // Regression: `.slice(0, 157)` cortaba por unidad UTF-16. Con 156 "a" antes
+  // del emoji, el corte viejo caía justo en medio del par sustituto de "🎉"
+  // (que ocupa las unidades 156-157), dejando un surrogate huérfano que los
+  // crawlers/previsualizadores renderizan como el carácter de reemplazo (�).
+  it("nunca parte un emoji multi-unidad a la mitad, aunque el corte caiga justo ahí", () => {
+    const description = "a".repeat(156) + "🎉" + "b".repeat(50);
+    const result = truncateDescription(description, 160);
+
+    expect(result).toContain("🎉");
+    expect(result.endsWith("...")).toBe(true);
+    // El emoji completo (2 unidades) entra en los 157 grafemas conservados;
+    // ninguna "b" del relleno debería aparecer.
+    expect(result).toBe(`${"a".repeat(156)}🎉...`);
+  });
+});
+
+describe("generateMetadata", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("nunca deja un surrogate huérfano en la descripción del og:image/meta", async () => {
+    const description = "a".repeat(156) + "🎉" + "b".repeat(50);
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, { ...mockProduct, description }),
+    );
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ id: "p1" }),
+    });
+
+    expect(metadata.description).toBe(`${"a".repeat(156)}🎉...`);
+    expect(metadata.openGraph?.description).toBe(metadata.description);
   });
 });

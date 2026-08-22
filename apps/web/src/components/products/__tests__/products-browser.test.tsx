@@ -124,6 +124,8 @@ vi.mock("@/lib/api", () => ({
   api: {
     get: vi.fn(),
   },
+  extractApiError: (err: unknown, fallback: string) =>
+    err instanceof Error ? err.message : fallback,
 }));
 
 import { api } from "@/lib/api";
@@ -291,8 +293,10 @@ describe("ProductsBrowser", () => {
     });
   });
 
-  it("muestra un error cuando falla la carga de productos", async () => {
-    vi.mocked(api.get).mockRejectedValue(new Error("Error de red"));
+  it("muestra el mensaje genérico cuando falla la carga sin un mensaje específico", async () => {
+    // Sin `instanceof Error` ni forma de axios: extractApiError no tiene de
+    // dónde sacar un mensaje propio, así que cae al fallback genérico.
+    vi.mocked(api.get).mockRejectedValue("boom");
     render(
       <TestProviders>
         <ProductsBrowser showPagination={false} />
@@ -302,6 +306,28 @@ describe("ProductsBrowser", () => {
     await waitFor(() => {
       expect(screen.getByText(/no pudimos cargar/i)).toBeInTheDocument();
     });
+  });
+
+  // Regression: un 429 del throttle propio de GET /products (o cualquier otro
+  // fallo con mensaje del backend) se mostraba como el mismo "No pudimos
+  // cargar los productos. Intenta de nuevo." genérico — una copia que además
+  // invita al reintento inmediato que volvería a chocar contra el límite.
+  it("muestra el mensaje específico del error en vez del genérico", async () => {
+    vi.mocked(api.get).mockRejectedValue(
+      new Error("Demasiadas solicitudes. Espera un momento e inténtalo de nuevo."),
+    );
+    render(
+      <TestProviders>
+        <ProductsBrowser showPagination={false} />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Demasiadas solicitudes. Espera un momento e inténtalo de nuevo."),
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/no pudimos cargar/i)).not.toBeInTheDocument();
   });
 
   // The favorites feature now has a real API behind it (see

@@ -29,6 +29,13 @@ import { isTerminalError } from "@/lib/http-error";
 import { OrderStatusTimeline } from "@/components/orders/order-status-timeline";
 import type { Order } from "@/lib/types";
 
+// Item 12: mirrors dispute.dto.ts's own @ArrayMaxSize(6).
+const MAX_DISPUTE_PHOTOS = 6;
+// The uploads endpoint caps each multipart request at 5 files
+// (FilesInterceptor('files', 5) in uploads.controller.ts) — same limit
+// /sell's own uploader batches around.
+const DISPUTE_UPLOAD_BATCH_SIZE = 5;
+
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -132,26 +139,42 @@ export default function OrderDetailPage() {
 
   const handleDisputeFiles = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
-    const accepted = Array.from(fileList).slice(
-      0,
-      6 - disputePhotos.length,
-    );
+    const incoming = Array.from(fileList);
+    const slots = MAX_DISPUTE_PHOTOS - disputePhotos.length;
     setDisputeError(null);
+    if (slots <= 0) {
+      setDisputeError(`Máximo ${MAX_DISPUTE_PHOTOS} fotos de evidencia.`);
+      return;
+    }
+    const accepted = incoming.slice(0, slots);
+    if (incoming.length > accepted.length) {
+      setDisputeError(
+        `Solo se suben las primeras ${slots} fotos (máx ${MAX_DISPUTE_PHOTOS}).`,
+      );
+    }
+
     setDisputeUploading(true);
     try {
-      const form = new FormData();
-      for (const file of accepted) form.append("files", file);
-      const res = await api.post<{ images: { url: string; key: string }[] }>(
-        "/uploads/images",
-        form,
-      );
-      setDisputePhotos((prev) => [
-        ...prev,
-        ...(res.data.images ?? []).map((img, i) => ({
-          url: img.url,
-          alt: `Evidencia ${prev.length + i + 1}`,
-        })),
-      ]);
+      // The uploads endpoint caps each multipart request at
+      // DISPUTE_UPLOAD_BATCH_SIZE files (FilesInterceptor('files', 5)) — a
+      // single request for all 6 allowed dispute photos would be rejected
+      // outright, the same gap /sell's own uploader already had to work
+      // around.
+      for (let i = 0; i < accepted.length; i += DISPUTE_UPLOAD_BATCH_SIZE) {
+        const batch = accepted.slice(i, i + DISPUTE_UPLOAD_BATCH_SIZE);
+        const form = new FormData();
+        for (const file of batch) form.append("files", file);
+        const res = await api.post<{
+          images: { url: string; key: string }[];
+        }>("/uploads/images", form);
+        setDisputePhotos((prev) => [
+          ...prev,
+          ...(res.data.images ?? []).map((img, i2) => ({
+            url: img.url,
+            alt: `Evidencia ${prev.length + i2 + 1}`,
+          })),
+        ]);
+      }
     } catch (err) {
       setDisputeError(extractApiError(err, "No pudimos subir las fotos"));
     } finally {
@@ -360,7 +383,7 @@ export default function OrderDetailPage() {
                   className="block w-full text-sm text-text-primary file:mr-3 file:rounded-md file:border file:border-border file:bg-surface file:px-3 file:py-2 file:text-sm file:font-medium file:text-text-primary hover:file:bg-surface-muted"
                 />
                 <p className="text-xs text-text-muted">
-                  JPG, PNG o WEBP. Máximo 6 fotos.
+                  JPG, PNG o WEBP. Máximo {MAX_DISPUTE_PHOTOS} fotos.
                 </p>
                 {disputePhotos.length > 0 && (
                   <ul className="text-xs text-text-muted">
