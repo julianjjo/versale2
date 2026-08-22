@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { NotificationType, Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -16,6 +17,7 @@ import { translatePrismaError } from '../common/prisma-error';
 import { toCsv, withExcelCompat } from '../common/csv';
 import { logAndSwallow } from '../common/log-and-swallow';
 import { NotificationsService } from '../notifications/notifications.service';
+import { Interval } from '@nestjs/schedule';
 
 // Maps a target order status to the notification "flavor" a recipient sees
 // in the bell dropdown — SHIPPED/CANCELLED get their own icon-friendly type,
@@ -68,11 +70,26 @@ function buildOrderSearchWhere(search: unknown): Prisma.OrderWhereInput {
 // an order can only be cancelled while it has not shipped yet.
 const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.PENDING]: [OrderStatus.PAID, OrderStatus.CANCELLED],
-  [OrderStatus.PAID]: [OrderStatus.SHIPPED, OrderStatus.CANCELLED],
+  // Item 12: REFUNDED from PAID is the 7-day unshipped timeout — the cron
+  // path. A buyer's own cancellation stays the manual alternative.
+  [OrderStatus.PAID]: [
+    OrderStatus.SHIPPED,
+    OrderStatus.CANCELLED,
+    OrderStatus.REFUNDED,
+  ],
   [OrderStatus.SHIPPED]: [OrderStatus.DELIVERED],
-  [OrderStatus.DELIVERED]: [],
+  // Item 12: a delivered order can enter dispute (buyer, within 48h); the
+  // admin resolution either refunds or rejects back to DELIVERED.
+  [OrderStatus.DELIVERED]: [OrderStatus.DISPUTED],
+  [OrderStatus.DISPUTED]: [OrderStatus.REFUNDED, OrderStatus.DELIVERED],
   [OrderStatus.CANCELLED]: [],
+  [OrderStatus.REFUNDED]: [],
 };
+
+// Item 12 deadlines (roadmap 2.2, closed decisions).
+export const UNSHIPPED_REFUND_DAYS = 7;
+export const DISPUTE_WINDOW_HOURS = 48;
+export const DISPUTE_EXPIRY_DAYS = 30;
 
 // Only these statuses represent money actually received. PENDING is an order
 // that was placed but never paid, and CANCELLED was never charged: neither is
@@ -710,11 +727,30 @@ export class OrdersService {
     // completes that stamp has to come back off, otherwise an abandoned
     // checkout destroys the listing for good — gone from the catalog and the
     // facets, and un-addable to any cart, with no way for the seller to relist.
-    if (status !== OrderStatus.CANCELLED) {
+    // Item 12: deadline stamps — the cron measures the 7-day unshipped
+    // timeout from paidAt and the 48h dispute window from deliveredAt.
+    const deadlineStamps: Prisma.OrderUpdateInput = {};
+    if (status === OrderStatus.PAID) deadlineStamps.paidAt = new Date();
+    if (status === OrderStatus.DELIVERED)
+      deadlineStamps.deliveredAt = new Date();
+    // Salir de DISPUTED cierra la disputa — por reembolso o por rechazo —
+    // venga del admin o del cron: el histórico de "una por orden" queda
+    // sellado en ambos caminos.
+    if (currentStatus === OrderStatus.DISPUTED) {
+      deadlineStamps.disputeResolvedAt = new Date();
+    }
+
+    // REFUNDED releases the garments exactly like a cancellation does: the
+    // sale didn't happen (or was undone), so the one-of-a-kind listing goes
+    // back on the market.
+    const releasesGarments =
+      status === OrderStatus.CANCELLED || status === OrderStatus.REFUNDED;
+
+    if (!releasesGarments) {
       try {
         return await this.prisma.client.order.update({
           where: { id: order.id, status: currentStatus },
-          data: { status },
+          data: { status, ...deadlineStamps },
         });
       } catch (error) {
         translatePrismaError(error, {
@@ -734,7 +770,7 @@ export class OrdersService {
       const updated = await tx.order
         .update({
           where: { id: order.id, status: currentStatus },
-          data: { status },
+          data: { status, ...deadlineStamps },
         })
         .catch((error) => {
           translatePrismaError(error, {
@@ -761,5 +797,192 @@ export class OrdersService {
 
       return updated;
     });
+  }
+
+  // ── Item 12: disputas y reembolsos ────────────────────────────────────────
+
+  /**
+   * Buyer opens THE dispute for a delivered order. Roadmap-closed rules:
+   * one dispute per order (ever — `disputedAt` stays set after resolution),
+   * only within DISPUTE_WINDOW_HOURS of delivery, photos mandatory.
+   */
+  async openDispute(
+    userId: string,
+    orderId: string,
+    dto: { reason: string; photos: string[] },
+  ) {
+    // Tipado explícito con el enum local: la comparación de estados contra
+    // el enum del runtime de Prisma dispara no-unsafe-enum-comparison.
+    const order = (await this.prisma.client.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        deliveredAt: true,
+        disputedAt: true,
+        items: { select: { product: { select: { sellerId: true } } } },
+      },
+    })) as {
+      id: string;
+      userId: string;
+      status: OrderStatus;
+      deliveredAt: Date | null;
+      disputedAt: Date | null;
+      items: { product: { sellerId: string } }[];
+    } | null;
+
+    if (!order) {
+      throw new NotFoundException(`No se encontró el pedido con ID ${orderId}`);
+    }
+    if (order.userId !== userId) {
+      throw new ForbiddenException(
+        'No tienes autorización para disputar este pedido',
+      );
+    }
+    if (order.status !== OrderStatus.DELIVERED) {
+      throw new BadRequestException('Solo puedes disputar pedidos entregados');
+    }
+    // Fotos obligatorias: sin evidencia la disputa no es revisable. El DTO ya
+    // lo exige; el servicio no confía en quién lo llame.
+    if (!dto.photos || dto.photos.length === 0) {
+      throw new BadRequestException(
+        'Adjunta al menos una foto como evidencia de la disputa',
+      );
+    }
+    // Una sola por orden, incluso después de resuelta: el histórico de
+    // disputas repetidas sobre la misma venta es exactamente el abuso que la
+    // regla cerrada quiere impedir.
+    if (order.disputedAt) {
+      throw new ConflictException(
+        'Este pedido ya tuvo una disputa; no se pueden abrir más',
+      );
+    }
+    if (
+      !order.deliveredAt ||
+      Date.now() - order.deliveredAt.getTime() >
+        DISPUTE_WINDOW_HOURS * 60 * 60 * 1000
+    ) {
+      throw new BadRequestException(
+        `La ventana para disputar es de ${DISPUTE_WINDOW_HOURS} horas desde la entrega`,
+      );
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(
+      now.getTime() + DISPUTE_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
+    );
+
+    // CAS on DELIVERED: two concurrent dispute posts can't both win.
+    const updated = await this.prisma.client.order.update({
+      where: { id: orderId, status: OrderStatus.DELIVERED },
+      data: {
+        status: OrderStatus.DISPUTED,
+        disputedAt: now,
+        disputeExpiresAt: expiresAt,
+        disputeReason: dto.reason,
+        disputePhotos: dto.photos,
+      },
+    });
+
+    await this.notifySafely(() =>
+      Promise.all(
+        order.items
+          .map((item) => item.product.sellerId)
+          .filter((sellerId, idx, all) => all.indexOf(sellerId) === idx)
+          .map((sellerId) =>
+            this.notifications.create(
+              sellerId,
+              NotificationType.ORDER_STATUS_CHANGED,
+              'El comprador abrió una disputa sobre su pedido. Un administrador la revisará.',
+              updated.id,
+            ),
+          ),
+      ),
+    );
+
+    return updated;
+  }
+
+  /**
+   * Cron sweep (hourly): PAID orders unshipped for UNSHIPPED_REFUND_DAYS are
+   * auto-refunded — the seller vanished. Public for direct testability.
+   * Returns how many orders were refunded.
+   */
+  async autoRefundUnshippedPaidOrders(): Promise<number> {
+    const cutoff = new Date(
+      Date.now() - UNSHIPPED_REFUND_DAYS * 24 * 60 * 60 * 1000,
+    );
+    const stale = await this.prisma.client.order.findMany({
+      where: { status: OrderStatus.PAID, paidAt: { lte: cutoff } },
+      select: { id: true, userId: true, status: true },
+    });
+
+    for (const order of stale) {
+      try {
+        await this.transitionStatus(order, OrderStatus.REFUNDED);
+        await this.notifySafely(() =>
+          this.notifications.create(
+            order.userId,
+            NotificationType.ORDER_STATUS_CHANGED,
+            'Tu pago fue reembolsado automáticamente: el vendedor no envió el pedido en 7 días.',
+            order.id,
+          ),
+        );
+      } catch (error) {
+        // One stale order failing (e.g. raced by an admin shipping it) must
+        // not abort the sweep over the rest.
+        this.logger.warn(
+          `No se pudo reembolsar automáticamente el pedido ${order.id}:`,
+          error,
+        );
+      }
+    }
+    return stale.length;
+  }
+
+  /**
+   * Cron sweep (hourly): disputes open past DISPUTE_EXPIRY_DAYS resolve to
+   * REFUNDED — the roadmap's "último recurso" favors the buyer when the admin
+   * didn't act in time. Returns how many disputes were expired.
+   */
+  async autoResolveExpiredDisputes(): Promise<number> {
+    const expired = await this.prisma.client.order.findMany({
+      where: {
+        status: OrderStatus.DISPUTED,
+        disputeExpiresAt: { lte: new Date() },
+      },
+      select: { id: true, userId: true, status: true },
+    });
+
+    for (const order of expired) {
+      try {
+        await this.transitionStatus(order, OrderStatus.REFUNDED);
+        await this.prisma.client.order.update({
+          where: { id: order.id },
+          data: { disputeResolvedAt: new Date() },
+        });
+        await this.notifySafely(() =>
+          this.notifications.create(
+            order.userId,
+            NotificationType.ORDER_STATUS_CHANGED,
+            'Tu disputa expiró sin resolución y se reembolsó tu pago automáticamente.',
+            order.id,
+          ),
+        );
+      } catch (error) {
+        this.logger.warn(
+          `No se pudo expirar la disputa del pedido ${order.id}:`,
+          error,
+        );
+      }
+    }
+    return expired.length;
+  }
+
+  @Interval(60 * 60 * 1000)
+  async runOrderDeadlineSweeps() {
+    await this.autoRefundUnshippedPaidOrders();
+    await this.autoResolveExpiredDisputes();
   }
 }

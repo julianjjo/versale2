@@ -139,10 +139,24 @@ model Order {
   totalAmount   Float
   shippingAddress Json   // or separate ShippingAddress model (now required)
   trackingNumber String?
+  // Item 12 timestamps that drive the automated deadlines: the 7-day
+  // unshipped refund counts from paidAt, the 48h dispute window and the
+  // 30-day dispute expiry from deliveredAt / disputedAt.
+  paidAt        DateTime?
+  deliveredAt   DateTime?
+  disputedAt    DateTime?
+  disputeExpiresAt DateTime?
+  disputeResolvedAt DateTime?
+  disputeReason String?
+  disputePhotos Json?    // [{ url, alt }] — same shape as Product.images
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   items         OrderItem[] @relation("OrderItemOrder")
   notifications Notification[]
+
+  // Cron sweeps filter by these deadline columns every hour.
+  @@index([status, paidAt])
+  @@index([status, disputeExpiresAt])
 
   // Order history is always "this user's orders, newest first".
   @@index([userId, createdAt])
@@ -156,6 +170,8 @@ enum OrderStatus {
   SHIPPED
   DELIVERED
   CANCELLED
+  DISPUTED
+  REFUNDED
 }
 
 model OrderItem {

@@ -19,6 +19,7 @@ import { Role } from '../users/role.enum';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { ShipSaleDto } from './dto/ship-sale.dto';
+import { CreateDisputeDto } from './dto/dispute.dto';
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
@@ -109,5 +110,16 @@ export class OrdersController {
     @Body() body: UpdateOrderStatusDto,
   ) {
     return this.ordersService.updateOrderStatus(id, body.status);
+  }
+
+  // Item 12: una sola disputa por orden, 48h desde la entrega, fotos
+  // obligatorias — las reglas viven en OrdersService.openDispute.
+  @Post(':id/dispute')
+  async openDispute(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() body: CreateDisputeDto,
+  ) {
+    return this.ordersService.openDispute(req.user.id, id, body);
   }
 }

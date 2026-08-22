@@ -7,6 +7,9 @@ export const ORDER_STATUSES: OrderStatus[] = [
   "SHIPPED",
   "DELIVERED",
   "CANCELLED",
+  // Item 12.
+  "DISPUTED",
+  "REFUNDED",
 ];
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
@@ -15,6 +18,8 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   SHIPPED: "Enviado",
   DELIVERED: "Entregado",
   CANCELLED: "Cancelado",
+  DISPUTED: "En disputa",
+  REFUNDED: "Reembolsado",
 };
 
 // Mirrors ALLOWED_STATUS_TRANSITIONS in apps/api/src/orders/order-status.enum.ts.
@@ -24,10 +29,15 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
 // lifecycle through error banners.
 export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PENDING: ["PAID", "CANCELLED"],
-  PAID: ["SHIPPED", "CANCELLED"],
+  // REFUNDED desde PAID es el timeout de 7 días sin envío (cron).
+  PAID: ["SHIPPED", "CANCELLED", "REFUNDED"],
   SHIPPED: ["DELIVERED"],
-  DELIVERED: [],
+  // Item 12: la entrega puede entrar en disputa; la resolución del admin
+  // reembolsa o rechaza de vuelta a DELIVERED.
+  DELIVERED: ["DISPUTED"],
+  DISPUTED: ["REFUNDED", "DELIVERED"],
   CANCELLED: [],
+  REFUNDED: [],
 };
 
 /** Statuses an order in `status` can legally move to. Empty for terminal states. */
@@ -49,6 +59,8 @@ export const ORDER_STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
   SHIPPED: "info",
   DELIVERED: "success",
   CANCELLED: "danger",
+  DISPUTED: "warning",
+  REFUNDED: "danger",
 };
 
 export const ORDER_STATUS_REASSURANCE: Record<OrderStatus, string> = {
@@ -57,6 +69,9 @@ export const ORDER_STATUS_REASSURANCE: Record<OrderStatus, string> = {
   SHIPPED: "Tu pedido está en camino.",
   DELIVERED: "Tu pedido fue entregado.",
   CANCELLED: "Este pedido fue cancelado.",
+  DISPUTED:
+    "Tu disputa está en revisión por un administrador. Te avisaremos la resolución.",
+  REFUNDED: "El monto de este pedido te fue reembolsado.",
 };
 
 export function statusVariantFor(status: OrderStatus): BadgeVariant {
