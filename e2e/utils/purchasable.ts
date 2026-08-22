@@ -66,7 +66,7 @@ export async function createPendingProduct(
     data: {
       title,
       description: "Prenda creada por la suite e2e para probar la compra.",
-      category: "Jackets",
+      category: "Chaquetas",
       size: "M",
       condition: "Good",
       price,
