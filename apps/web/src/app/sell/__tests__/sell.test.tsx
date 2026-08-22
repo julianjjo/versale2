@@ -6,9 +6,16 @@ import { TestProviders } from "@/test-utils/TestProviders";
 
 const pushMock = vi.fn();
 
+// Backing store for useSearchParams — individual tests point it at
+// "Publicar otro igual" query strings before rendering.
+let mockQuery: Record<string, string> = {};
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock, refresh: vi.fn(), back: vi.fn() }),
   useParams: () => ({}),
+  useSearchParams: () => ({
+    get: (key: string) => mockQuery[key] ?? null,
+  }),
 }));
 
 const authState = {
@@ -70,6 +77,30 @@ async function fillListing(user: ReturnType<typeof userEvent.setup>) {
 describe("SellPage — subida de imágenes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockQuery = {};
+  });
+
+  it("precarga título, categoría y talla desde los query params (Publicar otro igual)", async () => {
+    mockQuery = { title: "Jean Levi's 501 ", category: "Jeans", size: "L" };
+    renderPage();
+
+    expect(
+      await screen.findByLabelText(/^título$/i),
+    ).toHaveValue("Jean Levi's 501");
+    expect(screen.getByLabelText(/^categoría$/i)).toHaveValue("Jeans");
+    expect(screen.getByLabelText(/^talla$/i)).toHaveValue("L");
+  });
+
+  it("ignora una talla precargada fuera de la lista fija en vez de dejar un valor invisible", async () => {
+    mockQuery = { title: "Chaqueta", category: "Chaquetas", size: "XXXL" };
+    renderPage();
+
+    expect(
+      await screen.findByLabelText(/^título$/i),
+    ).toHaveValue("Chaqueta");
+    // The select stays on its empty placeholder rather than holding a value
+    // it cannot display.
+    expect(screen.getByLabelText(/^talla$/i)).toHaveValue("");
   });
 
   it("muestra un mensaje en español cuando la subida falla, no el del backend", async () => {

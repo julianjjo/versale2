@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { api, extractApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
@@ -56,16 +56,35 @@ function uploadErrorMessage(err: unknown): string {
   return "No pudimos subir la imagen.";
 }
 
-export default function SellPage() {
+// "Publicar otro igual" (/mis-productos) lands here with
+// ?title=&category=&size=. Read ONCE via the state initializer below — a mount
+// happens exactly once per visit, so edits are never overwritten by params.
+// Size is whitelisted against the fixed option list: a stale or hand-typed
+// value outside it would otherwise leave React holding a value the <select>
+// can't render (blank field until submit). Title/category are free-text inputs,
+// so they only get trimmed.
+function readPrefill(searchParams: ReturnType<typeof useSearchParams>) {
+  const rawSize = searchParams.get("size") ?? "";
+  return {
+    title: (searchParams.get("title") ?? "").trim(),
+    category: (searchParams.get("category") ?? "").trim(),
+    size: (SIZES as string[]).includes(rawSize) ? rawSize : "",
+  };
+}
+
+function SellForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isLoading: isAuthLoading } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // State initializer = the one-time prefill application point.
+  const prefill = readPrefill(searchParams);
   const [form, setForm] = useState({
-    title: "",
+    title: prefill.title,
     description: "",
-    category: "",
+    category: prefill.category,
     brand: "",
-    size: "",
+    size: prefill.size,
     condition: "Good",
     price: "",
   });
@@ -422,5 +441,23 @@ export default function SellPage() {
         </form>
       </Card>
     </PageContainer>
+  );
+}
+
+// useSearchParams() requires a Suspense boundary on prerendered client pages
+// (Next build fails otherwise) — the form lives in SellForm above.
+export default function SellPage() {
+  return (
+    <Suspense
+      fallback={
+        <PageContainer>
+          <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
+            <Spinner className="h-5 w-5" /> Cargando…
+          </div>
+        </PageContainer>
+      }
+    >
+      <SellForm />
+    </Suspense>
   );
 }
