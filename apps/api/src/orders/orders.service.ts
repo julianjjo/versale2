@@ -246,7 +246,11 @@ export class OrdersService {
       // the stale, pre-pause snapshot.
       const productIds = orderItems.map((item) => item.productId);
       const sold = await tx.product.updateMany({
-        where: { id: { in: productIds }, status: ProductStatus.AVAILABLE, pausedAt: null },
+        where: {
+          id: { in: productIds },
+          status: ProductStatus.AVAILABLE,
+          pausedAt: null,
+        },
         data: { status: ProductStatus.SOLD },
       });
 

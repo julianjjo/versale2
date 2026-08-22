@@ -112,7 +112,7 @@ describe('OrdersService', () => {
               id: 'product1',
               title: 'Product 1',
               isApproved: true,
-              status: "AVAILABLE" as const,
+              status: 'AVAILABLE' as const,
               price: 10.0,
               sellerId: 'sellerA',
             },
@@ -126,7 +126,7 @@ describe('OrdersService', () => {
               id: 'product2',
               title: 'Product 2',
               isApproved: true,
-              status: "AVAILABLE" as const,
+              status: 'AVAILABLE' as const,
               price: 20.0,
               sellerId: 'sellerB',
             },
@@ -202,7 +202,7 @@ describe('OrdersService', () => {
               id: 'product1',
               title: 'Product 1',
               isApproved: true,
-              status: "AVAILABLE" as const,
+              status: 'AVAILABLE' as const,
               price: 10.0,
               sellerId: 'sellerA',
             },
@@ -218,8 +218,12 @@ describe('OrdersService', () => {
       // Compare-and-swap: only rows that are still unsold AND unpaused may be
       // claimed.
       expect(mockTx.product.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['product1'] }, status: "AVAILABLE" as const, pausedAt: null },
-        data: { status: "SOLD" },
+        where: {
+          id: { in: ['product1'] },
+          status: 'AVAILABLE' as const,
+          pausedAt: null,
+        },
+        data: { status: 'SOLD' },
       });
     });
 
@@ -243,7 +247,7 @@ describe('OrdersService', () => {
               id: 'product1',
               title: 'Product 1',
               isApproved: true,
-              status: "AVAILABLE" as const,
+              status: 'AVAILABLE' as const,
               pausedAt: null,
               price: 10.0,
               sellerId: 'sellerA',
@@ -276,7 +280,7 @@ describe('OrdersService', () => {
               id: 'product1',
               title: 'Camisa de lino',
               isApproved: true,
-              status: "SOLD" as const,
+              status: 'SOLD' as const,
               price: 10.0,
               sellerId: 'sellerA',
             },
@@ -306,7 +310,7 @@ describe('OrdersService', () => {
               id: 'product1',
               title: 'Camisa de lino',
               isApproved: true,
-              status: "AVAILABLE" as const,
+              status: 'AVAILABLE' as const,
               pausedAt: new Date(),
               price: 10.0,
               sellerId: 'sellerA',
@@ -337,7 +341,7 @@ describe('OrdersService', () => {
               id: 'product1',
               title: 'Product 1',
               isApproved: true,
-              status: "AVAILABLE" as const,
+              status: 'AVAILABLE' as const,
               price: 10.0,
               sellerId: 'sellerA',
             },
@@ -370,7 +374,7 @@ describe('OrdersService', () => {
               id: 'product1',
               title: 'Product 1',
               isApproved: true,
-              status: "AVAILABLE" as const,
+              status: 'AVAILABLE' as const,
               price: 10.0,
               sellerId: 'sellerA',
             },
@@ -399,7 +403,7 @@ describe('OrdersService', () => {
               id: 'product1',
               title: 'Product 1',
               isApproved: true,
-              status: "AVAILABLE" as const,
+              status: 'AVAILABLE' as const,
               // Seller raised the price after the buyer added it to their cart.
               price: 999.0,
               sellerId: 'sellerA',
@@ -503,7 +507,7 @@ describe('OrdersService', () => {
               id: 'product1',
               title: 'Product 1',
               isApproved: false,
-              status: "AVAILABLE" as const,
+              status: 'AVAILABLE' as const,
               price: 10.0,
               sellerId: 'sellerA',
             },
@@ -533,7 +537,7 @@ describe('OrdersService', () => {
               id: 'product1',
               title: 'Product 1',
               isApproved: true,
-              status: "AVAILABLE" as const,
+              status: 'AVAILABLE' as const,
               price: 10.0,
               sellerId: userId,
             },
@@ -563,7 +567,7 @@ describe('OrdersService', () => {
               id: 'product1',
               title: 'Product 1',
               isApproved: true,
-              status: "AVAILABLE" as const,
+              status: 'AVAILABLE' as const,
               price: 10.0,
               sellerId: 'sellerA',
             },
@@ -1136,8 +1140,8 @@ describe('OrdersService', () => {
       // never completes has to put them back, or an abandoned checkout destroys
       // the listing for good.
       expect(mockTx.product.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['product1', 'product2'] }, status: "SOLD" },
-        data: { status: "AVAILABLE" as const },
+        where: { id: { in: ['product1', 'product2'] }, status: 'SOLD' },
+        data: { status: 'AVAILABLE' as const },
       });
       expect(result).toEqual({ id: 'order1', status: OrderStatus.CANCELLED });
       expect(mockNotificationsService.create).toHaveBeenCalledWith(
@@ -1277,8 +1281,8 @@ describe('OrdersService', () => {
         data: { status: OrderStatus.CANCELLED },
       });
       expect(mockTx.product.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['product1'] }, status: "SOLD" },
-        data: { status: "AVAILABLE" as const },
+        where: { id: { in: ['product1'] }, status: 'SOLD' },
+        data: { status: 'AVAILABLE' as const },
       });
       expect(result).toEqual({ id: 'order1', status: OrderStatus.CANCELLED });
       // The seller, not the buyer who just cancelled.
