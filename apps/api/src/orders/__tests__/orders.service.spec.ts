@@ -1076,6 +1076,50 @@ describe('OrdersService', () => {
   });
 
   describe('updateOrderStatus', () => {
+    // Item 13 (decisión cerrada 2.3): la transición a SHIPPED es del
+    // vendedor dueño. El admin solo conserva el fallback para pedidos mixtos.
+    it('rechaza al admin marcar SHIPPED en un pedido de un solo vendedor', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.PAID,
+        userId: 'buyer1',
+        items: [{ product: { sellerId: 'seller1' } }],
+      });
+
+      await expect(
+        service.updateOrderStatus('order1', OrderStatus.SHIPPED),
+      ).rejects.toThrow(
+        /Marcar el envío es responsabilidad del vendedor dueño/,
+      );
+      // Ni siquiera se intenta el write.
+      expect(mockPrismaService.client.order.update).not.toHaveBeenCalled();
+    });
+
+    it('permite al admin SHIPPED solo como fallback en pedidos mixtos', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'mixed1',
+        status: OrderStatus.PAID,
+        userId: 'buyer1',
+        items: [
+          { product: { sellerId: 'seller1' } },
+          { product: { sellerId: 'seller2' } },
+        ],
+      });
+      mockTx.order.update.mockResolvedValue({ id: 'mixed1' });
+      mockTx.orderItem.findMany.mockResolvedValue([]);
+      mockPrismaService.client.order.update.mockResolvedValue({
+        id: 'mixed1',
+        status: OrderStatus.SHIPPED,
+      });
+
+      const result = await service.updateOrderStatus(
+        'mixed1',
+        OrderStatus.SHIPPED,
+      );
+
+      expect(result).toMatchObject({ status: OrderStatus.SHIPPED });
+    });
+
     it('should update the order status on a legal forward transition', async () => {
       const orderId = 'order1';
       const mockOrder = { id: orderId, status: OrderStatus.PAID };
@@ -1184,6 +1228,20 @@ describe('OrdersService', () => {
       mockPrismaService.client.order.update.mockResolvedValue({
         id: 'order1',
         status: OrderStatus.SHIPPED,
+      });
+
+      // Item 13 (decisión 2.3): SHIPPED es del vendedor dueño. El admin solo
+      // puede enviar por su cuenta pedidos mixtos (varios vendedores); este
+      // mock representa exactamente ese fallback.
+      const orderItems = [
+        { product: { sellerId: 's1' } },
+        { product: { sellerId: 's2' } },
+      ];
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        status: OrderStatus.PAID,
+        userId: 'buyer1',
+        items: orderItems,
       });
 
       await service.updateOrderStatus('order1', OrderStatus.SHIPPED);
