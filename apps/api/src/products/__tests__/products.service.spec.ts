@@ -247,7 +247,7 @@ describe('ProductsService', () => {
               asker: { select: { id: true, name: true } },
             },
             orderBy: { createdAt: 'desc' },
-            take: 50,
+            take: 200,
           },
         },
       });
@@ -274,7 +274,7 @@ describe('ProductsService', () => {
         .findUnique as unknown as {
         mock: { calls: Array<[{ include: { questions: { take?: number } } }]> };
       };
-      expect(findUniqueMock.mock.calls[0][0].include.questions.take).toBe(50);
+      expect(findUniqueMock.mock.calls[0][0].include.questions.take).toBe(200);
     });
 
     it("should mark the review from the product's actual verified buyer as verifiedPurchase", async () => {

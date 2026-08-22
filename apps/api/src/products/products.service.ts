@@ -84,7 +84,12 @@ const MAX_ACTIVE_LISTINGS_PER_SELLER = 20;
 
 // Questions have no purchase requirement (unlike reviews) and no separate
 // paginated endpoint, so findOne's embed is the only ceiling they ever get.
-const MAX_QUESTIONS_PER_PRODUCT = 50;
+// A question past this cutoff would also become unanswerable in the UI —
+// QuestionsService#answer() has no admin bypass the way remove() does, so
+// the seller is the only one who can ever act on it — so the number needs
+// enough headroom that a real one-of-a-kind garment listing is never
+// realistically going to reach it, not just "a reasonable page size".
+const MAX_QUESTIONS_PER_PRODUCT = 200;
 
 @Injectable()
 export class ProductsService {

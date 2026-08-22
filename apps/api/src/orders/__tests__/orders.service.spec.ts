@@ -2087,9 +2087,9 @@ describe('OrdersService', () => {
         };
       };
       const usedCutoff = findManyMock.mock.calls[0][0].where.createdAt.lte;
-      const diffMinutes = (Date.now() - usedCutoff.getTime()) / (60 * 1000);
-      expect(diffMinutes).toBeGreaterThanOrEqual(29.9);
-      expect(diffMinutes).toBeLessThan(30.1);
+      const diffHours = (Date.now() - usedCutoff.getTime()) / (60 * 60 * 1000);
+      expect(diffHours).toBeGreaterThanOrEqual(23.99);
+      expect(diffHours).toBeLessThan(24.01);
 
       expect(mockTx.order.update).toHaveBeenCalledWith(
         objContaining({
