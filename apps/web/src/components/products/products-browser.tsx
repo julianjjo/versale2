@@ -8,6 +8,7 @@ import {
 } from "@/lib/product-condition";
 import type { PaginatedResponse, Product } from "@/lib/types";
 import { Suspense, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -455,8 +456,8 @@ function ProductsBrowserContent({
       )}
 
       <div className="products-grid grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
-        {data?.data.map((product) => (
-          <ProductCard key={product.id} product={product} />
+        {data?.data.map((product, index) => (
+          <ProductCard key={product.id} product={product} priority={index < 4} />
         ))}
       </div>
 
@@ -477,12 +478,17 @@ function ProductsBrowserContent({
 export function ProductCard({
   product,
   isFavoriteOverride,
+  priority = false,
 }: {
   product: Product;
   // Forwarded to `FavoriteButton` — see its own doc comment. Lets a caller
   // that already knows every card it renders is a favorite (the Favoritos
   // page) skip that button's membership lookup.
   isFavoriteOverride?: boolean;
+  // Set by the caller for cards it knows render above the fold (e.g. the
+  // first row of the main catalog grid), so next/image preloads them instead
+  // of lazy-loading — those are the images actually competing for LCP.
+  priority?: boolean;
 }) {
   const { user } = useAuth();
   const isOwn = user?.id === product.sellerId;
@@ -500,12 +506,13 @@ export function ProductCard({
         <article className="flex h-full flex-col gap-3.5 transition-transform duration-300 group-hover:-translate-y-1">
           <div className="relative aspect-[3/4] overflow-hidden rounded-[14px] bg-paper-3">
             {product.images?.[0] ? (
-              <img
+              <Image
                 src={product.images[0].url}
                 alt={product.title}
-                loading="lazy"
-                decoding="async"
-                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                fill
+                sizes="(min-width: 1024px) 23vw, (min-width: 640px) 31vw, 46vw"
+                priority={priority}
+                className="object-cover transition-transform duration-700 group-hover:scale-105"
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-xs text-muted">

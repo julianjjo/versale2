@@ -8,6 +8,11 @@ const img = (n: number) => ({
   alt: `Vista ${n} de la chaqueta`,
 });
 
+// next/image rewrites `src` through its optimizer (`/_next/image?url=...`)
+// rather than passing the original URL through verbatim.
+const expectImageSrc = (element: HTMLElement, url: string) =>
+  expect(element.getAttribute("src")).toContain(encodeURIComponent(url));
+
 describe("ProductGallery", () => {
   afterEach(cleanup);
 
@@ -20,7 +25,7 @@ describe("ProductGallery", () => {
     );
 
     const mainImage = screen.getByRole("img", { name: "Vista 1 de la chaqueta" });
-    expect(mainImage).toHaveAttribute("src", "https://example.com/jacket-1.jpg");
+    expectImageSrc(mainImage, "https://example.com/jacket-1.jpg");
     expect(
       screen.getByRole("button", { name: /ver foto 1 de/i }),
     ).toHaveAttribute("aria-current", "true");
@@ -37,9 +42,10 @@ describe("ProductGallery", () => {
 
     await user.click(screen.getByRole("button", { name: /ver foto 2 de/i }));
 
-    expect(
+    expectImageSrc(
       screen.getByRole("img", { name: "Vista 2 de la chaqueta" }),
-    ).toHaveAttribute("src", "https://example.com/jacket-2.jpg");
+      "https://example.com/jacket-2.jpg",
+    );
     expect(
       screen.getByRole("button", { name: /ver foto 2 de/i }),
     ).toHaveAttribute("aria-current", "true");
@@ -140,8 +146,8 @@ describe("ProductGallery", () => {
     );
 
     await user.click(screen.getByRole("button", { name: /ver foto 2 de/i }));
-    expect(screen.getByRole("img", { name: "A2" })).toHaveAttribute(
-      "src",
+    expectImageSrc(
+      screen.getByRole("img", { name: "A2" }),
       "https://example.com/a2.jpg",
     );
 
@@ -156,8 +162,8 @@ describe("ProductGallery", () => {
       />,
     );
 
-    expect(screen.getByRole("img", { name: "B1" })).toHaveAttribute(
-      "src",
+    expectImageSrc(
+      screen.getByRole("img", { name: "B1" }),
       "https://example.com/b1.jpg",
     );
     expect(

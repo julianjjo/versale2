@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Modal } from "../ui/modal";
 import type { ProductImage } from "@/lib/types";
 
@@ -29,9 +30,16 @@ export function ProductGallery({
 
   return (
     <div className="space-y-2">
-      <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-muted">
+      <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-muted">
         {activeImage ? (
-          <img src={activeImage.url} alt={activeAlt} className="h-full w-full object-cover" />
+          <Image
+            src={activeImage.url}
+            alt={activeAlt}
+            fill
+            sizes="(min-width: 768px) 50vw, 100vw"
+            priority
+            className="object-cover"
+          />
         ) : (
           <span className="text-sm text-text-muted">Sin imagen</span>
         )}
@@ -63,18 +71,18 @@ export function ProductGallery({
               onClick={() => setSelectedIndex(idx)}
               aria-current={idx === selectedIndex}
               aria-label={`Ver foto ${idx + 1} de ${title}`}
-              className={`aspect-square overflow-hidden rounded-md border bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
+              className={`relative aspect-square overflow-hidden rounded-md border bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                 idx === selectedIndex
                   ? "border-text-primary ring-2 ring-text-primary"
                   : "border-border"
               }`}
             >
-              <img
+              <Image
                 src={img.url}
                 alt=""
-                loading="lazy"
-                decoding="async"
-                className="h-full w-full object-cover"
+                fill
+                sizes="(min-width: 768px) 140px, 22vw"
+                className="object-cover"
               />
             </button>
           ))}
@@ -83,7 +91,12 @@ export function ProductGallery({
       {activeImage && (
         <Modal open={zoomOpen} onClose={() => setZoomOpen(false)} title={activeAlt}>
           {/* Decorative inside the dialog: the modal's aria-labelledby already
-              names the content with the photo's alt text. */}
+              names the content with the photo's alt text. Plain img, not
+              next/image: it sizes itself to the photo's own aspect ratio via
+              max-h-[80vh]/object-contain, and next/image's `fill` needs a
+              parent with a predetermined size, which would force every photo
+              into the same box regardless of its actual proportions. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={activeImage.url}
             alt=""

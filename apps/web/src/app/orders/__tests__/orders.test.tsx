@@ -112,10 +112,11 @@ describe("OrdersPage", () => {
     });
     expect(screen.getByText(/pedido #order1/i)).toBeInTheDocument();
     expect(screen.getByText("Chaqueta de jean vintage")).toBeInTheDocument();
-    expect(screen.getByAltText("Chaqueta de jean vintage")).toHaveAttribute(
-      "src",
-      "https://example.com/jean.jpg",
-    );
+    // next/image rewrites `src` through its optimizer (`/_next/image?url=...`)
+    // rather than passing the original URL through verbatim.
+    expect(
+      screen.getByAltText("Chaqueta de jean vintage").getAttribute("src"),
+    ).toContain(encodeURIComponent("https://example.com/jean.jpg"));
   });
 
   it("indica cuántos productos más trae el pedido, además del primero", async () => {
