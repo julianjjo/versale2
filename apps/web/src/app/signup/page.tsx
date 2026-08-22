@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { extractApiError } from "@/lib/api";
-import { Input, Button, Card, PageContainer } from "@/components/ui";
+import { Input, Button, Card, PageContainer, Checkbox } from "@/components/ui";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -15,10 +15,18 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  // Item 8: explicit consent — legal requirement, not a silent footer note.
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!acceptedTerms) {
+      setError(
+        "Debes confirmar que eres mayor de 18 años y aceptas los Términos y la Política de privacidad.",
+      );
+      return;
+    }
     setIsLoading(true);
     try {
       await signup(email, name, password);
@@ -64,28 +72,34 @@ export default function SignupPage() {
             autoComplete="new-password"
             hint="Mínimo 6 caracteres."
           />
+          <Checkbox
+            label={
+              <span className="text-xs leading-relaxed text-text-muted">
+                Confirmo que soy mayor de 18 años y acepto los{" "}
+                <Link
+                  href="/terminos"
+                  className="font-medium text-text-primary underline underline-offset-4"
+                >
+                  Términos y condiciones
+                </Link>{" "}
+                y la{" "}
+                <Link
+                  href="/privacidad"
+                  className="font-medium text-text-primary underline underline-offset-4"
+                >
+                  Política de privacidad
+                </Link>
+                .
+              </span>
+            }
+            checked={acceptedTerms}
+            onChange={(e) => setAcceptedTerms(e.target.checked)}
+          />
           {error && (
             <p className="text-sm text-danger" role="alert">
               {error}
             </p>
           )}
-          <p className="text-xs leading-relaxed text-text-muted">
-            Al crear tu cuenta aceptas nuestros{" "}
-            <Link
-              href="/terminos"
-              className="font-medium text-text-primary underline underline-offset-4"
-            >
-              Términos y condiciones
-            </Link>{" "}
-            y nuestra{" "}
-            <Link
-              href="/privacidad"
-              className="font-medium text-text-primary underline underline-offset-4"
-            >
-              Política de privacidad
-            </Link>
-            .
-          </p>
           <Button
             type="submit"
             variant="accent"

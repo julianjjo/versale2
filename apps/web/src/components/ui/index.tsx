@@ -243,7 +243,9 @@ export function Select({
 }
 
 interface CheckboxProps extends InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
+  // ReactNode, not string: a consent checkbox's label usually carries links
+  // (terms/privacy) — see the signup form.
+  label?: ReactNode;
 }
 
 export function Checkbox({

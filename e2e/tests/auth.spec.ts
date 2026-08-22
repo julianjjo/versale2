@@ -30,6 +30,8 @@ test.describe("Autenticación", () => {
     await page.getByLabel("Nombre").fill("Signup Test");
     await page.getByLabel("Correo electrónico").fill(email);
     await page.getByLabel("Contraseña").fill("password123");
+    // Item 8: el consentimiento (18+ + términos) es obligatorio.
+    await page.getByLabel(/mayor de 18 años/i).check();
     // Scope to the form's submit button (avoids matching the header "Crear cuenta" button).
     await page
       .getByRole("main")
@@ -45,6 +47,7 @@ test.describe("Autenticación", () => {
     await page.getByLabel("Nombre").fill("Existing");
     await page.getByLabel("Correo electrónico").fill("user@e2e.test");
     await page.getByLabel("Contraseña").fill("password123");
+    await page.getByLabel(/mayor de 18 años/i).check();
     await page
       .getByRole("main")
       .getByRole("button", { name: /crear cuenta/i })

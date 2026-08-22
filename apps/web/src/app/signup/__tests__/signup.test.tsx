@@ -62,6 +62,7 @@ describe("SignupPage", () => {
     await user.type(screen.getByLabelText("Nombre"), "Alice");
     await user.type(screen.getByLabelText("Correo electrónico"), "alice@ejemplo.co");
     await user.type(screen.getByLabelText("Contraseña"), "contraseña123");
+    await user.click(screen.getByLabelText(/mayor de 18 años/i));
     await user.click(screen.getByRole("button", { name: /crear cuenta/i }));
 
     await waitFor(() => {
@@ -81,6 +82,7 @@ describe("SignupPage", () => {
     await user.type(screen.getByLabelText("Nombre"), "Alice");
     await user.type(screen.getByLabelText("Correo electrónico"), "alice@ejemplo.co");
     await user.type(screen.getByLabelText("Contraseña"), "contraseña123");
+    await user.click(screen.getByLabelText(/mayor de 18 años/i));
     await user.click(screen.getByRole("button", { name: /crear cuenta/i }));
 
     await waitFor(() => {
@@ -90,13 +92,35 @@ describe("SignupPage", () => {
 
   it("avisa que al crear la cuenta se aceptan los términos y la privacidad", () => {
     renderSignup();
-    expect(screen.getByText(/al crear tu cuenta aceptas/i)).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/mayor de 18 años/i),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /términos y condiciones/i }),
     ).toHaveAttribute("href", "/terminos");
     expect(
       screen.getByRole("link", { name: /política de privacidad/i }),
     ).toHaveAttribute("href", "/privacidad");
+  });
+
+  // Item 8: sin el consentimiento explícito (18+ + términos) el registro no
+  // se envía — ni llama al backend ni navega.
+  it("rechaza el registro sin el checkbox de edad y términos", async () => {
+    const user = userEvent.setup();
+    renderSignup();
+
+    await user.type(screen.getByLabelText("Nombre"), "Alice");
+    await user.type(screen.getByLabelText("Correo electrónico"), "alice@ejemplo.co");
+    await user.type(screen.getByLabelText("Contraseña"), "contraseña123");
+    await user.click(screen.getByRole("button", { name: /crear cuenta/i }));
+
+    expect(
+      await screen.findByText(
+        /debes confirmar que eres mayor de 18 años/i,
+      ),
+    ).toBeInTheDocument();
+    expect(signupMock).not.toHaveBeenCalled();
+    expect(pushMock).not.toHaveBeenCalled();
   });
 
   it("enlaza a la página de inicio de sesión", () => {
