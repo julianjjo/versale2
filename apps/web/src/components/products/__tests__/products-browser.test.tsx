@@ -178,6 +178,66 @@ describe("ProductsBrowser", () => {
     // Price 45 formatted in COP
     expect(screen.getByText("$ 45")).toBeInTheDocument();
     expect(screen.getByText(/vendido por alice/i)).toBeInTheDocument();
+    // Item 14: fecha de publicación visible en la card.
+    expect(screen.getAllByText(/publicado el/i).length).toBeGreaterThan(0);
+  });
+
+  // Item 14 (bug estructural del roadmap): el botón de favorito era un
+  // descendiente del <Link> de la card — HTML inválido que los lectores de
+  // pantalla anuncian mal y fuente de errores de hidratación. Ahora es
+  // hermano posicionado.
+  it("renderiza el botón de favorito fuera del enlace de la card", async () => {
+    mockProductsApi({
+      data: {
+        data: [mockProducts.data[0]],
+        meta: mockProducts.meta,
+      },
+    });
+    render(
+      <TestProviders>
+        <ProductsBrowser showPagination={false} />
+      </TestProviders>,
+    );
+
+    await screen.findByText("Vintage denim jacket");
+    const favorite = screen.getByRole("button", {
+      name: /agregar a favoritos/i,
+    });
+
+    // Ningún <Link> de card contiene un botón: el favorito es hermano.
+    const cardLinks = screen
+      .getAllByRole("link")
+      .filter((l) => l.querySelector("h3"));
+    expect(cardLinks.length).toBeGreaterThan(0);
+    for (const link of cardLinks) {
+      expect(link.querySelector("button")).toBeNull();
+    }
+    // Y el favorito queda posicionado sobre la imagen de una de ellas.
+    expect(favorite.closest("a")).toBeNull();
+  });
+
+  it("renderiza las cards sin errores ni warnings de React en consola", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mockProductsApi({
+      data: {
+        data: [mockProducts.data[0]],
+        meta: mockProducts.meta,
+      },
+    });
+    render(
+      <TestProviders>
+        <ProductsBrowser showPagination={false} />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/vendido por alice/i)).toBeInTheDocument();
+    });
+
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 
   it("muestra la calificación promedio y el número de reseñas cuando el producto tiene alguna", async () => {
