@@ -82,6 +82,52 @@ function readPrefill(searchParams: ReturnType<typeof useSearchParams>) {
   };
 }
 
+// Item 10: borrador automático. localStorage sobrevive recargas y
+// cierres de pestaña — escribir una publicación buena toma tiempo y perderla
+// por un refresh accidental es la fricción más cara del funnel de venta.
+const DRAFT_STORAGE_KEY = "versale:sell-draft:v1";
+
+type SellDraft = Partial<Record<string, string>>;
+
+function readDraft(): SellDraft {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(DRAFT_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as SellDraft) : {};
+  } catch {
+    // JSON corrupto o storage bloqueado: un borrador nunca debe romper /sell.
+    return {};
+  }
+}
+
+function writeDraft(form: Record<string, string>) {
+  try {
+    window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(form));
+  } catch {
+    // Cuota llena o modo privado: el borrador es best-effort.
+  }
+}
+
+function clearDraft() {
+  try {
+    window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+  } catch {
+    // noop: sin borrador que limpiar no hay nada que hacer.
+  }
+}
+
+const FORM_FIELDS = [
+  "title",
+  "description",
+  "category",
+  "brand",
+  "size",
+  "condition",
+  "price",
+  "measurements",
+  "defects",
+] as const;
+
 function SellForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -89,17 +135,29 @@ function SellForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   // State initializer = the one-time prefill application point.
   const prefill = readPrefill(searchParams);
+  // Item 10: el prefill explícito ("Publicar otro igual") gana sobre el
+  // borrador guardado; sin él, el borrador restaura lo que el vendedor ya
+  // escribió antes de un refresh. Se mira el query string crudo — readPrefill
+  // normaliza category a "Otros", así que su salida no sirve para detectar.
+  const hasPrefill =
+    (searchParams.get("title") ?? "").trim() !== "" ||
+    (searchParams.get("category") ?? "").trim() !== "" ||
+    (searchParams.get("size") ?? "").trim() !== "";
+  const draft = hasPrefill ? {} : readDraft();
   const [form, setForm] = useState({
-    title: prefill.title,
-    description: "",
-    category: prefill.category,
-    brand: "",
-    size: prefill.size,
-    condition: "Good",
-    price: "",
+    title: prefill.title || draft.title || "",
+    description: draft.description || "",
+    category: prefill.category || draft.category || DEFAULT_PRODUCT_CATEGORY,
+    brand: draft.brand || "",
+    size:
+      prefill.size ||
+      ((SIZES as string[]).includes(draft.size ?? "") ? draft.size : "") ||
+      "",
+    condition: draft.condition || "Good",
+    price: draft.price || "",
     // Item 4: seller-curated transparency fields, both optional.
-    measurements: "",
-    defects: "",
+    measurements: draft.measurements || "",
+    defects: draft.defects || "",
   });
   const [images, setImages] = useState<LocalImage[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -128,7 +186,12 @@ function SellForm() {
   }
 
   const update = (key: keyof typeof form, value: string) => {
-    setForm((f) => ({ ...f, [key]: value }));
+    setForm((f) => {
+      const next = { ...f, [key]: value };
+      // Persistencia inmediata: el refresh puede llegar en cualquier tecla.
+      writeDraft(next);
+      return next;
+    });
   };
 
   const patchImage = (id: string, patch: Partial<LocalImage>) => {
@@ -278,6 +341,9 @@ function SellForm() {
         measurements: form.measurements.trim() || undefined,
         defects: form.defects.trim() || undefined,
       });
+      // Publicación exitosa: el borrador cumplió su ciclo, no debe
+      // resucitar en el siguiente /sell.
+      clearDraft();
       router.push("/products?published=1");
     } catch (err) {
       setError(extractApiError(err, "No pudimos crear la publicación"));
