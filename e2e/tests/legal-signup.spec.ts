@@ -29,7 +29,7 @@ test.describe("Legales y contacto", () => {
     await page.getByLabel("Correo electrónico").fill(`menor-${Date.now()}@e2e.test`);
     await page.getByLabel("Contraseña").fill("contrasena123");
     // Sin marcar el checkbox de consentimiento.
-    await page.getByRole("button", { name: /crear cuenta/i }).click();
+    await page.getByRole("main").getByRole("button", { name: /crear cuenta/i }).click();
 
     await expect(
       page.getByText(/debes confirmar que eres mayor de 18 años/i),
@@ -47,7 +47,7 @@ test.describe("Legales y contacto", () => {
     await page.getByLabel("Correo electrónico").fill(email);
     await page.getByLabel("Contraseña").fill("contrasena123");
     await page.getByLabel(/mayor de 18 años/i).check();
-    await page.getByRole("button", { name: /crear cuenta/i }).click();
+    await page.getByRole("main").getByRole("button", { name: /crear cuenta/i }).click();
 
     await page.waitForURL(/\/products/, { timeout: 10_000 });
   });
