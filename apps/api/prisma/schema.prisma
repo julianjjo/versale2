@@ -145,6 +145,13 @@ model CartItem {
   priceAtAdd    Float
 
   @@unique([cartId, productId])
+  // products.service.ts#update() deletes stale cart snapshots by productId
+  // alone whenever a price actually changes — the @@unique above is keyed on
+  // [cartId, productId] with cartId leading, so it can't serve a plain
+  // "every cart holding this product" lookup (no leftmost-prefix match).
+  // Every sibling join table that's ever queried by productId alone
+  // (OrderItem, Review, ProductQuestion) already carries this same index.
+  @@index([productId])
 }
 
 model Order {

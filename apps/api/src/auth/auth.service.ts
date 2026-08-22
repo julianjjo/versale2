@@ -208,12 +208,19 @@ export class AuthService {
     password: string,
   ): Promise<AuthenticatedUser | null> {
     const user = await this.prisma.client.user.findUnique({ where: { email } });
-    if (!user) {
-      return null;
-    }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
+    // Same reasoning as login() above: both branches must pay bcrypt's cost
+    // before rejecting, or "no such account" vs "wrong password" becomes an
+    // email-enumeration oracle by response timing alone. This method has no
+    // caller wired up today, but it exists for the day a Passport
+    // LocalStrategy calls it directly — better to close this before that
+    // happens than depend on whoever wires it up remembering to.
+    const isPasswordValid = await bcrypt.compare(
+      password,
+      user?.password ?? TIMING_SAFE_DUMMY_HASH,
+    );
+
+    if (!user || !isPasswordValid) {
       return null;
     }
 

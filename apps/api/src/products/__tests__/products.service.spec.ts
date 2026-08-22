@@ -35,31 +35,45 @@ function foreignKeyViolationError() {
 describe('ProductsService', () => {
   let service: ProductsService;
 
-  const mockPrismaService = {
-    client: {
-      product: {
-        create: jest.fn(),
-        findUnique: jest.fn(),
-        update: jest.fn(),
-        updateMany: jest.fn(),
-        delete: jest.fn(),
-        findMany: jest.fn(),
-        count: jest.fn(),
-      },
-      orderItem: {
-        findFirst: jest.fn(),
-      },
-      review: {
-        groupBy: jest.fn(),
-      },
-      user: {
-        findUnique: jest.fn(),
-      },
-      cartItem: {
-        deleteMany: jest.fn(),
-      },
+  const mockPrismaClient = {
+    product: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      delete: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
+    },
+    orderItem: {
+      findFirst: jest.fn(),
+    },
+    review: {
+      groupBy: jest.fn(),
+    },
+    user: {
+      findUnique: jest.fn(),
+    },
+    cartItem: {
+      deleteMany: jest.fn(),
     },
   };
+
+  // update()'s product.update + cartItem.deleteMany now run inside a
+  // $transaction. Resolving the callback with the client itself (not a
+  // separate `tx` mock) keeps every existing assertion against
+  // mockPrismaService.client.product.update/cartItem.deleteMany valid —
+  // real Prisma's tx exposes the identical shape as the top-level client.
+  // Assigned after the object literal (rather than inline) so TS can infer
+  // mockPrismaClient's own type before this self-referencing closure exists.
+  const mockTransaction = jest.fn(
+    (fn: (tx: typeof mockPrismaClient) => unknown) => fn(mockPrismaClient),
+  );
+  (
+    mockPrismaClient as unknown as { $transaction: typeof mockTransaction }
+  ).$transaction = mockTransaction;
+
+  const mockPrismaService = { client: mockPrismaClient };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({

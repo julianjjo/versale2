@@ -355,6 +355,24 @@ describe('AuthService', () => {
       expect(result).toBeNull();
     });
 
+    // Regression: this method has no caller today, but it exists for a
+    // future Passport LocalStrategy — closing the same email-enumeration
+    // timing oracle login() closes, before something actually wires this up.
+    it('should still run a bcrypt compare when the email is not registered, to keep response timing comparable to a wrong password', async () => {
+      const email = 'nobody@example.com';
+      const password = 'password123';
+
+      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
+      const compareSpy = (
+        jest.spyOn(bcrypt, 'compare') as unknown as jest.Mock
+      ).mockImplementation(() => Promise.resolve(false));
+
+      const result = await service.validateUser(email, password);
+
+      expect(result).toBeNull();
+      expect(compareSpy).toHaveBeenCalledWith(password, TIMING_SAFE_DUMMY_HASH);
+    });
+
     it('should return null if password invalid', async () => {
       const email = 'test@example.com';
       const password = 'password123';

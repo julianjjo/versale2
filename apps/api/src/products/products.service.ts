@@ -655,31 +655,40 @@ export class ProductsService {
 
     try {
       const { images, ...updateData } = updateProductDto;
-      const updated = await this.prisma.client.product.update({
-        where: {
-          id,
-          ...(role !== Role.ADMIN ? { status: ProductStatus.AVAILABLE } : {}),
-        },
-        data: {
-          ...updateData,
-          // Plain objects: Prisma's InputJsonValue rejects class instances.
-          ...(images !== undefined
-            ? { images: images.map((img) => ({ url: img.url, alt: img.alt })) }
-            : {}),
-          ...(needsReview
-            ? { isApproved: false, rejectedAt: null, rejectionReason: null }
-            : {}),
-        },
-        include: { seller: { select: { id: true, name: true } } },
-      });
-
-      if (priceChanged) {
-        await this.prisma.client.cartItem.deleteMany({
-          where: { productId: id },
+      // Both writes in one transaction: without it, a failure in the second
+      // (cartItem.deleteMany) would leave the price change already committed
+      // with the stale CartItem never cleared — silently reopening the exact
+      // gap this fix exists to close, instead of rolling back cleanly.
+      return await this.prisma.client.$transaction(async (tx) => {
+        const updated = await tx.product.update({
+          where: {
+            id,
+            ...(role !== Role.ADMIN ? { status: ProductStatus.AVAILABLE } : {}),
+          },
+          data: {
+            ...updateData,
+            // Plain objects: Prisma's InputJsonValue rejects class instances.
+            ...(images !== undefined
+              ? {
+                  images: images.map((img) => ({
+                    url: img.url,
+                    alt: img.alt,
+                  })),
+                }
+              : {}),
+            ...(needsReview
+              ? { isApproved: false, rejectedAt: null, rejectionReason: null }
+              : {}),
+          },
+          include: { seller: { select: { id: true, name: true } } },
         });
-      }
 
-      return updated;
+        if (priceChanged) {
+          await tx.cartItem.deleteMany({ where: { productId: id } });
+        }
+
+        return updated;
+      });
     } catch (error) {
       translatePrismaError(error, {
         P2025: () => {
