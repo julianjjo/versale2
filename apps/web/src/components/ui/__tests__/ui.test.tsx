@@ -351,4 +351,21 @@ describe("Modal", () => {
     expect(onCloseLatest).toHaveBeenCalledTimes(1);
     expect(onCloseFirst).not.toHaveBeenCalled();
   });
+
+  // Item 4 hardening: every dialog needs a close control a sighted user can
+  // actually see, not just Escape or a click on the unlabeled backdrop —
+  // this matters most for the product-photo zoom dialog, which has no
+  // "Cancelar" of its own.
+  it("renderiza un botón de cerrar visible que llama a onClose", async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <Modal open={true} onClose={onClose} title="Título">
+        <p>Contenido</p>
+      </Modal>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Cerrar" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

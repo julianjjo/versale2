@@ -109,11 +109,45 @@ export function Modal({
         tabIndex={-1}
         className="relative w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-[0_20px_50px_-20px_rgba(26,26,26,0.25)] focus:outline-none"
       >
-        <h2 id={titleId} className="heading-card text-text-primary">
+        <h2 id={titleId} className="heading-card pr-10 text-text-primary">
           {title}
         </h2>
         <div className="mt-4">{children}</div>
+        {/* Last in DOM, not first: it keeps the panel's own first focusable
+            control (the field a caller actually wants filled, or in the zoom
+            modal's case nothing else) as the initial-focus target, while
+            still giving every dialog — including image-only ones with no
+            "Cancelar" of their own — a close affordance a user can see and
+            reach, instead of only Escape or a click on the unlabeled
+            backdrop. */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar"
+          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-surface-muted hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+        >
+          <CloseIcon />
+        </button>
       </div>
     </div>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
   );
 }
