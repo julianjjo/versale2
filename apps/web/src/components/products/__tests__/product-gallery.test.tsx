@@ -88,6 +88,23 @@ describe("ProductGallery", () => {
     expect(trigger).toHaveFocus();
   });
 
+  // The zoom dialog shows only a photo — no "Cancelar" button of its own —
+  // so Escape and the backdrop are not enough: it needs a close control a
+  // sighted user can actually find.
+  it("el zoom tiene un botón de cerrar visible que devuelve el foco al abrirlo", async () => {
+    const user = userEvent.setup();
+    render(
+      <ProductGallery images={[img(1), img(2)]} title="Vintage denim jacket" />,
+    );
+
+    const trigger = screen.getByRole("button", { name: /ampliar imagen/i });
+    await user.click(trigger);
+
+    await user.click(screen.getByRole("button", { name: "Cerrar" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
   it("no muestra miniaturas cuando el producto tiene una sola foto", () => {
     render(<ProductGallery images={[img(1)]} title="Vintage denim jacket" />);
 
