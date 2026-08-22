@@ -1,194 +1,124 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import SellerProfilePage from "../page";
-import { TestProviders } from "@/test-utils/TestProviders";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { ReactElement } from "react";
 
-vi.mock("next/link", () => ({
-  default: ({ children, href, ...rest }: { children: React.ReactNode; href: string }) => (
-    <a href={href} {...rest}>
-      {children}
-    </a>
-  ),
+// The real `notFound()` throws a sentinel that Next catches to render the 404
+// route with a 404 status; reproduce that contract here.
+const notFoundSignal = new Error("NEXT_HTTP_ERROR_FALLBACK;404");
+
+vi.mock("next/navigation", () => ({
+  notFound: () => {
+    throw notFoundSignal;
+  },
 }));
 
-// A minimal App Router stand-in for the `<ProductsBrowser>` rendered inside
-// this page — it needs `useSearchParams`/`usePathname` (for pagination) on
-// top of `useParams` (the seller id from the URL segment). `push`/`replace`
-// actually mutate the observed URL (like products-browser.test.tsx's own
-// stand-in) rather than being inert spies, so a future pagination/navigation
-// test here would actually see the resulting state change.
-const nav = vi.hoisted(() => {
-  const state = {
-    url: "/vendedores/seller1",
-    listeners: new Set<() => void>(),
-    navigate(url: string) {
-      state.url = url;
-      state.listeners.forEach((listener) => listener());
-    },
-  };
-  return state;
-});
+vi.mock("@/components/products/seller-profile-content", () => ({
+  SellerProfileContent: () => null,
+}));
 
-vi.mock("next/navigation", async () => {
-  const { useSyncExternalStore } = await import("react");
-  const subscribe = (onChange: () => void) => {
-    nav.listeners.add(onChange);
-    return () => {
-      nav.listeners.delete(onChange);
-    };
-  };
-  const getUrl = () => nav.url;
-  return {
-    useRouter: () => ({
-      push: (url: string) => nav.navigate(url),
-      replace: (url: string) => nav.navigate(url),
-      refresh: vi.fn(),
-    }),
-    useParams: () => ({ id: "seller1" }),
-    usePathname: () => useSyncExternalStore(subscribe, getUrl, getUrl).split("?")[0],
-    useSearchParams: () =>
-      new URLSearchParams(
-        useSyncExternalStore(subscribe, getUrl, getUrl).split("?")[1] ?? "",
-      ),
-  };
-});
+import SellerProfilePage, { generateMetadata } from "../page";
+import { SellerProfileContent } from "@/components/products/seller-profile-content";
 
-const authState: {
-  user: null | { id: string; email: string; name: string; role: "USER" | "ADMIN" };
-  isLoading: boolean;
-} = {
-  user: null,
-  isLoading: false,
-};
-
-vi.mock("@/lib/auth", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
-  return {
-    ...actual,
-    useAuth: () => authState,
-  };
-});
-
-// `id` deliberately does NOT match the "seller1" route param used below —
-// the page must filter the catalog by the URL's id (available immediately,
-// with no fetch required), not by echoing this response's `id` field, so a
-// mismatch here would expose that bug immediately instead of masking it.
 const mockProfile = {
-  id: "some-other-id-the-page-must-not-use",
+  id: "seller1",
   name: "Bob",
   memberSince: "2025-01-15T00:00:00.000Z",
   activeListings: 2,
 };
 
-const mockProducts = {
-  data: [
-    {
-      id: "p1",
-      title: "Vintage denim jacket",
-      description: "Classic Levi's trucker jacket",
-      category: "Jackets",
-      brand: "Levi's",
-      size: "M",
-      condition: "Good",
-      price: 45000,
-      sellerId: "seller1",
-      isApproved: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      images: null,
-      seller: { id: "seller1", name: "Bob" },
-    },
-  ],
-  meta: { total: 1, page: 1, limit: 12, pages: 1 },
-};
+function jsonResponse(status: number, body?: unknown): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+  } as Response;
+}
 
-vi.mock("@/lib/api", () => ({
-  api: { get: vi.fn() },
-  extractApiError: (err: unknown, fallback: string) =>
-    err instanceof Error ? err.message : fallback,
-}));
+function renderPage(id: string) {
+  return SellerProfilePage({ params: Promise.resolve({ id }) }) as Promise<
+    ReactElement
+  >;
+}
 
-import { api } from "@/lib/api";
+const fetchMock = vi.fn();
 
 describe("SellerProfilePage", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    authState.user = null;
-    authState.isLoading = false;
-    nav.url = "/vendedores/seller1";
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
   });
 
-  it("muestra el nombre del vendedor, su antigüedad y sus publicaciones", async () => {
-    vi.mocked(api.get).mockImplementation(async (url: string) => {
-      if (url === "/products/sellers/seller1") return { data: mockProfile };
-      if (url === "/products") return { data: mockProducts };
-      return { data: {} };
-    });
-
-    render(
-      <TestProviders>
-        <SellerProfilePage />
-      </TestProviders>,
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText("Bob")).toBeInTheDocument();
-    });
-    expect(screen.getByText(/Miembro desde enero de 2025/i)).toBeInTheDocument();
-    expect(screen.getByText(/2 publicaciones activas/i)).toBeInTheDocument();
-    await waitFor(() => {
-      expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
-    });
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
-  it("filtra el catálogo por el id del vendedor de la URL, no por otro", async () => {
-    vi.mocked(api.get).mockImplementation(async (url: string) => {
-      if (url === "/products/sellers/seller1") return { data: mockProfile };
-      if (url === "/products") return { data: mockProducts };
-      return { data: {} };
-    });
-
-    render(
-      <TestProviders>
-        <SellerProfilePage />
-      </TestProviders>,
-    );
-
-    await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith(
-        "/products",
-        expect.objectContaining({ params: expect.objectContaining({ sellerId: "seller1" }) }),
-      );
-    });
+  // Regression: a deleted/nonexistent seller used to render the "vendedor no
+  // encontrado" panel over a 200 OK, so the URL stayed indexable.
+  it("lanza notFound cuando la API responde 404", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(404, { message: "no encontrado" }));
+    await expect(renderPage("desaparecido")).rejects.toBe(notFoundSignal);
   });
 
-  it("muestra 'vendedor no encontrado' cuando el perfil no existe", async () => {
-    vi.mocked(api.get).mockRejectedValue(
-      Object.assign(new Error("Not found"), { response: { status: 404 } }),
-    );
+  it("pasa al contenido el perfil resuelto en el servidor", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, mockProfile));
+    const element = await renderPage("seller1");
 
-    render(
-      <TestProviders>
-        <SellerProfilePage />
-      </TestProviders>,
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/products/sellers/seller1"),
+      expect.objectContaining({ cache: "no-store" }),
     );
-
-    await waitFor(() => {
-      expect(screen.getByText(/vendedor no encontrado/i)).toBeInTheDocument();
-    });
+    expect(element.type).toBe(SellerProfileContent);
+    expect(element.props).toEqual({ initialProfile: mockProfile });
   });
 
-  it("muestra un error genérico cuando falla la carga por otra razón", async () => {
-    vi.mocked(api.get).mockRejectedValue(new Error("Network error"));
+  it("no responde 404 cuando la API está caída", async () => {
+    fetchMock.mockRejectedValue(new Error("ECONNREFUSED"));
+    const element = await renderPage("seller1");
 
-    render(
-      <TestProviders>
-        <SellerProfilePage />
-      </TestProviders>,
+    expect(element.type).toBe(SellerProfileContent);
+    expect(element.props).toEqual({ initialProfile: undefined });
+  });
+
+  it("agrega un timeout a la verificación anónima", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, mockProfile));
+    await renderPage("seller1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/products/sellers/seller1"),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
+  });
+});
 
-    await waitFor(() => {
-      expect(screen.getByText(/no pudimos cargar este perfil/i)).toBeInTheDocument();
+describe("generateMetadata", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("usa el nombre del vendedor en el título y la descripción", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, mockProfile));
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ id: "seller1" }),
     });
+
+    expect(metadata.title).toBe("Bob — Versale");
+    expect(metadata.description).toContain("Bob");
+    expect(metadata.description).toContain("2 publicaciones activas");
+    expect(metadata.openGraph?.title).toBe("Bob — Versale");
+  });
+
+  it("cae a un título genérico cuando el vendedor no existe o la API falla", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(404));
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ id: "desaparecido" }),
+    });
+
+    expect(metadata.title).toBe("Vendedor — Versale");
   });
 });

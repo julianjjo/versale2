@@ -1,82 +1,81 @@
-"use client";
+import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import {
+  SellerProfileContent,
+  type SellerProfile,
+} from "@/components/products/seller-profile-content";
 
-import { useParams, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
-import { isTerminalError } from "@/lib/http-error";
-import { Spinner, EmptyState, Button, PageContainer, SectionHeader } from "@/components/ui";
-import { ProductsBrowser } from "@/components/products/products-browser";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-interface SellerProfile {
-  id: string;
-  name: string;
-  memberSince: string;
-  activeListings: number;
+type SellerLookup =
+  | { status: "ok"; profile: SellerProfile }
+  | { status: "missing" }
+  | { status: "unavailable" };
+
+// GET /products/sellers/:id takes no requester (see getSellerProfile in
+// products.service.ts) — its response never varies by who's asking, so an
+// anonymous server-side probe is exactly as valid as the client's own
+// authenticated refetch, unlike a product listing (which can show more to
+// its own seller or an admin).
+async function lookupSeller(id: string): Promise<SellerLookup> {
+  try {
+    const response = await fetch(
+      `${API_URL}/products/sellers/${encodeURIComponent(id)}`,
+      {
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(5000),
+      },
+    );
+    if (response.status === 404) return { status: "missing" };
+    if (!response.ok) return { status: "unavailable" };
+    return { status: "ok", profile: (await response.json()) as SellerProfile };
+  } catch {
+    return { status: "unavailable" };
+  }
 }
 
-const memberSinceFormatter = new Intl.DateTimeFormat("es-CO", {
-  year: "numeric",
-  month: "long",
-});
+// Every seller profile used to inherit the root layout's generic
+// title/description — crawlers indexed every one identically, and sharing a
+// link never showed the seller's name in the preview.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const result = await lookupSeller(id);
 
-export default function SellerProfilePage() {
-  const params = useParams<{ id: string }>();
-  const router = useRouter();
-
-  const { data, isLoading, isError, error } = useQuery<SellerProfile>({
-    queryKey: ["seller-profile", params.id],
-    queryFn: async () => {
-      const response = await api.get<SellerProfile>(
-        `/products/sellers/${params.id}`,
-      );
-      return response.data;
-    },
-    enabled: Boolean(params.id),
-  });
-
-  if (isError) {
-    const notFound = isTerminalError(error, [404]);
-    return (
-      <PageContainer size="narrow">
-        <EmptyState
-          title={notFound ? "Vendedor no encontrado" : "No pudimos cargar este perfil"}
-          description={
-            notFound
-              ? "Este vendedor no existe o todavía no tiene publicaciones aprobadas."
-              : "Ocurrió un error al conectar con el servidor. Intenta de nuevo."
-          }
-          action={
-            <Button onClick={() => router.push("/products")}>
-              Explorar productos
-            </Button>
-          }
-        />
-      </PageContainer>
-    );
+  if (result.status !== "ok") {
+    return { title: "Vendedor — Versale" };
   }
 
-  // The listings grid below only needs the seller id from the URL, which is
-  // already known — it doesn't need to wait for this profile lookup to
-  // resolve, so it renders in parallel with it instead of after it.
+  const { profile } = result;
+  const title = `${profile.name} — Versale`;
+  const description = `Perfil de ${profile.name} en Versale: ${profile.activeListings} ${
+    profile.activeListings === 1 ? "publicación activa" : "publicaciones activas"
+  }.`;
+
+  return {
+    title,
+    description,
+    openGraph: { title, description },
+  };
+}
+
+export default async function SellerProfilePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const result = await lookupSeller(id);
+
+  if (result.status === "missing") notFound();
+
   return (
-    <PageContainer size="wide">
-      {isLoading || !data ? (
-        <div className="mb-6 flex items-center gap-2 text-text-muted">
-          <Spinner className="h-5 w-5" /> Cargando…
-        </div>
-      ) : (
-        <SectionHeader
-          title={data.name}
-          description={`Miembro desde ${memberSinceFormatter.format(new Date(data.memberSince))} · ${data.activeListings} ${data.activeListings === 1 ? "publicación activa" : "publicaciones activas"}`}
-        />
-      )}
-      {params.id && (
-        <ProductsBrowser
-          initialFilters={{ sellerId: params.id }}
-          showFilters={false}
-          showPagination
-        />
-      )}
-    </PageContainer>
+    <SellerProfileContent
+      initialProfile={result.status === "ok" ? result.profile : undefined}
+    />
   );
 }

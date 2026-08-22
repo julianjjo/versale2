@@ -5,6 +5,8 @@ import {
   Min,
   Max,
   IsNotEmpty,
+  Matches,
+  MaxLength,
 } from 'class-validator';
 
 export class CreateReviewDto {
@@ -19,5 +21,13 @@ export class CreateReviewDto {
 
   @IsString({ message: 'El comentario debe ser un texto' })
   @IsOptional()
+  // @IsOptional() only skips validation for a missing/null/undefined value —
+  // an explicit "" or "   " still reaches Matches/MaxLength below, same as
+  // every other free-text field in this API (sellerReply, questions,
+  // report descriptions) already enforces.
+  @Matches(/\S/, { message: 'El comentario no puede quedar en blanco' })
+  @MaxLength(1000, {
+    message: 'El comentario no puede superar los 1000 caracteres',
+  })
   comment?: string;
 }

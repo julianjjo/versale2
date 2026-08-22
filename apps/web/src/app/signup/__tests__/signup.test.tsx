@@ -70,6 +70,7 @@ describe("SignupPage", () => {
         "alice@ejemplo.co",
         "Alice",
         "contraseña123",
+        true,
       );
     });
   });

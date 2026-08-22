@@ -73,8 +73,17 @@ export default function AdminOrdersPage() {
     placeholderData: keepPreviousData,
   });
 
+  // Mirrors orders/[id]/page.tsx's own cancel-order invalidation: a status
+  // change here changes exactly what the /admin dashboard's own cards show
+  // (order counts, confirmed/pending revenue, the "recent orders" list), so
+  // stopping at ["admin-orders"] alone left them stale until their own
+  // staleTime happened to elapse.
   const invalidateOrders = () =>
-    queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-order-stats"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-orders-recent"] }),
+    ]);
 
   // Not a useMutation: the result is a file the browser has to save, not
   // cache-invalidating state React Query needs to track.

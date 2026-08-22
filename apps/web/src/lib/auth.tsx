@@ -27,7 +27,12 @@ export interface AuthState {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, name: string, password: string) => Promise<void>;
+  signup: (
+    email: string,
+    name: string,
+    password: string,
+    acceptedTerms: boolean,
+  ) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
 }
@@ -112,11 +117,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     adoptSession(res.data);
   };
 
-  const signup = async (email: string, name: string, password: string) => {
+  const signup = async (
+    email: string,
+    name: string,
+    password: string,
+    acceptedTerms: boolean,
+  ) => {
     const res = await api.post<AuthResponse>("/auth/signup", {
       email,
       name,
       password,
+      acceptedTerms,
     });
     adoptSession(res.data);
   };

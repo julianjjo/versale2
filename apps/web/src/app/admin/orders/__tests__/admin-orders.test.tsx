@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AdminOrdersPage from "../page";
-import { TestProviders } from "@/test-utils/TestProviders";
+import { TestProviders, createTestQueryClient } from "@/test-utils/TestProviders";
 import type { Order, OrderStatus } from "@/lib/types";
 
 vi.mock("@/lib/api", () => ({
@@ -386,5 +386,40 @@ describe("AdminOrdersPage", () => {
     expect(api.patch).not.toHaveBeenCalled();
 
     confirmSpy.mockRestore();
+  });
+
+  // Regression: a status change here only ever invalidated ["admin-orders"],
+  // so the /admin dashboard's own cards (order counts, confirmed/pending
+  // revenue, the "recent orders" list) kept showing stale numbers until
+  // their own staleTime happened to elapse.
+  it("invalida también las queries del dashboard admin al cambiar el estado de un pedido", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: paginated([orderFixture("aaaaaaaa1", "PAID")]),
+    });
+    vi.mocked(api.patch).mockResolvedValue({ data: {} });
+    const queryClient = createTestQueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders client={queryClient}>
+        <AdminOrdersPage />
+      </TestProviders>,
+    );
+
+    await screen.findByText(/Pedido #aaaaaaaa/, undefined, { timeout: 5000 });
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Estado del pedido" }),
+      "SHIPPED",
+    );
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ["admin-order-stats"] }),
+      );
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ["admin-orders-recent"] }),
+    );
   });
 });

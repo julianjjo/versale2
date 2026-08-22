@@ -163,8 +163,8 @@ function ProfileForm({
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Déjala en blanco para conservar la actual"
-            minLength={6}
-            hint="Mínimo 6 caracteres."
+            minLength={8}
+            hint="Mínimo 8 caracteres."
           />
           {/* Not marked `required`: the browser's own validation bubble is
               localised to the browser, not the app, so the check runs in JS

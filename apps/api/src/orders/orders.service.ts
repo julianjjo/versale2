@@ -107,14 +107,19 @@ export const DISPUTE_EXPIRY_DAYS = 30;
 // automatically instead of by hand.
 export const PENDING_ORDER_TIMEOUT_MINUTES = 24 * 60;
 
-// Only these statuses represent money actually received. PENDING is an order
-// that was placed but never paid, and CANCELLED was never charged: neither is
-// revenue. This mirrors the semantics the admin dashboard used to compute
-// client-side.
+// Only these statuses represent money actually received (and still held —
+// REFUNDED was received too, but already given back, so it's excluded here
+// on purpose). PENDING is an order that was placed but never paid, and
+// CANCELLED was never charged: neither is revenue. DISPUTED is a DELIVERED
+// order the buyer flagged — the payment hasn't been returned yet, it's just
+// awaiting resolution, so it stays counted as confirmed until that changes
+// (to REFUNDED, if the dispute is upheld). This mirrors the semantics the
+// admin dashboard used to compute client-side.
 const PAID_STATUSES: OrderStatus[] = [
   OrderStatus.PAID,
   OrderStatus.SHIPPED,
   OrderStatus.DELIVERED,
+  OrderStatus.DISPUTED,
 ];
 
 @Injectable()

@@ -39,6 +39,11 @@ export default function AdminReviewsPage() {
     onSuccess: () => {
       setError(null);
       queryClient.invalidateQueries({ queryKey: ["admin-reviews"] });
+      // The /admin dashboard's "Reseñas totales" card reads a differently-
+      // named key (["admin-reviews-count"]) for the same count a deletion
+      // here just changed — invalidating only ["admin-reviews"] never
+      // touched it.
+      queryClient.invalidateQueries({ queryKey: ["admin-reviews-count"] });
     },
     onError: (err) =>
       setError(extractApiError(err, "No pudimos eliminar la reseña")),
