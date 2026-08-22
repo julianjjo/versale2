@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   Logger,
   NotFoundException,
@@ -76,6 +77,10 @@ const SORT_ORDER_BY: Record<
   [ProductSortBy.PRICE_ASC]: [{ price: 'asc' }, { id: 'asc' }],
   [ProductSortBy.PRICE_DESC]: [{ price: 'desc' }, { id: 'asc' }],
 };
+
+// Item 9: per-seller cap on active listings (roadmap ~20). A hard number,
+// not env-configurable: it's an anti-abuse ceiling, not a business plan.
+const MAX_ACTIVE_LISTINGS_PER_SELLER = 20;
 
 @Injectable()
 export class ProductsService {
@@ -169,6 +174,20 @@ export class ProductsService {
   }
 
   async create(createProductDto: CreateProductDto, sellerId: string) {
+    // Item 9: cap on active listings per seller. AVAILABLE covers paused ones
+    // too (pausedAt only hides them — they can come back), so the cap can't
+    // be bypassed via pause-then-create. SOLD/WITHDRAWN are history and don't
+    // count.
+    const activeListings = await this.prisma.client.product.count({
+      where: { sellerId, status: ProductStatus.AVAILABLE },
+    });
+    if (activeListings >= MAX_ACTIVE_LISTINGS_PER_SELLER) {
+      throw new HttpException(
+        `Alcanzaste el límite de ${MAX_ACTIVE_LISTINGS_PER_SELLER} publicaciones activas. Retira o elimina alguna para publicar otra.`,
+        429,
+      );
+    }
+
     const { images, ...rest } = createProductDto;
     return this.prisma.client.product.create({
       data: {

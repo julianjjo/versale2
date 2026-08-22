@@ -4,7 +4,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { UploadsService } from '../uploads.service';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
 
 jest.mock('@aws-sdk/client-s3', () => {
   const sendMock = jest.fn();
@@ -15,9 +15,35 @@ jest.mock('@aws-sdk/client-s3', () => {
   };
 });
 
-const { __sendMock: sendMock } = jest.requireMock('@aws-sdk/client-s3') as {
+const { __sendMock: sendMock } = jest.requireMock<{
   __sendMock: jest.Mock;
+}>('@aws-sdk/client-s3');
+
+// Real magic bytes per declared mime — item 9 verifies content, not claims.
+const MAGIC_BYTES: Record<string, number[]> = {
+  'image/jpeg': [
+    0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
+  ],
+  'image/png': [
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+  ],
+  'image/webp': [
+    0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
+  ],
 };
+
+function bufferFor(mimetype: string, size: number): Buffer {
+  const magic = Buffer.from(MAGIC_BYTES[mimetype] ?? []);
+  if (magic.length === 0) {
+    // No known magic: filler bytes that match nothing (e.g. HTML text).
+    return Buffer.from('<html>'.repeat(Math.ceil(size / 6)));
+  }
+  const padding = Buffer.alloc(Math.max(0, size - magic.length), 0);
+  return Buffer.concat([magic, padding]).subarray(
+    0,
+    Math.max(size, magic.length),
+  );
+}
 
 const makeFile = (
   name: string,
@@ -30,7 +56,21 @@ const makeFile = (
     encoding: '7bit',
     mimetype,
     size,
-    buffer: Buffer.from('test'),
+    buffer: bufferFor(mimetype, size),
+  }) as Express.Multer.File;
+
+const makeRawFile = (
+  name: string,
+  mimetype: string,
+  buffer: Buffer,
+): Express.Multer.File =>
+  ({
+    fieldname: 'files',
+    originalname: name,
+    encoding: '7bit',
+    mimetype,
+    size: buffer.length,
+    buffer,
   }) as Express.Multer.File;
 
 describe('UploadsService', () => {
@@ -87,6 +127,51 @@ describe('UploadsService', () => {
       expect(() => service.validateFiles([file])).toThrow(
         'El archivo «doc.pdf» tiene un formato no permitido. Se aceptan: JPG, PNG, WEBP.',
       );
+    });
+
+    it('rejects a forged mime whose magic bytes say otherwise (item 9)', () => {
+      const htmlAsPng = makeRawFile(
+        'payload.png',
+        'image/png',
+        Buffer.from('<html><script>alert(1)</script></html>'),
+      );
+      expect(() => service.validateFiles([htmlAsPng])).toThrow(
+        BadRequestException,
+      );
+      expect(() => service.validateFiles([htmlAsPng])).toThrow(
+        /no corresponde a una imagen image\/png válida/,
+      );
+    });
+
+    it('rejects a truncated file shorter than any magic signature', () => {
+      const tiny = makeRawFile('tiny.png', 'image/png', Buffer.from([0x89]));
+      expect(() => service.validateFiles([tiny])).toThrow(BadRequestException);
+    });
+
+    it('accepts real image bytes regardless of the filename', () => {
+      const uglyName = makeRawFile(
+        'payload.html',
+        'image/png',
+        bufferFor('image/png', 1024),
+      );
+      expect(() => service.validateFiles([uglyName])).not.toThrow();
+    });
+
+    it('derives the stored extension from the validated mime, not the filename (item 9)', async () => {
+      const pngWithHtmlName = makeRawFile(
+        'payload.html',
+        'image/png',
+        bufferFor('image/png', 1024),
+      );
+      await service.uploadImages([pngWithHtmlName]);
+
+      expect(PutObjectCommand).toHaveBeenCalledTimes(1);
+      const ctor = PutObjectCommand as unknown as {
+        mock: { calls: Array<[{ Key: string }]> };
+      };
+      const command = ctor.mock.calls[0][0];
+      expect(command.Key).toMatch(/^products\/.+\.png$/);
+      expect(command.Key).not.toMatch(/\.html$/);
     });
 
     it('accepts a valid jpg', () => {

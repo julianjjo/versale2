@@ -122,6 +122,67 @@ describe('ProductsService', () => {
       });
       expect(result).toEqual(mockProduct);
     });
+
+    // Item 9: hard ceiling of 20 active listings per seller. The count is
+    // over status AVAILABLE — which includes paused rows (pausedAt only
+    // hides them), so pause-then-create can't bypass the cap.
+    it('rejects the 21st active listing with HTTP 429', async () => {
+      const createProductDto: CreateProductDto = {
+        title: 'Producto 21',
+        description: 'Uno de más',
+        category: 'Otros',
+        size: 'M',
+        condition: 'Good',
+        price: 10.0,
+      };
+      mockPrismaService.client.product.count.mockResolvedValue(20);
+      mockPrismaService.client.product.create.mockResolvedValue({});
+
+      await expect(
+        service.create(createProductDto, 'seller1'),
+      ).rejects.toMatchObject({ status: 429 });
+      expect(mockPrismaService.client.product.create).not.toHaveBeenCalled();
+    });
+
+    it('counts paused listings toward the active cap (no pause-then-create bypass)', async () => {
+      const createProductDto: CreateProductDto = {
+        title: 'Producto 21',
+        description: 'Uno de más',
+        category: 'Otros',
+        size: 'M',
+        condition: 'Good',
+        price: 10.0,
+      };
+      mockPrismaService.client.product.count.mockResolvedValue(20);
+
+      await expect(
+        service.create(createProductDto, 'seller1'),
+      ).rejects.toMatchObject({ status: 429 });
+      // The count query itself filters by AVAILABLE (paused included,
+      // SOLD/WITHDRAWN excluded).
+      expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
+        where: { sellerId: 'seller1', status: 'AVAILABLE' },
+      });
+    });
+
+    it('allows a new listing when the seller is under the cap', async () => {
+      const createProductDto: CreateProductDto = {
+        title: 'Producto dentro del límite',
+        description: 'Hay espacio',
+        category: 'Otros',
+        size: 'M',
+        condition: 'Good',
+        price: 10.0,
+      };
+      mockPrismaService.client.product.count.mockResolvedValue(19);
+      mockPrismaService.client.product.create.mockResolvedValue({
+        id: 'p21',
+      });
+
+      await expect(
+        service.create(createProductDto, 'seller1'),
+      ).resolves.toHaveProperty('id', 'p21');
+    });
   });
 
   describe('findOne', () => {
