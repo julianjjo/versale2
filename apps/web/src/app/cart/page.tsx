@@ -229,12 +229,18 @@ export default function CartPage() {
 
   const checkout = useMutation({
     mutationFn: async () => {
-      await api.post("/orders", { shippingAddress });
+      const { data } = await api.post<{ id: string }>('/orders', {
+        shippingAddress,
+      });
+      return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cart"] });
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
-      router.push("/orders");
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      // Item 7: straight to the order's own confirmation page (number +
+      // status), not the history list — the buyer just paid and wants to see
+      // THAT order, not hunt for it in a list.
+      router.push(`/orders/${created.id}`);
     },
     onError: (err) =>
       setError(extractApiError(err, "No pudimos procesar el pago")),

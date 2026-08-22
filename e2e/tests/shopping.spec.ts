@@ -181,7 +181,11 @@ test.describe("Flujo de compra", () => {
     );
 
     await page.getByRole("button", { name: /^pagar$/i }).click();
-    await page.waitForURL(/\/orders/, { timeout: 10_000 });
+    // Item 7: el checkout aterriza en la confirmación del pedido concreto
+    // (/orders/[id]), que muestra su número y estado.
+    await page.waitForURL(/\/orders\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
+    await expect(page.getByRole("heading", { name: /pedido #/i })).toBeVisible();
+    await expect(page.getByText("Pendiente").first()).toBeVisible();
   });
 
   test("el comprador puede buscar su historial de pedidos por el nombre del producto", async ({
