@@ -102,7 +102,7 @@ describe('ProductsService', () => {
         id: 'product1',
         ...createProductDto,
         sellerId,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.create.mockResolvedValue(mockProduct);
@@ -136,7 +136,7 @@ describe('ProductsService', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         reviews: [],
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -210,7 +210,7 @@ describe('ProductsService', () => {
             helpfulVotes: [],
           },
         ],
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
@@ -265,7 +265,7 @@ describe('ProductsService', () => {
             helpfulVotes: [],
           },
         ],
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
@@ -302,7 +302,7 @@ describe('ProductsService', () => {
             helpfulVotes: [{ id: 'vote1' }],
           },
         ],
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
@@ -347,7 +347,7 @@ describe('ProductsService', () => {
         sellerId,
         isApproved: false,
         reviews: [],
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -369,7 +369,7 @@ describe('ProductsService', () => {
         sellerId: 'seller1',
         isApproved: false,
         reviews: [],
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -390,7 +390,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId: 'seller1',
         isApproved: false,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -414,7 +414,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId: 'seller1',
         isApproved: true,
-        status: "SOLD" as const,
+        status: 'SOLD' as const,
         reviews: [],
       };
 
@@ -436,7 +436,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId: 'seller1',
         isApproved: false,
-        status: "SOLD" as const,
+        status: 'SOLD' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -455,7 +455,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId,
         isApproved: true,
-        status: "SOLD" as const,
+        status: 'SOLD' as const,
         reviews: [],
       };
 
@@ -477,7 +477,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId: 'seller1',
         isApproved: false,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -497,7 +497,7 @@ describe('ProductsService', () => {
         sellerId: 'seller1',
         isApproved: true,
         reviews: [],
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
@@ -519,7 +519,7 @@ describe('ProductsService', () => {
         sellerId: 'seller1',
         isApproved: true,
         reviews: [],
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
@@ -541,7 +541,7 @@ describe('ProductsService', () => {
         sellerId: 'seller1',
         isApproved: true,
         reviews: [],
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
@@ -565,7 +565,7 @@ describe('ProductsService', () => {
         sellerId: 'seller1',
         isApproved: true,
         reviews: [],
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
@@ -587,7 +587,7 @@ describe('ProductsService', () => {
         sellerId: 'seller1',
         isApproved: true,
         reviews: [],
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
@@ -618,7 +618,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId: 'seller1',
         isApproved: true,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -639,7 +639,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId: 'seller1',
         isApproved: false,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -667,7 +667,7 @@ describe('ProductsService', () => {
         title: 'Sold Jacket',
         sellerId: userId,
         isApproved: true,
-        status: "SOLD" as const,
+        status: 'SOLD' as const,
       });
 
       await expect(
@@ -696,7 +696,7 @@ describe('ProductsService', () => {
         isApproved: true,
         rejectedAt: null,
         rejectionReason: null,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       const updatedProduct = {
@@ -722,7 +722,7 @@ describe('ProductsService', () => {
         where: { id: productId },
       });
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId, status: "AVAILABLE" as const },
+        where: { id: productId, status: 'AVAILABLE' as const },
         data: {
           ...updateProductDto,
           isApproved: false,
@@ -749,7 +749,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId: userId,
         isApproved: true,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.update.mockRejectedValue(
         notFoundError(),
@@ -782,7 +782,7 @@ describe('ProductsService', () => {
         isApproved: true,
         rejectedAt: null,
         rejectionReason: null,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -795,7 +795,7 @@ describe('ProductsService', () => {
       await service.update(productId, updateProductDto, userId, Role.USER);
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId, status: "AVAILABLE" as const },
+        where: { id: productId, status: 'AVAILABLE' as const },
         data: updateProductDto,
         include: {
           seller: { select: { id: true, name: true } },
@@ -822,7 +822,7 @@ describe('ProductsService', () => {
         isApproved: false,
         rejectedAt: new Date(),
         rejectionReason: 'Descripción incompleta',
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -838,7 +838,7 @@ describe('ProductsService', () => {
       await service.update(productId, updateProductDto, userId, Role.USER);
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId, status: "AVAILABLE" as const },
+        where: { id: productId, status: 'AVAILABLE' as const },
         data: {
           ...updateProductDto,
           isApproved: false,
@@ -872,7 +872,7 @@ describe('ProductsService', () => {
       const existingProduct = {
         id: productId,
         sellerId: userId, // different from wrongUserId
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -895,7 +895,7 @@ describe('ProductsService', () => {
         sellerId, // different from adminId
         title: 'Old Title',
         isApproved: true,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       const updatedProduct = { ...existingProduct, ...updateProductDto };
@@ -938,7 +938,7 @@ describe('ProductsService', () => {
         id: 'product1',
         sellerId: 'seller1',
         isApproved: true,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       });
 
       await expect(
@@ -952,7 +952,7 @@ describe('ProductsService', () => {
         id: 'product1',
         sellerId: 'seller1',
         isApproved: true,
-        status: "SOLD" as const,
+        status: 'SOLD' as const,
       });
 
       await expect(
@@ -969,7 +969,7 @@ describe('ProductsService', () => {
         id: 'product1',
         sellerId: 'seller1',
         isApproved: false,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       });
 
       await expect(
@@ -983,7 +983,7 @@ describe('ProductsService', () => {
         id: 'product1',
         sellerId: 'seller1',
         isApproved: true,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
       const pausedProduct = { ...existingProduct, pausedAt: new Date() };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -998,7 +998,11 @@ describe('ProductsService', () => {
       );
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: 'product1', status: "AVAILABLE" as const, isApproved: true },
+        where: {
+          id: 'product1',
+          status: 'AVAILABLE' as const,
+          isApproved: true,
+        },
         data: { pausedAt: expect.any(Date) as Date },
         include: { seller: { select: { id: true, name: true } } },
       });
@@ -1010,7 +1014,7 @@ describe('ProductsService', () => {
         id: 'product1',
         sellerId: 'seller1',
         isApproved: true,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.update.mockResolvedValue({});
 
@@ -1029,7 +1033,7 @@ describe('ProductsService', () => {
         id: 'product1',
         sellerId: 'seller1',
         isApproved: true,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.update.mockRejectedValue(
         notFoundError(),
@@ -1057,7 +1061,7 @@ describe('ProductsService', () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: 'product1',
         sellerId: 'seller1',
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
         pausedAt: new Date(),
       });
 
@@ -1071,7 +1075,7 @@ describe('ProductsService', () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: 'product1',
         sellerId: 'seller1',
-        status: "SOLD" as const,
+        status: 'SOLD' as const,
         pausedAt: new Date(),
       });
 
@@ -1090,7 +1094,7 @@ describe('ProductsService', () => {
         id: 'product1',
         sellerId: 'seller1',
         isApproved: false,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
         pausedAt: new Date(),
       };
       const unpausedProduct = { ...existingProduct, pausedAt: null };
@@ -1108,7 +1112,7 @@ describe('ProductsService', () => {
       );
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: 'product1', status: "AVAILABLE" as const },
+        where: { id: 'product1', status: 'AVAILABLE' as const },
         data: { pausedAt: null },
         include: { seller: { select: { id: true, name: true } } },
       });
@@ -1120,7 +1124,7 @@ describe('ProductsService', () => {
         id: 'product1',
         sellerId: 'seller1',
         isApproved: true,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
         pausedAt: new Date(),
       });
       mockPrismaService.client.product.update.mockResolvedValue({});
@@ -1134,7 +1138,7 @@ describe('ProductsService', () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: 'product1',
         sellerId: 'seller1',
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
         pausedAt: new Date(),
       });
       mockPrismaService.client.product.update.mockRejectedValue(
@@ -1162,7 +1166,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith({
         where: {
           id: { in: ['product1', 'product2'] },
-          status: "AVAILABLE" as const,
+          status: 'AVAILABLE' as const,
           isApproved: true,
           pausedAt: null,
           sellerId: 'seller1',
@@ -1254,7 +1258,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith({
         where: {
           id: { in: ['product1', 'product2'] },
-          status: "AVAILABLE" as const,
+          status: 'AVAILABLE' as const,
           pausedAt: { not: null },
           sellerId: 'seller1',
         },
@@ -1335,7 +1339,7 @@ describe('ProductsService', () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
         sellerId: 'seller1',
-        status: "SOLD" as const,
+        status: 'SOLD' as const,
       });
 
       await expect(
@@ -1356,7 +1360,7 @@ describe('ProductsService', () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
         sellerId: userId,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.delete.mockRejectedValue(
         notFoundError(),
@@ -1378,7 +1382,7 @@ describe('ProductsService', () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
         sellerId: userId,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.delete.mockRejectedValue(
         foreignKeyViolationError(),
@@ -1398,7 +1402,7 @@ describe('ProductsService', () => {
       const existingProduct = {
         id: productId,
         sellerId: userId, // same as userId
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -1414,7 +1418,7 @@ describe('ProductsService', () => {
         where: { id: productId },
       });
       expect(mockPrismaService.client.product.delete).toHaveBeenCalledWith({
-        where: { id: productId, status: "AVAILABLE" as const },
+        where: { id: productId, status: 'AVAILABLE' as const },
       });
       expect(result).toEqual(existingProduct);
     });
@@ -1438,7 +1442,7 @@ describe('ProductsService', () => {
       const existingProduct = {
         id: productId,
         sellerId: userId, // different from wrongUserId
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -1458,7 +1462,7 @@ describe('ProductsService', () => {
       const existingProduct = {
         id: productId,
         sellerId, // different from adminId
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -1471,7 +1475,7 @@ describe('ProductsService', () => {
       const result = await service.remove(productId, adminId, Role.ADMIN);
 
       expect(mockPrismaService.client.product.delete).toHaveBeenCalledWith({
-        where: { id: productId, status: "AVAILABLE" as const },
+        where: { id: productId, status: 'AVAILABLE' as const },
       });
       expect(result).toEqual(existingProduct);
     });
@@ -1632,7 +1636,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith({
         where: {
           isApproved: true,
-          status: "AVAILABLE" as const,
+          status: 'AVAILABLE' as const,
           pausedAt: null,
           OR: [
             { title: { contains: 'test' } },
@@ -1655,7 +1659,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
         where: {
           isApproved: true,
-          status: "AVAILABLE" as const,
+          status: 'AVAILABLE' as const,
           pausedAt: null,
           OR: [
             { title: { contains: 'test' } },
@@ -1742,7 +1746,7 @@ describe('ProductsService', () => {
         expect.objectContaining({
           where: {
             isApproved: true,
-            status: "AVAILABLE" as const,
+            status: 'AVAILABLE' as const,
             pausedAt: null,
             category: 'Jackets',
           },
@@ -1751,7 +1755,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
         where: {
           isApproved: true,
-          status: "AVAILABLE" as const,
+          status: 'AVAILABLE' as const,
           pausedAt: null,
           category: 'Jackets',
         },
@@ -1854,7 +1858,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith({
         where: {
           isApproved: true,
-          status: "AVAILABLE" as const,
+          status: 'AVAILABLE' as const,
           pausedAt: null,
           price: { gte: 10000, lte: 50000 },
         },
@@ -1877,7 +1881,7 @@ describe('ProductsService', () => {
         expect.objectContaining({
           where: {
             isApproved: true,
-            status: "AVAILABLE" as const,
+            status: 'AVAILABLE' as const,
             pausedAt: null,
             sellerId: 'seller1',
           },
@@ -1886,7 +1890,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
         where: {
           isApproved: true,
-          status: "AVAILABLE" as const,
+          status: 'AVAILABLE' as const,
           pausedAt: null,
           sellerId: 'seller1',
         },
@@ -1902,7 +1906,7 @@ describe('ProductsService', () => {
       const [[{ where }]] = mockPrismaService.client.product.findMany.mock
         .calls as [[{ where: { isApproved: boolean; status: unknown } }]];
       expect(where.isApproved).toBe(true);
-      expect(where.status).toBe("AVAILABLE");
+      expect(where.status).toBe('AVAILABLE');
     });
 
     it('should AND sellerId with a search term rather than folding it into the search OR clause', async () => {
@@ -1915,7 +1919,7 @@ describe('ProductsService', () => {
         expect.objectContaining({
           where: {
             isApproved: true,
-            status: "AVAILABLE" as const,
+            status: 'AVAILABLE' as const,
             pausedAt: null,
             sellerId: 'seller1',
             OR: [
@@ -1972,7 +1976,7 @@ describe('ProductsService', () => {
         expect.objectContaining({
           where: expect.objectContaining({
             isApproved: true,
-            status: "AVAILABLE" as const,
+            status: 'AVAILABLE' as const,
             pausedAt: null,
           }) as Record<string, unknown>,
         }),
@@ -2182,7 +2186,7 @@ describe('ProductsService', () => {
         where: {
           category: 'Jackets',
           isApproved: true,
-          status: "AVAILABLE" as const,
+          status: 'AVAILABLE' as const,
           pausedAt: null,
           id: { not: 'p1' },
         },
@@ -2263,7 +2267,7 @@ describe('ProductsService', () => {
         {
           where: {
             isApproved: true,
-            status: "AVAILABLE" as const,
+            status: 'AVAILABLE' as const,
             pausedAt: null,
             brand: { not: null },
           },
@@ -2275,7 +2279,11 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenNthCalledWith(
         2,
         {
-          where: { isApproved: true, status: "AVAILABLE" as const, pausedAt: null },
+          where: {
+            isApproved: true,
+            status: 'AVAILABLE' as const,
+            pausedAt: null,
+          },
           select: { category: true },
           distinct: ['category'],
           orderBy: { category: 'asc' },
@@ -2352,7 +2360,7 @@ describe('ProductsService', () => {
             sellerId: 'seller1',
             isApproved: false,
             rejectedAt: null,
-            status: "AVAILABLE" as const,
+            status: 'AVAILABLE' as const,
           },
         }),
       );
@@ -2369,7 +2377,7 @@ describe('ProductsService', () => {
           where: {
             sellerId: 'seller1',
             isApproved: true,
-            status: "AVAILABLE" as const,
+            status: 'AVAILABLE' as const,
             pausedAt: null,
           },
         }),
@@ -2387,7 +2395,7 @@ describe('ProductsService', () => {
           where: {
             sellerId: 'seller1',
             pausedAt: { not: null },
-            status: "AVAILABLE" as const,
+            status: 'AVAILABLE' as const,
           },
         }),
       );
@@ -2418,7 +2426,7 @@ describe('ProductsService', () => {
 
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { sellerId: 'seller1', status: "SOLD" },
+          where: { sellerId: 'seller1', status: 'SOLD' },
         }),
       );
     });
@@ -2469,7 +2477,7 @@ describe('ProductsService', () => {
           where: {
             sellerId: 'seller1',
             isApproved: true,
-            status: "AVAILABLE" as const,
+            status: 'AVAILABLE' as const,
             pausedAt: null,
             OR: [
               { title: { contains: 'lino' } },
@@ -2646,7 +2654,7 @@ describe('ProductsService', () => {
         where: {
           id: { in: ['product1', 'product2'] },
           isApproved: false,
-          status: "AVAILABLE" as const,
+          status: 'AVAILABLE' as const,
         },
         data: { isApproved: true, rejectedAt: null, rejectionReason: null },
       });
@@ -2714,19 +2722,19 @@ describe('ProductsService', () => {
       const mockProduct = {
         id: productId,
         isApproved: true,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.update.mockResolvedValue(mockProduct);
 
       const result = await service.approveProduct(productId);
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId, status: "AVAILABLE" as const },
+        where: { id: productId, status: 'AVAILABLE' as const },
         data: { isApproved: true, rejectedAt: null, rejectionReason: null },
       });
       expect(result).toEqual(mockProduct);
@@ -2751,7 +2759,7 @@ describe('ProductsService', () => {
       const productId = 'product1';
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
-        status: "SOLD" as const,
+        status: 'SOLD' as const,
       });
 
       await expect(service.approveProduct(productId)).rejects.toThrow(
@@ -2769,7 +2777,7 @@ describe('ProductsService', () => {
       const productId = 'product1';
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.update.mockRejectedValue(
         notFoundError(),
@@ -2788,19 +2796,19 @@ describe('ProductsService', () => {
         id: productId,
         isApproved: false,
         rejectionReason: 'Fotos borrosas',
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.update.mockResolvedValue(mockProduct);
 
       const result = await service.rejectProduct(productId, 'Fotos borrosas');
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId, status: "AVAILABLE" as const },
+        where: { id: productId, status: 'AVAILABLE' as const },
         data: {
           isApproved: false,
           rejectedAt: expect.any(Date) as Date,
@@ -2814,7 +2822,7 @@ describe('ProductsService', () => {
       const productId = 'product1';
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.update.mockResolvedValue({
         id: productId,
@@ -2823,7 +2831,7 @@ describe('ProductsService', () => {
       await service.rejectProduct(productId);
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId, status: "AVAILABLE" as const },
+        where: { id: productId, status: 'AVAILABLE' as const },
         data: {
           isApproved: false,
           rejectedAt: expect.any(Date) as Date,
@@ -2850,7 +2858,7 @@ describe('ProductsService', () => {
       const productId = 'product1';
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
-        status: "SOLD" as const,
+        status: 'SOLD' as const,
       });
 
       await expect(
@@ -2863,7 +2871,7 @@ describe('ProductsService', () => {
       const productId = 'product1';
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.update.mockRejectedValue(
         notFoundError(),
@@ -2890,7 +2898,7 @@ describe('ProductsService', () => {
         where: {
           id: { in: ['product1', 'product2'] },
           rejectedAt: null,
-          status: "AVAILABLE" as const,
+          status: 'AVAILABLE' as const,
         },
         data: {
           isApproved: false,

@@ -1000,7 +1000,11 @@ export class ProductsService {
     const uniqueIds = Array.from(new Set(ids));
 
     const result = await this.prisma.client.product.updateMany({
-      where: { id: { in: uniqueIds }, isApproved: false, status: ProductStatus.AVAILABLE },
+      where: {
+        id: { in: uniqueIds },
+        isApproved: false,
+        status: ProductStatus.AVAILABLE,
+      },
       data: APPROVE_DATA,
     });
 
@@ -1055,7 +1059,11 @@ export class ProductsService {
     const uniqueIds = Array.from(new Set(ids));
 
     const result = await this.prisma.client.product.updateMany({
-      where: { id: { in: uniqueIds }, rejectedAt: null, status: ProductStatus.AVAILABLE },
+      where: {
+        id: { in: uniqueIds },
+        rejectedAt: null,
+        status: ProductStatus.AVAILABLE,
+      },
       data: this.buildRejectData(reason),
     });
 

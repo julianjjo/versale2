@@ -46,7 +46,7 @@ export class FavoritesService {
     private productsService: ProductsService,
   ) {}
 
-  async findAll(userId: string, query: any) {
+  async findAll(userId: string, query: Record<string, unknown>) {
     const { page = 1, limit = 10 } = query;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 

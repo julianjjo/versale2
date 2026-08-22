@@ -47,10 +47,10 @@ describe('UpdateProductDto with the global ValidationPipe', () => {
   });
 
   it('accepts a partial patch of valid fields', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       { title: 'Chaqueta de mezclilla', price: 120000 },
       metadata,
-    );
+    )) as Record<string, unknown>;
 
     expect(result).toEqual({
       title: 'Chaqueta de mezclilla',
@@ -63,10 +63,15 @@ describe('UpdateProductDto with the global ValidationPipe', () => {
   });
 
   it('strips fields the seller must not be able to set', async () => {
-    const result = await pipe.transform(
-      { title: 'Chaqueta', isApproved: true, status: 'AVAILABLE' as const, sellerId: 'otro' },
+    const result = (await pipe.transform(
+      {
+        title: 'Chaqueta',
+        isApproved: true,
+        status: 'AVAILABLE' as const,
+        sellerId: 'otro',
+      },
       metadata,
-    );
+    )) as Record<string, unknown>;
 
     expect(result).toEqual({ title: 'Chaqueta' });
   });

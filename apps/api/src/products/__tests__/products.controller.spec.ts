@@ -111,7 +111,7 @@ describe('ProductsController', () => {
         title: 'Test Product',
         description: 'A test product',
         price: 10.0,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       const mockReq = {
@@ -136,7 +136,7 @@ describe('ProductsController', () => {
         title: 'Test Product',
         description: 'A test product',
         price: 10.0,
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
 
       const mockReq = {} as unknown as Request;

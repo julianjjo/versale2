@@ -65,7 +65,7 @@ describe('FavoritesService', () => {
         id: 'product1',
         title: 'Test Product',
         seller: { id: 'seller1', name: 'Alice' },
-        status: "AVAILABLE" as const,
+        status: 'AVAILABLE' as const,
       };
       const mockFavorites = [
         {
