@@ -9,8 +9,16 @@ import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { Role } from '../users/role.enum';
 import { resolvePagination } from '../common/pagination';
-import { VERIFIED_PURCHASE_STATUSES } from '../orders/order-status.enum';
+import {
+  OrderStatus,
+  VERIFIED_PURCHASE_STATUSES,
+} from '../orders/order-status.enum';
 import { translatePrismaError } from '../common/prisma-error';
+
+// Shown to the user when they try to review the same listing twice, and to
+// the (rare) loser of a race that slips past the app-level check into the
+// @@unique([userId, productId]) constraint — one message, one behavior.
+const DUPLICATE_REVIEW_MESSAGE = 'Ya has reseñado este producto';
 
 @Injectable()
 export class ReviewsService {
@@ -39,32 +47,58 @@ export class ReviewsService {
       throw new BadRequestException('No puedes reseñar tu propio producto');
     }
 
+    // Reseña solo tras entrega (roadmap 1.6): the caller must be the buyer of
+    // an OrderItem for this product whose order reached DELIVERED. PENDING/
+    // PAID/SHIPPED orders don't qualify — the garment hasn't been through the
+    // whole transaction yet, which is exactly the window a review is supposed
+    // to describe. The verified-purchase BADGE elsewhere still counts PAID/
+    // SHIPPED (display-only); eligibility for writing is stricter.
+    const deliveredPurchase = await this.prisma.client.orderItem.findFirst({
+      where: {
+        productId,
+        order: { userId, status: OrderStatus.DELIVERED },
+      },
+      select: { id: true },
+    });
+
+    if (!deliveredPurchase) {
+      throw new BadRequestException(
+        'Solo puedes reseñar productos que compraste y ya fueron entregados',
+      );
+    }
+
     const existingReview = await this.prisma.client.review.findFirst({
       where: { userId, productId },
     });
 
     if (existingReview) {
-      const review = await this.prisma.client.review.update({
-        where: { id: existingReview.id },
+      // A duplicate is a rejected request now, not a silent update: the UI
+      // edits via PATCH /reviews/:id, and a second POST is either a UI bug or
+      // a probe — either way it deserves a 400, not a mutation.
+      throw new BadRequestException(DUPLICATE_REVIEW_MESSAGE);
+    }
+
+    try {
+      const review = await this.prisma.client.review.create({
         data: {
           rating: createReviewDto.rating,
           comment: createReviewDto.comment,
+          userId,
+          productId,
         },
       });
 
-      return { review, created: false };
+      return { review, created: true };
+    } catch (error) {
+      // Race hardening: two concurrent POSTs both pass the findFirst above,
+      // and @@unique([userId, productId]) lets exactly one create succeed.
+      // The loser gets the same 400 the app-level check would have given it.
+      translatePrismaError(error, {
+        P2002: () => {
+          throw new BadRequestException(DUPLICATE_REVIEW_MESSAGE);
+        },
+      });
     }
-
-    const review = await this.prisma.client.review.create({
-      data: {
-        rating: createReviewDto.rating,
-        comment: createReviewDto.comment,
-        userId,
-        productId,
-      },
-    });
-
-    return { review, created: true };
   }
 
   async findAllByProduct(productId: string) {
@@ -257,7 +291,7 @@ export class ReviewsService {
     return this.prisma.client.review.delete({ where: { id } });
   }
 
-  async getAllReviews(query: any) {
+  async getAllReviews(query: Record<string, unknown>) {
     const { page, limit } = query ?? {};
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 

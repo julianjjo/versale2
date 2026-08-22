@@ -13,6 +13,19 @@ Versale is a used-clothing marketplace monorepo. This file owns project-wide rul
 
 The root keeps repo-wide workflow, DOX hierarchy rules, and the top-level child index.
 
+## Mandatory Execution Workflow (8-Step Pipeline)
+
+For EVERY feature or task (especially backlog items from `todo-implementacion.md`), agents MUST strictly execute this 8-step pipeline before marking a goal as complete:
+
+1. **Sync & Branch**: Never develop directly on `main`. Always update `main` first (`git checkout main && git pull origin main`), then create a dedicated feature branch (`git checkout -b feat/<nombre-funcionalidad>`).
+2. **Plan & Document**: Create a folder `docs/<nombre-funcionalidad>/` and draft a design `.md` file detailing architecture, data flows, components, and testing strategy.
+3. **Multi-Angle Plan Review**: Conduct an initial design review focusing on architecture, security, performance, and test strategy. Update the plan with necessary adjustments.
+4. **Development & Testing**: Implement the feature code and write unit/integration/E2E tests to maintain or increase project coverage.
+5. **PR Preparation**: Stage and commit all changes to the feature branch (`feat/<nombre-funcionalidad>`).
+6. **Deep AI Review**: Run a deep code analysis over the feature diff to identify and fix security vulnerabilities, performance bottlenecks, or code smells.
+7. **Safe Merge to `main`**: Verify that the PR fulfills ALL original requirements and edge cases defined in the task. Ensure all verification test suites pass at 100%. Switch back to `main`, sync latest changes, and perform the merge (`git checkout main && git pull origin main && git merge feat/<nombre-funcionalidad>`). **Explicitly verify the merge was successful (no conflicts) and that the `main` branch build remains stable.**
+8. **Cleanup & Completion**: Delete the local feature branch (`git branch -d feat/<nombre-funcionalidad>`), compact context if necessary, and call `complete_goal`. The detached auditor will verify the `Done when:` contract directly on the clean `main` branch.
+
 ## Local Contracts
 
 - Workspace manager: `npm` with `apps/*` and `packages/*` workspaces.

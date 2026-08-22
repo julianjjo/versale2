@@ -743,9 +743,10 @@ export function ProductDetail({
         )}
 
         {/* Once the buyer already has a review on this product, editing it
-            happens inline on their own review card above — a second, blank
-            form here would just invite an accidental overwrite via the
-            create endpoint's own upsert-by-product behavior. */}
+            happens inline on their own review card above — and a second POST
+            for the same listing is rejected outright (one review per buyer,
+            enforced by the API and the DB's @@unique([userId, productId])),
+            so hiding the form is the only correct UI here. */}
         {user && !isOwn && data.isApproved && !ownReview && (
           <form
             onSubmit={handleReviewSubmit}

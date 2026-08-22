@@ -11,7 +11,6 @@ import { Role } from '../../users/role.enum';
 
 describe('ReviewsService', () => {
   let service: ReviewsService;
-  let prismaService: PrismaService;
 
   const mockPrismaService = {
     client: {
@@ -48,7 +47,6 @@ describe('ReviewsService', () => {
     }).compile();
 
     service = module.get<ReviewsService>(ReviewsService);
-    prismaService = module.get<PrismaService>(PrismaService);
   });
 
   afterEach(() => {
@@ -81,6 +79,9 @@ describe('ReviewsService', () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
       );
+      mockPrismaService.client.orderItem.findFirst.mockResolvedValue({
+        id: 'orderItem1',
+      });
       mockPrismaService.client.review.findFirst.mockResolvedValue(null);
       mockPrismaService.client.review.create.mockResolvedValue(mockReview);
 
@@ -89,6 +90,15 @@ describe('ReviewsService', () => {
       expect(mockPrismaService.client.product.findUnique).toHaveBeenCalledWith({
         where: { id: productId },
       });
+      expect(mockPrismaService.client.orderItem.findFirst).toHaveBeenCalledWith(
+        {
+          where: {
+            productId,
+            order: { userId, status: 'DELIVERED' },
+          },
+          select: { id: true },
+        },
+      );
       expect(mockPrismaService.client.review.findFirst).toHaveBeenCalledWith({
         where: { userId, productId },
       });
@@ -157,60 +167,112 @@ describe('ReviewsService', () => {
       ).rejects.toThrow('No puedes reseñar tu propio producto');
     });
 
-    it('should update the existing review and report it as not created when the user already reviewed the product', async () => {
+    it('should reject a user whose order for the product was never delivered', async () => {
       const userId = 'user1';
       const productId = 'product1';
-      const createReviewDto = {
-        productId,
-        rating: 4,
-        comment: 'Updated review',
-      };
 
-      const mockProduct = {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
         isApproved: true,
-      };
-
-      const existingReview = {
-        id: 'review1',
-        userId,
-        productId,
-        rating: 5,
-        comment: 'Old review',
-      };
-
-      const updatedReview = {
-        id: 'review1',
-        userId,
-        productId,
-        rating: 4,
-        comment: 'Updated review',
-      };
-
-      mockPrismaService.client.product.findUnique.mockResolvedValue(
-        mockProduct,
-      );
-      mockPrismaService.client.review.findFirst.mockResolvedValue(
-        existingReview,
-      );
-      mockPrismaService.client.review.update.mockResolvedValue(updatedReview);
-
-      const result = await service.create(createReviewDto, userId, productId);
-
-      expect(mockPrismaService.client.review.update).toHaveBeenCalledWith({
-        where: { id: existingReview.id },
-        data: {
-          rating: createReviewDto.rating,
-          comment: createReviewDto.comment,
-        },
+        sellerId: 'seller1',
       });
-      // created: false is what lets the controller answer 200 instead of 201.
-      expect(result).toEqual({ review: updatedReview, created: false });
+      // The only purchase of this product by this user is still in transit.
+      mockPrismaService.client.orderItem.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(
+          { productId, rating: 5, comment: 'Havent received it yet' },
+          userId,
+          productId,
+        ),
+      ).rejects.toThrow(
+        'Solo puedes reseñar productos que compraste y ya fueron entregados',
+      );
+      expect(mockPrismaService.client.review.create).not.toHaveBeenCalled();
+    });
+
+    it.each(['PENDING', 'PAID', 'SHIPPED'] as const)(
+      'does not let a %s order enable reviewing — only DELIVERED counts',
+      async (status) => {
+        const userId = 'user1';
+        const productId = 'product1';
+
+        mockPrismaService.client.product.findUnique.mockResolvedValue({
+          id: productId,
+          isApproved: true,
+          sellerId: 'seller1',
+        });
+        // The eligibility query itself filters on DELIVERED; a non-delivered
+        // order simply matches nothing.
+        mockPrismaService.client.orderItem.findFirst.mockResolvedValue(null);
+
+        await expect(
+          service.create({ productId, rating: 5 }, userId, productId),
+        ).rejects.toThrow(BadRequestException);
+        expect(status).not.toBe('DELIVERED');
+        expect(mockPrismaService.client.review.create).not.toHaveBeenCalled();
+      },
+    );
+
+    it('should reject a duplicate review with a 400 instead of updating silently', async () => {
+      const userId = 'user1';
+      const productId = 'product1';
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: productId,
+        isApproved: true,
+        sellerId: 'seller1',
+      });
+      mockPrismaService.client.orderItem.findFirst.mockResolvedValue({
+        id: 'orderItem1',
+      });
+      mockPrismaService.client.review.findFirst.mockResolvedValue({
+        id: 'review1',
+        userId,
+        productId,
+      });
+
+      await expect(
+        service.create(
+          { productId, rating: 4, comment: 'Updated review' },
+          userId,
+          productId,
+        ),
+      ).rejects.toThrow('Ya has reseñado este producto');
+      expect(mockPrismaService.client.review.update).not.toHaveBeenCalled();
+      expect(mockPrismaService.client.review.create).not.toHaveBeenCalled();
+    });
+
+    it('translates a P2002 from the unique index into the duplicate-review 400', async () => {
+      const userId = 'user1';
+      const productId = 'product1';
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: productId,
+        isApproved: true,
+        sellerId: 'seller1',
+      });
+      // Two concurrent POSTs both see no existing review...
+      mockPrismaService.client.orderItem.findFirst.mockResolvedValue({
+        id: 'orderItem1',
+      });
+      mockPrismaService.client.review.findFirst.mockResolvedValue(null);
+      // ...but @@unique([userId, productId]) lets only one create through.
+      mockPrismaService.client.review.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError(
+          'Unique constraint failed on the constraint: `Review_userId_productId_key`',
+          { code: 'P2002', clientVersion: '7.8.0' },
+        ),
+      );
+
+      await expect(
+        service.create({ productId, rating: 5 }, userId, productId),
+      ).rejects.toThrow('Ya has reseñado este producto');
     });
   });
 
   describe('findAllByProduct', () => {
-    it('marks a review as verifiedPurchase when it comes from the product\'s actual buyer', async () => {
+    it("marks a review as verifiedPurchase when it comes from the product's actual buyer", async () => {
       const productId = 'product1';
       const mockReviews = [
         {
@@ -243,13 +305,15 @@ describe('ReviewsService', () => {
         },
         orderBy: { createdAt: 'desc' },
       });
-      expect(mockPrismaService.client.orderItem.findFirst).toHaveBeenCalledWith({
-        where: {
-          productId,
-          order: { status: { in: ['PAID', 'SHIPPED', 'DELIVERED'] } },
+      expect(mockPrismaService.client.orderItem.findFirst).toHaveBeenCalledWith(
+        {
+          where: {
+            productId,
+            order: { status: { in: ['PAID', 'SHIPPED', 'DELIVERED'] } },
+          },
+          select: { order: { select: { userId: true } } },
         },
-        select: { order: { select: { userId: true } } },
-      });
+      );
       expect(result).toEqual([
         { ...mockReviews[0], verifiedPurchase: true },
         { ...mockReviews[1], verifiedPurchase: false },
@@ -433,13 +497,16 @@ describe('ReviewsService', () => {
         where: { id: reviewId },
         include: { product: { select: { sellerId: true } } },
       });
-      expect(mockPrismaService.client.review.update).toHaveBeenCalledWith({
-        where: { id: reviewId },
-        data: {
-          sellerReply: 'Gracias por tu compra',
-          sellerRepliedAt: expect.any(Date),
-        },
-      });
+      expect(mockPrismaService.client.review.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: reviewId },
+          data: {
+            sellerReply: 'Gracias por tu compra',
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.any(Date) es `any` por diseño de Jest
+            sellerRepliedAt: expect.any(Date),
+          },
+        }),
+      );
       expect(result).toEqual({
         id: reviewId,
         sellerReply: 'Gracias por tu compra',
@@ -469,7 +536,7 @@ describe('ReviewsService', () => {
       expect(result.sellerReply).toBe('Respuesta corregida');
     });
 
-    it('should reject a reply from someone who is not the product\'s seller', async () => {
+    it("should reject a reply from someone who is not the product's seller", async () => {
       const reviewId = 'review1';
 
       mockPrismaService.client.review.findUnique.mockResolvedValue({
@@ -528,9 +595,10 @@ describe('ReviewsService', () => {
       mockPrismaService.client.reviewHelpfulVote.upsert.mockResolvedValue({});
       mockPrismaService.client.reviewHelpfulVote.count.mockResolvedValue(1);
 
-      await expect(
-        service.markHelpful('review1', 'buyer1'),
-      ).resolves.toEqual({ helpfulCount: 1, votedByMe: true });
+      await expect(service.markHelpful('review1', 'buyer1')).resolves.toEqual({
+        helpfulCount: 1,
+        votedByMe: true,
+      });
     });
 
     it('throws NotFoundException when the review does not exist', async () => {
@@ -544,7 +612,7 @@ describe('ReviewsService', () => {
       ).not.toHaveBeenCalled();
     });
 
-    it("rejects a reviewer marking their own review as helpful", async () => {
+    it('rejects a reviewer marking their own review as helpful', async () => {
       const userId = 'author1';
 
       mockPrismaService.client.review.findUnique.mockResolvedValue({
@@ -573,12 +641,12 @@ describe('ReviewsService', () => {
         ),
       );
 
-      await expect(
-        service.markHelpful('review1', 'buyer1'),
-      ).rejects.toThrow(NotFoundException);
-      await expect(
-        service.markHelpful('review1', 'buyer1'),
-      ).rejects.toThrow('No se encontró la reseña con ID review1');
+      await expect(service.markHelpful('review1', 'buyer1')).rejects.toThrow(
+        NotFoundException,
+      );
+      await expect(service.markHelpful('review1', 'buyer1')).rejects.toThrow(
+        'No se encontró la reseña con ID review1',
+      );
     });
   });
 
@@ -631,12 +699,12 @@ describe('ReviewsService', () => {
         }),
       );
 
-      await expect(
-        service.unmarkHelpful('review1', 'buyer1'),
-      ).rejects.toThrow(NotFoundException);
-      await expect(
-        service.unmarkHelpful('review1', 'buyer1'),
-      ).rejects.toThrow('No has marcado esta reseña como útil');
+      await expect(service.unmarkHelpful('review1', 'buyer1')).rejects.toThrow(
+        NotFoundException,
+      );
+      await expect(service.unmarkHelpful('review1', 'buyer1')).rejects.toThrow(
+        'No has marcado esta reseña como útil',
+      );
     });
   });
 
