@@ -20,6 +20,7 @@ import {
 } from "@/components/ui";
 import { MAX_ITEM_QUANTITY } from "@/lib/cart";
 import { conditionLabel } from "@/lib/product-condition";
+import { formatPublishDate } from "@/lib/format-date";
 import { isTerminalError } from "@/lib/http-error";
 import { tokenStore } from "@/lib/token";
 import type { Product, Review } from "@/lib/types";
@@ -531,6 +532,12 @@ export function ProductDetail({
               ) : (
                 "—"
               )}
+            </dd>
+            {/* Item 14: la fecha de publicación genera dudas honestas — y con
+                formato UTC determinista no cuesta un mismatch de hidratación. */}
+            <dt className="text-text-muted">Publicado</dt>
+            <dd className="font-medium text-text-primary">
+              {formatPublishDate(data.createdAt)}
             </dd>
           </dl>
 

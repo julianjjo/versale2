@@ -24,6 +24,7 @@ import { Pager } from "@/components/admin/pager";
 import { FavoriteButton } from "@/components/products/favorite-button";
 import { useAuth } from "@/lib/auth";
 import { PRODUCT_CATEGORIES } from "@/lib/categories";
+import { formatPublishDate } from "@/lib/format-date";
 
 // One source of truth for the valid `sortBy` values and their labels, so the
 // URL parser, the submit handler, and the <Select>'s options can't drift out
@@ -486,87 +487,96 @@ export function ProductCard({
   const { user } = useAuth();
   const isOwn = user?.id === product.sellerId;
 
+  // Item 14: el botón de favorito es HERMANO posicionado del <Link>, no un
+  // descendiente — un botón dentro de un enlace es HTML inválido (los
+  // lectores de pantalla lo anuncian mal) y una fuente clásica de errores
+  // de hidratación.
   return (
-    <Link
-      href={`/products/${product.id}`}
-      className="group block rounded-[14px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-    >
-      <article className="flex h-full flex-col gap-3.5 transition-transform duration-300 group-hover:-translate-y-1">
-        <div className="relative aspect-[3/4] overflow-hidden rounded-[14px] bg-paper-3">
-          {product.images?.[0] ? (
-            <img
-              src={product.images[0].url}
-              alt={product.title}
-              loading="lazy"
-              decoding="async"
-              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-xs text-muted">
-              Sin imagen
-            </div>
-          )}
-          {/* Only reachable via the Favoritos page: the public catalog's own
-              findAll already excludes anything not approved/unpaused, but a
-              Favorite row survives its product later being rejected or
-              paused (see favorites.service.ts), so this card still has to
-              tell the two states apart there. */}
-          {!product.isApproved ? (
-            <Badge
-              variant="warning"
-              className="absolute left-3 top-3 z-10 uppercase tracking-[0.1em]"
-            >
-              Pendiente
-            </Badge>
-          ) : (
-            product.pausedAt && (
+    <div className="relative h-full rounded-[14px] focus-within:outline-none focus-within:ring-2 focus-within:ring-text-primary focus-within:ring-offset-2 focus-within:ring-offset-surface [&:has(:focus-visible)]:ring-2 [&:has(:focus-visible)]:ring-text-primary [&:has(:focus-visible)]:ring-offset-2 [&:has(:focus-visible)]:ring-offset-surface">
+      <Link
+        href={`/products/${product.id}`}
+        className="group block h-full rounded-[14px] outline-none"
+      >
+        <article className="flex h-full flex-col gap-3.5 transition-transform duration-300 group-hover:-translate-y-1">
+          <div className="relative aspect-[3/4] overflow-hidden rounded-[14px] bg-paper-3">
+            {product.images?.[0] ? (
+              <img
+                src={product.images[0].url}
+                alt={product.title}
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-xs text-muted">
+                Sin imagen
+              </div>
+            )}
+            {/* Only reachable via the Favoritos page: the public catalog's own
+                findAll already excludes anything not approved/unpaused, but a
+                Favorite row survives its product later being rejected or
+                paused (see favorites.service.ts), so this card still has to
+                tell the two states apart there. */}
+            {!product.isApproved ? (
               <Badge
                 variant="warning"
                 className="absolute left-3 top-3 z-10 uppercase tracking-[0.1em]"
               >
-                Pausado
+                Pendiente
               </Badge>
-            )
-          )}
-          {!isOwn && (
-            <FavoriteButton
-              productId={product.id}
-              className="absolute right-3 top-3 z-10"
-              isFavoriteOverride={isFavoriteOverride}
-            />
-          )}
-        </div>
-        <div className="flex flex-1 flex-col gap-1">
-          <h3 className="truncate font-sans text-sm font-medium leading-tight text-ink">
-            {product.title}
-          </h3>
-          {product.brand && (
-            <p className="truncate text-[11px] uppercase tracking-[0.08em] text-muted">
-              {product.brand}
-            </p>
-          )}
-          {product.averageRating != null && (
-            <div className="mt-0.5 flex items-center gap-1.5">
-              <StarRating value={product.averageRating} />
+            ) : (
+              product.pausedAt && (
+                <Badge
+                  variant="warning"
+                  className="absolute left-3 top-3 z-10 uppercase tracking-[0.1em]"
+                >
+                  Pausado
+                </Badge>
+              )
+            )}
+          </div>
+          <div className="flex flex-1 flex-col gap-1">
+            <h3 className="truncate font-sans text-sm font-medium leading-tight text-ink">
+              {product.title}
+            </h3>
+            {product.brand && (
+              <p className="truncate text-[11px] uppercase tracking-[0.08em] text-muted">
+                {product.brand}
+              </p>
+            )}
+            {product.averageRating != null && (
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <StarRating value={product.averageRating} />
+                <span className="text-[11px] text-muted">
+                  {product.averageRating.toFixed(1)}
+                  {product._count && ` (${product._count.reviews})`}
+                </span>
+              </div>
+            )}
+            <div className="mt-1.5 flex items-center justify-between gap-2">
+              <Price value={product.price} className="text-[16px] sm:text-[18px]" />
               <span className="text-[11px] text-muted">
-                {product.averageRating.toFixed(1)}
-                {product._count && ` (${product._count.reviews})`}
+                Talla {product.size} · {conditionLabel(product.condition)}
               </span>
             </div>
-          )}
-          <div className="mt-1.5 flex items-center justify-between gap-2">
-            <Price value={product.price} className="text-[16px] sm:text-[18px]" />
-            <span className="text-[11px] text-muted">
-              Talla {product.size} · {conditionLabel(product.condition)}
-            </span>
-          </div>
-          {product.seller && (
-            <p className="mt-1 text-[11px] text-muted">
-              Vendido por {product.seller.name}
+            {product.seller && (
+              <p className="mt-1 text-[11px] text-muted">
+                Vendido por {product.seller.name}
+              </p>
+            )}
+            <p className="text-[11px] text-muted">
+              {formatPublishDate(product.createdAt)}
             </p>
-          )}
-        </div>
-      </article>
-    </Link>
+          </div>
+        </article>
+      </Link>
+      {!isOwn && (
+        <FavoriteButton
+          productId={product.id}
+          className="absolute right-3 top-3 z-20"
+          isFavoriteOverride={isFavoriteOverride}
+        />
+      )}
+    </div>
   );
 }
