@@ -3,6 +3,7 @@ import { Fraunces, Inter, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { SiteChrome } from "@/components/layout/site-chrome";
+import { SkipLink } from "@/components/layout/skip-link";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -43,6 +44,7 @@ export default function RootLayout({
       className={`${inter.variable} ${fraunces.variable} ${plexMono.variable}`}
     >
       <body className="min-h-screen flex flex-col bg-surface text-text-primary antialiased">
+        <SkipLink />
         <Providers>
           <SiteChrome>{children}</SiteChrome>
         </Providers>
