@@ -141,6 +141,14 @@ describe("LoginPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("explica por qué llegó aquí cuando viene de cambiar su contraseña", () => {
+    mockSearchParams = new URLSearchParams("reason=password_changed");
+    renderLogin();
+    expect(
+      screen.getByText(/tu contraseña se actualizó/i),
+    ).toBeInTheDocument();
+  });
+
   it("vuelve a la página de origen tras iniciar sesión cuando se especifica next", async () => {
     mockSearchParams = new URLSearchParams("next=/products/p1&reason=cart");
     const user = userEvent.setup();

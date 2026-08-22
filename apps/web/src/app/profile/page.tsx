@@ -54,6 +54,7 @@ function ProfileForm({
   logout: () => void;
   refresh: () => Promise<void>;
 }) {
+  const router = useRouter();
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [password, setPassword] = useState("");
@@ -78,8 +79,10 @@ function ProfileForm({
 
     const body: Record<string, string> = {};
     if (name && name !== user.name) body.name = name;
-    if (email && email !== user.email) body.email = email;
-    if (password) body.password = password;
+    const changingEmail = Boolean(email) && email !== user.email;
+    if (changingEmail) body.email = email;
+    const changingPassword = Boolean(password);
+    if (changingPassword) body.password = password;
     if (Object.keys(body).length === 0) {
       setSuccess("Nada que actualizar");
       return;
@@ -97,10 +100,25 @@ function ProfileForm({
     setIsSaving(true);
     try {
       await api.patch<User>("/users/me", body);
-      await refresh();
       setPassword("");
       setCurrentPassword("");
-      setSuccess("Perfil actualizado");
+      if (changingPassword) {
+        // The API just invalidated every token issued before this change
+        // (tokenVersion bump) — including the one this tab is still holding.
+        // Calling refresh() here would 401 through the generic "session
+        // expired" handler, hiding the fact that the change itself
+        // succeeded. Log out on purpose instead, with a message that says
+        // what actually happened.
+        logout();
+        router.push("/login?reason=password_changed");
+        return;
+      }
+      await refresh();
+      setSuccess(
+        changingEmail
+          ? "Perfil actualizado. Como cambiaste tu correo, tendrás que verificarlo de nuevo."
+          : "Perfil actualizado",
+      );
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(extractApiError(err, "No pudimos actualizar tu perfil"));

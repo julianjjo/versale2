@@ -13,6 +13,8 @@ const LOGIN_REASON_MESSAGE: Record<string, string> = {
   review: "Inicia sesión para escribir tu reseña.",
   helpful: "Inicia sesión para marcar una reseña como útil.",
   expired: "Tu sesión expiró. Inicia sesión de nuevo para continuar.",
+  password_changed:
+    "Tu contraseña se actualizó. Inicia sesión de nuevo con la nueva contraseña.",
 };
 
 function LoginForm() {

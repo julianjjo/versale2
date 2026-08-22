@@ -4,8 +4,9 @@ import userEvent from "@testing-library/user-event";
 import ProfilePage from "../page";
 import { TestProviders } from "@/test-utils/TestProviders";
 
+const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), back: vi.fn() }),
+  useRouter: () => ({ push: pushMock, refresh: vi.fn(), back: vi.fn() }),
   useParams: () => ({}),
 }));
 
@@ -20,8 +21,8 @@ const authState = {
   isLoading: false,
   login: async () => {},
   signup: async () => {},
-  logout: () => {},
-  refresh: async () => {},
+  logout: vi.fn(),
+  refresh: vi.fn(async () => {}),
 };
 
 vi.mock("@/lib/auth", async () => {
@@ -79,6 +80,47 @@ describe("ProfilePage", () => {
         currentPassword: "claveVieja1",
       });
     });
+  });
+
+  // Regression: the API bumps tokenVersion on a password change, which
+  // invalidates the token this tab is still holding. Calling refresh() with
+  // that now-dead token would 401 through the global "session expired"
+  // handler, hiding that the change itself actually worked. This must log
+  // out on purpose instead, with an accurate reason.
+  it("cierra sesión y redirige a login con un motivo específico al cambiar la contraseña, sin llamar a refresh()", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.patch).mockResolvedValue({ data: {} });
+    renderPage();
+
+    await user.type(screen.getByLabelText(/nueva contraseña/i), "claveNueva1");
+    await user.type(screen.getByLabelText(/contraseña actual/i), "claveVieja1");
+    await user.click(screen.getByRole("button", { name: /guardar cambios/i }));
+
+    await waitFor(() => {
+      expect(authState.logout).toHaveBeenCalled();
+    });
+    expect(pushMock).toHaveBeenCalledWith("/login?reason=password_changed");
+    expect(authState.refresh).not.toHaveBeenCalled();
+  });
+
+  // Regression: changing the email silently resets isVerified server-side
+  // with no way to trigger a fresh verification email (none is wired up) —
+  // the user must at least be told this happened instead of just seeing the
+  // badge flip with no explanation.
+  it("avisa que hay que reverificar el correo al cambiarlo", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.patch).mockResolvedValue({ data: {} });
+    renderPage();
+
+    const email = screen.getByLabelText(/correo electrónico/i);
+    await user.clear(email);
+    await user.type(email, "nueva@versale.local");
+    await user.type(screen.getByLabelText(/contraseña actual/i), "claveVieja1");
+    await user.click(screen.getByRole("button", { name: /guardar cambios/i }));
+
+    expect(
+      await screen.findByText(/tendrás que verificarlo de nuevo/i),
+    ).toBeInTheDocument();
   });
 
   it("envía currentPassword al cambiar el correo", async () => {

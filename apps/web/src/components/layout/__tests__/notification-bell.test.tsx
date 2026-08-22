@@ -150,6 +150,67 @@ describe("NotificationBell", () => {
     ).toBeInTheDocument();
   });
 
+  // Regression: a failed list fetch used to leave `data` undefined,
+  // `notifications` fell back to [], and the render dropped straight into
+  // "No tienes notificaciones" — indistinguishable from a genuinely empty
+  // inbox, with no way to retry.
+  it("muestra un estado de error (no el estado vacío) cuando falla cargar la lista", async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/notifications/unread-count") return { data: { count: 1 } };
+      if (url === "/notifications") throw new Error("network down");
+      return { data: {} };
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <NotificationBell />
+      </TestProviders>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: /notificaciones/i }));
+
+    expect(
+      await screen.findByText(/no pudimos cargar tus notificaciones/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("No tienes notificaciones")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /reintentar/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("reintenta cargar la lista al hacer click en Reintentar", async () => {
+    let listShouldFail = true;
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/notifications/unread-count") return { data: { count: 1 } };
+      if (url === "/notifications") {
+        if (listShouldFail) throw new Error("network down");
+        return {
+          data: {
+            data: mockNotifications,
+            meta: { total: 2, page: 1, limit: 10, pages: 1 },
+          },
+        };
+      }
+      return { data: {} };
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <NotificationBell />
+      </TestProviders>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: /notificaciones/i }));
+    await screen.findByText(/no pudimos cargar tus notificaciones/i);
+
+    listShouldFail = false;
+    await user.click(screen.getByRole("button", { name: /reintentar/i }));
+
+    expect(
+      await screen.findByText("Tu pedido fue enviado. Número de guía: ABC123"),
+    ).toBeInTheDocument();
+  });
+
   it("marca una notificación como leída al hacer click sobre ella", async () => {
     vi.mocked(api.get).mockImplementation(mockGet(1));
     vi.mocked(api.patch).mockResolvedValue({ data: {} });

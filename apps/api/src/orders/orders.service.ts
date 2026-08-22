@@ -993,6 +993,22 @@ export class OrdersService {
       select: { id: true, userId: true, status: true },
     });
 
+    // Deliberately sequential, not Promise.allSettled: transitionStatus's
+    // releasesGarments branch opens a real $transaction, and this repo's
+    // actual driver (@prisma/adapter-better-sqlite3 — one physical
+    // connection) serializes EVERY transaction behind a single process-wide
+    // mutex (PrismaBetterSqlite3Adapter#mutex, acquired in startTransaction()
+    // before BEGIN and held until commit/rollback). Firing many of these at
+    // once doesn't buy real concurrency — better-sqlite3 still executes them
+    // one at a time — it only makes Prisma's own transaction-acquisition
+    // timeout (maxWait, 2s by default) start ticking for every queued order
+    // simultaneously instead of only once each order's turn actually comes
+    // up. On a large enough backlog (an outage, or the sweep having been
+    // down a while — precisely the scenario a parallel version was meant to
+    // help), that timeout ceiling gets hit for orders near the back of the
+    // queue, so a "parallel" sweep can clear FEWER orders per run than this
+    // plain sequential loop, not more. Revisit if this ever moves off SQLite
+    // to a database with real multi-connection write concurrency.
     for (const order of stale) {
       try {
         await this.transitionStatus(order, OrderStatus.REFUNDED);
@@ -1030,6 +1046,12 @@ export class OrdersService {
       select: { id: true, userId: true, status: true },
     });
 
+    // Deliberately sequential — see autoRefundUnshippedPaidOrders' own
+    // comment: every transitionStatus call here opens a real $transaction,
+    // and this repo's SQLite adapter serializes all of them behind one
+    // process-wide mutex regardless, so parallelizing this loop wouldn't
+    // buy real concurrency and risks Prisma's transaction-acquisition
+    // timeout on a large backlog instead.
     for (const order of expired) {
       try {
         await this.transitionStatus(order, OrderStatus.REFUNDED);
@@ -1071,6 +1093,12 @@ export class OrdersService {
       select: { id: true, userId: true, status: true },
     });
 
+    // Deliberately sequential — see autoRefundUnshippedPaidOrders' own
+    // comment: every transitionStatus call here opens a real $transaction,
+    // and this repo's SQLite adapter serializes all of them behind one
+    // process-wide mutex regardless, so parallelizing this loop wouldn't
+    // buy real concurrency and risks Prisma's transaction-acquisition
+    // timeout on a large backlog instead.
     for (const order of stale) {
       try {
         await this.transitionStatus(order, OrderStatus.CANCELLED);

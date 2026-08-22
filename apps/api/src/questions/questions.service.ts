@@ -10,6 +10,18 @@ import { translatePrismaError } from '../common/prisma-error';
 import { resolvePagination } from '../common/pagination';
 import { Role } from '../users/role.enum';
 
+// Unlike Favorite/Report/Review, a question thread genuinely allows more than
+// one row per user+product (asking about size, then later about color, is
+// legitimate) — so this can't be a upsert-based dedup the way those are. But
+// with no ceiling at all, any non-owner could script hundreds of junk
+// questions against a single listing; the product page only ever shows the
+// newest MAX_QUESTIONS_PER_PRODUCT (see products.service.ts), so a flood from
+// one account permanently buries the seller's real, possibly-answered Q&A
+// with no way for the seller to self-clean it (deleting requires an admin or
+// the asker themselves). A per-asker-per-product cap closes that without
+// blocking the legitimate "a few distinct questions over time" case.
+export const MAX_QUESTIONS_PER_ASKER_PER_PRODUCT = 5;
+
 @Injectable()
 export class QuestionsService {
   constructor(
@@ -34,12 +46,28 @@ export class QuestionsService {
       );
     }
 
-    // No `include` here: the web app discards this response and refetches
-    // the product (which embeds questions with its own asker select) via
-    // cache invalidation, so joining the asker on every write would be a
-    // join nobody reads.
-    return this.prisma.client.productQuestion.create({
-      data: { productId, askerId: userId, question },
+    // Count-then-insert inside one transaction, same reasoning as the
+    // per-seller active-listings cap and the per-buyer pending-order cap
+    // elsewhere in this codebase: without it, two concurrent POSTs from the
+    // same asker sitting one under the cap could each pass the check before
+    // either commits.
+    return this.prisma.client.$transaction(async (tx) => {
+      const askedByThisUser = await tx.productQuestion.count({
+        where: { productId, askerId: userId },
+      });
+      if (askedByThisUser >= MAX_QUESTIONS_PER_ASKER_PER_PRODUCT) {
+        throw new BadRequestException(
+          `Ya hiciste ${MAX_QUESTIONS_PER_ASKER_PER_PRODUCT} preguntas sobre este producto. Espera una respuesta antes de preguntar de nuevo`,
+        );
+      }
+
+      // No `include` here: the web app discards this response and refetches
+      // the product (which embeds questions with its own asker select) via
+      // cache invalidation, so joining the asker on every write would be a
+      // join nobody reads.
+      return tx.productQuestion.create({
+        data: { productId, askerId: userId, question },
+      });
     });
   }
 
@@ -119,7 +147,7 @@ export class QuestionsService {
   // Read-only admin oversight of this public, unmoderated content — mirrors
   // ReviewsService#getAllReviews exactly. Deleting a question an admin finds
   // here reuses `remove()` above (its ADMIN bypass already covers this).
-  async getAllForAdmin(query: any) {
+  async getAllForAdmin(query: Record<string, unknown> = {}) {
     const { page, limit } = query ?? {};
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 

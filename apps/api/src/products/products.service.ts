@@ -183,31 +183,40 @@ export class ProductsService {
   }
 
   async create(createProductDto: CreateProductDto, sellerId: string) {
+    const { images, ...rest } = createProductDto;
+
     // Item 9: cap on active listings per seller. AVAILABLE covers paused ones
     // too (pausedAt only hides them — they can come back), so the cap can't
     // be bypassed via pause-then-create. SOLD/WITHDRAWN are history and don't
     // count.
-    const activeListings = await this.prisma.client.product.count({
-      where: { sellerId, status: ProductStatus.AVAILABLE },
-    });
-    if (activeListings >= MAX_ACTIVE_LISTINGS_PER_SELLER) {
-      throw new HttpException(
-        `Alcanzaste el límite de ${MAX_ACTIVE_LISTINGS_PER_SELLER} publicaciones activas. Retira o elimina alguna para publicar otra.`,
-        429,
-      );
-    }
+    //
+    // Count-then-insert has to happen in one transaction, the same way
+    // orders.service.ts's MAX_PENDING_ORDERS_PER_BUYER check does: two
+    // concurrent POST /products from a seller sitting at 19 active listings
+    // would otherwise both read count === 19 before either commits, both
+    // pass the check, and leave the seller over the cap.
+    return this.prisma.client.$transaction(async (tx) => {
+      const activeListings = await tx.product.count({
+        where: { sellerId, status: ProductStatus.AVAILABLE },
+      });
+      if (activeListings >= MAX_ACTIVE_LISTINGS_PER_SELLER) {
+        throw new HttpException(
+          `Alcanzaste el límite de ${MAX_ACTIVE_LISTINGS_PER_SELLER} publicaciones activas. Retira o elimina alguna para publicar otra.`,
+          429,
+        );
+      }
 
-    const { images, ...rest } = createProductDto;
-    return this.prisma.client.product.create({
-      data: {
-        ...rest,
-        sellerId,
-        // Plain objects: Prisma's InputJsonValue rejects class instances even
-        // when their props are JSON-compatible.
-        ...(images !== undefined
-          ? { images: images.map((img) => ({ url: img.url, alt: img.alt })) }
-          : {}),
-      },
+      return tx.product.create({
+        data: {
+          ...rest,
+          sellerId,
+          // Plain objects: Prisma's InputJsonValue rejects class instances even
+          // when their props are JSON-compatible.
+          ...(images !== undefined
+            ? { images: images.map((img) => ({ url: img.url, alt: img.alt })) }
+            : {}),
+        },
+      });
     });
   }
 

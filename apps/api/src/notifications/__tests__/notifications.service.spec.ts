@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { NotificationType, Prisma } from '@prisma/client';
 import { NotificationsService } from '../notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -226,16 +226,23 @@ describe('NotificationsService', () => {
     it("should mark the caller's own notification as read", async () => {
       mockPrismaService.client.notification.findUnique.mockResolvedValue({
         id: 'notif1',
-        userId: 'user1',
       });
       const updated = { id: 'notif1', userId: 'user1', read: true };
       mockPrismaService.client.notification.update.mockResolvedValue(updated);
 
       const result = await service.markAsRead('user1', 'notif1');
 
+      // Scoped by userId in the same lookup, not a separate ownership check
+      // after an unscoped findUnique.
+      expect(
+        mockPrismaService.client.notification.findUnique,
+      ).toHaveBeenCalledWith({
+        where: { id: 'notif1', userId: 'user1' },
+        select: { id: true },
+      });
       expect(mockPrismaService.client.notification.update).toHaveBeenCalledWith(
         {
-          where: { id: 'notif1' },
+          where: { id: 'notif1', userId: 'user1' },
           data: { read: true },
         },
       );
@@ -253,15 +260,25 @@ describe('NotificationsService', () => {
       ).not.toHaveBeenCalled();
     });
 
-    it("should refuse to mark another user's notification as read", async () => {
-      mockPrismaService.client.notification.findUnique.mockResolvedValue({
-        id: 'notif1',
-        userId: 'someoneElse',
-      });
+    // Regression: the lookup used to fetch the row unscoped and compare
+    // userId in application code, throwing a distinct ForbiddenException for
+    // "exists but isn't yours" vs NotFoundException for "doesn't exist" — an
+    // authenticated caller could enumerate which notification IDs exist for
+    // ANY user from that 403-vs-404 alone. Scoping the lookup by userId
+    // itself makes both cases return the identical row (null), so both
+    // throw the same NotFoundException.
+    it("should throw the same NotFoundException for another user's notification as for one that doesn't exist", async () => {
+      mockPrismaService.client.notification.findUnique.mockResolvedValue(null);
 
       await expect(service.markAsRead('user1', 'notif1')).rejects.toThrow(
-        ForbiddenException,
+        NotFoundException,
       );
+      expect(
+        mockPrismaService.client.notification.findUnique,
+      ).toHaveBeenCalledWith({
+        where: { id: 'notif1', userId: 'user1' },
+        select: { id: true },
+      });
       expect(
         mockPrismaService.client.notification.update,
       ).not.toHaveBeenCalled();
@@ -270,7 +287,6 @@ describe('NotificationsService', () => {
     it('should surface a 404 if the notification is deleted mid-request', async () => {
       mockPrismaService.client.notification.findUnique.mockResolvedValue({
         id: 'notif1',
-        userId: 'user1',
       });
       mockPrismaService.client.notification.update.mockRejectedValue(
         notFoundError(),

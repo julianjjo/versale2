@@ -5,7 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { QuestionsService } from '../questions.service';
+import {
+  QuestionsService,
+  MAX_QUESTIONS_PER_ASKER_PER_PRODUCT,
+} from '../questions.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProductsService } from '../../products/products.service';
 import { Role } from '../../users/role.enum';
@@ -20,21 +23,35 @@ function notFoundError() {
   });
 }
 
+// expect.any(Date) llega como `any` al sistema de tipos; este wrapper lo
+// entrega tipado Date para los literales de aserción (no-unsafe-assignment).
+// Misma convención que orders.service.spec.ts y auth.service.spec.ts.
+const anyDate = () => expect.any(Date) as Date;
+
 describe('QuestionsService', () => {
   let service: QuestionsService;
 
-  const mockPrismaService = {
-    client: {
-      productQuestion: {
-        create: jest.fn(),
-        findUnique: jest.fn(),
-        update: jest.fn(),
-        delete: jest.fn(),
-        findMany: jest.fn(),
-        count: jest.fn(),
-      },
+  const mockPrismaClient = {
+    productQuestion: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
     },
   };
+  // create()'s per-asker-per-product cap check runs inside a $transaction.
+  // Resolving the callback with the client itself keeps every existing
+  // assertion against mockPrismaService.client.productQuestion.* valid.
+  const mockTransaction = jest.fn(
+    (fn: (tx: typeof mockPrismaClient) => unknown) => fn(mockPrismaClient),
+  );
+  (
+    mockPrismaClient as unknown as { $transaction: typeof mockTransaction }
+  ).$transaction = mockTransaction;
+
+  const mockPrismaService = { client: mockPrismaClient };
 
   const mockProductsService = {
     findRaw: jest.fn(),
@@ -50,6 +67,10 @@ describe('QuestionsService', () => {
     }).compile();
 
     service = module.get<QuestionsService>(QuestionsService);
+    // Sane default for every create() test below: this asker hasn't asked
+    // anything yet, so the new per-asker-per-product cap never trips unless
+    // a test deliberately sets it otherwise.
+    mockPrismaClient.productQuestion.count.mockResolvedValue(0);
   });
 
   afterEach(() => {
@@ -83,7 +104,9 @@ describe('QuestionsService', () => {
       // No `include` — the caller (ProductQuestions) discards this response
       // and refetches the product instead, so joining `asker` here would be
       // a join nobody reads.
-      expect(mockPrismaService.client.productQuestion.create).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.client.productQuestion.create,
+      ).toHaveBeenCalledWith({
         data: {
           productId: 'product1',
           askerId: 'buyer1',
@@ -115,9 +138,7 @@ describe('QuestionsService', () => {
 
       await expect(
         service.create('buyer1', 'product1', '¿Pregunta?'),
-      ).rejects.toThrow(
-        'Este producto no está disponible para preguntas',
-      );
+      ).rejects.toThrow('Este producto no está disponible para preguntas');
       expect(
         mockPrismaService.client.productQuestion.create,
       ).not.toHaveBeenCalled();
@@ -142,6 +163,66 @@ describe('QuestionsService', () => {
         mockPrismaService.client.productQuestion.create,
       ).not.toHaveBeenCalled();
     });
+
+    // Regression: with no ceiling at all, any non-owner could script
+    // hundreds of junk questions against one listing — the product page only
+    // ever shows the newest MAX_QUESTIONS_PER_PRODUCT, so a flood from one
+    // account permanently buries the seller's real Q&A with no self-service
+    // cleanup for the seller.
+    it('should refuse a new question once this asker already reached the per-product cap', async () => {
+      mockProductsService.findRaw.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        isApproved: true,
+      });
+      mockPrismaClient.productQuestion.count.mockResolvedValue(
+        MAX_QUESTIONS_PER_ASKER_PER_PRODUCT,
+      );
+
+      await expect(
+        service.create('buyer1', 'product1', 'Otra pregunta más'),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaClient.productQuestion.count).toHaveBeenCalledWith({
+        where: { productId: 'product1', askerId: 'buyer1' },
+      });
+      expect(mockPrismaClient.productQuestion.create).not.toHaveBeenCalled();
+    });
+
+    it('should count only this asker, not every question on the product, toward the cap', async () => {
+      mockProductsService.findRaw.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        isApproved: true,
+      });
+      mockPrismaClient.productQuestion.count.mockResolvedValue(
+        MAX_QUESTIONS_PER_ASKER_PER_PRODUCT - 1,
+      );
+      mockPrismaClient.productQuestion.create.mockResolvedValue({
+        id: 'question2',
+      });
+
+      await expect(
+        service.create('buyer1', 'product1', 'Una pregunta más'),
+      ).resolves.toHaveProperty('id', 'question2');
+    });
+
+    // Regression: count-then-insert has to run inside one transaction, the
+    // same way the per-seller active-listings and per-buyer pending-order
+    // caps elsewhere in this codebase do.
+    it('runs the per-asker cap check inside a single transaction', async () => {
+      mockProductsService.findRaw.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        isApproved: true,
+      });
+      mockPrismaClient.productQuestion.create.mockResolvedValue({
+        id: 'question1',
+      });
+
+      await service.create('buyer1', 'product1', '¿Pregunta?');
+
+      expect(mockTransaction).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('answer', () => {
@@ -161,9 +242,11 @@ describe('QuestionsService', () => {
 
       const result = await service.answer('question1', 'seller1', 'Es talla M');
 
-      expect(mockPrismaService.client.productQuestion.update).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.client.productQuestion.update,
+      ).toHaveBeenCalledWith({
         where: { id: 'question1' },
-        data: { answer: 'Es talla M', answeredAt: expect.any(Date) },
+        data: { answer: 'Es talla M', answeredAt: anyDate() },
       });
       expect(result).toEqual(answered);
     });
@@ -181,7 +264,7 @@ describe('QuestionsService', () => {
       ).not.toHaveBeenCalled();
     });
 
-    it('should refuse to let anyone other than the product\'s seller answer', async () => {
+    it("should refuse to let anyone other than the product's seller answer", async () => {
       mockPrismaService.client.productQuestion.findUnique.mockResolvedValue({
         id: 'question1',
         product: { sellerId: 'seller1' },
@@ -250,7 +333,9 @@ describe('QuestionsService', () => {
 
       const result = await service.remove('question1', 'buyer1', Role.USER);
 
-      expect(mockPrismaService.client.productQuestion.delete).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.client.productQuestion.delete,
+      ).toHaveBeenCalledWith({
         where: { id: 'question1' },
       });
       expect(result).toEqual({ success: true });
@@ -267,7 +352,9 @@ describe('QuestionsService', () => {
 
       await service.remove('question1', 'admin1', Role.ADMIN);
 
-      expect(mockPrismaService.client.productQuestion.delete).toHaveBeenCalled();
+      expect(
+        mockPrismaService.client.productQuestion.delete,
+      ).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when the question does not exist', async () => {
@@ -340,7 +427,9 @@ describe('QuestionsService', () => {
 
       const result = await service.getAllForAdmin({ page: '1', limit: '20' });
 
-      expect(mockPrismaService.client.productQuestion.findMany).toHaveBeenCalledWith({
+      expect(
+        mockPrismaService.client.productQuestion.findMany,
+      ).toHaveBeenCalledWith({
         skip: 0,
         take: 20,
         include: {
@@ -361,9 +450,9 @@ describe('QuestionsService', () => {
 
       await service.getAllForAdmin(undefined);
 
-      expect(mockPrismaService.client.productQuestion.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ skip: 0, take: 10 }),
-      );
+      expect(
+        mockPrismaService.client.productQuestion.findMany,
+      ).toHaveBeenCalledWith(expect.objectContaining({ skip: 0, take: 10 }));
     });
   });
 });
