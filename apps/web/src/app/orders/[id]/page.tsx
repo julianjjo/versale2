@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -422,14 +423,15 @@ export default function OrderDetailPage() {
               key={item.id}
               className="flex items-start gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
             >
-              <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
+              <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
                 {item.product?.images?.[0] ? (
-                  <img
+                  <Image
                     src={item.product.images[0].url}
                     alt={item.product.title}
-                    loading={index === 0 ? undefined : "lazy"}
-                    decoding="async"
-                    className="h-full w-full object-cover"
+                    fill
+                    sizes="64px"
+                    priority={index === 0}
+                    className="object-cover"
                   />
                 ) : (
                   "—"

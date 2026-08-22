@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   useQuery,
@@ -650,14 +651,15 @@ function MisProductosList() {
                       className="h-4 w-4 flex-shrink-0"
                     />
                   )}
-                  <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
+                  <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
                     {product.images?.[0] ? (
-                      <img
+                      <Image
                         src={product.images[0].url}
                         alt={product.title}
-                        loading={index === 0 ? undefined : "lazy"}
-                        decoding="async"
-                        className="h-full w-full object-cover"
+                        fill
+                        sizes="64px"
+                        priority={index === 0}
+                        className="object-cover"
                       />
                     ) : (
                       "—"

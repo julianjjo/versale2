@@ -158,7 +158,11 @@ describe("ProductDetail", () => {
     const mainImage = await screen.findByRole("img", {
       name: "Vintage denim jacket",
     });
-    expect(mainImage).toHaveAttribute("src", "https://example.com/jacket-1.jpg");
+    // next/image rewrites `src` through its optimizer (`/_next/image?url=...`)
+    // rather than passing the original URL through verbatim.
+    expect(mainImage.getAttribute("src")).toContain(
+      encodeURIComponent("https://example.com/jacket-1.jpg"),
+    );
     expect(
       screen.getByRole("button", { name: /ver foto 2 de/i }),
     ).toBeInTheDocument();

@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, extractApiError } from "@/lib/api";
@@ -544,14 +545,14 @@ function CartItemRow({
   return (
     <Card>
       <div className="flex items-start gap-4">
-        <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
+        <div className="relative flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
           {item.product?.images?.[0] ? (
-            <img
+            <Image
               src={item.product.images[0].url}
               alt={item.product.title}
-              loading="lazy"
-              decoding="async"
-              className="h-full w-full object-cover"
+              fill
+              sizes="80px"
+              className="object-cover"
             />
           ) : (
             "—"
