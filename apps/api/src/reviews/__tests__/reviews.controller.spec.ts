@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { HttpStatus } from '@nestjs/common';
+import { BadRequestException, HttpStatus } from '@nestjs/common';
 import type { Response } from 'express';
 import { ReviewsController } from '../reviews.controller';
 import { ReviewsService } from '../reviews.service';
@@ -93,7 +93,9 @@ describe('ReviewsController', () => {
       expect(result).toEqual(review);
     });
 
-    it('should answer 200 when the post edits the caller existing review instead of creating one', async () => {
+    it('should propagate the duplicate-review rejection as a BadRequestException', async () => {
+      // A second POST for the same (user, product) is a rejected request now,
+      // not a silent update: edits go through PATCH /reviews/:id.
       const userId = 'user1';
       const body = {
         productId: 'product1',
@@ -105,18 +107,14 @@ describe('ReviewsController', () => {
       } as AuthRequest;
       const res = createMockRes();
 
-      const review = { id: 'review1', ...body, userId };
-
-      mockReviewsService.create.mockResolvedValue({ review, created: false });
-
-      const result = await controller.createReview(
-        mockReq,
-        body,
-        res as unknown as Response,
+      mockReviewsService.create.mockRejectedValue(
+        new BadRequestException('Ya has reseñado este producto'),
       );
 
-      expect(res.status).toHaveBeenCalledWith(HttpStatus.OK);
-      expect(result).toEqual(review);
+      await expect(
+        controller.createReview(mockReq, body, res as unknown as Response),
+      ).rejects.toThrow(BadRequestException);
+      expect(res.status).not.toHaveBeenCalled();
     });
   });
 

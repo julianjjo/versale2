@@ -180,6 +180,9 @@ model Review {
   createdAt       DateTime @default(now())
   helpfulVotes    ReviewHelpfulVote[]
 
+  // One review per buyer per listing, enforced by the database itself — the
+  // app-level check can't close the race between two concurrent POSTs.
+  @@unique([userId, productId])
   // Every product page loads its reviews newest-first.
   @@index([productId, createdAt])
 }

@@ -40,15 +40,16 @@ export class ReviewsController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const userId = req.user.id;
-    const { review, created } = await this.reviewsService.create(
+
+    // A duplicate POST is rejected by the service now (400), so when create()
+    // resolves this is a fresh creation.
+    const { review } = await this.reviewsService.create(
       body,
       userId,
       body.productId,
     );
 
-    // Posting again for the same product edits the existing review, so the
-    // response is a 200 OK rather than a 201 Created.
-    res.status(created ? HttpStatus.CREATED : HttpStatus.OK);
+    res.status(HttpStatus.CREATED);
 
     return review;
   }

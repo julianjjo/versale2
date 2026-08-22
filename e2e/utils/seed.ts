@@ -106,6 +106,33 @@ export async function seedDatabase() {
     });
   }
 
+  // Reseñas solo tras entrega (1.6): the seeded user needs a DELIVERED order
+  // over a seeded listing or the review e2e flows 400 at the new eligibility
+  // check. Admin/order tests create their own buyers and locate rows by id,
+  // so this seeded order doesn't collide with them.
+  const jacket = await prisma.product.findFirst({
+    where: { title: "Vintage Denim Jacket" },
+  });
+  if (jacket) {
+    await prisma.order.create({
+      data: {
+        userId: user.id,
+        status: "DELIVERED",
+        totalAmount: jacket.price,
+        shippingAddress: {
+          street: "Calle E2E 123",
+          city: "Bogotá",
+          state: "Cundinamarca",
+          zip: "110111",
+          country: "Colombia",
+        },
+        items: {
+          create: { productId: jacket.id, quantity: 1, price: jacket.price },
+        },
+      },
+    });
+  }
+
   return { user, author };
 }
 
