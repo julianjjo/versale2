@@ -91,7 +91,7 @@ describe('UpdateUserDto field constraints', () => {
   });
 
   it('accepts a password that meets the signup minimum', async () => {
-    const dto = plainToInstance(UpdateUserDto, { password: '123456' });
+    const dto = plainToInstance(UpdateUserDto, { password: 'a1b2c3d4' });
 
     const errors = await validate(dto);
 

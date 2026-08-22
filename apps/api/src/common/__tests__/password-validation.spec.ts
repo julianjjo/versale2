@@ -35,4 +35,20 @@ describe('IsPassword', () => {
 
     expect(errors).toEqual([]);
   });
+
+  it('rejects a password from the common-password blocklist, case-insensitively', async () => {
+    const dto = plainToInstance(TestDto, { password: 'Password123' });
+
+    const errors = await validate(dto);
+
+    expect(errors.some((error) => error.property === 'password')).toBe(true);
+  });
+
+  it('accepts a long-enough password that is not on the blocklist', async () => {
+    const dto = plainToInstance(TestDto, { password: 'correct-horse-battery' });
+
+    const errors = await validate(dto);
+
+    expect(errors).toEqual([]);
+  });
 });

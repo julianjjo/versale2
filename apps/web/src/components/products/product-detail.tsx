@@ -92,7 +92,7 @@ function StarRatingInput({
                 buttonRefs.current[next - 1]?.focus();
               }
             }}
-            className={`text-2xl transition-colors ${
+            className={`flex h-11 w-11 items-center justify-center text-2xl transition-colors ${
               n <= value
                 ? "text-warning"
                 : "text-border hover:text-text-muted"

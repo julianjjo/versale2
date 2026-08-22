@@ -520,11 +520,20 @@ export function ProductCard({
               </div>
             )}
             {/* Only reachable via the Favoritos page: the public catalog's own
-                findAll already excludes anything not approved/unpaused, but a
-                Favorite row survives its product later being rejected or
-                paused (see favorites.service.ts), so this card still has to
-                tell the two states apart there. */}
-            {!product.isApproved ? (
+                findAll already excludes anything not approved/unpaused/sold,
+                but a Favorite row survives its product later being rejected,
+                paused, or sold (see favorites.service.ts), so this card still
+                has to tell those states apart there. Sold takes priority —
+                mirrors mis-productos/page.tsx's own isSold-first badge order
+                — since it's the one state that can never revert. */}
+            {product.status === "SOLD" ? (
+              <Badge
+                variant="warning"
+                className="absolute left-3 top-3 z-10 uppercase tracking-[0.1em]"
+              >
+                Vendido
+              </Badge>
+            ) : !product.isApproved ? (
               <Badge
                 variant="warning"
                 className="absolute left-3 top-3 z-10 uppercase tracking-[0.1em]"

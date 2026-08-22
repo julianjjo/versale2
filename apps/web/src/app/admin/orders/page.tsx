@@ -30,6 +30,15 @@ import type { Order, OrderStatus } from "@/lib/types";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
+// CANCELLED/REFUNDED are terminal (nextStatusesFor returns []) same as
+// DELIVERED, but unlike DELIVERED they undo a sale that already happened —
+// relisting the garment and notifying buyer/seller — instead of completing
+// one. Every other destructive admin action (reject, delete, dismiss) already
+// asks for confirmation; this is the one status change that didn't.
+function isIrreversibleOrderStatus(status: OrderStatus): boolean {
+  return status === "CANCELLED" || status === "REFUNDED";
+}
+
 export default function AdminOrdersPage() {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -297,12 +306,18 @@ export default function AdminOrdersPage() {
                     <div className="flex items-center gap-2 sm:flex-shrink-0">
                       <Select
                         value={order.status}
-                        onChange={(e) =>
-                          updateStatus.mutate({
-                            id: order.id,
-                            status: e.target.value as OrderStatus,
-                          })
-                        }
+                        onChange={(e) => {
+                          const status = e.target.value as OrderStatus;
+                          if (
+                            isIrreversibleOrderStatus(status) &&
+                            !confirm(
+                              `¿Cambiar el pedido #${order.id.slice(0, 8)} a "${ORDER_STATUS_LABEL[status]}"? Esta acción no se puede deshacer.`,
+                            )
+                          ) {
+                            return;
+                          }
+                          updateStatus.mutate({ id: order.id, status });
+                        }}
                         disabled={
                           updateStatus.isPending ||
                           nextStatusesFor(order.status).length === 0
@@ -383,13 +398,23 @@ export default function AdminOrdersPage() {
             <Button
               size="sm"
               disabled={!bulkStatusIsApplicable || bulkUpdateStatus.isPending}
-              onClick={() =>
-                bulkStatusIsApplicable &&
-                bulkUpdateStatus.mutate({
-                  ids: Array.from(selected),
-                  status: bulkStatus as OrderStatus,
-                })
-              }
+              onClick={() => {
+                if (!bulkStatusIsApplicable) return;
+                const status = bulkStatus as OrderStatus;
+                if (
+                  isIrreversibleOrderStatus(status) &&
+                  !confirm(
+                    `¿Cambiar ${
+                      selected.size === 1
+                        ? "el pedido seleccionado"
+                        : `los ${selected.size} pedidos seleccionados`
+                    } a "${ORDER_STATUS_LABEL[status]}"? Esta acción no se puede deshacer.`,
+                  )
+                ) {
+                  return;
+                }
+                bulkUpdateStatus.mutate({ ids: Array.from(selected), status });
+              }}
             >
               {bulkUpdateStatus.isPending ? (
                 <Spinner className="h-4 w-4" />

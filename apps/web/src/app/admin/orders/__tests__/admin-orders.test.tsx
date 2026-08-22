@@ -264,4 +264,127 @@ describe("AdminOrdersPage", () => {
       expect(screen.getByRole("alert")).toHaveTextContent("Network Error");
     });
   });
+
+  it("pide confirmación antes de cancelar un pedido desde el selector por fila, y respeta un 'Cancelar' del admin", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: paginated([orderFixture("aaaaaaaa1", "PAID")]),
+    });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AdminOrdersPage />
+      </TestProviders>,
+    );
+
+    await screen.findByText(/Pedido #aaaaaaaa/, undefined, { timeout: 5000 });
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Estado del pedido" }),
+      "CANCELLED",
+    );
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      expect.stringContaining("no se puede deshacer"),
+    );
+    // El admin dijo que no: la cancelación (que relista la prenda y avisa a
+    // comprador/vendedor) nunca debe dispararse.
+    expect(api.patch).not.toHaveBeenCalled();
+
+    confirmSpy.mockRestore();
+  });
+
+  it("aplica el cambio de estado por fila cuando el admin confirma", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: paginated([orderFixture("aaaaaaaa1", "PAID")]),
+    });
+    vi.mocked(api.patch).mockResolvedValue({ data: {} });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AdminOrdersPage />
+      </TestProviders>,
+    );
+
+    await screen.findByText(/Pedido #aaaaaaaa/, undefined, { timeout: 5000 });
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Estado del pedido" }),
+      "CANCELLED",
+    );
+
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/orders/admin/aaaaaaaa1/status", {
+        status: "CANCELLED",
+      });
+    });
+
+    confirmSpy.mockRestore();
+  });
+
+  it("no pide confirmación para una transición reversible como PAID → SHIPPED", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: paginated([orderFixture("aaaaaaaa1", "PAID")]),
+    });
+    vi.mocked(api.patch).mockResolvedValue({ data: {} });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AdminOrdersPage />
+      </TestProviders>,
+    );
+
+    await screen.findByText(/Pedido #aaaaaaaa/, undefined, { timeout: 5000 });
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Estado del pedido" }),
+      "SHIPPED",
+    );
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/orders/admin/aaaaaaaa1/status", {
+        status: "SHIPPED",
+      });
+    });
+
+    confirmSpy.mockRestore();
+  });
+
+  it("pide confirmación antes de reembolsar en lote, y respeta un 'Cancelar' del admin", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: paginated([orderFixture("aaaaaaaa1", "PAID")]),
+    });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders>
+        <AdminOrdersPage />
+      </TestProviders>,
+    );
+
+    await screen.findByText(/Pedido #aaaaaaaa/, undefined, { timeout: 5000 });
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Seleccionar todos los pedidos visibles",
+      }),
+    );
+    await user.selectOptions(
+      screen.getByRole("combobox", {
+        name: "Nuevo estado para los pedidos seleccionados",
+      }),
+      "REFUNDED",
+    );
+    await user.click(screen.getByRole("button", { name: "Aplicar" }));
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      expect.stringContaining("no se puede deshacer"),
+    );
+    expect(api.patch).not.toHaveBeenCalled();
+
+    confirmSpy.mockRestore();
+  });
 });

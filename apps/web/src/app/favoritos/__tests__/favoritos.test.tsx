@@ -172,6 +172,33 @@ describe("FavoritosPage", () => {
     expect(screen.getByText("Pausado")).toBeInTheDocument();
   });
 
+  // Same reasoning as the Pausado case above, but for a sold listing: the
+  // public catalog's findAll excludes SOLD products entirely, but a favorite
+  // added before the sale survives it (favorites.service.ts), so the badge
+  // is the only way this page tells a buyer the item is gone for good.
+  it("marca con el badge Vendido un favorito cuyo producto ya se vendió", async () => {
+    const soldFavorite = {
+      ...mockFavorites[0],
+      product: { ...mockFavorites[0]!.product, status: "SOLD" },
+    };
+    vi.mocked(api.get).mockResolvedValue({
+      data: {
+        data: [soldFavorite],
+        meta: { total: 1, page: 1, limit: 100, pages: 1 },
+      },
+    });
+    render(
+      <TestProviders>
+        <FavoritosPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Vendido")).toBeInTheDocument();
+  });
+
   it("muestra un estado vacío cuando no hay favoritos", async () => {
     vi.mocked(api.get).mockResolvedValue({
       data: { data: [], meta: { total: 0, page: 1, limit: 100, pages: 0 } },
