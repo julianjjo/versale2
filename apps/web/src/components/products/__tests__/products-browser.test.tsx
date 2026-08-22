@@ -372,7 +372,7 @@ describe("ProductsBrowser", () => {
     ).toBeEnabled();
   });
 
-  it("carga las marcas y categorías disponibles como opciones de filtro", async () => {
+  it("carga las marcas como facets y la lista cerrada de categorías", async () => {
     mockProductsApi({ data: emptyProducts });
     render(
       <TestProviders>
@@ -387,8 +387,11 @@ describe("ProductsBrowser", () => {
       expect(screen.getByRole("option", { name: "Levi's" })).toBeInTheDocument();
     });
     expect(screen.getByRole("option", { name: "Zara" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Jackets" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Sweaters" })).toBeInTheDocument();
+    // Item 5: las categorías ya no son facets dinámicos sino la lista
+    // cerrada compartida con el DTO — misma lista que /sell publica.
+    expect(screen.getByRole("option", { name: "Chaquetas" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Otros" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Jackets" })).not.toBeInTheDocument();
     expect(brandSelect).toHaveValue("");
     expect(categorySelect).toHaveValue("");
   });
@@ -409,7 +412,7 @@ describe("ProductsBrowser", () => {
     await user.selectOptions(screen.getByLabelText(/filtrar por marca/i), "Zara");
     await user.selectOptions(
       screen.getByLabelText(/filtrar por categoría/i),
-      "Jackets",
+      "Chaquetas",
     );
     await user.click(screen.getByRole("button", { name: /aplicar/i }));
 
@@ -419,7 +422,7 @@ describe("ProductsBrowser", () => {
         expect.objectContaining({
           params: expect.objectContaining({
             brand: "Zara",
-            category: "Jackets",
+            category: "Chaquetas",
             page: 1,
           }),
         }),

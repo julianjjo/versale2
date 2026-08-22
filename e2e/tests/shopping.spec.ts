@@ -56,7 +56,7 @@ test.describe("Flujo de compra", () => {
     await expect(page.getByText("$ 45")).toBeVisible();
     // Brand + category are rendered as separate elements (eyebrow + caption)
     await expect(page.getByText("Levi's").first()).toBeVisible();
-    await expect(page.getByText("Jackets").first()).toBeVisible();
+    await expect(page.getByText("Chaquetas").first()).toBeVisible();
   });
 
   test("el visitante puede ver un producto pero no agregarlo al carrito", async ({

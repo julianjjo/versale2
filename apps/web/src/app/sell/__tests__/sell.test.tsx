@@ -103,6 +103,16 @@ describe("SellPage — subida de imágenes", () => {
     expect(screen.getByLabelText(/^talla$/i)).toHaveValue("");
   });
 
+  it("normaliza una categoría precargada fuera de la lista cerrada a Otros", async () => {
+    // Item 5: legacy categories ("Jackets") or typos must not leave the
+    // select holding a value it cannot display — same backfill rule the API
+    // applies to existing rows.
+    mockQuery = { title: "Chaqueta", category: "Jackets", size: "M" };
+    renderPage();
+
+    expect(await screen.findByLabelText(/^categoría$/i)).toHaveValue("Otros");
+  });
+
   it("muestra un mensaje en español cuando la subida falla, no el del backend", async () => {
     const user = userEvent.setup();
     vi.mocked(api.post).mockRejectedValueOnce({

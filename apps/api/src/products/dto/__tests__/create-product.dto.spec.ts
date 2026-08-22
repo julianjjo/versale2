@@ -1,5 +1,6 @@
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { CreateProductDto } from '../create-product.dto';
+import { PRODUCT_CATEGORIES } from '../../categories';
 
 // Item 4 closed decision: images is `[{ url, alt }]`, max exactly 6, and only
 // URLs from our own R2 uploads bucket pass. The pipe is the same global one
@@ -105,5 +106,24 @@ describe('CreateProductDto images/measures with the global ValidationPipe', () =
         metadata,
       ),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  // Item 5 closed list: free-text categories made the ?category= filter
+  // useless (variants and typos). Only the shared list passes now.
+  it('rejects a category outside the closed list', async () => {
+    await expect(
+      pipe.transform({ ...validBase, category: 'Jackets' }, metadata),
+    ).rejects.toThrow(BadRequestException);
+    await expect(
+      pipe.transform({ ...validBase, category: 'chaquetas' }, metadata),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('accepts every category of the closed list', async () => {
+    for (const category of PRODUCT_CATEGORIES) {
+      await expect(
+        pipe.transform({ ...validBase, category }, metadata),
+      ).resolves.toHaveProperty('category', category);
+    }
   });
 });

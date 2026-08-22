@@ -28,7 +28,7 @@ export const E2E_PRODUCTS = [
   {
     title: "Vintage Denim Jacket",
     description: "Classic Levi's trucker jacket, gently worn",
-    category: "Jackets",
+    category: "Chaquetas",
     brand: "Levi's",
     size: "M",
     condition: "Good",
@@ -38,7 +38,7 @@ export const E2E_PRODUCTS = [
   {
     title: "Wool Sweater",
     description: "Cozy merino wool sweater for cold days",
-    category: "Sweaters",
+    category: "Suéteres",
     brand: null,
     size: "L",
     condition: "Like New",
@@ -48,7 +48,7 @@ export const E2E_PRODUCTS = [
   {
     title: "Cotton T-Shirt",
     description: "Soft basic white tee",
-    category: "Tops",
+    category: "Camisetas",
     brand: null,
     size: "S",
     condition: "Good",
