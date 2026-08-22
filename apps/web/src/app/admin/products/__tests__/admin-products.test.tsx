@@ -153,6 +153,32 @@ describe("AdminProductsPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  // Item 6: un rechazo silencioso es un vendedor perdido — el motivo que el
+  // PATCH guardó debe ser visible en la grilla, no solo persistido.
+  it("expone el motivo del rechazo guardado por el PATCH", async () => {
+    const rejected = productFixture({
+      id: "p5",
+      title: "Camisa rechazada con motivo",
+      isApproved: false,
+      rejectedAt: new Date("2026-01-15T10:00:00Z").toISOString(),
+      rejectionReason: "Las fotos no muestran bien el producto",
+    });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([rejected]) });
+    render(
+      <TestProviders>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    const card = await screen.findByTestId("admin-product-p5");
+    expect(
+      within(card).getByText(/motivo del rechazo/i),
+    ).toBeInTheDocument();
+    expect(
+      within(card).getByText(/las fotos no muestran bien el producto/i),
+    ).toBeInTheDocument();
+  });
+
   // The API already refuses to approve a sold product; the button shouldn't
   // be offered for one either. Covers a rejected-and-sold row, the state a
   // stale-race approve/reject click against a sold product would leave.
