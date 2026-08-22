@@ -18,6 +18,7 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
+import { PRODUCT_CATEGORIES } from '../categories';
 
 // Item 4: image URLs must point at our own uploads bucket. The roadmap's
 // closed decision: no free external URLs — they enable hotlinking, phishing
@@ -90,6 +91,9 @@ export class CreateProductDto {
 
   @IsString({ message: 'La categoría debe ser un texto' })
   @IsNotEmpty({ message: 'La categoría es obligatoria' })
+  @IsIn(PRODUCT_CATEGORIES, {
+    message: `La categoría debe ser una de: ${PRODUCT_CATEGORIES.join(', ')}`,
+  })
   category!: string;
 
   @IsString({ message: 'La marca debe ser un texto' })

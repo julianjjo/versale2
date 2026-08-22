@@ -73,7 +73,7 @@ test.describe("Publicación de productos y administración", () => {
     await authorPage
       .getByLabel("Descripción")
       .fill("This is a test listing created by an E2E test.");
-    await authorPage.getByLabel("Categoría").fill("Test");
+    await authorPage.getByLabel("Categoría").selectOption("Otros");
     await authorPage.getByLabel("Talla").selectOption("M");
     await authorPage.getByLabel("Condición").selectOption("Good");
     await authorPage.getByLabel(/precio/i).fill("19990");

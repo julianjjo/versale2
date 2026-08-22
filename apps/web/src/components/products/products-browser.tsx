@@ -23,6 +23,7 @@ import {
 import { Pager } from "@/components/admin/pager";
 import { FavoriteButton } from "@/components/products/favorite-button";
 import { useAuth } from "@/lib/auth";
+import { PRODUCT_CATEGORIES } from "@/lib/categories";
 
 // One source of truth for the valid `sortBy` values and their labels, so the
 // URL parser, the submit handler, and the <Select>'s options can't drift out
@@ -376,7 +377,11 @@ function ProductsBrowserContent({
             aria-label="Filtrar por categoría"
           >
             <option value="">Cualquier categoría</option>
-            {mergeFacetOptions(facets?.categories, form.category).map((c) => (
+            {/* Item 5 closed list: same options the API's DTO accepts, so the
+                filter can never produce a query that returns nothing by
+                construction. Facets are no longer needed here — the list is
+                fixed, not data-driven. */}
+            {PRODUCT_CATEGORIES.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>

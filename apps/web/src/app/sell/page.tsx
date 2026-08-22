@@ -16,6 +16,7 @@ import {
   SectionHeader,
 } from "@/components/ui";
 import { CONDITION_OPTIONS } from "@/lib/product-condition";
+import { PRODUCT_CATEGORIES, DEFAULT_PRODUCT_CATEGORY } from "@/lib/categories";
 
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
@@ -64,15 +65,19 @@ function uploadErrorMessage(err: unknown): string {
 // "Publicar otro igual" (/mis-productos) lands here with
 // ?title=&category=&size=. Read ONCE via the state initializer below — a mount
 // happens exactly once per visit, so edits are never overwritten by params.
-// Size is whitelisted against the fixed option list: a stale or hand-typed
-// value outside it would otherwise leave React holding a value the <select>
-// can't render (blank field until submit). Title/category are free-text inputs,
-// so they only get trimmed.
+// Size and category are both whitelisted against their fixed option lists:
+// a stale or hand-typed value outside them would otherwise leave React
+// holding a value the <select> can't render (blank field until submit).
+// Category falls back to "Otros" — the same closed-list default the API's
+// backfill uses — instead of blanking the field.
 function readPrefill(searchParams: ReturnType<typeof useSearchParams>) {
   const rawSize = searchParams.get("size") ?? "";
+  const rawCategory = searchParams.get("category") ?? "".trim();
   return {
     title: (searchParams.get("title") ?? "").trim(),
-    category: (searchParams.get("category") ?? "").trim(),
+    category: (PRODUCT_CATEGORIES as readonly string[]).includes(rawCategory)
+      ? rawCategory
+      : DEFAULT_PRODUCT_CATEGORY,
     size: (SIZES as string[]).includes(rawSize) ? rawSize : "",
   };
 }
@@ -306,13 +311,18 @@ function SellForm() {
             required
           />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input
+            <Select
               label="Categoría"
               value={form.category}
               onChange={(e) => update("category", e.target.value)}
-              placeholder="Ej. Chaquetas, Camisetas, Pantalones"
               required
-            />
+            >
+              {PRODUCT_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
             <Input
               label="Marca (opcional)"
               value={form.brand}
