@@ -187,6 +187,12 @@ model Order {
   @@index([userId, createdAt])
   // The admin dashboard aggregates revenue by status.
   @@index([status])
+  // getAllOrders/exportOrdersCsv default to no search filter (buildOrderSearchWhere
+  // returns {} when the admin hasn't typed one) and always sort by createdAt desc —
+  // the default, most-visited state of /admin/orders. None of the indexes
+  // above apply to an unconditional sort: they're all led by `status` or
+  // `userId`, neither of which this query filters on.
+  @@index([createdAt])
 }
 
 enum OrderStatus {
@@ -336,6 +342,10 @@ model ProductQuestion {
 
   // The product page always loads its Q&A newest-first.
   @@index([productId, createdAt])
+  // getAllForAdmin has no productId filter at all — a global, unconditional
+  // sort the [productId, createdAt] index above can't serve (leading column
+  // unused).
+  @@index([createdAt])
 }
 
 enum NotificationType {

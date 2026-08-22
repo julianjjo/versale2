@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -97,9 +97,17 @@ export default function OrderDetailPage() {
   });
 
   // ── Item 12: disputa del comprador ──
-  // Instante de montaje: la ventana de 48h se mide contra este reloj
-  // estable en vez de llamar Date.now() durante el render.
-  const [mountedAt] = useState(() => Date.now());
+  // Reloj de referencia para la ventana de 48h — no se llama Date.now()
+  // directamente durante el render (evita recalcular en cada re-render por
+  // motivos no relacionados), pero sí se refresca cada minuto: un valor
+  // fijado solo al montar dejaba el formulario abierto (y completamente
+  // rellenable) indefinidamente si la pestaña se quedaba abierta pasada la
+  // ventana real, para que el backend lo rechazara recién al enviar.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
   const [showDisputeForm, setShowDisputeForm] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
   const [disputePhotos, setDisputePhotos] = useState<
@@ -117,8 +125,7 @@ export default function OrderDetailPage() {
         data.status === "DELIVERED" &&
         !data.disputedAt &&
         data.deliveredAt &&
-        mountedAt - new Date(data.deliveredAt).getTime() <=
-          48 * 60 * 60 * 1000,
+        now - new Date(data.deliveredAt).getTime() <= 48 * 60 * 60 * 1000,
     );
 
   const dispute = useMutation({

@@ -993,26 +993,35 @@ export class OrdersService {
       select: { id: true, userId: true, status: true },
     });
 
-    for (const order of stale) {
-      try {
-        await this.transitionStatus(order, OrderStatus.REFUNDED);
-        await this.notifySafely(() =>
-          this.notifications.create(
-            order.userId,
-            NotificationType.ORDER_STATUS_CHANGED,
-            'Tu pago fue reembolsado automáticamente: el vendedor no envió el pedido en 7 días.',
-            order.id,
-          ),
-        );
-      } catch (error) {
-        // One stale order failing (e.g. raced by an admin shipping it) must
-        // not abort the sweep over the rest.
-        this.logger.warn(
-          `No se pudo reembolsar automáticamente el pedido ${order.id}:`,
-          error,
-        );
-      }
-    }
+    // Promise.allSettled, not a sequential for-await: each order's own
+    // transitionStatus + notification is already independent and
+    // individually try/caught below, so nothing here depends on order N-1
+    // finishing before N starts. Run one at a time here and the sweep's
+    // wall-clock scales linearly with backlog size, badly enough that a
+    // large-enough backlog (an outage, or the sweep having been down a
+    // while) risks overlapping with the next hourly run.
+    await Promise.allSettled(
+      stale.map(async (order) => {
+        try {
+          await this.transitionStatus(order, OrderStatus.REFUNDED);
+          await this.notifySafely(() =>
+            this.notifications.create(
+              order.userId,
+              NotificationType.ORDER_STATUS_CHANGED,
+              'Tu pago fue reembolsado automáticamente: el vendedor no envió el pedido en 7 días.',
+              order.id,
+            ),
+          );
+        } catch (error) {
+          // One stale order failing (e.g. raced by an admin shipping it) must
+          // not abort the sweep over the rest.
+          this.logger.warn(
+            `No se pudo reembolsar automáticamente el pedido ${order.id}:`,
+            error,
+          );
+        }
+      }),
+    );
     return stale.length;
   }
 
@@ -1030,28 +1039,33 @@ export class OrdersService {
       select: { id: true, userId: true, status: true },
     });
 
-    for (const order of expired) {
-      try {
-        await this.transitionStatus(order, OrderStatus.REFUNDED);
-        await this.prisma.client.order.update({
-          where: { id: order.id },
-          data: { disputeResolvedAt: new Date() },
-        });
-        await this.notifySafely(() =>
-          this.notifications.create(
-            order.userId,
-            NotificationType.ORDER_STATUS_CHANGED,
-            'Tu disputa expiró sin resolución y se reembolsó tu pago automáticamente.',
-            order.id,
-          ),
-        );
-      } catch (error) {
-        this.logger.warn(
-          `No se pudo expirar la disputa del pedido ${order.id}:`,
-          error,
-        );
-      }
-    }
+    // See autoRefundUnshippedPaidOrders' own comment: each order here is
+    // independent, so there's no reason to process the backlog one at a
+    // time.
+    await Promise.allSettled(
+      expired.map(async (order) => {
+        try {
+          await this.transitionStatus(order, OrderStatus.REFUNDED);
+          await this.prisma.client.order.update({
+            where: { id: order.id },
+            data: { disputeResolvedAt: new Date() },
+          });
+          await this.notifySafely(() =>
+            this.notifications.create(
+              order.userId,
+              NotificationType.ORDER_STATUS_CHANGED,
+              'Tu disputa expiró sin resolución y se reembolsó tu pago automáticamente.',
+              order.id,
+            ),
+          );
+        } catch (error) {
+          this.logger.warn(
+            `No se pudo expirar la disputa del pedido ${order.id}:`,
+            error,
+          );
+        }
+      }),
+    );
     return expired.length;
   }
 
@@ -1071,26 +1085,31 @@ export class OrdersService {
       select: { id: true, userId: true, status: true },
     });
 
-    for (const order of stale) {
-      try {
-        await this.transitionStatus(order, OrderStatus.CANCELLED);
-        await this.notifySafely(() =>
-          this.notifications.create(
-            order.userId,
-            NotificationType.ORDER_CANCELLED,
-            'Tu pedido se canceló automáticamente por falta de confirmación de pago. El producto volvió a estar disponible.',
-            order.id,
-          ),
-        );
-      } catch (error) {
-        // One stale order failing (e.g. raced by the buyer paying it) must
-        // not abort the sweep over the rest.
-        this.logger.warn(
-          `No se pudo cancelar automáticamente el pedido pendiente ${order.id}:`,
-          error,
-        );
-      }
-    }
+    // See autoRefundUnshippedPaidOrders' own comment: each order here is
+    // independent, so there's no reason to process the backlog one at a
+    // time.
+    await Promise.allSettled(
+      stale.map(async (order) => {
+        try {
+          await this.transitionStatus(order, OrderStatus.CANCELLED);
+          await this.notifySafely(() =>
+            this.notifications.create(
+              order.userId,
+              NotificationType.ORDER_CANCELLED,
+              'Tu pedido se canceló automáticamente por falta de confirmación de pago. El producto volvió a estar disponible.',
+              order.id,
+            ),
+          );
+        } catch (error) {
+          // One stale order failing (e.g. raced by the buyer paying it) must
+          // not abort the sweep over the rest.
+          this.logger.warn(
+            `No se pudo cancelar automáticamente el pedido pendiente ${order.id}:`,
+            error,
+          );
+        }
+      }),
+    );
     return stale.length;
   }
 

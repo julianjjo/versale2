@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
+import { Button } from "@/components/ui";
 import type { Notification, PaginatedResponse } from "@/lib/types";
 
 // Cheap enough to poll on a fixed interval instead of wiring up a socket:
@@ -33,7 +34,12 @@ export function NotificationBell() {
 
   // Only fetched once the dropdown is actually opened — the badge count
   // above is what stays live in the background.
-  const { data: list, isLoading } = useQuery<PaginatedResponse<Notification>>({
+  const {
+    data: list,
+    isLoading,
+    isError: isListError,
+    refetch: refetchList,
+  } = useQuery<PaginatedResponse<Notification>>({
     queryKey: ["notifications", "list"],
     queryFn: async () =>
       (await api.get("/notifications", { params: { limit: 10 } })).data,
@@ -144,6 +150,22 @@ export function NotificationBell() {
               <p className="px-4 py-6 text-center text-sm text-text-muted">
                 Cargando…
               </p>
+            ) : isListError ? (
+              // Regression: without this branch, a failed fetch left `data`
+              // undefined, `notifications` fell back to [], and this render
+              // dropped straight into the empty-state copy below —
+              // indistinguishable from a genuinely empty inbox, with no way
+              // to retry.
+              <div className="px-4 py-6 text-center text-sm text-text-muted">
+                <p>No pudimos cargar tus notificaciones.</p>
+                <Button
+                  variant="ghost"
+                  className="mt-2"
+                  onClick={() => refetchList()}
+                >
+                  Reintentar
+                </Button>
+              </div>
             ) : notifications.length === 0 ? (
               <p className="px-4 py-6 text-center text-sm text-text-muted">
                 No tienes notificaciones

@@ -1,8 +1,4 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolvePagination } from '../common/pagination';
@@ -87,9 +83,14 @@ export class NotificationsService {
   }
 
   async markAsRead(userId: string, id: string) {
+    // Scoped by userId in the same lookup (not a separate ownership check
+    // after an unscoped findUnique) so "doesn't exist" and "exists but isn't
+    // yours" are indistinguishable — an authenticated caller could otherwise
+    // enumerate which notification IDs exist for ANY user by the 404-vs-403
+    // response alone, even without ever seeing their contents.
     const notification = await this.prisma.client.notification.findUnique({
-      where: { id },
-      select: { id: true, userId: true },
+      where: { id, userId },
+      select: { id: true },
     });
 
     if (!notification) {
@@ -98,15 +99,12 @@ export class NotificationsService {
       );
     }
 
-    if (notification.userId !== userId) {
-      throw new ForbiddenException(
-        'No tienes autorización para modificar esta notificación',
-      );
-    }
-
     try {
+      // userId repeated here (not just relied on from the check above) so
+      // there's no gap between "confirmed owned" and "written" for a second
+      // request to slip through.
       return await this.prisma.client.notification.update({
-        where: { id },
+        where: { id, userId },
         data: { read: true },
       });
     } catch (error) {

@@ -203,6 +203,28 @@ describe('ProductsService', () => {
         service.create(createProductDto, 'seller1'),
       ).resolves.toHaveProperty('id', 'p21');
     });
+
+    // Regression: count-then-insert has to run inside one transaction, the
+    // same way orders.service.ts's MAX_PENDING_ORDERS_PER_BUYER check does —
+    // otherwise two concurrent POST /products from a seller sitting at 19
+    // active listings could each read count === 19 before either commits,
+    // both pass the check, and leave the seller over the cap.
+    it('runs the count-then-insert cap check inside a single transaction', async () => {
+      const createProductDto: CreateProductDto = {
+        title: 'Producto dentro del límite',
+        description: 'Hay espacio',
+        category: 'Otros',
+        size: 'M',
+        condition: 'Good',
+        price: 10.0,
+      };
+      mockPrismaService.client.product.count.mockResolvedValue(19);
+      mockPrismaService.client.product.create.mockResolvedValue({ id: 'p1' });
+
+      await service.create(createProductDto, 'seller1');
+
+      expect(mockTransaction).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('findOne', () => {
