@@ -104,6 +104,8 @@ const mockProducts = {
 
 vi.mock("@/lib/api", () => ({
   api: { get: vi.fn() },
+  extractApiError: (err: unknown, fallback: string) =>
+    err instanceof Error ? err.message : fallback,
 }));
 
 import { api } from "@/lib/api";

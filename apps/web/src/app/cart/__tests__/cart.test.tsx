@@ -901,4 +901,91 @@ describe("CartPage", () => {
       expect(screen.getByText("El carrito está vacío")).toBeInTheDocument();
     });
   });
+
+  // Regression: createOrder() commits the order and empties the cart in one
+  // transaction. If the connection drops between that commit and the
+  // response reaching the browser, api.post rejects exactly like a real
+  // failure would — but the purchase already went through. Before this fix
+  // the buyer saw "No pudimos procesar el pago" even though their money (and
+  // the garment) was already gone, with no link to the order that was
+  // actually created.
+  it("detecta un pedido que sí se creó pese a un error de red, y navega a él en vez de mostrar el pago como fallido", async () => {
+    // El carrito tiene productos hasta que se intenta pagar — recién ahí el
+    // servidor ya lo vació, aunque la respuesta del POST nunca llegó.
+    let checkoutAttempted = false;
+    vi.mocked(api.post).mockImplementation(async () => {
+      checkoutAttempted = true;
+      throw new Error("Network Error");
+    });
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === "/cart") {
+        return { data: checkoutAttempted ? { ...mockCart, items: [] } : mockCart };
+      }
+      if (url.startsWith("/orders?limit=1")) {
+        return ordersResponse([
+          {
+            id: "order-recuperado",
+            userId: "u1",
+            status: "PENDING",
+            totalAmount: 75000,
+            shippingAddress: {},
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            items: [],
+          },
+        ]);
+      }
+      if (url.startsWith("/orders?")) return ordersResponse([]);
+      return { data: mockCart };
+    });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText("Calle y número"), "Calle 10 # 5-20");
+    await user.type(screen.getByLabelText("Ciudad"), "Bogotá");
+    await user.type(screen.getByLabelText("País"), "Colombia");
+    await user.click(screen.getByRole("button", { name: /pagar/i }));
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/orders/order-recuperado");
+    });
+    expect(
+      screen.queryByText("No pudimos procesar el pago"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("muestra el error genérico si el carrito sigue lleno tras el fallo (falla real, no de red)", async () => {
+    vi.mocked(api.post).mockRejectedValue(new Error("Producto ya vendido"));
+    // api.get siempre devuelve el carrito CON productos: el checkout de
+    // verdad falló y revirtió toda la transacción, no se vació nada.
+    vi.mocked(api.get).mockResolvedValue({ data: mockCart });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText("Calle y número"), "Calle 10 # 5-20");
+    await user.type(screen.getByLabelText("Ciudad"), "Bogotá");
+    await user.type(screen.getByLabelText("País"), "Colombia");
+    await user.click(screen.getByRole("button", { name: /pagar/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Producto ya vendido")).toBeInTheDocument();
+    });
+    expect(pushMock).not.toHaveBeenCalled();
+  });
 });

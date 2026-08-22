@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, extractApiError } from "@/lib/api";
 import {
   CONDITION_OPTIONS,
   conditionLabel,
@@ -238,7 +238,7 @@ function ProductsBrowserContent({
     });
   };
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["products", filters],
     queryFn: async () => {
       const cleaned: Record<string, string | number> = {};
@@ -433,7 +433,15 @@ function ProductsBrowserContent({
       )}
       {isError && (
         <div className="rounded-md border border-danger/30 bg-danger/5 p-4 text-sm text-danger">
-          No pudimos cargar los productos. Intenta de nuevo.
+          {/* A 429 from this endpoint's own throttle carries a specific,
+              friendly message from the backend (see PRODUCTS_SEARCH_THROTTLE_*
+              in products.controller.ts) — surfacing it instead of the generic
+              fallback also stops the copy from inviting the immediate retry
+              that would just trip the same limit again. */}
+          {extractApiError(
+            error,
+            "No pudimos cargar los productos. Intenta de nuevo.",
+          )}
         </div>
       )}
 

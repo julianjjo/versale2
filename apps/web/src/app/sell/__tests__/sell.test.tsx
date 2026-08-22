@@ -323,4 +323,38 @@ describe("SellPage — borrador automático (item 10)", () => {
 
     expect(await screen.findByLabelText(/^título$/i)).toHaveValue("");
   });
+
+  it("avisa cuando el borrador cambió en otra pestaña", async () => {
+    renderPage();
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+
+    // `storage` solo se dispara en pestañas DISTINTAS a la que escribió el
+    // cambio — jsdom no lo hace por nosotros al llamar setItem en la misma
+    // ventana, así que se simula el evento tal como llegaría desde la otra
+    // pestaña.
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "versale:sell-draft:v1",
+        newValue: JSON.stringify({ title: "Editado en la otra pestaña" }),
+      }),
+    );
+
+    expect(
+      await screen.findByText(/editaste este borrador en otra pestaña/i),
+    ).toBeInTheDocument();
+  });
+
+  it("no avisa por cambios de storage de otras claves", async () => {
+    renderPage();
+
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "algo-no-relacionado",
+        newValue: "x",
+      }),
+    );
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
 });

@@ -10,6 +10,7 @@ import {
   UseGuards,
   Req,
 } from '@nestjs/common';
+import { Throttle, minutes } from '@nestjs/throttler';
 import { Request } from 'express';
 import { AuthRequest } from '../types/request.types';
 import { ProductsService } from './products.service';
@@ -25,11 +26,31 @@ import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../users/role.enum';
+import { parsePositiveIntEnv } from '../common/env';
+
+// The public catalog needs no auth, so it's the one search surface anyone
+// (including a script) can hit for free — and every call runs the same
+// substring `contains` filter twice (findMany + count, see
+// ProductsService#findAll), the most expensive query pattern in this API.
+// Tighter than the global default so a search-scraping burst gets throttled
+// well before it can degrade the catalog for everyone else, but loose enough
+// that normal browsing/pagination/filter-clicking never comes close.
+export const PRODUCTS_SEARCH_THROTTLE_TTL = minutes(1);
+export const PRODUCTS_SEARCH_THROTTLE_LIMIT = parsePositiveIntEnv(
+  process.env.PRODUCTS_SEARCH_THROTTLE_LIMIT,
+  60,
+);
 
 @Controller('products')
 export class ProductsController {
   constructor(private productsService: ProductsService) {}
 
+  @Throttle({
+    default: {
+      ttl: PRODUCTS_SEARCH_THROTTLE_TTL,
+      limit: PRODUCTS_SEARCH_THROTTLE_LIMIT,
+    },
+  })
   @Get()
   async findAll(@Query() query: any) {
     return this.productsService.findAll(query);

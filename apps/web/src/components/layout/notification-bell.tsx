@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
 import type { Notification, PaginatedResponse } from "@/lib/types";
@@ -149,21 +150,19 @@ export function NotificationBell() {
               </p>
             ) : (
               <ul>
-                {notifications.map((notification) => (
-                  <li key={notification.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!notification.read) {
-                          markAsRead.mutate(notification.id);
-                        }
-                      }}
-                      className={`flex w-full items-start gap-2 border-b border-border px-4 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-surface-muted ${
-                        notification.read
-                          ? "text-text-muted"
-                          : "font-medium text-text-primary"
-                      }`}
-                    >
+                {notifications.map((notification) => {
+                  const onActivate = () => {
+                    if (!notification.read) {
+                      markAsRead.mutate(notification.id);
+                    }
+                  };
+                  const itemClassName = `flex w-full items-start gap-2 border-b border-border px-4 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-surface-muted ${
+                    notification.read
+                      ? "text-text-muted"
+                      : "font-medium text-text-primary"
+                  }`;
+                  const content = (
+                    <>
                       {!notification.read && (
                         <span
                           aria-hidden
@@ -178,9 +177,38 @@ export function NotificationBell() {
                           )}
                         </span>
                       </span>
-                    </button>
-                  </li>
-                ))}
+                    </>
+                  );
+
+                  return (
+                    <li key={notification.id}>
+                      {/* Not every notification is about an order (e.g. a
+                          future account-level one), so this only becomes a
+                          link when there's actually somewhere to go —
+                          otherwise it stays a plain mark-as-read button. */}
+                      {notification.orderId ? (
+                        <Link
+                          href={`/orders/${notification.orderId}`}
+                          onClick={() => {
+                            setIsOpen(false);
+                            onActivate();
+                          }}
+                          className={itemClassName}
+                        >
+                          {content}
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={onActivate}
+                          className={itemClassName}
+                        >
+                          {content}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

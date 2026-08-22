@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, extractApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -174,6 +174,23 @@ function SellForm() {
   const [images, setImages] = useState<LocalImage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Item 10 follow-up: the draft lives in one shared localStorage key with no
+  // per-tab coordination, so two tabs open on /sell silently overwrite each
+  // other's draft — the `storage` event is the only signal a tab gets that
+  // this happened, since it only ever fires in tabs OTHER than the one that
+  // wrote the change. This can't safely auto-merge (whose text wins?), so it
+  // just surfaces the fact instead of guessing.
+  const [draftChangedElsewhere, setDraftChangedElsewhere] = useState(false);
+
+  useEffect(() => {
+    function onStorage(event: StorageEvent) {
+      if (event.key === DRAFT_STORAGE_KEY) {
+        setDraftChangedElsewhere(true);
+      }
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   if (isAuthLoading) {
     return (
@@ -370,6 +387,17 @@ function SellForm() {
         title="Publicar un producto"
         description="Comparte una prenda de tu armario con la comunidad."
       />
+
+      {draftChangedElsewhere && (
+        <div
+          role="status"
+          className="mb-4 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-text-primary"
+        >
+          Editaste este borrador en otra pestaña. Actualiza esta página para
+          ver los cambios más recientes; si sigues escribiendo aquí,
+          sobrescribirás lo que guardaste allá.
+        </div>
+      )}
 
       <Card>
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -37,6 +37,28 @@ async function lookupProduct(id: string): Promise<ProductLookup> {
   }
 }
 
+// `.length`/`.slice()` count UTF-16 code units, not visible characters: a
+// cut that lands inside a surrogate pair (an emoji outside the BMP) or a ZWJ
+// sequence (a multi-codepoint emoji like a family) leaves an orphaned
+// surrogate in the string. Browsers/crawlers rendering that in a <meta> tag
+// or a social preview show it as U+FFFD (�) instead of the intended text.
+// Intl.Segmenter walks grapheme clusters instead, so a cut always lands on a
+// boundary a human would recognize as "between two characters".
+const descriptionSegmenter = new Intl.Segmenter(undefined, {
+  granularity: "grapheme",
+});
+
+export function truncateDescription(
+  description: string,
+  maxLength: number,
+): string {
+  const graphemes = [...descriptionSegmenter.segment(description)].map(
+    (s) => s.segment,
+  );
+  if (graphemes.length <= maxLength) return description;
+  return `${graphemes.slice(0, maxLength - 3).join("")}...`;
+}
+
 // Item 11: dynamic metadata — the listing's own title/description in the
 // tags crawlers and link previews read. Shares the server-side lookup with
 // the page render (Next dedupes identical fetches within one request).
@@ -54,10 +76,7 @@ export async function generateMetadata({
 
   const product = result.product;
   // The first image's alt doubles as og:image alt; the title is the fallback.
-  const description =
-    product.description.length > 160
-      ? `${product.description.slice(0, 157)}...`
-      : product.description;
+  const description = truncateDescription(product.description, 160);
 
   return {
     title: `${product.title} — Versale`,

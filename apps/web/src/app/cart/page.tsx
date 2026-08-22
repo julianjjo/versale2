@@ -243,8 +243,35 @@ export default function CartPage() {
       // THAT order, not hunt for it in a list.
       router.push(`/orders/${created.id}`);
     },
-    onError: (err) =>
-      setError(extractApiError(err, "No pudimos procesar el pago")),
+    onError: async (err) => {
+      // createOrder() commits the order and empties the cart in the same
+      // transaction. If that commit reaches the server but the response
+      // never reaches this tab (connection dropped mid-flight), this handler
+      // fires with no way to tell that apart from a real failure — yet the
+      // buyer's items are already sold and their cart is already gone. A
+      // real failure (item already sold, validation error) rolls the whole
+      // transaction back instead, so the cart still has its items — that
+      // difference is the only reliable signal available from here.
+      try {
+        const { data: freshCart } = await api.get<Cart>('/cart');
+        if (freshCart.items.length === 0) {
+          const { data: recentOrders } = await api.get<
+            PaginatedResponse<Order>
+          >('/orders?limit=1');
+          const justPlaced = recentOrders.data[0];
+          if (justPlaced) {
+            queryClient.invalidateQueries({ queryKey: ['cart'] });
+            queryClient.invalidateQueries({ queryKey: ['orders'] });
+            router.push(`/orders/${justPlaced.id}`);
+            return;
+          }
+        }
+      } catch {
+        // The recovery check itself failing is not evidence either way —
+        // fall through to the generic failure message below.
+      }
+      setError(extractApiError(err, "No pudimos procesar el pago"));
+    },
   });
 
   const handleCheckout = () => {
