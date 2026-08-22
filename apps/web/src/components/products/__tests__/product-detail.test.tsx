@@ -50,7 +50,7 @@ const mockProduct = {
   isApproved: true,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
-  images: ["https://example.com/jacket.jpg"],
+  images: [{ url: "https://example.com/jacket.jpg", alt: "Vintage denim jacket" }],
   seller: { id: "s1", name: "Alice" },
   reviews: [
     {
@@ -144,8 +144,8 @@ describe("ProductDetail", () => {
     const productWithGallery = {
       ...mockProduct,
       images: [
-        "https://example.com/jacket-1.jpg",
-        "https://example.com/jacket-2.jpg",
+        { url: "https://example.com/jacket-1.jpg", alt: "Vintage denim jacket" },
+        { url: "https://example.com/jacket-2.jpg", alt: "Vintage denim jacket" },
       ],
     };
     vi.mocked(api.get).mockResolvedValue({ data: productWithGallery });

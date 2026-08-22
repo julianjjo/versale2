@@ -174,7 +174,11 @@ export class ProductsService {
       data: {
         ...rest,
         sellerId,
-        ...(images !== undefined ? { images: images } : {}),
+        // Plain objects: Prisma's InputJsonValue rejects class instances even
+        // when their props are JSON-compatible.
+        ...(images !== undefined
+          ? { images: images.map((img) => ({ url: img.url, alt: img.alt })) }
+          : {}),
       },
     });
   }
@@ -601,13 +605,18 @@ export class ProductsService {
       this.hasModeratedChanges(product, updateProductDto);
 
     try {
+      const { images, ...updateData } = updateProductDto;
       return await this.prisma.client.product.update({
         where: {
           id,
           ...(role !== Role.ADMIN ? { status: ProductStatus.AVAILABLE } : {}),
         },
         data: {
-          ...updateProductDto,
+          ...updateData,
+          // Plain objects: Prisma's InputJsonValue rejects class instances.
+          ...(images !== undefined
+            ? { images: images.map((img) => ({ url: img.url, alt: img.alt })) }
+            : {}),
           ...(needsReview
             ? { isApproved: false, rejectedAt: null, rejectionReason: null }
             : {}),

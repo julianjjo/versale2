@@ -168,6 +168,11 @@ describe("SellPage — subida de imágenes", () => {
       ).toBeEnabled();
     });
 
+    // Item 4: la publicación exige descripción (alt) por foto.
+    await user.type(
+      screen.getByLabelText(/descripción de la foto 1/i),
+      "Frente de la chaqueta",
+    );
     await user.click(screen.getByRole("button", { name: /publicar producto/i }));
 
     await waitFor(() => {
@@ -175,11 +180,36 @@ describe("SellPage — subida de imágenes", () => {
         "/products",
         expect.objectContaining({
           title: "Chaqueta de jean",
-          images: ["https://cdn.versale/foto.jpg"],
+          images: [
+            { url: "https://cdn.versale/foto.jpg", alt: "Frente de la chaqueta" },
+          ],
         }),
       );
     });
     expect(pushMock).toHaveBeenCalledWith("/products?published=1");
+  });
+
+  it("bloquea la publicación si falta la descripción de una foto", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.post)
+      .mockResolvedValueOnce({
+        data: { images: [{ url: "https://cdn.versale/foto.jpg", key: "k1" }] },
+      });
+    renderPage();
+
+    await user.upload(screen.getByLabelText(/imágenes/i), photo());
+    await screen.findByRole("button", { name: /publicar producto/i });
+
+    await fillListing(user);
+    await user.click(screen.getByRole("button", { name: /publicar producto/i }));
+
+    expect(
+      await screen.findByText(/describe la foto que falta/i),
+    ).toBeInTheDocument();
+    expect(vi.mocked(api.post).mock.calls.some(([url]) => url === "/products")).toBe(
+      false,
+    );
+    expect(pushMock).not.toHaveBeenCalled();
   });
 
   it("permite quitar la foto fallida y publicar sin imágenes", async () => {

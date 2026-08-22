@@ -22,7 +22,10 @@ const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const ACCEPTED_EXTENSIONS = ".jpg,.jpeg,.png,.webp";
 const MAX_FILE_SIZE_MB = 5;
-const MAX_FILES = 5;
+// Item 4 closed decision: max exactly 6 images per listing. The uploads
+// endpoint only accepts 5 per request, so the picker uploads in batches.
+const MAX_FILES = 6;
+const UPLOAD_BATCH_SIZE = 5;
 
 type LocalImage = {
   id: string;
@@ -34,6 +37,8 @@ type LocalImage = {
   url?: string;
   uploading: boolean;
   error?: string;
+  /** Item 4: required before the listing can be published. */
+  alt: string;
 };
 
 // The uploads endpoint answers in English (and 500s outright when R2 isn't
@@ -87,6 +92,9 @@ function SellForm() {
     size: prefill.size,
     condition: "Good",
     price: "",
+    // Item 4: seller-curated transparency fields, both optional.
+    measurements: "",
+    defects: "",
   });
   const [images, setImages] = useState<LocalImage[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -189,6 +197,7 @@ function SellForm() {
       file: f,
       previewUrl: URL.createObjectURL(f),
       uploading: true,
+      alt: "",
     }));
     setImages((prev) => [...prev, ...placeholders]);
 
@@ -196,7 +205,12 @@ function SellForm() {
     // — otherwise a seller can't re-pick a photo that failed.
     if (fileInputRef.current) fileInputRef.current.value = "";
 
-    await Promise.all(placeholders.map((p) => uploadOne(p.id, p.file)));
+    // The endpoint caps each request at UPLOAD_BATCH_SIZE files
+    // (FilesInterceptor('files', 5)), so >5 selections go up in batches.
+    for (let i = 0; i < placeholders.length; i += UPLOAD_BATCH_SIZE) {
+      const batch = placeholders.slice(i, i + UPLOAD_BATCH_SIZE);
+      await Promise.all(batch.map((p) => uploadOne(p.id, p.file)));
+    }
   };
 
   const removeImage = (id: string) => {
@@ -230,6 +244,18 @@ function SellForm() {
       );
       return;
     }
+    // Item 4: every photo needs its alt text — it's what screen readers (and
+    // the marketplace grid) describe the photo with, and the API rejects the
+    // listing without it anyway.
+    const missingAlt = uploadedImages.filter((img) => !img.alt.trim());
+    if (missingAlt.length > 0) {
+      setError(
+        missingAlt.length === 1
+          ? "Describe la foto que falta en su campo de descripción."
+          : `Falta la descripción de ${missingAlt.length} fotos.`,
+      );
+      return;
+    }
     setIsSubmitting(true);
     try {
       await api.post("/products", {
@@ -242,8 +268,10 @@ function SellForm() {
         price: Number(form.price),
         images:
           uploadedImages.length > 0
-            ? uploadedImages.map((img) => img.url as string)
+            ? uploadedImages.map((img) => ({ url: img.url as string, alt: img.alt.trim() }))
             : undefined,
+        measurements: form.measurements.trim() || undefined,
+        defects: form.defects.trim() || undefined,
       });
       router.push("/products?published=1");
     } catch (err) {
@@ -394,6 +422,35 @@ function SellForm() {
                 ))}
               </ul>
             )}
+            {uploadedImages.length > 0 && (
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium text-text-primary">
+                  Describe cada foto (obligatorio)
+                </legend>
+                <p className="text-xs text-text-muted">
+                  Es el texto que leen los lectores de pantalla y el que
+                  describe la foto si no carga.
+                </p>
+                {uploadedImages.map((img, index) => (
+                  <div key={img.id} className="flex items-center gap-2">
+                    <span aria-hidden="true" className="text-xs text-text-muted">
+                      {index + 1}.
+                    </span>
+                    <input
+                      type="text"
+                      value={img.alt}
+                      maxLength={150}
+                      onChange={(e) =>
+                        patchImage(img.id, { alt: e.target.value })
+                      }
+                      aria-label={`Descripción de la foto ${index + 1}`}
+                      placeholder={`Ej: vista frontal de la prenda`}
+                      className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary"
+                    />
+                  </div>
+                ))}
+              </fieldset>
+            )}
             {failedImages.length > 0 && (
               <div
                 role="alert"
@@ -411,6 +468,23 @@ function SellForm() {
                 </p>
               </div>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Textarea
+              label="Medidas (opcional)"
+              value={form.measurements}
+              onChange={(e) => update("measurements", e.target.value)}
+              placeholder="Ej: pecho 52 cm, largo 65 cm, manga 60 cm"
+              hint="Medidas tomadas con la prenda extendida."
+            />
+            <Textarea
+              label="Defectos (opcional)"
+              value={form.defects}
+              onChange={(e) => update("defects", e.target.value)}
+              placeholder="Ej: pequeño desgaste en el puño derecho"
+              hint="Declara con honestidad: reduce devoluciones y reclamos."
+            />
           </div>
 
           <p className="text-xs text-text-muted">

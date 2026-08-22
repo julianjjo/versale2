@@ -60,7 +60,7 @@ const mockOrders = [
         product: {
           id: "p1",
           title: "Chaqueta de jean vintage",
-          images: ["https://example.com/jean.jpg"],
+          images: [{ url: "https://example.com/jean.jpg", alt: "Chaqueta de jean vintage" }],
         },
       },
     ],

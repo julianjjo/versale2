@@ -488,7 +488,7 @@ export default function AdminProductsPage() {
                   <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
                     {product.images?.[0] ? (
                       <img
-                        src={product.images[0]}
+                        src={product.images[0].url}
                         alt={product.title}
                         loading={index === 0 ? undefined : "lazy"}
                         decoding="async"

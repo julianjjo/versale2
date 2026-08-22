@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { validate } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
 import { ProductsService } from '../products.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotFoundException } from '@nestjs/common';
@@ -94,7 +95,10 @@ describe('ProductsService', () => {
         size: 'M',
         condition: 'New',
         price: 10.0,
-        images: ['image1.jpg', 'image2.jpg'],
+        images: [
+          { url: 'https://bucket.example.com/image1.jpg', alt: 'Frente' },
+          { url: 'https://bucket.example.com/image2.jpg', alt: 'Detrás' },
+        ],
       };
       const sellerId = 'seller1';
 
@@ -766,7 +770,9 @@ describe('ProductsService', () => {
       const updateProductDto: UpdateProductDto = {
         title: 'Camisa básica azul',
         price: 40000,
-        images: ['image1.jpg'],
+        images: [
+          { url: 'https://bucket.example.com/image1.jpg', alt: 'Frente' },
+        ],
       };
 
       const existingProduct = {
@@ -777,7 +783,9 @@ describe('ProductsService', () => {
         size: 'M',
         condition: 'Good',
         price: 40000,
-        images: ['image1.jpg'],
+        images: [
+          { url: 'https://bucket.example.com/image1.jpg', alt: 'Frente' },
+        ],
         sellerId: userId,
         isApproved: true,
         rejectedAt: null,
@@ -1510,20 +1518,38 @@ describe('ProductsService', () => {
       expect(imagesError?.constraints).toHaveProperty('isArray');
     });
 
-    it('accepts a valid array of strings for images on CreateProductDto', async () => {
-      const dto = new CreateProductDto();
-      dto.title = 'Test Product';
-      dto.description = 'A test product';
-      dto.category = 'Test';
-      dto.size = 'M';
-      dto.condition = 'New';
-      dto.price = 10.0;
-      dto.images = ['image1.jpg', 'image2.jpg'];
+    it('accepts a valid images array with alt on CreateProductDto', async () => {
+      // Mirrors the real request path: the global pipe runs
+      // plainToInstance before validate, which is what makes @ValidateNested
+      // able to descend into each image object. The bucket host comes from
+      // the same env the uploads service builds URLs from.
+      const originalBase = process.env.R2_PUBLIC_BASE_URL;
+      process.env.R2_PUBLIC_BASE_URL = 'https://bucket.example.com';
+      try {
+        const dto = plainToInstance(CreateProductDto, {
+          title: 'Test Product',
+          description: 'A test product',
+          category: 'Test',
+          size: 'M',
+          condition: 'New',
+          price: 10.0,
+          images: [
+            { url: 'https://bucket.example.com/image1.jpg', alt: 'Frente' },
+            { url: 'https://bucket.example.com/image2.jpg', alt: 'Detrás' },
+          ],
+        });
 
-      const errors = await validate(dto);
-      const imagesError = errors.find((error) => error.property === 'images');
+        const errors = await validate(dto);
+        const imagesError = errors.find((error) => error.property === 'images');
 
-      expect(imagesError).toBeUndefined();
+        expect(imagesError).toBeUndefined();
+      } finally {
+        if (originalBase === undefined) {
+          delete process.env.R2_PUBLIC_BASE_URL;
+        } else {
+          process.env.R2_PUBLIC_BASE_URL = originalBase;
+        }
+      }
     });
   });
 

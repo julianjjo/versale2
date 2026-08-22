@@ -85,7 +85,11 @@ model Product {
   updatedAt     DateTime @updatedAt
   orders        OrderItem[]
   reviews       Review[]
-  images        Json?    // Changed to Json type (SQLite compatible), nullable
+  images        Json?    // [{ url, alt }] — max 6, solo URLs del bucket R2 (valida el DTO). Nullable.
+  // Texto libre curado por el vendedor (item 4): medidas de la prenda y
+  // defectos declarados. Opcionales: un listing sin ellos es válido.
+  measurements  String?
+  defects       String?
   cartItems     CartItem[] @relation("CartItemProduct")
   favoritedBy   Favorite[]
   reports       ProductReport[]

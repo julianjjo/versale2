@@ -29,7 +29,7 @@ export function makeProduct(index: number): Product {
     status: index % 17 === 0 ? ("SOLD" as const) : ("AVAILABLE" as const),
     createdAt: BASE_DATE,
     updatedAt: BASE_DATE,
-    images: index % 5 === 0 ? null : [`https://example.com/p${index}.jpg`],
+    images: index % 5 === 0 ? null : [{ url: `https://example.com/p${index}.jpg`, alt: `Foto del producto ${index}` }],
     seller: { id: `s${index % 7}`, name: `Vendedor ${index % 7}` },
     _count: { reviews: index % 13 },
   };

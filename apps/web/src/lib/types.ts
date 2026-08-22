@@ -1,5 +1,13 @@
 import type { ReportCategory } from "./report-category";
 
+// Item 4: every product photo carries its own alternative text. The API only
+// accepts bucket URLs (R2) and requires a non-empty alt, so consumers can
+// always read `.url` / `.alt` without guarding.
+export interface ProductImage {
+  url: string;
+  alt: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -31,7 +39,11 @@ export interface Product {
   rejectionReason?: string | null;
   createdAt: string;
   updatedAt: string;
-  images?: string[] | null;
+  images?: ProductImage[] | null;
+  // Seller-curated free text (item 4). Optional: a listing without them is
+  // valid, the detail page just hides the sections.
+  measurements?: string | null;
+  defects?: string | null;
   seller?: { id: string; name: string };
   // Detail-page views from anyone other than this listing's own seller (see
   // ProductsService#findOne). A plain scalar column, so it's present
