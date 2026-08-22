@@ -9,6 +9,10 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import {
+  applySecurityHeaders,
+  resolveSwaggerEnabled,
+} from './common/security-headers';
 
 // Local dev (3000) and the Playwright harness (3100) are allowed out of the
 // box. Any other deployment must set CORS_ORIGIN (comma-separated list).
@@ -56,16 +60,14 @@ function resolveTrustProxy(): number | boolean {
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.set('trust proxy', resolveTrustProxy());
+  applySecurityHeaders(app);
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.enableCors({
     origin: resolveCorsOrigins(),
     credentials: true,
   });
 
-  // The OpenAPI document describes every endpoint and payload shape, so it is
-  // never published in production.
-  const isProduction = process.env.NODE_ENV === 'production';
-  if (!isProduction) {
+  if (resolveSwaggerEnabled()) {
     const config = new DocumentBuilder()
       .setTitle('Versale API')
       .setDescription('API for the Versale used clothing marketplace')

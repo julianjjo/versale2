@@ -492,7 +492,7 @@ function SellForm() {
                           type="button"
                           onClick={() => uploadOne(img.id, img.file)}
                           aria-label={`Reintentar la subida de ${img.name}`}
-                          className="rounded-full bg-paper px-3 py-1 text-xs font-medium text-ink transition-colors hover:bg-paper-2"
+                          className="inline-flex min-h-11 items-center justify-center rounded-full bg-paper px-3 py-1 text-xs font-medium text-ink transition-colors hover:bg-paper-2"
                         >
                           Reintentar
                         </button>
@@ -501,7 +501,7 @@ function SellForm() {
                     <button
                       type="button"
                       onClick={() => removeImage(img.id)}
-                      className="absolute right-1 top-1 rounded-full bg-ink/70 px-2 py-0.5 text-xs text-paper hover:bg-ink"
+                      className="absolute right-1 top-1 flex h-11 w-11 items-center justify-center rounded-full bg-ink/70 text-sm text-paper hover:bg-ink"
                       aria-label={`Quitar ${img.name}`}
                     >
                       ×
