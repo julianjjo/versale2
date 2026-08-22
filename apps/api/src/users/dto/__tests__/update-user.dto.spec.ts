@@ -11,10 +11,10 @@ describe('UpdateUserDto with the global ValidationPipe', () => {
   };
 
   it('strips fields not declared on the DTO, e.g. an injected role', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       { name: 'Updated Name', role: 'ADMIN' },
       metadata,
-    );
+    )) as UpdateUserDto;
 
     expect(result).toBeInstanceOf(UpdateUserDto);
     expect(result).toEqual({ name: 'Updated Name' });
@@ -22,20 +22,20 @@ describe('UpdateUserDto with the global ValidationPipe', () => {
   });
 
   it('strips isVerified when injected alongside a legitimate field', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       { email: 'new@example.com', isVerified: true },
       metadata,
-    );
+    )) as UpdateUserDto;
 
     expect(result).toEqual({ email: 'new@example.com' });
     expect((result as Record<string, unknown>).isVerified).toBeUndefined();
   });
 
   it('passes through only the allowed optional fields untouched', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       { name: 'New Name', email: 'new@example.com', password: 'longenough' },
       metadata,
-    );
+    )) as UpdateUserDto;
 
     expect(result).toEqual({
       name: 'New Name',
@@ -45,10 +45,10 @@ describe('UpdateUserDto with the global ValidationPipe', () => {
   });
 
   it('keeps currentPassword so the self-service credential check can run', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       { password: 'longenough', currentPassword: 'oldpassword' },
       metadata,
-    );
+    )) as UpdateUserDto;
 
     expect(result).toEqual({
       password: 'longenough',
