@@ -1,5 +1,13 @@
 import { ProductsBrowser } from "@/components/products/products-browser";
 import { PageContainer, SectionHeader } from "@/components/ui";
+import type { Metadata } from "next";
+
+// Item 11: static metadata for the catalog — the page crawlers hit most.
+export const metadata: Metadata = {
+  title: "Explorar marketplace — Versale",
+  description:
+    "Ropa de segunda verificada por moderadores: chaquetas, jeans, camisetas y más. Compra y vende moda circular en Versale.",
+};
 
 export default async function ProductsPage({
   searchParams,

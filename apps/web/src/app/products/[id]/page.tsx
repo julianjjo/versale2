@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { ProductDetail } from "@/components/products/product-detail";
 import type { Product } from "@/lib/types";
 
@@ -34,6 +35,41 @@ async function lookupProduct(id: string): Promise<ProductLookup> {
     // to the client query so the visitor gets the retryable error state.
     return { status: "unavailable" };
   }
+}
+
+// Item 11: dynamic metadata — the listing's own title/description in the
+// tags crawlers and link previews read. Shares the server-side lookup with
+// the page render (Next dedupes identical fetches within one request).
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const result = await lookupProduct(id);
+
+  if (result.status !== "ok") {
+    return { title: "Producto no encontrado — Versale" };
+  }
+
+  const product = result.product;
+  // The first image's alt doubles as og:image alt; the title is the fallback.
+  const description =
+    product.description.length > 160
+      ? `${product.description.slice(0, 157)}...`
+      : product.description;
+
+  return {
+    title: `${product.title} — Versale`,
+    description,
+    openGraph: {
+      title: product.title,
+      description,
+      images: product.images?.[0]
+        ? [{ url: product.images[0].url, alt: product.images[0].alt }]
+        : undefined,
+    },
+  };
 }
 
 export default async function ProductPage({
