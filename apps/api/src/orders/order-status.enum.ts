@@ -4,6 +4,8 @@ export enum OrderStatus {
   SHIPPED = 'SHIPPED',
   DELIVERED = 'DELIVERED',
   CANCELLED = 'CANCELLED',
+  DISPUTED = 'DISPUTED',
+  REFUNDED = 'REFUNDED',
 }
 
 // The enum values stay the English keys, but any message that reaches a user
@@ -15,6 +17,8 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   [OrderStatus.SHIPPED]: 'Enviado',
   [OrderStatus.DELIVERED]: 'Entregado',
   [OrderStatus.CANCELLED]: 'Cancelado',
+  [OrderStatus.DISPUTED]: 'En disputa',
+  [OrderStatus.REFUNDED]: 'Reembolsado',
 };
 
 // A review only counts as coming from a verified buyer once the sale actually

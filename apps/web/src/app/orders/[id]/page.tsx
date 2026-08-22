@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -15,6 +15,7 @@ import {
   PageContainer,
   Price,
   Divider,
+  Textarea,
 } from "@/components/ui";
 import {
   ORDER_STATUS_LABEL,
@@ -86,6 +87,77 @@ export default function OrderDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["order", params.id] });
     },
   });
+
+  // ── Item 12: disputa del comprador ──
+  // Instante de montaje: la ventana de 48h se mide contra este reloj
+  // estable en vez de llamar Date.now() durante el render.
+  const [mountedAt] = useState(() => Date.now());
+  const [showDisputeForm, setShowDisputeForm] = useState(false);
+  const [disputeReason, setDisputeReason] = useState("");
+  const [disputePhotos, setDisputePhotos] = useState<
+    { url: string; alt: string }[]
+  >([]);
+  const [disputeUploading, setDisputeUploading] = useState(false);
+  const [disputeError, setDisputeError] = useState<string | null>(null);
+  const disputeInputRef = useRef<HTMLInputElement>(null);
+
+  const canDispute =
+    Boolean(
+      data &&
+        user &&
+        data.userId === user.id &&
+        data.status === "DELIVERED" &&
+        !data.disputedAt &&
+        data.deliveredAt &&
+        mountedAt - new Date(data.deliveredAt).getTime() <=
+          48 * 60 * 60 * 1000,
+    );
+
+  const dispute = useMutation({
+    mutationFn: async () => {
+      await api.post(`/orders/${params.id}/dispute`, {
+        reason: disputeReason,
+        photos: disputePhotos.map((p) => p.url),
+      });
+    },
+    onSuccess: async () => {
+      setShowDisputeForm(false);
+      setDisputeError(null);
+      await queryClient.invalidateQueries({ queryKey: ["order", params.id] });
+    },
+    onError: (err) =>
+      setDisputeError(extractApiError(err, "No pudimos abrir la disputa")),
+  });
+
+  const handleDisputeFiles = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    const accepted = Array.from(fileList).slice(
+      0,
+      6 - disputePhotos.length,
+    );
+    setDisputeError(null);
+    setDisputeUploading(true);
+    try {
+      const form = new FormData();
+      for (const file of accepted) form.append("files", file);
+      const res = await api.post<{ images: { url: string; key: string }[] }>(
+        "/uploads/images",
+        form,
+      );
+      setDisputePhotos((prev) => [
+        ...prev,
+        ...(res.data.images ?? []).map((img, i) => ({
+          url: img.url,
+          alt: `Evidencia ${prev.length + i + 1}`,
+        })),
+      ]);
+    } catch (err) {
+      setDisputeError(extractApiError(err, "No pudimos subir las fotos"));
+    } finally {
+      setDisputeUploading(false);
+      if (disputeInputRef.current) disputeInputRef.current.value = "";
+    }
+  };
 
   if (isAuthLoading || isLoading) {
     return (
@@ -231,6 +303,115 @@ export default function OrderDetailPage() {
           Cuéntanos qué te pareció cada prenda: busca &ldquo;Escribir
           reseña&rdquo; junto al producto.
         </p>
+      )}
+
+      {/* Item 12: disputa del comprador — una sola por orden, dentro de las
+          48h desde la entrega, con fotos obligatorias. Visible solo para el
+          dueño mientras la ventana esté abierta. */}
+      {canDispute && (
+        <Card className="mb-4">
+          <h2 className="heading-card mb-2">¿Algo salió mal con tu pedido?</h2>
+          <p className="mb-3 text-xs text-text-muted">
+            Puedes abrir una disputa dentro de las 48 horas posteriores a la
+            entrega. Solo puedes abrir una por pedido, y requiere fotos como
+            evidencia.
+          </p>
+          {!showDisputeForm ? (
+            <Button size="sm" variant="secondary" onClick={() => setShowDisputeForm(true)}>
+              Abrir una disputa
+            </Button>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (disputePhotos.length === 0) {
+                  setDisputeError("Adjunta al menos una foto como evidencia.");
+                  return;
+                }
+                dispute.mutate();
+              }}
+              className="space-y-3"
+            >
+              <Textarea
+                label="Motivo de la disputa"
+                value={disputeReason}
+                onChange={(e) => setDisputeReason(e.target.value)}
+                rows={4}
+                placeholder="Describe qué pasó: estado real vs. fotos publicadas, prenda equivocada, etc."
+                required
+                minLength={20}
+                maxLength={1000}
+              />
+              <div className="space-y-1">
+                <label
+                  htmlFor="dispute-photos"
+                  className="block text-sm font-medium text-text-primary"
+                >
+                  Fotos de evidencia (obligatorias)
+                </label>
+                <input
+                  id="dispute-photos"
+                  ref={disputeInputRef}
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp"
+                  multiple
+                  onChange={(e) => void handleDisputeFiles(e.target.files)}
+                  className="block w-full text-sm text-text-primary file:mr-3 file:rounded-md file:border file:border-border file:bg-surface file:px-3 file:py-2 file:text-sm file:font-medium file:text-text-primary hover:file:bg-surface-muted"
+                />
+                <p className="text-xs text-text-muted">
+                  JPG, PNG o WEBP. Máximo 6 fotos.
+                </p>
+                {disputePhotos.length > 0 && (
+                  <ul className="text-xs text-text-muted">
+                    {disputePhotos.map((photo, index) => (
+                      <li key={photo.url}>
+                        Foto {index + 1}: {photo.alt || photo.url}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {disputeUploading && (
+                  <p className="text-xs text-text-muted">Subiendo fotos…</p>
+                )}
+              </div>
+              {disputeError && (
+                <p className="text-sm text-danger" role="alert">
+                  {disputeError}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <Button type="submit" variant="danger" disabled={dispute.isPending || disputeUploading}>
+                  {dispute.isPending ? "Enviando…" : "Enviar disputa"}
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => setShowDisputeForm(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          )}
+        </Card>
+      )}
+
+      {(data.status === "DISPUTED" || data.disputeReason) && (
+        <div
+          role="status"
+          className="mb-4 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-text-primary"
+        >
+          <span className="font-semibold">Disputa {data.disputeResolvedAt ? "resuelta" : "en revisión"}.</span>{" "}
+          {data.disputeResolvedAt
+            ? data.status === "REFUNDED"
+              ? "Resuelta con reembolso al comprador."
+              : "Revisada: no procede reembolso."
+            : `Un administrador la resolverá antes de ${data.disputeExpiresAt ? new Date(data.disputeExpiresAt).toLocaleDateString("es-CO") : "30 días desde su apertura"}.`}
+          {data.disputeReason && (
+            <p className="mt-1 text-xs text-text-muted">
+              Motivo declarado: {data.disputeReason}
+              {data.disputePhotos && data.disputePhotos.length > 0
+                ? ` (${data.disputePhotos.length} foto(s) adjuntas)`
+                : ""}
+            </p>
+          )}
+        </div>
       )}
 
       <Card>

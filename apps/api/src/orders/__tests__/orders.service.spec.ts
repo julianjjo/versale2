@@ -5,8 +5,9 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
-import { NotificationType, Prisma } from '@prisma/client';
+import { NotificationType, Prisma, ProductStatus } from '@prisma/client';
 import { OrderStatus } from '../order-status.enum';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { Role } from '../../users/role.enum';
@@ -22,6 +23,15 @@ function staleStatusError() {
     clientVersion: 'test',
   });
 }
+
+// expect.any(Date) llega como `any` al sistema de tipos; este wrapper lo
+// entrega tipado Date para los literales de aserción (no-unsafe-assignment).
+const anyDate = () => expect.any(Date) as Date;
+
+// Igual que anyDate, para expect.objectContaining dentro de literales de
+// aserción (expect.objectContaining devuelve any).
+const objContaining = <T extends object>(obj: T): T =>
+  expect.objectContaining(obj) as T;
 
 describe('OrdersService', () => {
   let service: OrdersService;
@@ -1079,9 +1089,11 @@ describe('OrdersService', () => {
 
       const result = await service.updateOrderStatus(orderId, OrderStatus.PAID);
 
+      // Item 12: pasar a PAID estampa paidAt — el cron mide el timeout de
+      // 7 días sin envío desde aquí.
       expect(mockPrismaService.client.order.update).toHaveBeenCalledWith({
         where: { id: orderId, status: OrderStatus.PENDING },
-        data: { status: OrderStatus.PAID },
+        data: { status: OrderStatus.PAID, paidAt: anyDate() },
       });
       expect(result).toEqual(mockOrder);
       // PAID isn't SHIPPED or CANCELLED, so it falls back to the generic
@@ -1735,6 +1747,255 @@ describe('OrdersService', () => {
         'Este pedido cambió de estado mientras se procesaba tu solicitud. Actualiza la página e inténtalo de nuevo.',
       );
       expect(mockNotificationsService.create).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── Item 12: disputas y reembolsos ────────────────────────────────────────
+  describe('disputas y reembolsos (item 12)', () => {
+    const hoursAgo = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000);
+    const daysAgo = (d: number) =>
+      new Date(Date.now() - d * 24 * 60 * 60 * 1000);
+
+    describe('openDispute — ventana de 48h', () => {
+      const orderId = 'order1';
+      const dto = {
+        reason: 'La prenda llegó con un rasgón en la manga izquierda',
+        photos: ['https://bucket.test/products/evidencia.jpg'],
+      };
+
+      function mockDeliveredOrder(deliveredAt: Date | null, disputedAt?: Date) {
+        mockPrismaService.client.order.findUnique.mockResolvedValue({
+          id: orderId,
+          userId: 'buyer1',
+          status: OrderStatus.DELIVERED,
+          deliveredAt,
+          disputedAt: disputedAt ?? null,
+          items: [{ product: { sellerId: 'seller1' } }],
+        });
+        mockPrismaService.client.order.update.mockResolvedValue({
+          id: orderId,
+          status: OrderStatus.DISPUTED,
+        });
+      }
+
+      it('acepta una disputa dentro de las 48h desde la entrega', async () => {
+        mockDeliveredOrder(hoursAgo(47));
+
+        await expect(
+          service.openDispute('buyer1', orderId, dto),
+        ).resolves.toMatchObject({ status: OrderStatus.DISPUTED });
+      });
+
+      it('rechaza una disputa fuera de la ventana de 48h', async () => {
+        mockDeliveredOrder(hoursAgo(49));
+
+        await expect(
+          service.openDispute('buyer1', orderId, dto),
+        ).rejects.toThrow(/ventana para disputar es de 48 horas/);
+      });
+
+      it('rechaza una segunda disputa sobre el mismo pedido (una por orden)', async () => {
+        mockDeliveredOrder(hoursAgo(10), daysAgo(5));
+
+        await expect(
+          service.openDispute('buyer1', orderId, dto),
+        ).rejects.toThrow(ConflictException);
+      });
+
+      it('rechaza una disputa sin fotos (fotos obligatorias)', async () => {
+        mockDeliveredOrder(hoursAgo(2));
+
+        await expect(
+          service.openDispute('buyer1', orderId, { ...dto, photos: [] }),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('rechaza la disputa de un pedido ajeno', async () => {
+        mockDeliveredOrder(hoursAgo(2));
+
+        await expect(
+          service.openDispute('otro-usuario', orderId, dto),
+        ).rejects.toThrow(ForbiddenException);
+      });
+    });
+
+    describe('cron — timeout de 7 días sin envío', () => {
+      it('reembolsa pedidos PAID con paidAt de más de 7 días y relista las prendas', async () => {
+        mockPrismaService.client.order.findMany.mockResolvedValue([
+          { id: 'stale1', userId: 'buyer1', status: OrderStatus.PAID },
+        ]);
+        // transitionStatus: update CAS → $transaction(order.update + relist)
+        mockTx.order.update.mockResolvedValue({ id: 'stale1' });
+        mockTx.orderItem.findMany.mockResolvedValue([{ productId: 'prod1' }]);
+        mockTx.product.updateMany.mockResolvedValue({ count: 1 });
+
+        const refunded = await service.autoRefundUnshippedPaidOrders();
+
+        expect(refunded).toBe(1);
+        // El filtro del sweep: solo PAID cuyo paidAt venció el corte de 7 días.
+        expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
+          where: {
+            status: OrderStatus.PAID,
+            paidAt: { lte: anyDate() },
+          },
+          select: { id: true, userId: true, status: true },
+        });
+        const findManyMock = mockPrismaService.client.order
+          .findMany as unknown as {
+          mock: {
+            calls: Array<
+              [{ where: { paidAt: { lte: Date } }; select: string[] }]
+            >;
+          };
+        };
+        const usedCutoff = findManyMock.mock.calls[0][0].where.paidAt.lte;
+        const diffDays =
+          (Date.now() - usedCutoff.getTime()) / (24 * 60 * 60 * 1000);
+        expect(diffDays).toBeGreaterThanOrEqual(6.99);
+        expect(diffDays).toBeLessThan(7.01);
+
+        expect(mockTx.order.update).toHaveBeenCalledWith(
+          objContaining({
+            where: objContaining({ id: 'stale1' }),
+            data: objContaining({ status: OrderStatus.REFUNDED }),
+          }),
+        );
+        // El reembolso devuelve las prendas al catálogo.
+        expect(mockTx.product.updateMany).toHaveBeenCalledWith({
+          where: { id: { in: ['prod1'] }, status: ProductStatus.SOLD },
+          data: { status: ProductStatus.AVAILABLE },
+        });
+        expect(mockNotificationsService.create).toHaveBeenCalledWith(
+          'buyer1',
+          NotificationType.ORDER_STATUS_CHANGED,
+          expect.stringMatching(/reembolsado automáticamente/i),
+          'stale1',
+        );
+      });
+
+      it('no toca pedidos PAID dentro de los 7 días', async () => {
+        mockPrismaService.client.order.findMany.mockResolvedValue([]);
+
+        const refunded = await service.autoRefundUnshippedPaidOrders();
+
+        expect(refunded).toBe(0);
+        expect(mockTx.order.update).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('cron — expiración de disputa a 30 días', () => {
+      it('reembolsa al comprador cuando la disputa vence sin resolución', async () => {
+        mockPrismaService.client.order.findMany.mockResolvedValue([
+          {
+            id: 'disputed1',
+            userId: 'buyer1',
+            status: OrderStatus.DISPUTED,
+          },
+        ]);
+        mockTx.order.update.mockResolvedValue({ id: 'disputed1' });
+        mockTx.orderItem.findMany.mockResolvedValue([{ productId: 'prod1' }]);
+        mockTx.product.updateMany.mockResolvedValue({ count: 1 });
+
+        const expired = await service.autoResolveExpiredDisputes();
+
+        expect(expired).toBe(1);
+        expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
+          where: {
+            status: OrderStatus.DISPUTED,
+            disputeExpiresAt: { lte: anyDate() },
+          },
+          select: { id: true, userId: true, status: true },
+        });
+        expect(mockTx.order.update).toHaveBeenCalledWith(
+          objContaining({
+            data: objContaining({ status: OrderStatus.REFUNDED }),
+          }),
+        );
+        // Marca la resolución para que el histórico quede cerrado.
+        expect(mockPrismaService.client.order.update).toHaveBeenCalledWith({
+          where: { id: 'disputed1' },
+          data: { disputeResolvedAt: anyDate() },
+        });
+        expect(mockNotificationsService.create).toHaveBeenCalledWith(
+          'buyer1',
+          NotificationType.ORDER_STATUS_CHANGED,
+          expect.stringMatching(/expiró sin resolución/i),
+          'disputed1',
+        );
+      });
+
+      it('deja intactas las disputas aún dentro de los 30 días', async () => {
+        mockPrismaService.client.order.findMany.mockResolvedValue([]);
+
+        const expired = await service.autoResolveExpiredDisputes();
+
+        expect(expired).toBe(0);
+        expect(mockTx.order.update).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('resolución por admin vía cambio de estado genérico', () => {
+      it('DISPUTED → REFUNDED sella disputeResolvedAt y reembolsa', async () => {
+        mockPrismaService.client.order.findUnique.mockResolvedValue({
+          id: 'disputed2',
+          status: OrderStatus.DISPUTED,
+          userId: 'buyer1',
+        });
+        mockTx.order.update.mockResolvedValue({ id: 'disputed2' });
+        mockTx.orderItem.findMany.mockResolvedValue([]);
+        mockPrismaService.client.order.update.mockResolvedValue({
+          id: 'disputed2',
+        });
+
+        await service.updateOrderStatus('disputed2', OrderStatus.REFUNDED);
+
+        // El reembolso libera las prendas y sella la resolución de la
+        // disputa — un solo camino para admin y cron.
+        expect(mockTx.order.update).toHaveBeenCalledWith(
+          objContaining({
+            data: objContaining({
+              status: OrderStatus.REFUNDED,
+              disputeResolvedAt: anyDate(),
+            }),
+          }),
+        );
+      });
+
+      it('DISPUTED → DELIVERED (rechazo) sella disputeResolvedAt sin tocar prendas', async () => {
+        mockPrismaService.client.order.findUnique.mockResolvedValue({
+          id: 'disputed3',
+          status: OrderStatus.DISPUTED,
+          userId: 'buyer1',
+        });
+        mockPrismaService.client.order.update.mockResolvedValue({
+          id: 'disputed3',
+          status: OrderStatus.DELIVERED,
+        });
+
+        await service.updateOrderStatus('disputed3', OrderStatus.DELIVERED);
+
+        expect(mockPrismaService.client.order.update).toHaveBeenCalledWith({
+          where: { id: 'disputed3', status: OrderStatus.DISPUTED },
+          data: {
+            status: OrderStatus.DELIVERED,
+            deliveredAt: anyDate(),
+            disputeResolvedAt: anyDate(),
+          },
+        });
+        expect(mockTx.order.update).not.toHaveBeenCalled();
+      });
+
+      it('rechaza un cambio de estado ilegal sobre una disputa', async () => {
+        mockPrismaService.client.order.findUnique.mockResolvedValue({
+          id: 'disputed4',
+          status: OrderStatus.DISPUTED,
+          userId: 'buyer1',
+        });
+
+        await expect(
+          service.updateOrderStatus('disputed4', OrderStatus.PAID),
+        ).rejects.toThrow(BadRequestException);
+      });
     });
   });
 });

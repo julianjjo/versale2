@@ -99,7 +99,21 @@ export interface OrderItem {
   product?: Product;
 }
 
-export type OrderStatus = "PENDING" | "PAID" | "SHIPPED" | "DELIVERED" | "CANCELLED";
+export type OrderStatus =
+  | "PENDING"
+  | "PAID"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "CANCELLED"
+  | "DISPUTED"
+  | "REFUNDED";
+
+// Item 12: evidencia de la disputa, misma forma que las imágenes de
+// producto ({ url, alt }).
+export interface OrderDisputePhoto {
+  url: string;
+  alt: string;
+}
 
 export interface Order {
   id: string;
@@ -108,6 +122,14 @@ export interface Order {
   totalAmount: number;
   shippingAddress: Record<string, unknown>;
   trackingNumber?: string | null;
+  // Item 12: plazos de la mecánica de disputas/reembolsos.
+  paidAt?: string | null;
+  deliveredAt?: string | null;
+  disputedAt?: string | null;
+  disputeExpiresAt?: string | null;
+  disputeResolvedAt?: string | null;
+  disputeReason?: string | null;
+  disputePhotos?: OrderDisputePhoto[] | null;
   createdAt: string;
   updatedAt: string;
   items: OrderItem[];
