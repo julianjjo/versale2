@@ -639,9 +639,23 @@ export class ProductsService {
       role !== Role.ADMIN &&
       this.hasModeratedChanges(product, updateProductDto);
 
+    // Every CartItem snapshots the price it was added at (priceAtAdd) and
+    // checkout charges that snapshot, not the live product row — intentional,
+    // so a seller can't silently raise the price on someone mid-checkout. But
+    // that snapshot has no expiry: if the price actually changes (whether a
+    // seller's edit forces re-review below, or an admin edits it directly),
+    // any cart already holding this product still charges the old price once
+    // checkout reopens, even after a moderator has approved a *different*
+    // price. The snapshot was never re-validated against what was actually
+    // approved, so it has to be dropped the moment the real price moves —
+    // the buyer just re-adds it at the current price the next time they look.
+    const priceChanged =
+      updateProductDto.price !== undefined &&
+      updateProductDto.price !== product.price;
+
     try {
       const { images, ...updateData } = updateProductDto;
-      return await this.prisma.client.product.update({
+      const updated = await this.prisma.client.product.update({
         where: {
           id,
           ...(role !== Role.ADMIN ? { status: ProductStatus.AVAILABLE } : {}),
@@ -658,6 +672,14 @@ export class ProductsService {
         },
         include: { seller: { select: { id: true, name: true } } },
       });
+
+      if (priceChanged) {
+        await this.prisma.client.cartItem.deleteMany({
+          where: { productId: id },
+        });
+      }
+
+      return updated;
     } catch (error) {
       translatePrismaError(error, {
         P2025: () => {

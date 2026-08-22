@@ -33,10 +33,27 @@ export class CartService {
     });
   }
 
+  // addItem/updateItem/removeItem/clearCart all only ever need `cart.id` —
+  // to build the upsert's compound key, or to compare against a cartItem's
+  // own cartId for the ownership check. Only GET /cart (getCart above)
+  // actually renders every item's full product+seller data, so routing
+  // these through getCart's own deep include re-fetched every line item's
+  // entire product row (images, description, measurements, defects) plus
+  // seller info on every single add/update/remove, just to read one string.
+  private async getOrCreateCartId(userId: string): Promise<string> {
+    const cart = await this.prisma.client.cart.upsert({
+      where: { userId },
+      update: {},
+      create: { userId },
+      select: { id: true },
+    });
+    return cart.id;
+  }
+
   async addItem(userId: string, productId: string, quantity: number) {
     this.assertValidQuantity(quantity);
 
-    const cart = await this.getCart(userId);
+    const cartId = await this.getOrCreateCartId(userId);
 
     const product = await this.productsService.findRaw(productId);
     if (!product.isApproved) {
@@ -57,13 +74,13 @@ export class CartService {
     }
 
     return this.prisma.client.cartItem.upsert({
-      where: { cartId_productId: { cartId: cart.id, productId } },
+      where: { cartId_productId: { cartId, productId } },
       // Each listing is a single garment, so re-adding it keeps the line at the
       // same quantity instead of incrementing, and refreshes the price snapshot
       // so a later checkout can never be charged an outdated price.
       update: { quantity, priceAtAdd: product.price },
       create: {
-        cartId: cart.id,
+        cartId,
         productId,
         quantity,
         priceAtAdd: product.price,
@@ -90,8 +107,8 @@ export class CartService {
       );
     }
 
-    const cart = await this.getCart(userId);
-    if (cartItem.cartId !== cart.id) {
+    const cartId = await this.getOrCreateCartId(userId);
+    if (cartItem.cartId !== cartId) {
       throw new ForbiddenException(
         'No tienes autorización para actualizar este producto del carrito',
       );
@@ -120,8 +137,8 @@ export class CartService {
       );
     }
 
-    const cart = await this.getCart(userId);
-    if (cartItem.cartId !== cart.id) {
+    const cartId = await this.getOrCreateCartId(userId);
+    if (cartItem.cartId !== cartId) {
       throw new ForbiddenException(
         'No tienes autorización para eliminar este producto del carrito',
       );
@@ -131,9 +148,9 @@ export class CartService {
   }
 
   async clearCart(userId: string) {
-    const cart = await this.getCart(userId);
+    const cartId = await this.getOrCreateCartId(userId);
     await this.prisma.client.cartItem.deleteMany({
-      where: { cartId: cart.id },
+      where: { cartId },
     });
     return { success: true };
   }

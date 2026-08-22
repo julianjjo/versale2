@@ -407,6 +407,7 @@ function SellForm() {
             onChange={(e) => update("title", e.target.value)}
             placeholder="Ej. Chaqueta de jean vintage Levi's"
             required
+            maxLength={120}
           />
           <Textarea
             label="Descripción"
@@ -415,6 +416,7 @@ function SellForm() {
             rows={4}
             placeholder="Describe la prenda, el talle, detalles del estado, etc."
             required
+            maxLength={2000}
           />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Select
@@ -467,6 +469,7 @@ function SellForm() {
             label="Precio (COP)"
             type="number"
             min="1"
+            max={100_000_000}
             step="1"
             value={form.price}
             onChange={(e) => update("price", e.target.value)}
@@ -593,6 +596,7 @@ function SellForm() {
               onChange={(e) => update("measurements", e.target.value)}
               placeholder="Ej: pecho 52 cm, largo 65 cm, manga 60 cm"
               hint="Medidas tomadas con la prenda extendida."
+              maxLength={1000}
             />
             <Textarea
               label="Defectos (opcional)"
@@ -600,6 +604,7 @@ function SellForm() {
               onChange={(e) => update("defects", e.target.value)}
               placeholder="Ej: pequeño desgaste en el puño derecho"
               hint="Declara con honestidad: reduce devoluciones y reclamos."
+              maxLength={1000}
             />
           </div>
 

@@ -12,6 +12,7 @@ const LOGIN_REASON_MESSAGE: Record<string, string> = {
   cart: "Inicia sesión para agregar este producto a tu carrito.",
   review: "Inicia sesión para escribir tu reseña.",
   helpful: "Inicia sesión para marcar una reseña como útil.",
+  expired: "Tu sesión expiró. Inicia sesión de nuevo para continuar.",
 };
 
 function LoginForm() {

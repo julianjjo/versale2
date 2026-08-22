@@ -19,6 +19,17 @@ const FORGOT_PASSWORD_MESSAGE =
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
+// Not a real account's hash — bcrypt.hash('versale-timing-safety-dummy', 10),
+// generated once and hardcoded. login() below compares against this when the
+// email isn't registered, purely so that branch spends the same ~tens-of-ms
+// of bcrypt work as the "wrong password" branch. Its cost factor must track
+// BCRYPT_SALT_ROUNDS: bcrypt.compare()'s runtime depends on the cost factor
+// embedded in the hash being compared against, not on anything about the
+// caller's input, so the two branches only stay comparable if this hash was
+// produced at the same cost every real user's password hash uses.
+export const TIMING_SAFE_DUMMY_HASH =
+  '$2b$10$H/BlKyoyPzxsME37eNXFdea6VNbzmOqBEr515gyGZiwqjf11EBS32';
+
 export type AuthenticatedUser = Omit<User, 'password'>;
 
 @Injectable()
@@ -69,12 +80,18 @@ export class AuthService {
   async login(email: string, password: string) {
     const user = await this.prisma.client.user.findUnique({ where: { email } });
 
-    if (!user) {
-      throw new UnauthorizedException('Credenciales inválidas');
-    }
+    // Both branches must do comparable work before rejecting: without the
+    // dummy compare() here, "no such account" returns after a single indexed
+    // SELECT while "wrong password" additionally pays bcrypt's cost-10
+    // compare — a difference reliable enough to enumerate registered emails
+    // by response latency alone, the exact oracle forgotPassword() above is
+    // already deliberately hardened against.
+    const isPasswordValid = await bcrypt.compare(
+      password,
+      user?.password ?? TIMING_SAFE_DUMMY_HASH,
+    );
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
+    if (!user || !isPasswordValid) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 

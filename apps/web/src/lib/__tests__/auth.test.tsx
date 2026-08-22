@@ -6,11 +6,22 @@ import {
   TestProviders,
 } from "@/test-utils/TestProviders";
 
+// Real implementation for subscribe(): several tests below dispatch a real
+// `storage` event and rely on this actually notifying the listener, the same
+// way it would across two real browser tabs — a bare vi.fn() stub wouldn't
+// exercise that wiring, only that *some* function got called.
+let storageSubscribers: Array<() => void> = [];
 vi.mock("../token", () => ({
   tokenStore: {
     get: vi.fn(),
     set: vi.fn(),
     clear: vi.fn(),
+    subscribe: vi.fn((onChange: () => void) => {
+      storageSubscribers.push(onChange);
+      return () => {
+        storageSubscribers = storageSubscribers.filter((s) => s !== onChange);
+      };
+    }),
   },
 }));
 
@@ -22,6 +33,11 @@ vi.mock("../api", () => ({
   extractApiError: vi.fn(),
 }));
 
+const pushMock = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: pushMock, refresh: vi.fn() }),
+}));
+
 import { tokenStore } from "../token";
 import { api } from "../api";
 import { useAuth, fetchProfile } from "../auth";
@@ -31,6 +47,7 @@ const mockedTokenStore = tokenStore as unknown as {
   get: ReturnType<typeof vi.fn>;
   set: ReturnType<typeof vi.fn>;
   clear: ReturnType<typeof vi.fn>;
+  subscribe: ReturnType<typeof vi.fn>;
 };
 
 const mockedApi = api as unknown as {
@@ -353,6 +370,78 @@ describe("useAuth", () => {
 
     expect(result.current.user).toBeNull();
     expect(queryClient.getQueryCache().getAll().length).toBe(0);
+  });
+
+  // Regression: a bare push("/login") after a 401 gave no explanation and no
+  // way back to what the visitor was doing (e.g. mid-checkout on /cart) —
+  // this mirrors the next/reason shape loginRedirectUrl already uses for
+  // favoriting/reviewing.
+  it("a global 401 redirects to /login with the current path and an 'expired' reason", async () => {
+    mockedTokenStore.get.mockReturnValue("tok");
+    mockedApi.get.mockResolvedValue({
+      data: { id: "u1", email: "a@b.c", name: "Alice", role: "USER" },
+    });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user).not.toBeNull());
+
+    act(() => {
+      notifyUnauthorized();
+    });
+
+    expect(pushMock).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/login\?next=.*&reason=expired$/) as string,
+    );
+  });
+
+  // Regression: logging out (or a token expiring) in one tab left every
+  // other open tab still believing it was signed in — the nav kept showing
+  // account-only UI, and the first sign anything was wrong was a confusing
+  // bounce to a bare /login the next time that stale tab made a request.
+  it("clears the user when another tab's token disappears", async () => {
+    mockedTokenStore.get.mockReturnValue("tok");
+    mockedApi.get.mockResolvedValue({
+      data: { id: "u1", email: "a@b.c", name: "Alice", role: "USER" },
+    });
+
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryData(["orders"], [{ id: "o1" }]);
+
+    function localWrapper({ children }: { children: ReactNode }) {
+      return <TestProviders client={queryClient}>{children}</TestProviders>;
+    }
+
+    const { result } = renderHook(() => useAuth(), { wrapper: localWrapper });
+    await waitFor(() => expect(result.current.user).not.toBeNull());
+
+    // Simulate the other tab having already cleared the token before this
+    // tab's `storage` listener fires, exactly like a real cross-tab event.
+    mockedTokenStore.get.mockReturnValue(null);
+    act(() => {
+      storageSubscribers.forEach((notify) => notify());
+    });
+
+    expect(result.current.user).toBeNull();
+    expect(queryClient.getQueryCache().getAll().length).toBe(0);
+  });
+
+  it("does not clear the user when another tab's storage change still leaves a token set", async () => {
+    mockedTokenStore.get.mockReturnValue("tok");
+    mockedApi.get.mockResolvedValue({
+      data: { id: "u1", email: "a@b.c", name: "Alice", role: "USER" },
+    });
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.user).not.toBeNull());
+
+    // e.g. another tab just logged in with a *different* token — still not a
+    // logout, so this tab's own session must not be torn down.
+    mockedTokenStore.get.mockReturnValue("a-different-token");
+    act(() => {
+      storageSubscribers.forEach((notify) => notify());
+    });
+
+    expect(result.current.user).not.toBeNull();
   });
 
   it("refresh re-fetches the user", async () => {

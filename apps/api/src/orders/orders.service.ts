@@ -107,6 +107,16 @@ export const DISPUTE_EXPIRY_DAYS = 30;
 // automatically instead of by hand.
 export const PENDING_ORDER_TIMEOUT_MINUTES = 24 * 60;
 
+// Without a payment gateway, creating an order is free and instantly locks
+// every item in it as SOLD for up to PENDING_ORDER_TIMEOUT_MINUTES (see
+// above) — a buyer who never pays can otherwise repeat cart+checkout against
+// arbitrarily many listings and take the whole catalog off the market for a
+// day at a time, for free, indefinitely. A legitimate buyer essentially never
+// has more than one or two orders genuinely awaiting an admin's manual
+// payment confirmation at once, so this cap is a cheap, low-collateral brake
+// on that abuse until real payment confirmation exists.
+export const MAX_PENDING_ORDERS_PER_BUYER = 3;
+
 // Only these statuses represent money actually received (and still held —
 // REFUNDED was received too, but already given back, so it's excluded here
 // on purpose). PENDING is an order that was placed but never paid, and
@@ -183,6 +193,15 @@ export class OrdersService {
 
       if (!cart || cart.items.length === 0) {
         throw new BadRequestException('Tu carrito está vacío');
+      }
+
+      const pendingCount = await tx.order.count({
+        where: { userId, status: OrderStatus.PENDING },
+      });
+      if (pendingCount >= MAX_PENDING_ORDERS_PER_BUYER) {
+        throw new BadRequestException(
+          'Ya tienes pedidos pendientes de pago. Espera a que se confirmen o venzan antes de crear uno nuevo',
+        );
       }
 
       let totalAmount = 0;
@@ -911,17 +930,35 @@ export class OrdersService {
       now.getTime() + DISPUTE_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
     );
 
-    // CAS on DELIVERED: two concurrent dispute posts can't both win.
-    const updated = await this.prisma.client.order.update({
-      where: { id: orderId, status: OrderStatus.DELIVERED },
-      data: {
-        status: OrderStatus.DISPUTED,
-        disputedAt: now,
-        disputeExpiresAt: expiresAt,
-        disputeReason: dto.reason,
-        disputePhotos: dto.photos,
-      },
-    });
+    // CAS on DELIVERED: two concurrent dispute posts can't both win. The
+    // `disputedAt` check above already rejects the common case, but it reads
+    // a snapshot taken before this write — a second submission racing in the
+    // gap between that read and this update still reaches here, and without
+    // the try/catch below its loss would surface as an unhandled Prisma
+    // P2025 (a raw 500) instead of the same Spanish conflict message,
+    // mirroring how shipOwnSale/transitionStatus already handle this same
+    // race on their own CAS updates.
+    let updated;
+    try {
+      updated = await this.prisma.client.order.update({
+        where: { id: orderId, status: OrderStatus.DELIVERED },
+        data: {
+          status: OrderStatus.DISPUTED,
+          disputedAt: now,
+          disputeExpiresAt: expiresAt,
+          disputeReason: dto.reason,
+          disputePhotos: dto.photos,
+        },
+      });
+    } catch (error) {
+      translatePrismaError(error, {
+        P2025: () => {
+          throw new ConflictException(
+            'Este pedido ya tuvo una disputa; no se pueden abrir más',
+          );
+        },
+      });
+    }
 
     await this.notifySafely(() =>
       Promise.all(

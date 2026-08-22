@@ -55,6 +55,9 @@ describe('ProductsService', () => {
       user: {
         findUnique: jest.fn(),
       },
+      cartItem: {
+        deleteMany: jest.fn(),
+      },
     },
   };
 
@@ -80,6 +83,9 @@ describe('ProductsService', () => {
     // findOne test doesn't have to stub it just to avoid an unhandled
     // rejection.
     mockPrismaService.client.product.update.mockResolvedValue({});
+    mockPrismaService.client.cartItem.deleteMany.mockResolvedValue({
+      count: 0,
+    });
   });
 
   afterEach(() => {
@@ -822,7 +828,46 @@ describe('ProductsService', () => {
           seller: { select: { id: true, name: true } },
         },
       });
+      // Regression: CartItem.priceAtAdd is a snapshot checkout charges
+      // verbatim — with a price change on file, any cart already holding
+      // this listing must be cleared so a buyer can't complete checkout at a
+      // price no moderator ever actually approved.
+      expect(mockPrismaService.client.cartItem.deleteMany).toHaveBeenCalledWith(
+        { where: { productId } },
+      );
       expect(result).toEqual(updatedProduct);
+    });
+
+    // Regression: this used to only happen implicitly via the seller
+    // re-review branch above — but an admin editing the price directly skips
+    // that branch entirely (`role !== Role.ADMIN` guards `needsReview`), so
+    // without checking price-changed independently of needsReview, an
+    // admin's own price correction would leave every existing cart's
+    // priceAtAdd silently stale too.
+    it('should clear existing cart snapshots when an admin changes the price directly', async () => {
+      const productId = 'product1';
+      const existingProduct = {
+        id: productId,
+        title: 'Chaqueta',
+        price: 50000,
+        sellerId: 'seller1',
+        isApproved: true,
+        status: 'AVAILABLE' as const,
+      };
+
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        existingProduct,
+      );
+      mockPrismaService.client.product.update.mockResolvedValue({
+        ...existingProduct,
+        price: 500000,
+      });
+
+      await service.update(productId, { price: 500000 }, 'admin1', Role.ADMIN);
+
+      expect(mockPrismaService.client.cartItem.deleteMany).toHaveBeenCalledWith(
+        { where: { productId } },
+      );
     });
 
     // The initial `findUnique` read only drives the 404/403/status checks. If a
@@ -894,6 +939,11 @@ describe('ProductsService', () => {
           seller: { select: { id: true, name: true } },
         },
       });
+      // The price didn't actually change (still 40000) — no reason to punish
+      // every existing cart for an edit that left the price untouched.
+      expect(
+        mockPrismaService.client.cartItem.deleteMany,
+      ).not.toHaveBeenCalled();
     });
 
     it('should clear the rejection so an edited rejected product goes back to the pending queue', async () => {
