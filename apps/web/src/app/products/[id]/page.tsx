@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ProductDetail } from "@/components/products/product-detail";
@@ -14,7 +15,13 @@ type ProductLookup =
 // exists (deleted, rejected, never approved) answers with a real HTTP 404
 // instead of a 200 that merely *looks* like an error page: crawlers, uptime
 // monitors and link previews read the status code, not the Spanish copy.
-async function lookupProduct(id: string): Promise<ProductLookup> {
+//
+// Wrapped in React's cache() because Next's own fetch memoization opts out
+// whenever a `signal` is present (see next/dist/server/lib/dedupe-fetch.js) —
+// without this, generateMetadata below and the page body each fired their
+// own real request to the API for the same render, despite the comment that
+// used to live on generateMetadata claiming otherwise.
+const lookupProduct = cache(async (id: string): Promise<ProductLookup> => {
   try {
     const response = await fetch(
       `${API_URL}/products/${encodeURIComponent(id)}`,
@@ -35,7 +42,7 @@ async function lookupProduct(id: string): Promise<ProductLookup> {
     // to the client query so the visitor gets the retryable error state.
     return { status: "unavailable" };
   }
-}
+});
 
 // `.length`/`.slice()` count UTF-16 code units, not visible characters: a
 // cut that lands inside a surrogate pair (an emoji outside the BMP) or a ZWJ
@@ -61,7 +68,7 @@ export function truncateDescription(
 
 // Item 11: dynamic metadata — the listing's own title/description in the
 // tags crawlers and link previews read. Shares the server-side lookup with
-// the page render (Next dedupes identical fetches within one request).
+// the page render via the cache() wrapper above.
 export async function generateMetadata({
   params,
 }: {

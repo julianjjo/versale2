@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import {
@@ -17,7 +18,12 @@ type SellerLookup =
 // anonymous server-side probe is exactly as valid as the client's own
 // authenticated refetch, unlike a product listing (which can show more to
 // its own seller or an admin).
-async function lookupSeller(id: string): Promise<SellerLookup> {
+//
+// Wrapped in React's cache() because Next's own fetch memoization opts out
+// whenever a `signal` is present (see next/dist/server/lib/dedupe-fetch.js) —
+// without this, generateMetadata and the page body below each fire their own
+// real request to the API for the same render.
+const lookupSeller = cache(async (id: string): Promise<SellerLookup> => {
   try {
     const response = await fetch(
       `${API_URL}/products/sellers/${encodeURIComponent(id)}`,
@@ -33,7 +39,7 @@ async function lookupSeller(id: string): Promise<SellerLookup> {
   } catch {
     return { status: "unavailable" };
   }
-}
+});
 
 // Every seller profile used to inherit the root layout's generic
 // title/description — crawlers indexed every one identically, and sharing a

@@ -135,7 +135,12 @@ export async function createBuyer(
 ): Promise<{ token: string; email: string; password: string }> {
   const email = `buyer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@e2e.test`;
   const res = await request.post(`${API_URL}/auth/signup`, {
-    data: { email, name: "Comprador E2E", password: E2E_BUYER_PASSWORD },
+    data: {
+      email,
+      name: "Comprador E2E",
+      password: E2E_BUYER_PASSWORD,
+      acceptedTerms: true,
+    },
   });
   if (!res.ok()) {
     throw new Error(
