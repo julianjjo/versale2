@@ -214,8 +214,8 @@ the default border, replacing it with the soft shadow.
 - Hover: card translates -4px, image scales 1.05 over 600ms.
 - Top-left tag: 5px 10px pill, 10px uppercase, weight 600. Variants:
   `new` (terracotta bg / paper text) and `sale` (ink bg / paper text).
-- Top-right heart: 36px round, `--color-paper`/95% bg, transitions to
-  `bg-white` + `scale 1.1` on hover.
+- Top-right heart: 44px round (touch-target minimum), `--color-paper`/95%
+  bg, transitions to `bg-white` + `scale 1.1` on hover.
 - Meta: name (14px / 500), brand (11px uppercase, letter-spacing `.08em`,
   color `--color-muted`), price in Fraunces 18px, optional strike-through
   in `--color-muted-3` 13px.
