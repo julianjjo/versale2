@@ -29,7 +29,8 @@ test.describe("Autenticación", () => {
 
     await page.getByLabel("Nombre").fill("Signup Test");
     await page.getByLabel("Correo electrónico").fill(email);
-    await page.getByLabel("Contraseña").fill("password123");
+    // No "password123": la API ahora rechaza contraseñas comunes en signup.
+    await page.getByLabel("Contraseña").fill("segura12345");
     // Item 8: el consentimiento (18+ + términos) es obligatorio.
     await page.getByLabel(/mayor de 18 años/i).check();
     // Scope to the form's submit button (avoids matching the header "Crear cuenta" button).
@@ -46,7 +47,8 @@ test.describe("Autenticación", () => {
     await page.goto("/signup");
     await page.getByLabel("Nombre").fill("Existing");
     await page.getByLabel("Correo electrónico").fill("user@e2e.test");
-    await page.getByLabel("Contraseña").fill("password123");
+    // No "password123": la API ahora rechaza contraseñas comunes en signup.
+    await page.getByLabel("Contraseña").fill("segura12345");
     await page.getByLabel(/mayor de 18 años/i).check();
     await page
       .getByRole("main")

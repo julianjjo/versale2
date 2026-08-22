@@ -123,8 +123,12 @@ export async function createPurchasableProduct(
  * stamps `status: SOLD`, it permanently consumes a seeded product and breaks every
  * later test that expected it in the catalog. A test that checks out therefore
  * gets its own buyer, and its own cart.
+ *
+ * Not "password123": IsNotCommonPasswordConstraint (apps/api/src/common/
+ * password-validation.ts) rejects it at signup, same as it would for a real
+ * user — a fixture password has to actually clear the API's own rules.
  */
-export const E2E_BUYER_PASSWORD = "password123";
+export const E2E_BUYER_PASSWORD = "segura12345";
 
 export async function createBuyer(
   request: APIRequestContext,
