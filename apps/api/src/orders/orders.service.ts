@@ -993,35 +993,42 @@ export class OrdersService {
       select: { id: true, userId: true, status: true },
     });
 
-    // Promise.allSettled, not a sequential for-await: each order's own
-    // transitionStatus + notification is already independent and
-    // individually try/caught below, so nothing here depends on order N-1
-    // finishing before N starts. Run one at a time here and the sweep's
-    // wall-clock scales linearly with backlog size, badly enough that a
-    // large-enough backlog (an outage, or the sweep having been down a
-    // while) risks overlapping with the next hourly run.
-    await Promise.allSettled(
-      stale.map(async (order) => {
-        try {
-          await this.transitionStatus(order, OrderStatus.REFUNDED);
-          await this.notifySafely(() =>
-            this.notifications.create(
-              order.userId,
-              NotificationType.ORDER_STATUS_CHANGED,
-              'Tu pago fue reembolsado automáticamente: el vendedor no envió el pedido en 7 días.',
-              order.id,
-            ),
-          );
-        } catch (error) {
-          // One stale order failing (e.g. raced by an admin shipping it) must
-          // not abort the sweep over the rest.
-          this.logger.warn(
-            `No se pudo reembolsar automáticamente el pedido ${order.id}:`,
-            error,
-          );
-        }
-      }),
-    );
+    // Deliberately sequential, not Promise.allSettled: transitionStatus's
+    // releasesGarments branch opens a real $transaction, and this repo's
+    // actual driver (@prisma/adapter-better-sqlite3 — one physical
+    // connection) serializes EVERY transaction behind a single process-wide
+    // mutex (PrismaBetterSqlite3Adapter#mutex, acquired in startTransaction()
+    // before BEGIN and held until commit/rollback). Firing many of these at
+    // once doesn't buy real concurrency — better-sqlite3 still executes them
+    // one at a time — it only makes Prisma's own transaction-acquisition
+    // timeout (maxWait, 2s by default) start ticking for every queued order
+    // simultaneously instead of only once each order's turn actually comes
+    // up. On a large enough backlog (an outage, or the sweep having been
+    // down a while — precisely the scenario a parallel version was meant to
+    // help), that timeout ceiling gets hit for orders near the back of the
+    // queue, so a "parallel" sweep can clear FEWER orders per run than this
+    // plain sequential loop, not more. Revisit if this ever moves off SQLite
+    // to a database with real multi-connection write concurrency.
+    for (const order of stale) {
+      try {
+        await this.transitionStatus(order, OrderStatus.REFUNDED);
+        await this.notifySafely(() =>
+          this.notifications.create(
+            order.userId,
+            NotificationType.ORDER_STATUS_CHANGED,
+            'Tu pago fue reembolsado automáticamente: el vendedor no envió el pedido en 7 días.',
+            order.id,
+          ),
+        );
+      } catch (error) {
+        // One stale order failing (e.g. raced by an admin shipping it) must
+        // not abort the sweep over the rest.
+        this.logger.warn(
+          `No se pudo reembolsar automáticamente el pedido ${order.id}:`,
+          error,
+        );
+      }
+    }
     return stale.length;
   }
 
@@ -1039,33 +1046,34 @@ export class OrdersService {
       select: { id: true, userId: true, status: true },
     });
 
-    // See autoRefundUnshippedPaidOrders' own comment: each order here is
-    // independent, so there's no reason to process the backlog one at a
-    // time.
-    await Promise.allSettled(
-      expired.map(async (order) => {
-        try {
-          await this.transitionStatus(order, OrderStatus.REFUNDED);
-          await this.prisma.client.order.update({
-            where: { id: order.id },
-            data: { disputeResolvedAt: new Date() },
-          });
-          await this.notifySafely(() =>
-            this.notifications.create(
-              order.userId,
-              NotificationType.ORDER_STATUS_CHANGED,
-              'Tu disputa expiró sin resolución y se reembolsó tu pago automáticamente.',
-              order.id,
-            ),
-          );
-        } catch (error) {
-          this.logger.warn(
-            `No se pudo expirar la disputa del pedido ${order.id}:`,
-            error,
-          );
-        }
-      }),
-    );
+    // Deliberately sequential — see autoRefundUnshippedPaidOrders' own
+    // comment: every transitionStatus call here opens a real $transaction,
+    // and this repo's SQLite adapter serializes all of them behind one
+    // process-wide mutex regardless, so parallelizing this loop wouldn't
+    // buy real concurrency and risks Prisma's transaction-acquisition
+    // timeout on a large backlog instead.
+    for (const order of expired) {
+      try {
+        await this.transitionStatus(order, OrderStatus.REFUNDED);
+        await this.prisma.client.order.update({
+          where: { id: order.id },
+          data: { disputeResolvedAt: new Date() },
+        });
+        await this.notifySafely(() =>
+          this.notifications.create(
+            order.userId,
+            NotificationType.ORDER_STATUS_CHANGED,
+            'Tu disputa expiró sin resolución y se reembolsó tu pago automáticamente.',
+            order.id,
+          ),
+        );
+      } catch (error) {
+        this.logger.warn(
+          `No se pudo expirar la disputa del pedido ${order.id}:`,
+          error,
+        );
+      }
+    }
     return expired.length;
   }
 
@@ -1085,31 +1093,32 @@ export class OrdersService {
       select: { id: true, userId: true, status: true },
     });
 
-    // See autoRefundUnshippedPaidOrders' own comment: each order here is
-    // independent, so there's no reason to process the backlog one at a
-    // time.
-    await Promise.allSettled(
-      stale.map(async (order) => {
-        try {
-          await this.transitionStatus(order, OrderStatus.CANCELLED);
-          await this.notifySafely(() =>
-            this.notifications.create(
-              order.userId,
-              NotificationType.ORDER_CANCELLED,
-              'Tu pedido se canceló automáticamente por falta de confirmación de pago. El producto volvió a estar disponible.',
-              order.id,
-            ),
-          );
-        } catch (error) {
-          // One stale order failing (e.g. raced by the buyer paying it) must
-          // not abort the sweep over the rest.
-          this.logger.warn(
-            `No se pudo cancelar automáticamente el pedido pendiente ${order.id}:`,
-            error,
-          );
-        }
-      }),
-    );
+    // Deliberately sequential — see autoRefundUnshippedPaidOrders' own
+    // comment: every transitionStatus call here opens a real $transaction,
+    // and this repo's SQLite adapter serializes all of them behind one
+    // process-wide mutex regardless, so parallelizing this loop wouldn't
+    // buy real concurrency and risks Prisma's transaction-acquisition
+    // timeout on a large backlog instead.
+    for (const order of stale) {
+      try {
+        await this.transitionStatus(order, OrderStatus.CANCELLED);
+        await this.notifySafely(() =>
+          this.notifications.create(
+            order.userId,
+            NotificationType.ORDER_CANCELLED,
+            'Tu pedido se canceló automáticamente por falta de confirmación de pago. El producto volvió a estar disponible.',
+            order.id,
+          ),
+        );
+      } catch (error) {
+        // One stale order failing (e.g. raced by the buyer paying it) must
+        // not abort the sweep over the rest.
+        this.logger.warn(
+          `No se pudo cancelar automáticamente el pedido pendiente ${order.id}:`,
+          error,
+        );
+      }
+    }
     return stale.length;
   }
 
