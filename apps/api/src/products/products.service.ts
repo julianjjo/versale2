@@ -639,24 +639,55 @@ export class ProductsService {
       role !== Role.ADMIN &&
       this.hasModeratedChanges(product, updateProductDto);
 
+    // Every CartItem snapshots the price it was added at (priceAtAdd) and
+    // checkout charges that snapshot, not the live product row — intentional,
+    // so a seller can't silently raise the price on someone mid-checkout. But
+    // that snapshot has no expiry: if the price actually changes (whether a
+    // seller's edit forces re-review below, or an admin edits it directly),
+    // any cart already holding this product still charges the old price once
+    // checkout reopens, even after a moderator has approved a *different*
+    // price. The snapshot was never re-validated against what was actually
+    // approved, so it has to be dropped the moment the real price moves —
+    // the buyer just re-adds it at the current price the next time they look.
+    const priceChanged =
+      updateProductDto.price !== undefined &&
+      updateProductDto.price !== product.price;
+
     try {
       const { images, ...updateData } = updateProductDto;
-      return await this.prisma.client.product.update({
-        where: {
-          id,
-          ...(role !== Role.ADMIN ? { status: ProductStatus.AVAILABLE } : {}),
-        },
-        data: {
-          ...updateData,
-          // Plain objects: Prisma's InputJsonValue rejects class instances.
-          ...(images !== undefined
-            ? { images: images.map((img) => ({ url: img.url, alt: img.alt })) }
-            : {}),
-          ...(needsReview
-            ? { isApproved: false, rejectedAt: null, rejectionReason: null }
-            : {}),
-        },
-        include: { seller: { select: { id: true, name: true } } },
+      // Both writes in one transaction: without it, a failure in the second
+      // (cartItem.deleteMany) would leave the price change already committed
+      // with the stale CartItem never cleared — silently reopening the exact
+      // gap this fix exists to close, instead of rolling back cleanly.
+      return await this.prisma.client.$transaction(async (tx) => {
+        const updated = await tx.product.update({
+          where: {
+            id,
+            ...(role !== Role.ADMIN ? { status: ProductStatus.AVAILABLE } : {}),
+          },
+          data: {
+            ...updateData,
+            // Plain objects: Prisma's InputJsonValue rejects class instances.
+            ...(images !== undefined
+              ? {
+                  images: images.map((img) => ({
+                    url: img.url,
+                    alt: img.alt,
+                  })),
+                }
+              : {}),
+            ...(needsReview
+              ? { isApproved: false, rejectedAt: null, rejectionReason: null }
+              : {}),
+          },
+          include: { seller: { select: { id: true, name: true } } },
+        });
+
+        if (priceChanged) {
+          await tx.cartItem.deleteMany({ where: { productId: id } });
+        }
+
+        return updated;
       });
     } catch (error) {
       translatePrismaError(error, {

@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AuthService } from '../auth.service';
+import { AuthService, TIMING_SAFE_DUMMY_HASH } from '../auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
@@ -274,6 +274,27 @@ describe('AuthService', () => {
       );
     });
 
+    // Regression: without this dummy compare(), "no such account" returned
+    // after a single indexed SELECT while "wrong password" additionally paid
+    // bcrypt's cost-10 compare — a timing gap reliable enough to enumerate
+    // registered emails, the exact oracle forgotPassword() is already
+    // deliberately hardened against.
+    it('should still run a bcrypt compare when the email is not registered, to keep response timing comparable to a wrong password', async () => {
+      const email = 'nobody@example.com';
+      const password = 'password123';
+
+      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
+      const compareSpy = (
+        jest.spyOn(bcrypt, 'compare') as unknown as jest.Mock
+      ).mockImplementation(() => Promise.resolve(false));
+
+      await expect(service.login(email, password)).rejects.toThrow(
+        UnauthorizedException,
+      );
+
+      expect(compareSpy).toHaveBeenCalledWith(password, TIMING_SAFE_DUMMY_HASH);
+    });
+
     it('should throw UnauthorizedException if password invalid', async () => {
       const email = 'test@example.com';
       const password = 'password123';
@@ -332,6 +353,24 @@ describe('AuthService', () => {
       const result = await service.validateUser('test@example.com', 'password');
 
       expect(result).toBeNull();
+    });
+
+    // Regression: this method has no caller today, but it exists for a
+    // future Passport LocalStrategy — closing the same email-enumeration
+    // timing oracle login() closes, before something actually wires this up.
+    it('should still run a bcrypt compare when the email is not registered, to keep response timing comparable to a wrong password', async () => {
+      const email = 'nobody@example.com';
+      const password = 'password123';
+
+      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
+      const compareSpy = (
+        jest.spyOn(bcrypt, 'compare') as unknown as jest.Mock
+      ).mockImplementation(() => Promise.resolve(false));
+
+      const result = await service.validateUser(email, password);
+
+      expect(result).toBeNull();
+      expect(compareSpy).toHaveBeenCalledWith(password, TIMING_SAFE_DUMMY_HASH);
     });
 
     it('should return null if password invalid', async () => {

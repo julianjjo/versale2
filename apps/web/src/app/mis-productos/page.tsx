@@ -834,6 +834,7 @@ function MisProductosList() {
             }
             disabled={update.isPending}
             required
+            maxLength={120}
           />
           <Textarea
             label="Descripción"
@@ -844,11 +845,13 @@ function MisProductosList() {
             rows={4}
             disabled={update.isPending}
             required
+            maxLength={2000}
           />
           <Input
             label="Precio (COP)"
             type="number"
             min="1"
+            max={100_000_000}
             step="1"
             value={editForm.price}
             onChange={(e) =>

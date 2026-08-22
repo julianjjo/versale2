@@ -142,12 +142,6 @@ describe('CartService', () => {
       const productId = 'product1';
       const quantity = 1;
 
-      const mockCart = {
-        id: 'cart1',
-        userId,
-        items: [],
-      };
-
       const mockProduct = {
         id: productId,
         title: 'Test Product',
@@ -161,9 +155,7 @@ describe('CartService', () => {
         status: 'AVAILABLE' as const,
       };
 
-      const getCartSpy = jest
-        .spyOn(service, 'getCart')
-        .mockResolvedValue(mockCart as any);
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
       mockProductsService.findRaw.mockResolvedValue(mockProduct);
       mockPrismaService.client.cartItem.upsert.mockResolvedValue({
         id: 'item1',
@@ -175,7 +167,15 @@ describe('CartService', () => {
 
       const result = await service.addItem(userId, productId, quantity);
 
-      expect(getCartSpy).toHaveBeenCalledWith(userId);
+      // Only cart.id is needed here — a plain select, not getCart's own deep
+      // product+seller include, which every add/update/remove used to pay
+      // for just to compare one string.
+      expect(mockPrismaService.client.cart.upsert).toHaveBeenCalledWith({
+        where: { userId },
+        update: {},
+        create: { userId },
+        select: { id: true },
+      });
       expect(mockProductsService.findRaw).toHaveBeenCalledWith(productId);
       expect(mockPrismaService.client.cartItem.upsert).toHaveBeenCalledWith({
         where: { cartId_productId: { cartId: 'cart1', productId } },
@@ -207,9 +207,7 @@ describe('CartService', () => {
       const userId = 'user1';
       const productId = 'product1';
 
-      jest
-        .spyOn(service, 'getCart')
-        .mockResolvedValue({ id: 'cart1', userId, items: [] } as any);
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
       mockProductsService.findRaw.mockResolvedValue({
         id: productId,
         title: 'Test Product',
@@ -232,9 +230,7 @@ describe('CartService', () => {
       const userId = 'user1';
       const productId = 'product1';
 
-      jest
-        .spyOn(service, 'getCart')
-        .mockResolvedValue({ id: 'cart1', userId, items: [] } as any);
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
       mockProductsService.findRaw.mockResolvedValue({
         id: productId,
         title: 'Test Product',
@@ -264,12 +260,6 @@ describe('CartService', () => {
       const productId = 'product1';
       const quantity = 1;
 
-      const mockCart = {
-        id: 'cart1',
-        userId,
-        items: [],
-      };
-
       const mockProduct = {
         id: productId,
         title: 'Test Product',
@@ -283,9 +273,7 @@ describe('CartService', () => {
         status: 'AVAILABLE' as const,
       };
 
-      const getCartSpy = jest
-        .spyOn(service, 'getCart')
-        .mockResolvedValue(mockCart as any);
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
       mockProductsService.findRaw.mockResolvedValue(mockProduct);
 
       await expect(
@@ -297,7 +285,12 @@ describe('CartService', () => {
       await expect(
         service.addItem(userId, productId, quantity),
       ).rejects.not.toThrow(NotFoundException);
-      expect(getCartSpy).toHaveBeenCalledWith(userId);
+      expect(mockPrismaService.client.cart.upsert).toHaveBeenCalledWith({
+        where: { userId },
+        update: {},
+        create: { userId },
+        select: { id: true },
+      });
       expect(mockProductsService.findRaw).toHaveBeenCalledWith(productId);
       expect(mockProductsService.findOne).not.toHaveBeenCalled();
     });
@@ -305,12 +298,6 @@ describe('CartService', () => {
     it('should refresh the price snapshot (and keep the single unit) when the item is already in the cart', async () => {
       const userId = 'user1';
       const productId = 'product1';
-
-      const mockCart = {
-        id: 'cart1',
-        userId,
-        items: [{ id: 'item1', productId, quantity: 1 }],
-      };
 
       const mockProduct = {
         id: productId,
@@ -326,9 +313,7 @@ describe('CartService', () => {
         status: 'AVAILABLE' as const,
       };
 
-      const getCartSpy = jest
-        .spyOn(service, 'getCart')
-        .mockResolvedValue(mockCart as any);
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
       mockProductsService.findRaw.mockResolvedValue(mockProduct);
       mockPrismaService.client.cartItem.upsert.mockResolvedValue({
         id: 'item1',
@@ -340,7 +325,6 @@ describe('CartService', () => {
 
       const result = await service.addItem(userId, productId, 1);
 
-      expect(getCartSpy).toHaveBeenCalledWith(userId);
       expect(mockProductsService.findRaw).toHaveBeenCalledWith(productId);
       expect(mockPrismaService.client.cartItem.upsert).toHaveBeenCalledWith({
         where: { cartId_productId: { cartId: 'cart1', productId } },
@@ -374,12 +358,6 @@ describe('CartService', () => {
       const userId = 'user1';
       const productId = 'product1';
 
-      const mockCart = {
-        id: 'cart1',
-        userId,
-        items: [],
-      };
-
       const mockProduct = {
         id: productId,
         title: 'Test Product',
@@ -393,7 +371,7 @@ describe('CartService', () => {
         status: 'AVAILABLE' as const,
       };
 
-      jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
       mockProductsService.findRaw.mockResolvedValue(mockProduct);
 
       // Simulate the DB-level behavior of two concurrent upserts racing on
@@ -457,14 +435,7 @@ describe('CartService', () => {
       const quantity = 1;
       const userId = 'user1';
 
-      const mockCart = {
-        id: 'cart1',
-        userId,
-      };
-
-      const getCartSpy = jest
-        .spyOn(service, 'getCart')
-        .mockResolvedValue(mockCart as any);
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue({
         id: cartItemId,
         cartId: 'cart1',
@@ -473,7 +444,14 @@ describe('CartService', () => {
 
       await service.updateItem(cartItemId, quantity, userId);
 
-      expect(getCartSpy).toHaveBeenCalledWith(userId);
+      // Only cart.id is needed for the ownership check, not getCart's own
+      // deep product+seller include.
+      expect(mockPrismaService.client.cart.upsert).toHaveBeenCalledWith({
+        where: { userId },
+        update: {},
+        create: { userId },
+        select: { id: true },
+      });
       expect(mockPrismaService.client.cartItem.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: cartItemId },
@@ -492,12 +470,7 @@ describe('CartService', () => {
       const quantity = 1;
       const userId = 'user1';
 
-      const mockCart = {
-        id: 'cart1',
-        userId,
-      };
-
-      jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue(null);
 
       await expect(
@@ -510,12 +483,8 @@ describe('CartService', () => {
       const quantity = 1;
       const userId = 'user1';
 
-      const mockCart = {
-        id: 'cart2', // different cart id
-        userId,
-      };
-
-      jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
+      // Different cart id than the item's own cartId below.
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart2' });
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue({
         id: cartItemId,
         cartId: 'cart1', // item belongs to cart1
@@ -535,14 +504,7 @@ describe('CartService', () => {
       const cartItemId = 'item1';
       const userId = 'user1';
 
-      const mockCart = {
-        id: 'cart1',
-        userId,
-      };
-
-      const getCartSpy = jest
-        .spyOn(service, 'getCart')
-        .mockResolvedValue(mockCart as any);
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue({
         id: cartItemId,
         cartId: 'cart1',
@@ -551,7 +513,12 @@ describe('CartService', () => {
 
       await service.removeItem(cartItemId, userId);
 
-      expect(getCartSpy).toHaveBeenCalledWith(userId);
+      expect(mockPrismaService.client.cart.upsert).toHaveBeenCalledWith({
+        where: { userId },
+        update: {},
+        create: { userId },
+        select: { id: true },
+      });
       expect(mockPrismaService.client.cartItem.delete).toHaveBeenCalledWith({
         where: { id: cartItemId },
       });
@@ -561,12 +528,7 @@ describe('CartService', () => {
       const cartItemId = 'item1';
       const userId = 'user1';
 
-      const mockCart = {
-        id: 'cart1',
-        userId,
-      };
-
-      jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue(null);
 
       await expect(service.removeItem(cartItemId, userId)).rejects.toThrow(
@@ -578,12 +540,8 @@ describe('CartService', () => {
       const cartItemId = 'item1';
       const userId = 'user1';
 
-      const mockCart = {
-        id: 'cart2', // different cart id
-        userId,
-      };
-
-      jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
+      // Different cart id than the item's own cartId below.
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart2' });
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue({
         id: cartItemId,
         cartId: 'cart1', // item belongs to cart1
@@ -600,18 +558,16 @@ describe('CartService', () => {
     it('should clear all items from cart', async () => {
       const userId = 'user1';
 
-      const mockCart = {
-        id: 'cart1',
-        userId,
-      };
-
-      const getCartSpy = jest
-        .spyOn(service, 'getCart')
-        .mockResolvedValue(mockCart as any);
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
 
       await service.clearCart(userId);
 
-      expect(getCartSpy).toHaveBeenCalledWith(userId);
+      expect(mockPrismaService.client.cart.upsert).toHaveBeenCalledWith({
+        where: { userId },
+        update: {},
+        create: { userId },
+        select: { id: true },
+      });
       expect(mockPrismaService.client.cartItem.deleteMany).toHaveBeenCalledWith(
         {
           where: { cartId: 'cart1' },

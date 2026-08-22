@@ -109,6 +109,16 @@ model Product {
   // without it, sorting by price degrades to an in-memory sort over every
   // approved/unsold/unpaused row as the catalog grows.
   @@index([isApproved, status, pausedAt, price])
+  // findAll()'s category/size/condition filters are equality matches applied
+  // on top of the same visibility prefix — almost every visible row shares
+  // isApproved/status/pausedAt, so without these the existing indexes above
+  // only narrow the scan to "the whole catalog" and each filter still walks
+  // every visible row. `brand` isn't indexed here on purpose: findAll()
+  // matches it with `contains` (a substring search), which a plain index
+  // can't accelerate in SQLite anyway.
+  @@index([isApproved, status, pausedAt, category])
+  @@index([isApproved, status, pausedAt, size])
+  @@index([isApproved, status, pausedAt, condition])
   // Admin moderation queue buckets on isApproved + rejectedAt.
   @@index([isApproved, rejectedAt])
   // Resolving a seller's own listings.
@@ -135,6 +145,13 @@ model CartItem {
   priceAtAdd    Float
 
   @@unique([cartId, productId])
+  // products.service.ts#update() deletes stale cart snapshots by productId
+  // alone whenever a price actually changes — the @@unique above is keyed on
+  // [cartId, productId] with cartId leading, so it can't serve a plain
+  // "every cart holding this product" lookup (no leftmost-prefix match).
+  // Every sibling join table that's ever queried by productId alone
+  // (OrderItem, Review, ProductQuestion) already carries this same index.
+  @@index([productId])
 }
 
 model Order {

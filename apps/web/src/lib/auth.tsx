@@ -92,10 +92,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         (p) => path === p || path.startsWith(`${p}/`),
       );
       if (!isPublic) {
-        router.push("/login");
+        // Same `next`/`reason` shape loginRedirectUrl already uses elsewhere
+        // (favoriting, reviewing) — without them this bounced the visitor to
+        // a bare /login with no explanation and no way back to what they
+        // were doing (e.g. mid-checkout on /cart).
+        router.push(
+          `/login?next=${encodeURIComponent(path)}&reason=expired`,
+        );
       }
     });
   }, [router, clearAuthState]);
+
+  // A logout (or token expiry) in ANOTHER tab must not leave this tab
+  // believing it's still signed in: without this, a stale tab keeps
+  // rendering account-only UI and will only discover the session is gone
+  // when its next request 401s — by then whatever the visitor was doing here
+  // (e.g. filling out /cart's shipping address) is lost with no warning.
+  useEffect(() => {
+    return tokenStore.subscribe(() => {
+      if (!tokenStore.get()) clearAuthState();
+    });
+  }, [clearAuthState]);
 
   // Shared by login() and signup(): drops any queries cached under the
   // previous (possibly anonymous or different-user) session before adopting

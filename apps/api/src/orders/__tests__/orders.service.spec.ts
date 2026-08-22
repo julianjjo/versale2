@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { OrdersService } from '../orders.service';
+import { OrdersService, MAX_PENDING_ORDERS_PER_BUYER } from '../orders.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   NotFoundException,
@@ -57,6 +57,7 @@ describe('OrdersService', () => {
     order: {
       create: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(),
     },
     orderItem: {
       findMany: jest.fn(),
@@ -100,6 +101,10 @@ describe('OrdersService', () => {
     }).compile();
 
     service = module.get<OrdersService>(OrdersService);
+    // Sane default for every createOrder test below: no pending orders
+    // already on file, so the new MAX_PENDING_ORDERS_PER_BUYER guard never
+    // trips unless a test deliberately sets it otherwise.
+    mockTx.order.count.mockResolvedValue(0);
   });
 
   afterEach(() => {
@@ -195,6 +200,45 @@ describe('OrdersService', () => {
         where: { cartId: 'cart1' },
       });
       expect(result).toEqual(mockOrder);
+    });
+
+    // Regression: with no payment gateway, an order is free to create and
+    // instantly locks its items as SOLD — without this cap a buyer who never
+    // pays could repeat cart+checkout against arbitrarily many listings and
+    // take the whole catalog off the market for a day at a time, for free.
+    it('should refuse to create another order once the buyer already has too many pending', async () => {
+      const userId = 'user1';
+      mockTx.cart.findUnique.mockResolvedValue({
+        id: 'cart1',
+        userId,
+        items: [
+          {
+            id: 'item1',
+            productId: 'product1',
+            quantity: 1,
+            priceAtAdd: 10.0,
+            product: {
+              id: 'product1',
+              title: 'Product 1',
+              isApproved: true,
+              status: 'AVAILABLE' as const,
+              price: 10.0,
+              sellerId: 'sellerA',
+            },
+          },
+        ],
+      });
+      mockTx.order.count.mockResolvedValue(MAX_PENDING_ORDERS_PER_BUYER);
+
+      await expect(service.createOrder(userId, createOrderDto)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(mockTx.order.count).toHaveBeenCalledWith({
+        where: { userId, status: OrderStatus.PENDING },
+      });
+      expect(mockTx.order.create).not.toHaveBeenCalled();
+      expect(mockTx.product.updateMany).not.toHaveBeenCalled();
     });
 
     it('should mark every purchased product as sold inside the same transaction', async () => {
@@ -1903,6 +1947,26 @@ describe('OrdersService', () => {
         await expect(
           service.openDispute('buyer1', orderId, dto),
         ).rejects.toThrow(ConflictException);
+      });
+
+      // Regression: the disputedAt check above only sees a snapshot read
+      // before this write — a second submission racing in that gap (a
+      // double-click, two tabs) still reaches the CAS update, which then
+      // matches no row (the first writer already flipped the status away
+      // from DELIVERED) and Prisma throws P2025. Without translating it, the
+      // race's loser got an unhandled 500 instead of the same Spanish
+      // conflict message the disputedAt check itself throws.
+      it('traduce la carrera de una segunda disputa concurrente al mismo mensaje de conflicto', async () => {
+        mockDeliveredOrder(hoursAgo(2));
+        mockPrismaService.client.order.update.mockRejectedValue(
+          staleStatusError(),
+        );
+
+        await expect(
+          service.openDispute('buyer1', orderId, dto),
+        ).rejects.toThrow(
+          'Este pedido ya tuvo una disputa; no se pueden abrir más',
+        );
       });
 
       it('rechaza una disputa sin fotos (fotos obligatorias)', async () => {

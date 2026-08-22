@@ -440,11 +440,16 @@ export function ProductDetail({
         <div className="space-y-4">
           <div>
             <div className="flex items-start justify-between gap-3">
-              <div>
+              {/* min-w-0 overrides a flex item's default min-width: auto,
+                  which otherwise refuses to shrink below its content's
+                  natural width — without it, a long unbroken title (no
+                  spaces to wrap on) pushes past this row and collides with
+                  the Share/Favorite buttons instead of wrapping. */}
+              <div className="min-w-0">
                 <p className="text-eyebrow">
                   {data.brand ? data.brand : "Versale"}
                 </p>
-                <h1 className="heading-section mt-1 text-text-primary">
+                <h1 className="heading-section mt-1 break-words text-text-primary">
                   {data.title}
                 </h1>
               </div>
