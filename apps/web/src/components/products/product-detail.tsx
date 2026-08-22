@@ -432,7 +432,7 @@ export function ProductDetail({
             ProductGallery's own doc comment for why that reconciliation
             problem doesn't have a good answer. */}
         <ProductGallery
-          key={`${id}:${(data.images ?? []).join("|")}`}
+          key={`${id}:${(data.images ?? []).map((img) => img.url).join("|")}`}
           images={data.images ?? []}
           title={data.title}
         />
@@ -484,6 +484,29 @@ export function ProductDetail({
           <p className="whitespace-pre-line text-sm leading-relaxed text-text-primary">
             {data.description}
           </p>
+
+          {/* Item 4: seller-curated measurements/defects. Hidden entirely when
+              absent — an empty section reads as a bug, not as transparency. */}
+          {data.measurements && (
+            <div className="rounded-lg border border-border bg-surface-muted p-4">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Medidas
+              </h2>
+              <p className="mt-1 whitespace-pre-line text-sm text-text-primary">
+                {data.measurements}
+              </p>
+            </div>
+          )}
+          {data.defects && (
+            <div className="rounded-lg border border-border bg-surface-muted p-4">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Defectos
+              </h2>
+              <p className="mt-1 whitespace-pre-line text-sm text-text-primary">
+                {data.defects}
+              </p>
+            </div>
+          )}
 
           <Divider />
 

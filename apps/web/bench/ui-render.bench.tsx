@@ -84,7 +84,7 @@ describe("product grid", () => {
         {products.map((product) => (
           <Card key={product.id} as="article">
             {product.images?.[0] && (
-              <img src={product.images[0]} alt={product.title} />
+              <img src={product.images[0].url} alt={product.title} />
             )}
             <h3>{product.title}</h3>
             {product.brand && <p>{product.brand}</p>}

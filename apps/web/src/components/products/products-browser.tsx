@@ -490,7 +490,7 @@ export function ProductCard({
         <div className="relative aspect-[3/4] overflow-hidden rounded-[14px] bg-paper-3">
           {product.images?.[0] ? (
             <img
-              src={product.images[0]}
+              src={product.images[0].url}
               alt={product.title}
               loading="lazy"
               decoding="async"

@@ -541,7 +541,7 @@ function CartItemRow({
         <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
           {item.product?.images?.[0] ? (
             <img
-              src={item.product.images[0]}
+              src={item.product.images[0].url}
               alt={item.product.title}
               loading="lazy"
               decoding="async"

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Modal } from "../ui/modal";
+import type { ProductImage } from "@/lib/types";
 
 // Selection lives here, not in ProductDetail: the caller remounts this
 // component (via a `key` covering both the product id and the images
@@ -15,21 +17,21 @@ export function ProductGallery({
   images,
   title,
 }: {
-  images: string[];
+  images: ProductImage[];
   title: string;
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [zoomOpen, setZoomOpen] = useState(false);
   const activeImage = images[selectedIndex];
+  // The listing title is the fallback alt when a photo somehow lacks one; the
+  // API requires alt now, so this only shields legacy rows mid-migration.
+  const activeAlt = activeImage?.alt || title;
 
   return (
     <div className="space-y-2">
       <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-muted">
         {activeImage ? (
-          <img
-            src={activeImage}
-            alt={title}
-            className="h-full w-full object-cover"
-          />
+          <img src={activeImage.url} alt={activeAlt} className="h-full w-full object-cover" />
         ) : (
           <span className="text-sm text-text-muted">Sin imagen</span>
         )}
@@ -43,11 +45,20 @@ export function ProductGallery({
           ? `Foto ${selectedIndex + 1} de ${images.length}`
           : ""}
       </div>
+      {activeImage && (
+        <button
+          type="button"
+          onClick={() => setZoomOpen(true)}
+          className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+        >
+          Ampliar imagen
+        </button>
+      )}
       {images.length > 1 && (
         <div className="grid grid-cols-4 gap-2">
           {images.map((img, idx) => (
             <button
-              key={idx}
+              key={img.url}
               type="button"
               onClick={() => setSelectedIndex(idx)}
               aria-current={idx === selectedIndex}
@@ -59,7 +70,7 @@ export function ProductGallery({
               }`}
             >
               <img
-                src={img}
+                src={img.url}
                 alt=""
                 loading="lazy"
                 decoding="async"
@@ -68,6 +79,17 @@ export function ProductGallery({
             </button>
           ))}
         </div>
+      )}
+      {activeImage && (
+        <Modal open={zoomOpen} onClose={() => setZoomOpen(false)} title={activeAlt}>
+          {/* Decorative inside the dialog: the modal's aria-labelledby already
+              names the content with the photo's alt text. */}
+          <img
+            src={activeImage.url}
+            alt=""
+            className="max-h-[80vh] w-full rounded-md object-contain"
+          />
+        </Modal>
       )}
     </div>
   );

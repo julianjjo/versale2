@@ -89,7 +89,7 @@ const mockProducts = {
       isApproved: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      images: ["https://example.com/jacket.jpg"],
+      images: [{ url: "https://example.com/jacket.jpg", alt: "Chaqueta de jean" }],
       seller: { id: "s1", name: "Alice" },
       _count: { reviews: 3 },
     },

@@ -203,7 +203,7 @@ export default function OrdersPage() {
                       {firstItem?.product?.images?.[0] ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={firstItem.product.images[0]}
+                          src={firstItem.product.images[0].url}
                           alt={firstItem.product.title}
                           loading="lazy"
                           decoding="async"

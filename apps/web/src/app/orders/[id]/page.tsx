@@ -244,7 +244,7 @@ export default function OrderDetailPage() {
               <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-surface-muted text-xs text-text-muted">
                 {item.product?.images?.[0] ? (
                   <img
-                    src={item.product.images[0]}
+                    src={item.product.images[0].url}
                     alt={item.product.title}
                     loading={index === 0 ? undefined : "lazy"}
                     decoding="async"
