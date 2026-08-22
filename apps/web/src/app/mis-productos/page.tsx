@@ -620,7 +620,7 @@ function MisProductosList() {
               Seleccionar todas las elegibles en esta página
             </label>
           )}
-          {products.map((product, index) => {
+          {products.map((product) => {
             // Moderation band, per the roadmap's closed state rule: a rejection
             // without a written reason reads as "En revisión" to the seller —
             // an unexplained "Rechazado" is less actionable than silence.
@@ -658,7 +658,6 @@ function MisProductosList() {
                         alt={product.title}
                         fill
                         sizes="64px"
-                        priority={index === 0}
                         className="object-cover"
                       />
                     ) : (

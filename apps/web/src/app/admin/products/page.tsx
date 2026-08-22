@@ -468,7 +468,7 @@ export default function AdminProductsPage() {
               Seleccionar todas las elegibles en esta página
             </label>
           )}
-          {products.map((product, index) => {
+          {products.map((product) => {
             const isRejected = !product.isApproved && !!product.rejectedAt;
             return (
               <Card
@@ -493,7 +493,6 @@ export default function AdminProductsPage() {
                         alt={product.title}
                         fill
                         sizes="64px"
-                        priority={index === 0}
                         className="object-cover"
                       />
                     ) : (

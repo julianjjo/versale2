@@ -441,7 +441,7 @@ export default function OrderDetailPage() {
       <Card>
         <h2 className="heading-card mb-3">Productos</h2>
         <div className="space-y-3">
-          {data.items.map((item, index) => (
+          {data.items.map((item) => (
             <div
               key={item.id}
               className="flex items-start gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
@@ -453,7 +453,6 @@ export default function OrderDetailPage() {
                     alt={item.product.title}
                     fill
                     sizes="64px"
-                    priority={index === 0}
                     className="object-cover"
                   />
                 ) : (
