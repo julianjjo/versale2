@@ -1,7 +1,13 @@
 import { Controller, Get } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import request from 'supertest';
+// `esModuleInterop` is off in apps/api, and @types/supertest uses `export =`.
+// The namespace-star form (`import * as request`) stays callable at runtime
+// but type-aware ESLint fails to resolve its type through that form, so the
+// `import = require()` form is used instead — it resolves correctly for both
+// runtime and lint, at the cost of needing one narrow rule exception below.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+import request = require('supertest');
 import {
   applySecurityHeaders,
   resolveSwaggerEnabled,
