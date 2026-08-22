@@ -67,7 +67,7 @@ export function FavoriteButton({
         disabled={toggleFavorite.isPending || isAuthLoading}
         aria-pressed={isFavorite}
         aria-label={isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
-        className={`inline-flex h-9 w-9 items-center justify-center rounded-full bg-surface/90 text-text-primary shadow-sm backdrop-blur transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+        className={`inline-flex h-11 w-11 items-center justify-center rounded-full bg-surface/90 text-text-primary shadow-sm backdrop-blur transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
       >
         <HeartIcon filled={isFavorite} />
       </button>
