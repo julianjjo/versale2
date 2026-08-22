@@ -2056,4 +2056,102 @@ describe('OrdersService', () => {
       });
     });
   });
+
+  describe('cron — timeout de pedidos PENDING abandonados', () => {
+    it('cancela pedidos PENDING más viejos que el timeout y relista las prendas', async () => {
+      mockPrismaService.client.order.findMany.mockResolvedValue([
+        { id: 'pending1', userId: 'buyer1', status: OrderStatus.PENDING },
+      ]);
+      // transitionStatus: CANCELLED también libera prendas → $transaction.
+      mockTx.order.update.mockResolvedValue({ id: 'pending1' });
+      mockTx.orderItem.findMany.mockResolvedValue([{ productId: 'prod1' }]);
+      mockTx.product.updateMany.mockResolvedValue({ count: 1 });
+
+      const cancelled = await service.autoCancelStalePendingOrders();
+
+      expect(cancelled).toBe(1);
+      // El filtro del sweep: solo PENDING cuyo createdAt venció el timeout.
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
+        where: {
+          status: OrderStatus.PENDING,
+          createdAt: { lte: anyDate() },
+        },
+        select: { id: true, userId: true, status: true },
+      });
+      const findManyMock = mockPrismaService.client.order
+        .findMany as unknown as {
+        mock: {
+          calls: Array<
+            [{ where: { createdAt: { lte: Date } }; select: string[] }]
+          >;
+        };
+      };
+      const usedCutoff = findManyMock.mock.calls[0][0].where.createdAt.lte;
+      const diffMinutes = (Date.now() - usedCutoff.getTime()) / (60 * 1000);
+      expect(diffMinutes).toBeGreaterThanOrEqual(29.9);
+      expect(diffMinutes).toBeLessThan(30.1);
+
+      expect(mockTx.order.update).toHaveBeenCalledWith(
+        objContaining({
+          where: objContaining({ id: 'pending1' }),
+          data: objContaining({ status: OrderStatus.CANCELLED }),
+        }),
+      );
+      // Cancelar devuelve la prenda al catálogo — el checkout no cobró nada
+      // real, así que un abandono no puede dejarla bloqueada para siempre.
+      expect(mockTx.product.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['prod1'] }, status: ProductStatus.SOLD },
+        data: { status: ProductStatus.AVAILABLE },
+      });
+      expect(mockNotificationsService.create).toHaveBeenCalledWith(
+        'buyer1',
+        NotificationType.ORDER_CANCELLED,
+        expect.stringMatching(/cancel.*autom/i),
+        'pending1',
+      );
+    });
+
+    it('no toca pedidos PENDING dentro del timeout', async () => {
+      mockPrismaService.client.order.findMany.mockResolvedValue([]);
+
+      const cancelled = await service.autoCancelStalePendingOrders();
+
+      expect(cancelled).toBe(0);
+      expect(mockTx.order.update).not.toHaveBeenCalled();
+    });
+
+    it('sigue el sweep aunque un pedido individual falle (p. ej. pagado justo antes)', async () => {
+      mockPrismaService.client.order.findMany.mockResolvedValue([
+        { id: 'raced', userId: 'buyer1', status: OrderStatus.PENDING },
+        { id: 'pending2', userId: 'buyer2', status: OrderStatus.PENDING },
+      ]);
+      // El primero pierde el compare-and-swap (ya no está PENDING); el
+      // segundo sí se cancela con normalidad.
+      mockTx.order.update
+        .mockRejectedValueOnce(staleStatusError())
+        .mockResolvedValueOnce({ id: 'pending2' });
+      mockTx.orderItem.findMany.mockResolvedValue([]);
+
+      const cancelled = await service.autoCancelStalePendingOrders();
+
+      expect(cancelled).toBe(2);
+      expect(mockNotificationsService.create).toHaveBeenCalledTimes(1);
+      expect(mockNotificationsService.create).toHaveBeenCalledWith(
+        'buyer2',
+        NotificationType.ORDER_CANCELLED,
+        expect.any(String),
+        'pending2',
+      );
+    });
+
+    it('el barrido hourly ejecuta el timeout de PENDING junto al de PAID/disputas', async () => {
+      mockPrismaService.client.order.findMany.mockResolvedValue([]);
+
+      await service.runOrderDeadlineSweeps();
+
+      // Los tres sweeps comparten la misma firma de consulta
+      // (status + select), así que basta con contar las llamadas.
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledTimes(3);
+    });
+  });
 });

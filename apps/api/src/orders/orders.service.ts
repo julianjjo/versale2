@@ -91,6 +91,17 @@ export const UNSHIPPED_REFUND_DAYS = 7;
 export const DISPUTE_WINDOW_HOURS = 48;
 export const DISPUTE_EXPIRY_DAYS = 30;
 
+// createOrder() stamps the garment SOLD in the same transaction that creates
+// the PENDING order, before any payment is confirmed — there is no payment
+// gateway in this codebase yet, "Pagar" just creates the order. Nothing else
+// ever moves a PENDING order forward or back, so with no timeout a single
+// abandoned checkout (closed tab, declined-in-a-future-gateway payment that
+// never gets wired back to a cancellation) locks a one-of-a-kind garment off
+// the market forever — the seller can't relist it and no other buyer can
+// ever purchase it. This mirrors UNSHIPPED_REFUND_DAYS' role for PAID orders,
+// just on a short-abandonment timescale instead of a seller-inaction one.
+export const PENDING_ORDER_TIMEOUT_MINUTES = 30;
+
 // Only these statuses represent money actually received. PENDING is an order
 // that was placed but never paid, and CANCELLED was never charged: neither is
 // revenue. This mirrors the semantics the admin dashboard used to compute
@@ -997,8 +1008,48 @@ export class OrdersService {
     return expired.length;
   }
 
+  /**
+   * Cron sweep: PENDING orders older than PENDING_ORDER_TIMEOUT_MINUTES are
+   * auto-cancelled — the checkout was abandoned (or, once a real payment
+   * gateway exists, never confirmed). Releases the garment(s) back to
+   * AVAILABLE the same way any other cancellation does. Public for direct
+   * testability. Returns how many orders were cancelled.
+   */
+  async autoCancelStalePendingOrders(): Promise<number> {
+    const cutoff = new Date(
+      Date.now() - PENDING_ORDER_TIMEOUT_MINUTES * 60 * 1000,
+    );
+    const stale = await this.prisma.client.order.findMany({
+      where: { status: OrderStatus.PENDING, createdAt: { lte: cutoff } },
+      select: { id: true, userId: true, status: true },
+    });
+
+    for (const order of stale) {
+      try {
+        await this.transitionStatus(order, OrderStatus.CANCELLED);
+        await this.notifySafely(() =>
+          this.notifications.create(
+            order.userId,
+            NotificationType.ORDER_CANCELLED,
+            'Tu pedido se canceló automáticamente por falta de confirmación de pago. El producto volvió a estar disponible.',
+            order.id,
+          ),
+        );
+      } catch (error) {
+        // One stale order failing (e.g. raced by the buyer paying it) must
+        // not abort the sweep over the rest.
+        this.logger.warn(
+          `No se pudo cancelar automáticamente el pedido pendiente ${order.id}:`,
+          error,
+        );
+      }
+    }
+    return stale.length;
+  }
+
   @Interval(60 * 60 * 1000)
   async runOrderDeadlineSweeps() {
+    await this.autoCancelStalePendingOrders();
     await this.autoRefundUnshippedPaidOrders();
     await this.autoResolveExpiredDisputes();
   }
