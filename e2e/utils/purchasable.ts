@@ -86,7 +86,7 @@ export async function createPendingProduct(
  * Creates a fresh, admin-approved product owned by the seeded author, and
  * returns it ready to be bought by the seeded `user`.
  *
- * Products are one-of-a-kind: checkout stamps `soldAt` and the item leaves the
+ * Products are one-of-a-kind: checkout stamps `status: SOLD` and the item leaves the
  * catalog for good. So a purchase test cannot reuse a shared seeded product —
  * it would pass once and then fail on the next run or on a CI retry. Each test
  * mints its own item instead.
@@ -120,7 +120,7 @@ export async function createPurchasableProduct(
  * The seeded `user` has ONE cart, and spec files run in parallel — so two tests
  * that both drive that account can interleave, and a checkout in one will sweep
  * up whatever the other just added. That used to be harmless; now that checkout
- * stamps `soldAt`, it permanently consumes a seeded product and breaks every
+ * stamps `status: SOLD`, it permanently consumes a seeded product and breaks every
  * later test that expected it in the catalog. A test that checks out therefore
  * gets its own buyer, and its own cart.
  */

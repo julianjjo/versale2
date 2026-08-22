@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { ProductsService } from '../products/products.service';
 import { MAX_ITEM_QUANTITY } from './dto/cart.dto';
+import { ProductStatus } from '@prisma/client';
 
 @Injectable()
 export class CartService {
@@ -44,12 +45,11 @@ export class CartService {
       );
     }
 
-    if (product.soldAt) {
+    if (product.status !== ProductStatus.AVAILABLE) {
       throw new BadRequestException(
         'Este producto ya fue vendido y no está disponible',
       );
     }
-
     if (product.pausedAt) {
       throw new BadRequestException(
         'El vendedor pausó este producto temporalmente y no está disponible',

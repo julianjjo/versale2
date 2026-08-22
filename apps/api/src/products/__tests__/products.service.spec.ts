@@ -9,7 +9,7 @@ import { UpdateProductDto } from '../dto/update-product.dto';
 import { Role } from '../../users/role.enum';
 
 // Simulates the error Prisma throws when `update`/`delete`'s extra `where`
-// filter (e.g. `soldAt: null`) matches no row — the shape a concurrent
+// filter (e.g. `status: "AVAILABLE" as const`) matches no row — the shape a concurrent
 // checkout would trigger between this service's read and its write.
 function notFoundError() {
   return new Prisma.PrismaClientKnownRequestError('No record found', {
@@ -102,6 +102,7 @@ describe('ProductsService', () => {
         id: 'product1',
         ...createProductDto,
         sellerId,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.create.mockResolvedValue(mockProduct);
@@ -135,6 +136,7 @@ describe('ProductsService', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         reviews: [],
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -208,6 +210,7 @@ describe('ProductsService', () => {
             helpfulVotes: [],
           },
         ],
+        status: 'AVAILABLE' as const,
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
@@ -262,6 +265,7 @@ describe('ProductsService', () => {
             helpfulVotes: [],
           },
         ],
+        status: 'AVAILABLE' as const,
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
@@ -298,6 +302,7 @@ describe('ProductsService', () => {
             helpfulVotes: [{ id: 'vote1' }],
           },
         ],
+        status: 'AVAILABLE' as const,
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
@@ -342,6 +347,7 @@ describe('ProductsService', () => {
         sellerId,
         isApproved: false,
         reviews: [],
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -363,6 +369,7 @@ describe('ProductsService', () => {
         sellerId: 'seller1',
         isApproved: false,
         reviews: [],
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -383,6 +390,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId: 'seller1',
         isApproved: false,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -406,7 +414,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId: 'seller1',
         isApproved: true,
-        soldAt: new Date(),
+        status: 'SOLD' as const,
         reviews: [],
       };
 
@@ -428,7 +436,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId: 'seller1',
         isApproved: false,
-        soldAt: new Date(),
+        status: 'SOLD' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -447,7 +455,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId,
         isApproved: true,
-        soldAt: new Date(),
+        status: 'SOLD' as const,
         reviews: [],
       };
 
@@ -469,6 +477,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId: 'seller1',
         isApproved: false,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -488,6 +497,7 @@ describe('ProductsService', () => {
         sellerId: 'seller1',
         isApproved: true,
         reviews: [],
+        status: 'AVAILABLE' as const,
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
@@ -509,6 +519,7 @@ describe('ProductsService', () => {
         sellerId: 'seller1',
         isApproved: true,
         reviews: [],
+        status: 'AVAILABLE' as const,
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
@@ -530,6 +541,7 @@ describe('ProductsService', () => {
         sellerId: 'seller1',
         isApproved: true,
         reviews: [],
+        status: 'AVAILABLE' as const,
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
@@ -553,6 +565,7 @@ describe('ProductsService', () => {
         sellerId: 'seller1',
         isApproved: true,
         reviews: [],
+        status: 'AVAILABLE' as const,
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
@@ -574,6 +587,7 @@ describe('ProductsService', () => {
         sellerId: 'seller1',
         isApproved: true,
         reviews: [],
+        status: 'AVAILABLE' as const,
       };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
         mockProduct,
@@ -604,6 +618,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId: 'seller1',
         isApproved: true,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -624,6 +639,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId: 'seller1',
         isApproved: false,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -651,7 +667,7 @@ describe('ProductsService', () => {
         title: 'Sold Jacket',
         sellerId: userId,
         isApproved: true,
-        soldAt: new Date(),
+        status: 'SOLD' as const,
       });
 
       await expect(
@@ -680,6 +696,7 @@ describe('ProductsService', () => {
         isApproved: true,
         rejectedAt: null,
         rejectionReason: null,
+        status: 'AVAILABLE' as const,
       };
 
       const updatedProduct = {
@@ -705,7 +722,7 @@ describe('ProductsService', () => {
         where: { id: productId },
       });
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId, soldAt: null },
+        where: { id: productId, status: 'AVAILABLE' as const },
         data: {
           ...updateProductDto,
           isApproved: false,
@@ -719,9 +736,9 @@ describe('ProductsService', () => {
       expect(result).toEqual(updatedProduct);
     });
 
-    // The initial `findUnique` read only drives the 404/403/soldAt checks. If a
+    // The initial `findUnique` read only drives the 404/403/status checks. If a
     // checkout claims the product after that read but before this write, the
-    // conditional `soldAt: null` filter on the update matches no row and Prisma
+    // conditional `status: "AVAILABLE" as const` filter on the update matches no row and Prisma
     // raises P2025 — this must still surface as the same "already sold" error,
     // not a raw 500.
     it('should reject a concurrent checkout that sells the product between the read and the write', async () => {
@@ -732,7 +749,7 @@ describe('ProductsService', () => {
         id: productId,
         sellerId: userId,
         isApproved: true,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.update.mockRejectedValue(
         notFoundError(),
@@ -765,6 +782,7 @@ describe('ProductsService', () => {
         isApproved: true,
         rejectedAt: null,
         rejectionReason: null,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -777,7 +795,7 @@ describe('ProductsService', () => {
       await service.update(productId, updateProductDto, userId, Role.USER);
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId, soldAt: null },
+        where: { id: productId, status: 'AVAILABLE' as const },
         data: updateProductDto,
         include: {
           seller: { select: { id: true, name: true } },
@@ -804,6 +822,7 @@ describe('ProductsService', () => {
         isApproved: false,
         rejectedAt: new Date(),
         rejectionReason: 'Descripción incompleta',
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -819,7 +838,7 @@ describe('ProductsService', () => {
       await service.update(productId, updateProductDto, userId, Role.USER);
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId, soldAt: null },
+        where: { id: productId, status: 'AVAILABLE' as const },
         data: {
           ...updateProductDto,
           isApproved: false,
@@ -853,6 +872,7 @@ describe('ProductsService', () => {
       const existingProduct = {
         id: productId,
         sellerId: userId, // different from wrongUserId
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -875,6 +895,7 @@ describe('ProductsService', () => {
         sellerId, // different from adminId
         title: 'Old Title',
         isApproved: true,
+        status: 'AVAILABLE' as const,
       };
 
       const updatedProduct = { ...existingProduct, ...updateProductDto };
@@ -917,7 +938,7 @@ describe('ProductsService', () => {
         id: 'product1',
         sellerId: 'seller1',
         isApproved: true,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
       });
 
       await expect(
@@ -931,7 +952,7 @@ describe('ProductsService', () => {
         id: 'product1',
         sellerId: 'seller1',
         isApproved: true,
-        soldAt: new Date(),
+        status: 'SOLD' as const,
       });
 
       await expect(
@@ -948,7 +969,7 @@ describe('ProductsService', () => {
         id: 'product1',
         sellerId: 'seller1',
         isApproved: false,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
       });
 
       await expect(
@@ -962,7 +983,7 @@ describe('ProductsService', () => {
         id: 'product1',
         sellerId: 'seller1',
         isApproved: true,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
       };
       const pausedProduct = { ...existingProduct, pausedAt: new Date() };
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -977,7 +998,11 @@ describe('ProductsService', () => {
       );
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: 'product1', soldAt: null, isApproved: true },
+        where: {
+          id: 'product1',
+          status: 'AVAILABLE' as const,
+          isApproved: true,
+        },
         data: { pausedAt: expect.any(Date) as Date },
         include: { seller: { select: { id: true, name: true } } },
       });
@@ -989,7 +1014,7 @@ describe('ProductsService', () => {
         id: 'product1',
         sellerId: 'seller1',
         isApproved: true,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.update.mockResolvedValue({});
 
@@ -1000,7 +1025,7 @@ describe('ProductsService', () => {
 
     // Mirrors update()/remove()'s own concurrent-checkout regression, but the
     // where-clause here also re-asserts `isApproved: true` (not just
-    // `soldAt: null`), so this P2025 can now be triggered by either a
+    // `status: "AVAILABLE" as const`), so this P2025 can now be triggered by either a
     // mid-flight sale OR a concurrent rejection/moderated-edit — the message
     // covers both instead of incorrectly claiming the product was sold.
     it('should translate a P2025 from a mid-flight sale or approval change into a single accurate error', async () => {
@@ -1008,7 +1033,7 @@ describe('ProductsService', () => {
         id: 'product1',
         sellerId: 'seller1',
         isApproved: true,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.update.mockRejectedValue(
         notFoundError(),
@@ -1036,7 +1061,7 @@ describe('ProductsService', () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: 'product1',
         sellerId: 'seller1',
-        soldAt: null,
+        status: 'AVAILABLE' as const,
         pausedAt: new Date(),
       });
 
@@ -1050,7 +1075,7 @@ describe('ProductsService', () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: 'product1',
         sellerId: 'seller1',
-        soldAt: new Date(),
+        status: 'SOLD' as const,
         pausedAt: new Date(),
       });
 
@@ -1069,7 +1094,7 @@ describe('ProductsService', () => {
         id: 'product1',
         sellerId: 'seller1',
         isApproved: false,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
         pausedAt: new Date(),
       };
       const unpausedProduct = { ...existingProduct, pausedAt: null };
@@ -1087,7 +1112,7 @@ describe('ProductsService', () => {
       );
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: 'product1', soldAt: null },
+        where: { id: 'product1', status: 'AVAILABLE' as const },
         data: { pausedAt: null },
         include: { seller: { select: { id: true, name: true } } },
       });
@@ -1099,7 +1124,7 @@ describe('ProductsService', () => {
         id: 'product1',
         sellerId: 'seller1',
         isApproved: true,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
         pausedAt: new Date(),
       });
       mockPrismaService.client.product.update.mockResolvedValue({});
@@ -1113,7 +1138,7 @@ describe('ProductsService', () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: 'product1',
         sellerId: 'seller1',
-        soldAt: null,
+        status: 'AVAILABLE' as const,
         pausedAt: new Date(),
       });
       mockPrismaService.client.product.update.mockRejectedValue(
@@ -1141,7 +1166,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith({
         where: {
           id: { in: ['product1', 'product2'] },
-          soldAt: null,
+          status: 'AVAILABLE' as const,
           isApproved: true,
           pausedAt: null,
           sellerId: 'seller1',
@@ -1233,7 +1258,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.updateMany).toHaveBeenCalledWith({
         where: {
           id: { in: ['product1', 'product2'] },
-          soldAt: null,
+          status: 'AVAILABLE' as const,
           pausedAt: { not: null },
           sellerId: 'seller1',
         },
@@ -1314,7 +1339,7 @@ describe('ProductsService', () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
         sellerId: 'seller1',
-        soldAt: new Date(),
+        status: 'SOLD' as const,
       });
 
       await expect(
@@ -1324,8 +1349,8 @@ describe('ProductsService', () => {
     });
 
     // Mirrors the update() regression above: the initial read only drives the
-    // 404/403/soldAt checks, so a checkout that claims the product afterward
-    // makes the conditional `soldAt: null` delete match no row. Prisma raises
+    // 404/403/status checks, so a checkout that claims the product afterward
+    // makes the conditional `status: "AVAILABLE" as const` delete match no row. Prisma raises
     // P2025 for that, and it must still read as the same "already sold" error
     // instead of an unhandled exception.
     it('should reject a concurrent checkout that sells the product between the read and the delete', async () => {
@@ -1335,7 +1360,7 @@ describe('ProductsService', () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
         sellerId: userId,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.delete.mockRejectedValue(
         notFoundError(),
@@ -1347,8 +1372,8 @@ describe('ProductsService', () => {
     });
 
     // A CartItem, Review, or an OrderItem from a CANCELLED order (which clears
-    // `soldAt` back to null) can still hold a RESTRICT foreign key to the
-    // product even though the `soldAt` guard above sees it as "free". Without
+    // relisted AVAILABLE) can still hold a RESTRICT foreign key to the
+    // product even though the `status` guard above sees it as "free". Without
     // catching P2003 that reached the admin as a raw 500.
     it('should refuse to delete a product still referenced by a cart, review, or cancelled order, instead of failing at the FK', async () => {
       const productId = 'product1';
@@ -1357,7 +1382,7 @@ describe('ProductsService', () => {
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
         sellerId: userId,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.delete.mockRejectedValue(
         foreignKeyViolationError(),
@@ -1377,6 +1402,7 @@ describe('ProductsService', () => {
       const existingProduct = {
         id: productId,
         sellerId: userId, // same as userId
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -1392,7 +1418,7 @@ describe('ProductsService', () => {
         where: { id: productId },
       });
       expect(mockPrismaService.client.product.delete).toHaveBeenCalledWith({
-        where: { id: productId, soldAt: null },
+        where: { id: productId, status: 'AVAILABLE' as const },
       });
       expect(result).toEqual(existingProduct);
     });
@@ -1416,6 +1442,7 @@ describe('ProductsService', () => {
       const existingProduct = {
         id: productId,
         sellerId: userId, // different from wrongUserId
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -1435,6 +1462,7 @@ describe('ProductsService', () => {
       const existingProduct = {
         id: productId,
         sellerId, // different from adminId
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue(
@@ -1447,7 +1475,7 @@ describe('ProductsService', () => {
       const result = await service.remove(productId, adminId, Role.ADMIN);
 
       expect(mockPrismaService.client.product.delete).toHaveBeenCalledWith({
-        where: { id: productId, soldAt: null },
+        where: { id: productId, status: 'AVAILABLE' as const },
       });
       expect(result).toEqual(existingProduct);
     });
@@ -1608,7 +1636,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith({
         where: {
           isApproved: true,
-          soldAt: null,
+          status: 'AVAILABLE' as const,
           pausedAt: null,
           OR: [
             { title: { contains: 'test' } },
@@ -1631,7 +1659,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
         where: {
           isApproved: true,
-          soldAt: null,
+          status: 'AVAILABLE' as const,
           pausedAt: null,
           OR: [
             { title: { contains: 'test' } },
@@ -1718,7 +1746,7 @@ describe('ProductsService', () => {
         expect.objectContaining({
           where: {
             isApproved: true,
-            soldAt: null,
+            status: 'AVAILABLE' as const,
             pausedAt: null,
             category: 'Jackets',
           },
@@ -1727,7 +1755,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
         where: {
           isApproved: true,
-          soldAt: null,
+          status: 'AVAILABLE' as const,
           pausedAt: null,
           category: 'Jackets',
         },
@@ -1830,7 +1858,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith({
         where: {
           isApproved: true,
-          soldAt: null,
+          status: 'AVAILABLE' as const,
           pausedAt: null,
           price: { gte: 10000, lte: 50000 },
         },
@@ -1853,7 +1881,7 @@ describe('ProductsService', () => {
         expect.objectContaining({
           where: {
             isApproved: true,
-            soldAt: null,
+            status: 'AVAILABLE' as const,
             pausedAt: null,
             sellerId: 'seller1',
           },
@@ -1862,7 +1890,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.count).toHaveBeenCalledWith({
         where: {
           isApproved: true,
-          soldAt: null,
+          status: 'AVAILABLE' as const,
           pausedAt: null,
           sellerId: 'seller1',
         },
@@ -1876,9 +1904,9 @@ describe('ProductsService', () => {
       await service.findAll({ sellerId: 'seller1' });
 
       const [[{ where }]] = mockPrismaService.client.product.findMany.mock
-        .calls as [[{ where: { isApproved: boolean; soldAt: unknown } }]];
+        .calls as [[{ where: { isApproved: boolean; status: unknown } }]];
       expect(where.isApproved).toBe(true);
-      expect(where.soldAt).toBeNull();
+      expect(where.status).toBe('AVAILABLE');
     });
 
     it('should AND sellerId with a search term rather than folding it into the search OR clause', async () => {
@@ -1891,7 +1919,7 @@ describe('ProductsService', () => {
         expect.objectContaining({
           where: {
             isApproved: true,
-            soldAt: null,
+            status: 'AVAILABLE' as const,
             pausedAt: null,
             sellerId: 'seller1',
             OR: [
@@ -1948,7 +1976,7 @@ describe('ProductsService', () => {
         expect.objectContaining({
           where: expect.objectContaining({
             isApproved: true,
-            soldAt: null,
+            status: 'AVAILABLE' as const,
             pausedAt: null,
           }) as Record<string, unknown>,
         }),
@@ -2158,7 +2186,7 @@ describe('ProductsService', () => {
         where: {
           category: 'Jackets',
           isApproved: true,
-          soldAt: null,
+          status: 'AVAILABLE' as const,
           pausedAt: null,
           id: { not: 'p1' },
         },
@@ -2239,7 +2267,7 @@ describe('ProductsService', () => {
         {
           where: {
             isApproved: true,
-            soldAt: null,
+            status: 'AVAILABLE' as const,
             pausedAt: null,
             brand: { not: null },
           },
@@ -2251,7 +2279,11 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenNthCalledWith(
         2,
         {
-          where: { isApproved: true, soldAt: null, pausedAt: null },
+          where: {
+            isApproved: true,
+            status: 'AVAILABLE' as const,
+            pausedAt: null,
+          },
           select: { category: true },
           distinct: ['category'],
           orderBy: { category: 'asc' },
@@ -2328,7 +2360,7 @@ describe('ProductsService', () => {
             sellerId: 'seller1',
             isApproved: false,
             rejectedAt: null,
-            soldAt: null,
+            status: 'AVAILABLE' as const,
           },
         }),
       );
@@ -2345,7 +2377,7 @@ describe('ProductsService', () => {
           where: {
             sellerId: 'seller1',
             isApproved: true,
-            soldAt: null,
+            status: 'AVAILABLE' as const,
             pausedAt: null,
           },
         }),
@@ -2363,7 +2395,7 @@ describe('ProductsService', () => {
           where: {
             sellerId: 'seller1',
             pausedAt: { not: null },
-            soldAt: null,
+            status: 'AVAILABLE' as const,
           },
         }),
       );
@@ -2394,7 +2426,7 @@ describe('ProductsService', () => {
 
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { sellerId: 'seller1', soldAt: { not: null } },
+          where: { sellerId: 'seller1', status: 'SOLD' },
         }),
       );
     });
@@ -2445,7 +2477,7 @@ describe('ProductsService', () => {
           where: {
             sellerId: 'seller1',
             isApproved: true,
-            soldAt: null,
+            status: 'AVAILABLE' as const,
             pausedAt: null,
             OR: [
               { title: { contains: 'lino' } },
@@ -2622,7 +2654,7 @@ describe('ProductsService', () => {
         where: {
           id: { in: ['product1', 'product2'] },
           isApproved: false,
-          soldAt: null,
+          status: 'AVAILABLE' as const,
         },
         data: { isApproved: true, rejectedAt: null, rejectionReason: null },
       });
@@ -2632,7 +2664,7 @@ describe('ProductsService', () => {
     // Mirrors approveProduct()'s compare-and-swap: a product that was sold
     // between the admin loading the list and clicking "Aprobar seleccionados"
     // is silently excluded from the update instead of failing the whole
-    // batch, since updateMany's `where` already re-asserts `soldAt: null`.
+    // batch, since updateMany's `where` already re-asserts `status: "AVAILABLE" as const`.
     it('should silently exclude already-sold products from the count instead of failing the whole batch', async () => {
       mockPrismaService.client.product.updateMany.mockResolvedValue({
         count: 1,
@@ -2690,18 +2722,19 @@ describe('ProductsService', () => {
       const mockProduct = {
         id: productId,
         isApproved: true,
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.update.mockResolvedValue(mockProduct);
 
       const result = await service.approveProduct(productId);
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId, soldAt: null },
+        where: { id: productId, status: 'AVAILABLE' as const },
         data: { isApproved: true, rejectedAt: null, rejectionReason: null },
       });
       expect(result).toEqual(mockProduct);
@@ -2718,7 +2751,7 @@ describe('ProductsService', () => {
     });
 
     // Regression: previously neither approveProduct() nor rejectProduct()
-    // re-asserted `soldAt: null`, unlike update()/remove() in this same file —
+    // re-asserted `status: "AVAILABLE" as const`, unlike update()/remove() in this same file —
     // so admin/products' new "Rechazar on an approved listing" UI path (which
     // this same PR introduced) could silently un-approve a product that had
     // already been sold, hiding it from its buyer via findOne()'s canView gate.
@@ -2726,7 +2759,7 @@ describe('ProductsService', () => {
       const productId = 'product1';
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
-        soldAt: new Date(),
+        status: 'SOLD' as const,
       });
 
       await expect(service.approveProduct(productId)).rejects.toThrow(
@@ -2737,14 +2770,14 @@ describe('ProductsService', () => {
 
     // Mirrors remove()'s concurrent-checkout test: the initial read only
     // drives the check above, so a checkout that sells the product afterward
-    // makes the conditional `soldAt: null` update match no row. Prisma raises
+    // makes the conditional `status: "AVAILABLE" as const` update match no row. Prisma raises
     // P2025 for that, and it must still read as "already sold" rather than an
     // unhandled exception.
     it('should reject a concurrent checkout that sells the product between the read and the write', async () => {
       const productId = 'product1';
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.update.mockRejectedValue(
         notFoundError(),
@@ -2763,18 +2796,19 @@ describe('ProductsService', () => {
         id: productId,
         isApproved: false,
         rejectionReason: 'Fotos borrosas',
+        status: 'AVAILABLE' as const,
       };
 
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.update.mockResolvedValue(mockProduct);
 
       const result = await service.rejectProduct(productId, 'Fotos borrosas');
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId, soldAt: null },
+        where: { id: productId, status: 'AVAILABLE' as const },
         data: {
           isApproved: false,
           rejectedAt: expect.any(Date) as Date,
@@ -2788,7 +2822,7 @@ describe('ProductsService', () => {
       const productId = 'product1';
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.update.mockResolvedValue({
         id: productId,
@@ -2797,7 +2831,7 @@ describe('ProductsService', () => {
       await service.rejectProduct(productId);
 
       expect(mockPrismaService.client.product.update).toHaveBeenCalledWith({
-        where: { id: productId, soldAt: null },
+        where: { id: productId, status: 'AVAILABLE' as const },
         data: {
           isApproved: false,
           rejectedAt: expect.any(Date) as Date,
@@ -2817,14 +2851,14 @@ describe('ProductsService', () => {
     });
 
     // Regression: this is the path admin/products' new "Rechazar on an
-    // approved listing" button reaches. Without the soldAt guard, an admin
+    // approved listing" button reaches. Without the SOLD-status guard, an admin
     // acting on a stale (already-sold) row could un-approve it with no
     // pushback, hiding it from its buyer.
     it('should refuse to reject a product that has already been sold', async () => {
       const productId = 'product1';
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
-        soldAt: new Date(),
+        status: 'SOLD' as const,
       });
 
       await expect(
@@ -2837,7 +2871,7 @@ describe('ProductsService', () => {
       const productId = 'product1';
       mockPrismaService.client.product.findUnique.mockResolvedValue({
         id: productId,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
       });
       mockPrismaService.client.product.update.mockRejectedValue(
         notFoundError(),
@@ -2864,7 +2898,7 @@ describe('ProductsService', () => {
         where: {
           id: { in: ['product1', 'product2'] },
           rejectedAt: null,
-          soldAt: null,
+          status: 'AVAILABLE' as const,
         },
         data: {
           isApproved: false,

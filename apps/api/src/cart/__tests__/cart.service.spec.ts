@@ -6,8 +6,6 @@ import { ProductsService } from '../../products/products.service';
 
 describe('CartService', () => {
   let service: CartService;
-  let prismaService: PrismaService;
-  let productsService: ProductsService;
 
   const mockPrismaService = {
     client: {
@@ -40,8 +38,6 @@ describe('CartService', () => {
     }).compile();
 
     service = module.get<CartService>(CartService);
-    prismaService = module.get<PrismaService>(PrismaService);
-    productsService = module.get<ProductsService>(ProductsService);
   });
 
   afterEach(() => {
@@ -162,7 +158,7 @@ describe('CartService', () => {
         price: 10.0,
         sellerId: 'seller1',
         isApproved: true,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
       };
 
       const getCartSpy = jest
@@ -220,7 +216,7 @@ describe('CartService', () => {
         price: 10.0,
         sellerId: 'seller1',
         isApproved: true,
-        soldAt: new Date(),
+        status: 'SOLD' as const,
       });
 
       await expect(service.addItem(userId, productId, 1)).rejects.toThrow(
@@ -245,7 +241,7 @@ describe('CartService', () => {
         price: 10.0,
         sellerId: 'seller1',
         isApproved: true,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
         pausedAt: new Date(),
       });
 
@@ -284,7 +280,7 @@ describe('CartService', () => {
         price: 10.0,
         sellerId: 'seller1',
         isApproved: false, // Not approved
-        soldAt: null,
+        status: 'AVAILABLE' as const,
       };
 
       const getCartSpy = jest
@@ -327,7 +323,7 @@ describe('CartService', () => {
         price: 80.0,
         sellerId: 'seller1',
         isApproved: true,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
       };
 
       const getCartSpy = jest
@@ -394,7 +390,7 @@ describe('CartService', () => {
         price: 10.0,
         sellerId: 'seller1',
         isApproved: true,
-        soldAt: null,
+        status: 'AVAILABLE' as const,
       };
 
       jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
@@ -405,7 +401,13 @@ describe('CartService', () => {
       // the row, the second updates it instead of creating a duplicate.
       let stored: { id: string; quantity: number } | null = null;
       mockPrismaService.client.cartItem.upsert.mockImplementation(
-        ({ update, create }) => {
+        ({
+          update,
+          create,
+        }: {
+          update: { quantity: number };
+          create: { quantity: number };
+        }) => {
           if (!stored) {
             stored = { id: 'item1', quantity: create.quantity };
           } else {
@@ -476,7 +478,11 @@ describe('CartService', () => {
         expect.objectContaining({
           where: { id: cartItemId },
           data: { quantity },
-          include: expect.any(Object),
+          include: {
+            product: {
+              include: { seller: { select: { id: true, name: true } } },
+            },
+          },
         }),
       );
     });
@@ -491,9 +497,7 @@ describe('CartService', () => {
         userId,
       };
 
-      const getCartSpy = jest
-        .spyOn(service, 'getCart')
-        .mockResolvedValue(mockCart as any);
+      jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue(null);
 
       await expect(
@@ -511,9 +515,7 @@ describe('CartService', () => {
         userId,
       };
 
-      const getCartSpy = jest
-        .spyOn(service, 'getCart')
-        .mockResolvedValue(mockCart as any);
+      jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue({
         id: cartItemId,
         cartId: 'cart1', // item belongs to cart1
@@ -564,9 +566,7 @@ describe('CartService', () => {
         userId,
       };
 
-      const getCartSpy = jest
-        .spyOn(service, 'getCart')
-        .mockResolvedValue(mockCart as any);
+      jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue(null);
 
       await expect(service.removeItem(cartItemId, userId)).rejects.toThrow(
@@ -583,9 +583,7 @@ describe('CartService', () => {
         userId,
       };
 
-      const getCartSpy = jest
-        .spyOn(service, 'getCart')
-        .mockResolvedValue(mockCart as any);
+      jest.spyOn(service, 'getCart').mockResolvedValue(mockCart as any);
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue({
         id: cartItemId,
         cartId: 'cart1', // item belongs to cart1

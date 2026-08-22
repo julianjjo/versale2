@@ -20,10 +20,12 @@ export interface Product {
   sellerId: string;
   isApproved: boolean;
   rejectedAt?: string | null;
-  // Set once the garment has been bought. Every listing is one-of-a-kind, so a
-  // non-null value means it is gone: the cart has to be able to say so.
-  soldAt?: string | null;
-  // Seller-controlled, independent of soldAt/isApproved: temporarily hides an
+  // Stock lifecycle of a one-of-a-kind garment: SOLD means it was bought and
+  // is gone from the catalog; WITHDRAWN is the seller's definitive takedown
+  // (reserved — nothing writes it yet); AVAILABLE is buyable. Mirrors the
+  // ProductStatus Prisma enum.
+  status: "AVAILABLE" | "SOLD" | "WITHDRAWN";
+  // Seller-controlled, independent of status/isApproved: temporarily hides an
   // otherwise-live listing from the catalog without deleting it.
   pausedAt?: string | null;
   rejectionReason?: string | null;
