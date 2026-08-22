@@ -78,6 +78,8 @@ describe("SellPage — subida de imágenes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockQuery = {};
+    // El borrador en localStorage persiste entre tests del mismo archivo.
+    window.localStorage.clear();
   });
 
   it("precarga título, categoría y talla desde los query params (Publicar otro igual)", async () => {
@@ -245,5 +247,68 @@ describe("SellPage — subida de imágenes", () => {
         expect.objectContaining({ title: "Chaqueta de jean", images: undefined }),
       );
     });
+  });
+});
+
+describe("SellPage — borrador automático (item 10)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockQuery = {};
+    window.localStorage.clear();
+  });
+
+  it("conserva el borrador al recargar la página", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderPage();
+
+    await user.type(screen.getByLabelText(/^título$/i), "Chaqueta a medio escribir");
+    await user.type(screen.getByLabelText(/precio/i), "65000");
+    unmount();
+
+    // Recarga: nueva montura de la página, estado desde cero.
+    renderPage();
+
+    expect(
+      await screen.findByLabelText(/^título$/i),
+    ).toHaveValue("Chaqueta a medio escribir");
+    expect(screen.getByLabelText(/precio/i)).toHaveValue(65000);
+  });
+
+  it("el prefill de Publicar otro igual gana sobre el borrador guardado", async () => {
+    window.localStorage.setItem(
+      "versale:sell-draft:v1",
+      JSON.stringify({ title: "Borrador viejo", price: "1" }),
+    );
+    mockQuery = { title: "Jean Levi's 501", category: "Jeans", size: "M" };
+
+    renderPage();
+
+    expect(await screen.findByLabelText(/^título$/i)).toHaveValue(
+      "Jean Levi's 501",
+    );
+    expect(screen.getByLabelText(/^talla$/i)).toHaveValue("M");
+    // El precio NO viene del prefill: se restaura del draft solo si no hay
+    // prefill — aquí el prefill explícito reinicia los demás campos.
+    // input type=number: vacío se lee como null.
+    expect(screen.getByLabelText(/precio/i)).toHaveValue(null);
+  });
+
+  it("limpia el borrador al publicar con éxito", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.post).mockResolvedValue({ data: { id: "order9" } });
+    renderPage();
+
+    await fillListing(user);
+    await user.click(screen.getByRole("button", { name: /publicar producto/i }));
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith(
+        "/products",
+        expect.objectContaining({ title: "Chaqueta de jean" }),
+      );
+    });
+    expect(
+      window.localStorage.getItem("versale:sell-draft:v1"),
+    ).toBeNull();
   });
 });
