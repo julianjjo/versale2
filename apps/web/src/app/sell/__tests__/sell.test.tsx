@@ -311,4 +311,16 @@ describe("SellPage — borrador automático (item 10)", () => {
       window.localStorage.getItem("versale:sell-draft:v1"),
     ).toBeNull();
   });
+
+  it("ignora un borrador corrupto (JSON válido pero no un objeto) en vez de romper el formulario", async () => {
+    // "null" es JSON válido: JSON.parse no lanza, pero el resultado no es un
+    // borrador utilizable. Antes de la corrección esto rompía el render
+    // (draft.title sobre null) y dejaba /sell inutilizable hasta borrar el
+    // storage a mano.
+    window.localStorage.setItem("versale:sell-draft:v1", "null");
+
+    renderPage();
+
+    expect(await screen.findByLabelText(/^título$/i)).toHaveValue("");
+  });
 });

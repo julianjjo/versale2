@@ -247,10 +247,34 @@ describe('ProductsService', () => {
               asker: { select: { id: true, name: true } },
             },
             orderBy: { createdAt: 'desc' },
+            take: 200,
           },
         },
       });
       expect(result).toEqual(mockProduct);
+    });
+
+    it('caps the embedded questions instead of fetching every question ever asked', async () => {
+      // Unlike reviews (bounded by "one delivered purchase per unique
+      // garment"), any non-owner can ask unlimited questions and findOne is
+      // the only place they're ever read — without a `take`, a heavily
+      // asked-about product would ship its whole question history on every
+      // page view.
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        isApproved: true,
+        reviews: [],
+        status: 'AVAILABLE' as const,
+      });
+
+      await service.findOne('product1');
+
+      const findUniqueMock = mockPrismaService.client.product
+        .findUnique as unknown as {
+        mock: { calls: Array<[{ include: { questions: { take?: number } } }]> };
+      };
+      expect(findUniqueMock.mock.calls[0][0].include.questions.take).toBe(200);
     });
 
     it("should mark the review from the product's actual verified buyer as verifiedPurchase", async () => {

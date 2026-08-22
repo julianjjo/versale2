@@ -10,17 +10,21 @@ export default function TerminosPage() {
       intro="Estamos redactando los términos y condiciones de Versale antes del lanzamiento. Esta página se actualizará con el texto completo próximamente."
     >
       {/* Ítem 13 (decisión cerrada 2.3): la responsabilidad del envío es parte
-          de la transacción C2C, no un detalle técnico — el comprador ya pagó
-          el envío porque está incluido en el precio. */}
+          de la transacción C2C, no un detalle técnico. El envío se cobra por
+          separado (no es gratis ni está incluido en el precio de la prenda):
+          este texto debe reflejar exactamente lo que ya hacen
+          apps/web/src/app/cart/page.tsx y apps/web/src/app/orders/[id]/page.tsx,
+          donde el total mostrado es "sin envío" y el costo se acuerda
+          directamente entre comprador y vendedor. */}
       <section>
         <h2 className="text-lg font-semibold text-text-primary">
           Envío de los productos
         </h2>
         <ul className="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-text-muted">
           <li>
-            El costo del envío está <strong>incluido en el precio</strong> de
-            cada prenda y lo paga el comprador al completar la compra; no hay
-            cobros adicionales al momento de la entrega.
+            El costo del envío <strong>no está incluido</strong> en el precio
+            de la prenda: se acuerda y se paga directamente entre comprador y
+            vendedor al momento de la entrega.
           </li>
           <li>
             Es <strong>responsabilidad exclusiva del vendedor</strong> enviar

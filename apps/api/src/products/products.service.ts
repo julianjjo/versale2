@@ -82,6 +82,15 @@ const SORT_ORDER_BY: Record<
 // not env-configurable: it's an anti-abuse ceiling, not a business plan.
 const MAX_ACTIVE_LISTINGS_PER_SELLER = 20;
 
+// Questions have no purchase requirement (unlike reviews) and no separate
+// paginated endpoint, so findOne's embed is the only ceiling they ever get.
+// A question past this cutoff would also become unanswerable in the UI —
+// QuestionsService#answer() has no admin bypass the way remove() does, so
+// the seller is the only one who can ever act on it — so the number needs
+// enough headroom that a real one-of-a-kind garment listing is never
+// realistically going to reach it, not just "a reasonable page size".
+const MAX_QUESTIONS_PER_PRODUCT = 200;
+
 @Injectable()
 export class ProductsService {
   private readonly logger = new Logger(ProductsService.name);
@@ -443,6 +452,12 @@ export class ProductsService {
             orderBy: { createdAt: 'desc' },
           },
           _count: { select: { reviews: true } },
+          // Unlike reviews (bounded by "one delivered purchase per unique
+          // garment"), any non-owner can ask unlimited questions and there is
+          // no separate paginated endpoint for them — this is the only place
+          // they're ever fetched, embedded whole into the product payload. A
+          // `take` caps that growth instead of shipping every question ever
+          // asked on every request.
           questions: {
             select: {
               id: true,
@@ -455,6 +470,7 @@ export class ProductsService {
               asker: { select: { id: true, name: true } },
             },
             orderBy: { createdAt: 'desc' },
+            take: MAX_QUESTIONS_PER_PRODUCT,
           },
         },
       }),

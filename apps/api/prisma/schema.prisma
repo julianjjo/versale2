@@ -157,6 +157,8 @@ model Order {
   // Cron sweeps filter by these deadline columns every hour.
   @@index([status, paidAt])
   @@index([status, disputeExpiresAt])
+  // autoCancelStalePendingOrders' own sweep, same shape as the two above.
+  @@index([status, createdAt])
 
   // Order history is always "this user's orders, newest first".
   @@index([userId, createdAt])

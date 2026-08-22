@@ -93,7 +93,19 @@ function readDraft(): SellDraft {
   if (typeof window === "undefined") return {};
   try {
     const raw = window.localStorage.getItem(DRAFT_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as SellDraft) : {};
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    // `JSON.parse` acepta "null"/"42"/'"texto"'/"[]" sin lanzar — solo un
+    // objeto plano es un borrador válido; cualquier otra forma se trata
+    // igual que un JSON corrupto (ver catch de abajo).
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      return {};
+    }
+    return parsed as SellDraft;
   } catch {
     // JSON corrupto o storage bloqueado: un borrador nunca debe romper /sell.
     return {};
