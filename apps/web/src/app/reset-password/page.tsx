@@ -66,7 +66,12 @@ function ResetPasswordForm() {
         <h1 className="heading-section text-text-primary">
           Contraseña actualizada
         </h1>
-        <p className="mt-1 text-sm text-text-muted">
+        {/* Unlike the form it replaces, this whole block only ever exists
+            after `success` flips to true — without a live region, a screen
+            reader user who just submitted the form gets no announcement
+            that anything happened at all (matches forgot-password's own
+            success message). */}
+        <p role="status" className="mt-1 text-sm text-text-muted">
           Tu contraseña se actualizó correctamente. Ya puedes iniciar sesión.
         </p>
         <Button
@@ -97,7 +102,7 @@ function ResetPasswordForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          minLength={6}
+          minLength={8}
           autoComplete="new-password"
         />
         <Input
@@ -106,7 +111,7 @@ function ResetPasswordForm() {
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           required
-          minLength={6}
+          minLength={8}
           autoComplete="new-password"
         />
         {error && (

@@ -129,6 +129,11 @@ export default function AdminProductsPage() {
     queryClient.invalidateQueries({
       queryKey: ["admin-products-pending-count"],
     });
+    // The /admin dashboard's own "Productos pendientes" card reads a
+    // differently-named key (["admin-products-pending"], no "-count") for
+    // the same underlying count this page just changed — a near-miss that
+    // meant approving/rejecting here never refreshed that card.
+    queryClient.invalidateQueries({ queryKey: ["admin-products-pending"] });
   };
 
   const approve = useMutation({

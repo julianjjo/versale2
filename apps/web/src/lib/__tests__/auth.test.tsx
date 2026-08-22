@@ -226,13 +226,14 @@ describe("useAuth", () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
-      await result.current.signup("s@t.u", "Sam", "password");
+      await result.current.signup("s@t.u", "Sam", "password", true);
     });
 
     expect(mockedApi.post).toHaveBeenCalledWith("/auth/signup", {
       email: "s@t.u",
       name: "Sam",
       password: "password",
+      acceptedTerms: true,
     });
     expect(mockedTokenStore.set).toHaveBeenCalledWith("tok2");
     expect(result.current.user?.name).toBe("Sam");
@@ -260,7 +261,7 @@ describe("useAuth", () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
-      await result.current.signup("s@t.u", "Sam", "password");
+      await result.current.signup("s@t.u", "Sam", "password", true);
     });
 
     expect(queryClient.getQueryCache().getAll().length).toBe(0);
@@ -284,7 +285,7 @@ describe("useAuth", () => {
 
     await act(async () => {
       await expect(
-        result.current.signup("s@t.u", "Sam", "password"),
+        result.current.signup("s@t.u", "Sam", "password", true),
       ).rejects.toThrow("Email already in use");
     });
 

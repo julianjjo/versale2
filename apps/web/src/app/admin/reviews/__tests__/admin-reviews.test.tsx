@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AdminReviewsPage from "../page";
-import { TestProviders } from "@/test-utils/TestProviders";
+import { TestProviders, createTestQueryClient } from "@/test-utils/TestProviders";
 import type { Review } from "@/lib/types";
 
 vi.mock("@/lib/api", () => ({
@@ -228,6 +228,38 @@ describe("AdminReviewsPage", () => {
       expect(
         screen.queryByText("Falló la eliminación"),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  // Regression: deleting a review only ever invalidated ["admin-reviews"] —
+  // a near-miss of the /admin dashboard's own differently-named
+  // ["admin-reviews-count"] card, which never refreshed after this.
+  it("invalida también la query del dashboard admin al eliminar una reseña", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: paginatedResponse(reviewsFixture()),
+    });
+    vi.mocked(api.delete).mockResolvedValue({ data: { success: true } });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const queryClient = createTestQueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders client={queryClient}>
+        <AdminReviewsPage />
+      </TestProviders>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Chaqueta de cuero")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /eliminar/i }));
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ["admin-reviews-count"] }),
+      );
     });
   });
 });

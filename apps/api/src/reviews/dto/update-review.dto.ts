@@ -5,6 +5,8 @@ import {
   Min,
   Max,
   ValidateIf,
+  Matches,
+  MaxLength,
 } from 'class-validator';
 
 // Deliberately does NOT expose productId (or userId): a review can never be
@@ -19,10 +21,17 @@ export class UpdateReviewDto {
   @IsInt({ message: 'La calificación debe ser un número entero de estrellas' })
   @Min(1, { message: 'La calificación mínima es 1 estrella' })
   @Max(5, { message: 'La calificación máxima es 5 estrellas' })
-  @ValidateIf((o) => o.rating !== undefined)
+  @ValidateIf((_object, value) => value !== undefined)
   rating?: number;
 
   @IsString({ message: 'El comentario debe ser un texto' })
   @IsOptional()
+  // Same reasoning as CreateReviewDto's own comment field: IsOptional only
+  // skips an omitted/null/undefined value, so an explicit "" or "   " still
+  // has to clear these.
+  @Matches(/\S/, { message: 'El comentario no puede quedar en blanco' })
+  @MaxLength(1000, {
+    message: 'El comentario no puede superar los 1000 caracteres',
+  })
   comment?: string;
 }

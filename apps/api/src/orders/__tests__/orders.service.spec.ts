@@ -1047,6 +1047,51 @@ describe('OrdersService', () => {
       });
     });
 
+    // Regression: a DISPUTED order is a DELIVERED sale the buyer flagged —
+    // the payment hasn't been returned, it's just awaiting resolution. It
+    // used to fall into neither confirmedRevenue nor pendingRevenue, so an
+    // open dispute made its money vanish from the dashboard entirely.
+    it('should count DISPUTED as confirmed revenue — the payment is still held, not returned', async () => {
+      mockPrismaService.client.order.groupBy.mockResolvedValue([
+        { status: OrderStatus.PAID, _sum: { totalAmount: 100000 }, _count: 1 },
+        {
+          status: OrderStatus.DISPUTED,
+          _sum: { totalAmount: 50000 },
+          _count: 1,
+        },
+      ]);
+
+      const result = await service.getOrderStats();
+
+      expect(result).toEqual({
+        totalOrders: 2,
+        confirmedRevenue: 150000,
+        pendingRevenue: 0,
+      });
+    });
+
+    // REFUNDED is the one "money received" status that's excluded on
+    // purpose: the payment already went back to the buyer, so — unlike
+    // DISPUTED — it genuinely isn't revenue anymore.
+    it('should exclude REFUNDED from confirmed revenue — that money already went back', async () => {
+      mockPrismaService.client.order.groupBy.mockResolvedValue([
+        { status: OrderStatus.PAID, _sum: { totalAmount: 100000 }, _count: 1 },
+        {
+          status: OrderStatus.REFUNDED,
+          _sum: { totalAmount: 50000 },
+          _count: 1,
+        },
+      ]);
+
+      const result = await service.getOrderStats();
+
+      expect(result).toEqual({
+        totalOrders: 2,
+        confirmedRevenue: 100000,
+        pendingRevenue: 0,
+      });
+    });
+
     it('should coalesce a null _sum.totalAmount to 0 instead of producing NaN', async () => {
       mockPrismaService.client.order.groupBy.mockResolvedValue([
         { status: OrderStatus.PAID, _sum: { totalAmount: null }, _count: 1 },

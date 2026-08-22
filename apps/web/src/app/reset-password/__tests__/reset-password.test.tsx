@@ -132,6 +132,31 @@ describe("ResetPasswordPage", () => {
     });
   });
 
+  // Regression: the success panel replaces the whole form with no live
+  // region and no focus move, so a screen reader user who just submitted
+  // got no announcement that the password was actually updated (unlike
+  // forgot-password's own success message, which already uses role="status").
+  it("anuncia el éxito a lectores de pantalla con una región en vivo", async () => {
+    vi.mocked(api.post).mockResolvedValue({
+      data: { message: "Tu contraseña se actualizó correctamente" },
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByLabelText("Nueva contraseña"), "nuevaClave1");
+    await user.type(
+      screen.getByLabelText("Confirmar contraseña"),
+      "nuevaClave1",
+    );
+    await user.click(
+      screen.getByRole("button", { name: /actualizar contraseña/i }),
+    );
+
+    expect(
+      await screen.findByRole("status"),
+    ).toHaveTextContent(/tu contraseña se actualizó correctamente/i);
+  });
+
   it("navega a login tras confirmar el éxito", async () => {
     vi.mocked(api.post).mockResolvedValue({
       data: { message: "ok" },

@@ -20,6 +20,12 @@ model User {
   resetToken    String? @unique
   resetTokenExpires DateTime?
   tokenVersion  Int      @default(0)
+  // Item 8 follow-up: the signup checkbox ("Confirmo que soy mayor de 18
+  // años y acepto los Términos...") was never actually enforced or recorded
+  // server-side — SignupDto now requires it, and this is the timestamp that
+  // stands as evidence of consent. Nullable because accounts created before
+  // this field existed have no such record.
+  termsAcceptedAt DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   products      Product[]

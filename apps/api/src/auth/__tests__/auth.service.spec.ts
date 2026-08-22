@@ -6,10 +6,15 @@ import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 
+// expect.any(X) types as `any`; assigning it into an object literal property
+// (as opposed to passing it as a bare call argument) trips
+// no-unsafe-assignment. Same wrapper convention as orders.service.spec.ts's
+// own anyDate().
+const anyString = () => expect.any(String) as string;
+const anyDate = () => expect.any(Date) as Date;
+
 describe('AuthService', () => {
   let service: AuthService;
-  let prismaService: PrismaService;
-  let jwtService: JwtService;
 
   const mockPrismaService = {
     client: {
@@ -35,8 +40,6 @@ describe('AuthService', () => {
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    prismaService = module.get<PrismaService>(PrismaService);
-    jwtService = module.get<JwtService>(JwtService);
   });
 
   afterEach(() => {
@@ -50,9 +53,9 @@ describe('AuthService', () => {
       const name = 'Test User';
       const hashedPassword = 'hashed_password_123';
 
-      jest
-        .spyOn(bcrypt, 'hash')
-        .mockImplementation(() => Promise.resolve(hashedPassword));
+      (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
+        () => Promise.resolve(hashedPassword),
+      );
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
       mockPrismaService.client.user.create.mockResolvedValue({
         id: '1',
@@ -76,7 +79,8 @@ describe('AuthService', () => {
           email,
           password: hashedPassword,
           name,
-          verificationToken: expect.any(String),
+          verificationToken: anyString(),
+          termsAcceptedAt: anyDate(),
         },
       });
       expect(mockJwtService.sign).toHaveBeenCalledWith({
@@ -96,13 +100,43 @@ describe('AuthService', () => {
       });
     });
 
+    // Item 8: the signup checkbox itself only ever ran client-side — SignupDto
+    // now enforces it, but the actual legal evidence is this timestamp,
+    // stamped unconditionally by the time this service method is ever
+    // reached (the DTO's @Equals(true) already refused any call otherwise).
+    it('records the moment consent was given', async () => {
+      const before = Date.now();
+      (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
+        () => Promise.resolve('hashed'),
+      );
+      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
+      mockPrismaService.client.user.create.mockResolvedValue({
+        id: '1',
+        email: 'test@example.com',
+        password: 'hashed',
+        name: 'Test User',
+        role: 'USER',
+        tokenVersion: 0,
+      });
+      mockJwtService.sign.mockReturnValue('fake-jwt-token');
+
+      await service.signup('test@example.com', 'password123', 'Test User');
+
+      const createMock = mockPrismaService.client.user.create as unknown as {
+        mock: { calls: Array<[{ data: { termsAcceptedAt: Date } }]> };
+      };
+      const { termsAcceptedAt } = createMock.mock.calls[0][0].data;
+      expect(termsAcceptedAt).toBeInstanceOf(Date);
+      expect(termsAcceptedAt.getTime()).toBeGreaterThanOrEqual(before);
+    });
+
     it('should not include the raw verification token in the response by default', async () => {
       delete process.env.AUTH_EXPOSE_VERIFICATION_TOKEN;
       const email = 'test@example.com';
 
-      jest
-        .spyOn(bcrypt, 'hash')
-        .mockImplementation(() => Promise.resolve('hashed'));
+      (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
+        () => Promise.resolve('hashed'),
+      );
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
       mockPrismaService.client.user.create.mockResolvedValue({
         id: '1',
@@ -124,9 +158,9 @@ describe('AuthService', () => {
       const email = 'test@example.com';
 
       try {
-        jest
-          .spyOn(bcrypt, 'hash')
-          .mockImplementation(() => Promise.resolve('hashed'));
+        (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
+          () => Promise.resolve('hashed'),
+        );
         mockPrismaService.client.user.findUnique.mockResolvedValue(null);
         mockPrismaService.client.user.create.mockResolvedValue({
           id: '1',
@@ -144,9 +178,10 @@ describe('AuthService', () => {
         // the raw token — not merely "some other string" — or a broken hash
         // implementation (reversible, truncated, wrong algorithm) would
         // still pass a weaker inequality-only check.
-        const writtenToken =
-          mockPrismaService.client.user.create.mock.calls[0][0].data
-            .verificationToken;
+        const createMock = mockPrismaService.client.user.create as unknown as {
+          mock: { calls: Array<[{ data: { verificationToken: string } }]> };
+        };
+        const writtenToken = createMock.mock.calls[0][0].data.verificationToken;
         expect(writtenToken).toBe(
           crypto
             .createHash('sha256')
@@ -200,9 +235,9 @@ describe('AuthService', () => {
       };
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(user);
-      jest
-        .spyOn(bcrypt, 'compare')
-        .mockImplementation(() => Promise.resolve(true));
+      (
+        jest.spyOn(bcrypt, 'compare') as unknown as jest.Mock
+      ).mockImplementation(() => Promise.resolve(true));
       mockJwtService.sign.mockReturnValue('fake-jwt-token');
 
       const result = await service.login(email, password);
@@ -252,9 +287,9 @@ describe('AuthService', () => {
       };
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(user);
-      jest
-        .spyOn(bcrypt, 'compare')
-        .mockImplementation(() => Promise.resolve(false));
+      (
+        jest.spyOn(bcrypt, 'compare') as unknown as jest.Mock
+      ).mockImplementation(() => Promise.resolve(false));
 
       await expect(service.login(email, password)).rejects.toThrow(
         UnauthorizedException,
@@ -277,9 +312,9 @@ describe('AuthService', () => {
       };
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(user);
-      jest
-        .spyOn(bcrypt, 'compare')
-        .mockImplementation(() => Promise.resolve(true));
+      (
+        jest.spyOn(bcrypt, 'compare') as unknown as jest.Mock
+      ).mockImplementation(() => Promise.resolve(true));
 
       const result = await service.validateUser(email, password);
 
@@ -312,9 +347,9 @@ describe('AuthService', () => {
       };
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(user);
-      jest
-        .spyOn(bcrypt, 'compare')
-        .mockImplementation(() => Promise.resolve(false));
+      (
+        jest.spyOn(bcrypt, 'compare') as unknown as jest.Mock
+      ).mockImplementation(() => Promise.resolve(false));
 
       const result = await service.validateUser(email, password);
 
@@ -343,13 +378,15 @@ describe('AuthService', () => {
         where: { email },
         data: {
           // Stored hashed, never the raw token.
-          resetToken: expect.any(String),
-          resetTokenExpires: expect.any(Date),
+          resetToken: anyString(),
+          resetTokenExpires: anyDate(),
         },
       });
-      const writtenToken =
-        mockPrismaService.client.user.updateMany.mock.calls[0][0].data
-          .resetToken;
+      const updateManyMock = mockPrismaService.client.user
+        .updateMany as unknown as {
+        mock: { calls: Array<[{ data: { resetToken: string } }]> };
+      };
+      const writtenToken = updateManyMock.mock.calls[0][0].data.resetToken;
       expect(result.message).toBe(
         'Si el correo existe, enviaremos instrucciones para restablecer la contraseña',
       );
@@ -402,9 +439,9 @@ describe('AuthService', () => {
       const newPassword = 'newPassword123';
       const hashedPassword = 'hashed_new_password';
 
-      jest
-        .spyOn(bcrypt, 'hash')
-        .mockImplementation(() => Promise.resolve(hashedPassword));
+      (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
+        () => Promise.resolve(hashedPassword),
+      );
       mockPrismaService.client.user.updateMany.mockResolvedValue({
         count: 1,
       });
@@ -414,8 +451,8 @@ describe('AuthService', () => {
       expect(bcrypt.hash).toHaveBeenCalledWith(newPassword, 10);
       expect(mockPrismaService.client.user.updateMany).toHaveBeenCalledWith({
         where: {
-          resetToken: expect.any(String),
-          resetTokenExpires: { gt: expect.any(Date) },
+          resetToken: anyString(),
+          resetTokenExpires: { gt: anyDate() },
         },
         data: {
           password: hashedPassword,
@@ -426,9 +463,11 @@ describe('AuthService', () => {
         },
       });
       // The token is looked up by its hash, never the raw value.
-      const lookupHash =
-        mockPrismaService.client.user.updateMany.mock.calls[0][0].where
-          .resetToken;
+      const updateManyMock = mockPrismaService.client.user
+        .updateMany as unknown as {
+        mock: { calls: Array<[{ where: { resetToken: string } }]> };
+      };
+      const lookupHash = updateManyMock.mock.calls[0][0].where.resetToken;
       expect(lookupHash).not.toBe(token);
       expect(result).toEqual({
         message: 'Tu contraseña se actualizó correctamente',
@@ -477,15 +516,18 @@ describe('AuthService', () => {
       const result = await service.verifyEmail('a-valid-token');
 
       expect(mockPrismaService.client.user.updateMany).toHaveBeenCalledWith({
-        where: { verificationToken: expect.any(String) },
+        where: { verificationToken: anyString() },
         data: { isVerified: true, verificationToken: null },
       });
       // Looked up by the actual SHA-256 digest of the token, never the raw
       // value — a weaker "just not equal to the raw token" check would still
       // pass for a broken/wrong hash implementation.
+      const updateManyMock = mockPrismaService.client.user
+        .updateMany as unknown as {
+        mock: { calls: Array<[{ where: { verificationToken: string } }]> };
+      };
       const lookupHash =
-        mockPrismaService.client.user.updateMany.mock.calls[0][0].where
-          .verificationToken;
+        updateManyMock.mock.calls[0][0].where.verificationToken;
       expect(lookupHash).toBe(
         crypto.createHash('sha256').update('a-valid-token').digest('hex'),
       );

@@ -47,6 +47,10 @@ export class AuthService {
         // Stored hashed: a database leak alone must not hand out a live,
         // directly-usable verification token for every unverified account.
         verificationToken: hashOpaqueToken(verificationToken),
+        // Item 8: SignupDto's @Equals(true) on acceptedTerms already refused
+        // this call ever reaching here without consent — this timestamp is
+        // simply the record of when that happened, not another check.
+        termsAcceptedAt: new Date(),
       },
     });
 
@@ -196,6 +200,7 @@ export class AuthService {
       return null;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _password, ...result } = user;
     return result;
   }

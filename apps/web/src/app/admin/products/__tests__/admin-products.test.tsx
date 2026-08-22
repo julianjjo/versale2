@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AdminProductsPage from "../page";
-import { TestProviders } from "@/test-utils/TestProviders";
+import { TestProviders, createTestQueryClient } from "@/test-utils/TestProviders";
 import type { Product } from "@/lib/types";
 
 vi.mock("@/lib/api", () => ({
@@ -831,5 +831,33 @@ describe("AdminProductsPage", () => {
     expect(screen.queryByText(/página \d+ de/i)).not.toBeInTheDocument();
 
     confirmSpy.mockRestore();
+  });
+
+  // Regression: invalidateProducts() only ever hit ["admin-products"] and
+  // ["admin-products-pending-count"] — a near-miss of the /admin dashboard's
+  // own differently-named ["admin-products-pending"] card, which never
+  // refreshed after approving/rejecting here.
+  it("invalida también la query del dashboard admin al aprobar una publicación", async () => {
+    const pending = productFixture({ id: "p1", title: "Chaqueta pendiente" });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([pending]) });
+    vi.mocked(api.patch).mockResolvedValue({ data: {} });
+    const queryClient = createTestQueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const user = userEvent.setup();
+
+    render(
+      <TestProviders client={queryClient}>
+        <AdminProductsPage />
+      </TestProviders>,
+    );
+
+    const card = await screen.findByTestId("admin-product-p1");
+    await user.click(within(card).getByRole("button", { name: "Aprobar" }));
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ["admin-products-pending"] }),
+      );
+    });
   });
 });

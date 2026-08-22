@@ -29,7 +29,7 @@ export default function SignupPage() {
     }
     setIsLoading(true);
     try {
-      await signup(email, name, password);
+      await signup(email, name, password, acceptedTerms);
       router.push("/products");
     } catch (err) {
       setError(extractApiError(err, "No pudimos crear tu cuenta"));
@@ -68,9 +68,9 @@ export default function SignupPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={6}
+            minLength={8}
             autoComplete="new-password"
-            hint="Mínimo 6 caracteres."
+            hint="Mínimo 8 caracteres."
           />
           <Checkbox
             label={
