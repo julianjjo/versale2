@@ -1,8 +1,10 @@
-import { config as loadEnv } from 'dotenv';
 import { resolve } from 'path';
 
-const envPath = resolve(__dirname, '..', '.env');
-loadEnv({ path: envPath });
+try {
+  process.loadEnvFile(resolve(__dirname, '..', '.env'));
+} catch {
+  // .env optional — production uses real env vars
+}
 
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -86,4 +88,4 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT || 3001);
 }
-bootstrap();
+void bootstrap();
