@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService, TIMING_SAFE_DUMMY_HASH } from '../auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
+import { BrevoService } from '../../notifications/brevo.service';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
@@ -22,6 +23,7 @@ describe('AuthService', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         updateMany: jest.fn(),
+        update: jest.fn(),
       },
     },
   };
@@ -30,12 +32,19 @@ describe('AuthService', () => {
     sign: jest.fn(),
   };
 
+  // Item 17: "entorno SMTP" simulado — el envío real de emails se prueba
+  // mockeando BrevoService y afirmando destinatario/asunto/enlace.
+  const mockBrevoService = {
+    sendEmail: jest.fn().mockResolvedValue({}),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: JwtService, useValue: mockJwtService },
+        { provide: BrevoService, useValue: mockBrevoService },
       ],
     }).compile();
 
@@ -80,6 +89,7 @@ describe('AuthService', () => {
           password: hashedPassword,
           name,
           verificationToken: anyString(),
+          verificationTokenExpires: anyDate(),
           termsAcceptedAt: anyDate(),
         },
       });
@@ -198,6 +208,97 @@ describe('AuthService', () => {
           process.env.AUTH_EXPOSE_VERIFICATION_TOKEN = originalFlag;
         }
       }
+    });
+
+    // Item 17: el correo de verificación se envía DE VERDAD (simulado aquí
+    // con el mock de Brevo) y el enlace lleva el token crudo, no el hash.
+    it('envía el correo de verificación con el enlace que contiene el token crudo', async () => {
+      const email = 'nuevo@example.com';
+
+      (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
+        () => Promise.resolve('hashed'),
+      );
+      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
+      mockPrismaService.client.user.create.mockResolvedValue({
+        id: '1',
+        email,
+        password: 'hashed',
+        name: 'Test User',
+        role: 'USER',
+        tokenVersion: 0,
+      });
+      mockJwtService.sign.mockReturnValue('fake-jwt-token');
+
+      await service.signup(email, 'password123', 'Test User');
+
+      expect(mockBrevoService.sendEmail).toHaveBeenCalledTimes(1);
+      const call = mockBrevoService.sendEmail.mock.calls[0][0];
+      expect(call.to).toEqual([{ email, name: 'Test User' }]);
+      expect(call.subject).toContain('Verifica');
+      const link = /https?:\/\/\S+/.exec(call.text as string)?.[0] ?? '';
+      expect(link).toContain('/verify-email?token=');
+      // El token del enlace hashea exactamente al valor persistido — prueba
+      // de que sale el crudo, no el hash ni otra cosa.
+      const createMock = mockPrismaService.client.user.create as unknown as {
+        mock: { calls: Array<[{ data: { verificationToken: string } }]> };
+      };
+      const writtenHash = createMock.mock.calls[0][0].data.verificationToken;
+      const rawToken = decodeURIComponent(
+        link.split('token=')[1],
+      );
+      expect(crypto.createHash('sha256').update(rawToken).digest('hex')).toBe(
+        writtenHash,
+      );
+    });
+
+    it('no rompe el signup si Brevo falla (la cuenta ya existe; se puede reenviar)', async () => {
+      (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
+        () => Promise.resolve('hashed'),
+      );
+      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
+      mockPrismaService.client.user.create.mockResolvedValue({
+        id: '1',
+        email: 'test@example.com',
+        password: 'hashed',
+        name: 'Test User',
+        role: 'USER',
+        tokenVersion: 0,
+      });
+      mockJwtService.sign.mockReturnValue('fake-jwt-token');
+      mockBrevoService.sendEmail.mockRejectedValueOnce(new Error('SMTP down'));
+
+      const result = await service.signup(
+        'test@example.com',
+        'password123',
+        'Test User',
+      );
+
+      expect(result.access_token).toBe('fake-jwt-token');
+    });
+
+    it('estampa la expiración del token de verificación a futuro', async () => {
+      (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
+        () => Promise.resolve('hashed'),
+      );
+      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
+      mockPrismaService.client.user.create.mockResolvedValue({
+        id: '1',
+        email: 'test@example.com',
+        password: 'hashed',
+        name: 'Test User',
+        role: 'USER',
+        tokenVersion: 0,
+      });
+      mockJwtService.sign.mockReturnValue('fake-jwt-token');
+
+      const before = Date.now();
+      await service.signup('test@example.com', 'password123', 'Test User');
+
+      const createMock = mockPrismaService.client.user.create as unknown as {
+        mock: { calls: Array<[{ data: { verificationTokenExpires: Date } }]> };
+      };
+      const expires = createMock.mock.calls[0][0].data.verificationTokenExpires;
+      expect(expires.getTime()).toBeGreaterThan(before);
     });
 
     it('should throw error if user already exists', async () => {
@@ -433,6 +534,17 @@ describe('AuthService', () => {
       // The value returned to the caller must be the raw token, not the
       // hash that was actually persisted.
       expect(result.resetToken).not.toBe(writtenToken);
+
+      // Item 17: el enlace de reset sale por correo con el token crudo.
+      expect(mockBrevoService.sendEmail).toHaveBeenCalledTimes(1);
+      const mailCall = mockBrevoService.sendEmail.mock.calls[0][0];
+      expect(mailCall.to).toEqual([{ email }]);
+      const link =
+        /https?:\/\/\S+/.exec(mailCall.text as string)?.[0] ?? '';
+      expect(link).toContain('/reset-password?token=');
+      expect(decodeURIComponent(link.split('token=')[1])).toBe(
+        result.resetToken,
+      );
     });
 
     // Defaults to OFF: a misconfigured non-production deployment must not
@@ -469,6 +581,25 @@ describe('AuthService', () => {
         message:
           'Si el correo existe, enviaremos instrucciones para restablecer la contraseña',
       });
+      // Sin fila afectada no hay token que enviar: cero emails (y así el
+      // endpoint tampoco delata por el canal de correo qué correos existen).
+      expect(mockBrevoService.sendEmail).not.toHaveBeenCalled();
+    });
+
+    // Item 17: un fallo del proveedor no cambia la respuesta ni rompe el
+    // flujo — el usuario reintenta con otro forgot-password.
+    it('no revienta si Brevo falla al enviar el enlace de reset', async () => {
+      delete process.env.AUTH_EXPOSE_RESET_TOKEN;
+      mockPrismaService.client.user.updateMany.mockResolvedValue({
+        count: 1,
+      });
+      mockBrevoService.sendEmail.mockRejectedValueOnce(new Error('SMTP down'));
+
+      const result = await service.forgotPassword('test@example.com');
+
+      expect(result.message).toBe(
+        'Si el correo existe, enviaremos instrucciones para restablecer la contraseña',
+      );
     });
   });
 
@@ -555,8 +686,18 @@ describe('AuthService', () => {
       const result = await service.verifyEmail('a-valid-token');
 
       expect(mockPrismaService.client.user.updateMany).toHaveBeenCalledWith({
-        where: { verificationToken: anyString() },
-        data: { isVerified: true, verificationToken: null },
+        where: {
+          verificationToken: anyString(),
+          // Item 17: la validez temporal se valida en la MISMA escritura
+          // condicional — expirado, consumido y desconocido caen juntos en
+          // count === 0 sin ventana de carrera.
+          verificationTokenExpires: { gt: anyDate() },
+        },
+        data: {
+          isVerified: true,
+          verificationToken: null,
+          verificationTokenExpires: null,
+        },
       });
       // Looked up by the actual SHA-256 digest of the token, never the raw
       // value — a weaker "just not equal to the raw token" check would still
@@ -586,6 +727,62 @@ describe('AuthService', () => {
       await expect(service.verifyEmail('bad-token')).rejects.toThrow(
         BadRequestException,
       );
+    });
+
+    // Item 17: un token EXPIRADO no encuentra fila (el filtro
+    // verificationTokenExpires > now no matchea) y recibe el mismo error
+    // genérico — sin revelar cuál de las tres razones fue.
+    it('rechaza un token expirado con el mismo error genérico', async () => {
+      mockPrismaService.client.user.updateMany.mockResolvedValue({
+        count: 0,
+      });
+
+      await expect(service.verifyEmail('expired-token')).rejects.toThrow(
+        'El enlace de verificación no es válido o ya fue usado',
+      );
+    });
+  });
+
+  describe('resendVerification (item 17)', () => {
+    it('re-emite el token, estampa nueva expiración y envía el correo', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        email: 'test@example.com',
+        name: 'Test User',
+        isVerified: false,
+      });
+      mockPrismaService.client.user.update.mockResolvedValue({});
+
+      const result = await service.resendVerification('u1');
+
+      expect(result).toEqual({
+        message: 'Te enviamos un nuevo enlace de verificación',
+      });
+      expect(mockPrismaService.client.user.update).toHaveBeenCalledWith({
+        where: { id: 'u1' },
+        data: {
+          verificationToken: anyString(),
+          verificationTokenExpires: anyDate(),
+        },
+      });
+      expect(mockBrevoService.sendEmail).toHaveBeenCalledTimes(1);
+      const call = mockBrevoService.sendEmail.mock.calls[0][0];
+      expect(call.to).toEqual([{ email: 'test@example.com', name: 'Test User' }]);
+      expect(call.subject).toContain('Verifica');
+    });
+
+    it('rechaza si la cuenta ya está verificada', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        email: 'test@example.com',
+        name: 'Test User',
+        isVerified: true,
+      });
+
+      await expect(service.resendVerification('u1')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockBrevoService.sendEmail).not.toHaveBeenCalled();
     });
   });
 });

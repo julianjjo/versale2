@@ -11,6 +11,7 @@ describe('AuthController', () => {
     forgotPassword: jest.fn(),
     resetPassword: jest.fn(),
     verifyEmail: jest.fn(),
+    resendVerification: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -133,6 +134,24 @@ describe('AuthController', () => {
       const result = await controller.verifyEmail(dto);
 
       expect(mockAuthService.verifyEmail).toHaveBeenCalledWith(dto.token);
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('resendVerification (item 17)', () => {
+    it('delega en authService.resendVerification con el id del usuario autenticado', async () => {
+      const mockResult = {
+        message: 'Te enviamos un nuevo enlace de verificación',
+      };
+      mockAuthService.resendVerification.mockResolvedValue(mockResult);
+
+      const result = await controller.resendVerification({
+        user: { id: 'user-1' },
+      } as never);
+
+      expect(mockAuthService.resendVerification).toHaveBeenCalledWith(
+        'user-1',
+      );
       expect(result).toEqual(mockResult);
     });
   });

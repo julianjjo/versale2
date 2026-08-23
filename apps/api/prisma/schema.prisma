@@ -17,6 +17,9 @@ model User {
   role          Role     @default(USER)
   isVerified    Boolean  @default(false)
   verificationToken String? @unique
+  // Item 17: los tokens caducables también en verificación de correo — sin
+  // esta columna un token de verify-email era válido para siempre.
+  verificationTokenExpires DateTime?
   resetToken    String? @unique
   resetTokenExpires DateTime?
   tokenVersion  Int      @default(0)

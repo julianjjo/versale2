@@ -1,5 +1,15 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Throttle, minutes } from '@nestjs/throttler';
+import { AuthRequest } from '../types/request.types';
+import { JwtAuthGuard } from './jwt-auth.guard';
 import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
@@ -75,5 +85,15 @@ export class AuthController {
   @Post('verify-email')
   async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto) {
     return this.authService.verifyEmail(verifyEmailDto.token);
+  }
+
+  // Item 17: reenvío del correo de verificación para la cuenta propia. El
+  // throttle de clase cubre el abuso (cada IP tiene su presupuesto por
+  // minuto); un usuario autenticado re-mandando su propio correo es benigno.
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('resend-verification')
+  async resendVerification(@Req() req: AuthRequest) {
+    return this.authService.resendVerification(req.user.id);
   }
 }

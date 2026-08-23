@@ -5,6 +5,7 @@ import { UsersModule } from '../users/users.module';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './jwt.strategy';
+import { BrevoModule } from '../notifications/brevo.module';
 
 const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret) {
@@ -14,6 +15,7 @@ if (!jwtSecret) {
 @Module({
   imports: [
     UsersModule,
+    BrevoModule,
     PassportModule,
     JwtModule.register({
       secret: jwtSecret,
