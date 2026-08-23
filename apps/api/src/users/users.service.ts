@@ -159,9 +159,14 @@ export class UsersService {
     // one hasn't been proven yet. Without this, the profile badge kept
     // showing "Correo verificado" for an email that was never actually
     // verified, and any still-unconsumed token from before the change could
-    // later re-verify that new, unproven address.
+    // later re-verify that new, unproven address. Item 17: la expiración del
+    // token viejo también se limpia junto con él.
     const emailChangeResetsVerification = changesEmail
-      ? { isVerified: false, verificationToken: null }
+      ? {
+          isVerified: false,
+          verificationToken: null,
+          verificationTokenExpires: null,
+        }
       : {};
 
     // A changed password must invalidate every JWT issued before it —

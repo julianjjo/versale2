@@ -7,6 +7,7 @@ import { UsersModule } from './users/users.module';
 import { ProductsModule } from './products/products.module';
 import { CartModule } from './cart/cart.module';
 import { OrdersModule } from './orders/orders.module';
+import { PaymentsModule } from './payments/payments.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { FavoritesModule } from './favorites/favorites.module';
@@ -47,6 +48,7 @@ export const DEFAULT_THROTTLE_LIMIT = parsePositiveIntEnv(
     ProductsModule,
     CartModule,
     OrdersModule,
+    PaymentsModule,
     UploadsModule,
     ReviewsModule,
     FavoritesModule,

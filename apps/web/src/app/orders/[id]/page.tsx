@@ -44,6 +44,37 @@ export default function OrderDetailPage() {
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelSuccess, setCancelSuccess] = useState(false);
 
+  const [preferenceError, setPreferenceError] = useState<string | null>(null);
+  const createPreference = useMutation({
+    mutationFn: async () => {
+      const origin = window.location.origin;
+      const res = await api.post<{
+        preferenceId: string;
+        initPoint: string;
+      }>("/payments/mp/preference", {
+        orderId: params.id,
+        backUrls: {
+          success: `${origin}/orders/${params.id}`,
+          failure: `${origin}/cart`,
+        },
+      });
+      return res.data;
+    },
+    onSuccess: (pref) => {
+      // Sandbox y producción: MP devuelve init_point (o sandbox_init_point,
+      // que el API ya prefiere).
+      if (pref.initPoint) {
+        window.location.href = pref.initPoint;
+      } else {
+        setPreferenceError(
+          "MercadoPago no devolvió una URL de pago. Intenta de nuevo.",
+        );
+      }
+    },
+    onError: (err) =>
+      setPreferenceError(extractApiError(err, "No pudimos iniciar el pago")),
+  });
+
   const { data, isLoading, isError, error, refetch } = useQuery<Order>({
     queryKey: ["order", params.id],
     queryFn: async () => {
@@ -254,6 +285,11 @@ export default function OrderDetailPage() {
   // Only the order's own buyer can cancel it (the API 403s anyone else), and
   // only while it's still legal to move to CANCELLED — i.e. PENDING or PAID,
   // never once it has shipped.
+  // ── Item 16: pago MercadoPago (pedidos PENDING del comprador) ──
+  const isOwnPendingOrder =
+    Boolean(data && user && data.userId === user.id) &&
+    data.status === "PENDING";
+
   const canCancel =
     data.userId === user.id && nextStatusesFor(data.status).includes("CANCELLED");
 
@@ -419,6 +455,31 @@ export default function OrderDetailPage() {
                 </Button>
               </div>
             </form>
+          )}
+        </Card>
+      )}
+
+      {/* Item 16: pago MercadoPago para pedidos pendientes del comprador. */}
+      {isOwnPendingOrder && (
+        <Card className="mb-4">
+          <h2 className="heading-card mb-1">Pago de tu pedido</h2>
+          <p className="mb-3 text-xs text-text-muted">
+            Este pedido está pendiente de pago. Serás redirigido a
+            MercadoPago (sandbox) para completarlo.
+          </p>
+          <Button
+            variant="accent"
+            disabled={createPreference.isPending}
+            onClick={() => createPreference.mutate()}
+          >
+            {createPreference.isPending
+              ? "Creando preferencia…"
+              : "Pagar con MercadoPago"}
+          </Button>
+          {preferenceError && (
+            <p className="mt-2 text-sm text-danger" role="alert">
+              {preferenceError}
+            </p>
           )}
         </Card>
       )}
