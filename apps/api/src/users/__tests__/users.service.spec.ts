@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from '../users.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -23,19 +22,6 @@ function spyOnBcryptHash() {
 }
 function spyOnBcryptCompare() {
   return jest.spyOn(bcrypt as unknown as { compare: BcryptCompare }, 'compare');
-}
-
-// Simulates the error Prisma throws when a foreign key with ON DELETE
-// RESTRICT blocks a delete — e.g. deleting a user who still has products,
-// orders, reviews or a cart pointing at them.
-function foreignKeyRestrictError() {
-  return new Prisma.PrismaClientKnownRequestError(
-    'Foreign key constraint failed',
-    {
-      code: 'P2003',
-      clientVersion: 'test',
-    },
-  );
 }
 
 // Simulates the error Prisma throws when a write's `where` filter matches no
@@ -749,15 +735,19 @@ describe('UsersService', () => {
         data: { status: 'WITHDRAWN' },
       });
       // …datos personales sin valor comunitario borrados…
-      expect(mockPrismaService.client.cartItem.deleteMany).toHaveBeenCalledWith({
-        where: { cart: { userId } },
-      });
+      expect(mockPrismaService.client.cartItem.deleteMany).toHaveBeenCalledWith(
+        {
+          where: { cart: { userId } },
+        },
+      );
       expect(mockPrismaService.client.cart.deleteMany).toHaveBeenCalledWith({
         where: { userId },
       });
-      expect(mockPrismaService.client.favorite.deleteMany).toHaveBeenCalledWith({
-        where: { userId },
-      });
+      expect(mockPrismaService.client.favorite.deleteMany).toHaveBeenCalledWith(
+        {
+          where: { userId },
+        },
+      );
       expect(
         mockPrismaService.client.reviewHelpfulVote.deleteMany,
       ).toHaveBeenCalledWith({ where: { userId } });
@@ -765,33 +755,48 @@ describe('UsersService', () => {
         mockPrismaService.client.notification.deleteMany,
       ).toHaveBeenCalledWith({ where: { userId } });
       // …direcciones ya prescribidas redactadas al instante.
-      expect(mockPrismaService.client.order.updateMany).toHaveBeenCalledWith({
-        where: expect.objectContaining({
-          userId,
-          shippingAddressRedactedAt: null,
-        }),
-        data: expect.objectContaining({
-          shippingAddressRedactedAt: expect.any(Date),
-        }) as Record<string, unknown>,
-      });
-      // …y la PII de la fila sobrescrita con la sesión invalidada.
-      expect(mockPrismaService.client.user.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: userId },
-          data: {
-            deletedAt: expect.any(Date),
-            name: 'Usuario eliminado',
-            email: `eliminado-${userId}@anonymized.invalid`,
-            password: expect.any(String),
-            isVerified: false,
-            verificationToken: null,
-            verificationTokenExpires: null,
-            resetToken: null,
-            resetTokenExpires: null,
-            tokenVersion: { increment: 1 },
-          },
-        }),
+      expect(mockPrismaService.client.order.updateMany).toHaveBeenCalledTimes(
+        1,
       );
+      const orderUpdate = mockPrismaService.client.order
+        .updateMany as unknown as {
+        mock: {
+          calls: Array<
+            [
+              {
+                where: Record<string, unknown>;
+                data: { shippingAddressRedactedAt: unknown };
+              },
+            ]
+          >;
+        };
+      };
+      const orderWrite = orderUpdate.mock.calls[0][0];
+      expect(orderWrite.where).toMatchObject({ userId });
+      expect(orderWrite.where.shippingAddressRedactedAt).toBeNull();
+      // …y la PII de la fila sobrescrita con la sesión invalidada.
+      expect(mockPrismaService.client.user.update).toHaveBeenCalledTimes(1);
+      const userUpdate = mockPrismaService.client.user.update as unknown as {
+        mock: {
+          calls: Array<
+            [{ where: { id: string }; data: Record<string, unknown> }]
+          >;
+        };
+      };
+      const write = userUpdate.mock.calls[0][0];
+      expect(write.where.id).toBe(userId);
+      expect(write.data).toMatchObject({
+        name: 'Usuario eliminado',
+        email: `eliminado-${userId}@anonymized.invalid`,
+        isVerified: false,
+        verificationToken: null,
+        verificationTokenExpires: null,
+        resetToken: null,
+        resetTokenExpires: null,
+        tokenVersion: { increment: 1 },
+      });
+      expect(write.data.deletedAt).toBeInstanceOf(Date);
+      expect(typeof write.data.password).toBe('string');
     }
 
     it('anonimiza la cuenta cuando la contraseña actual es correcta', async () => {
@@ -839,7 +844,9 @@ describe('UsersService', () => {
         new ForbiddenException('No puedes eliminar al último administrador.'),
       );
       // El guardia corre dentro de la transacción: nada más se escribió.
-      expect(mockPrismaService.client.product.updateMany).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.client.product.updateMany,
+      ).not.toHaveBeenCalled();
       expect(mockPrismaService.client.user.update).not.toHaveBeenCalled();
     });
 
@@ -862,14 +869,16 @@ describe('UsersService', () => {
       const result = await service.redactAddressesForDeletedAccounts();
 
       expect(result).toBe(3);
-      expect(mockPrismaService.client.order.updateMany).toHaveBeenCalledWith({
-        where: expect.objectContaining({
-          shippingAddressRedactedAt: null,
-          user: { deletedAt: { not: null } },
-        }),
-        data: expect.objectContaining({
-          shippingAddressRedactedAt: expect.any(Date),
-        }) as Record<string, unknown>,
+      expect(mockPrismaService.client.order.updateMany).toHaveBeenCalledTimes(
+        1,
+      );
+      const orderUpdate = mockPrismaService.client.order
+        .updateMany as unknown as {
+        mock: { calls: Array<[Record<string, unknown>]> };
+      };
+      expect(orderUpdate.mock.calls[0][0].where).toMatchObject({
+        shippingAddressRedactedAt: null,
+        user: { deletedAt: { not: null } },
       });
     });
 
@@ -878,9 +887,9 @@ describe('UsersService', () => {
         count: 0,
       });
 
-      await expect(
-        service.redactAddressesForDeletedAccounts(),
-      ).resolves.toBe(0);
+      await expect(service.redactAddressesForDeletedAccounts()).resolves.toBe(
+        0,
+      );
     });
   });
 });
