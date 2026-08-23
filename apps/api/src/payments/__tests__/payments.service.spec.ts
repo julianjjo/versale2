@@ -141,13 +141,23 @@ describe('PaymentsService', () => {
         'order1',
         OrderStatus.PAID,
       );
-      expect(mockPrismaService.client.payment.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
+      expect(mockPrismaService.client.payment.create).toHaveBeenCalledTimes(1);
+      // Captura tipada de la fila escrita: el mock sin tipos deja
+      // expect.objectContaining como `any` y el linter lo rechaza.
+      const createMock = mockPrismaService.client.payment.create as unknown as {
+        mock: {
+          calls: Array<
+            [{ data: { paymentId: string; orderId: string; status: unknown } }]
+          >;
+        };
+      };
+      expect(createMock.mock.calls[0][0].data).toEqual(
+        expect.objectContaining({
           paymentId: '123456789',
           orderId: 'order1',
           status: 'approved',
         }),
-      });
+      );
     });
 
     it('ignora como duplicado el reintento del mismo paymentId (idempotencia)', async () => {

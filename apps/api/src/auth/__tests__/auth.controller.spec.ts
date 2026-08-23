@@ -149,9 +149,7 @@ describe('AuthController', () => {
         user: { id: 'user-1' },
       } as never);
 
-      expect(mockAuthService.resendVerification).toHaveBeenCalledWith(
-        'user-1',
-      );
+      expect(mockAuthService.resendVerification).toHaveBeenCalledWith('user-1');
       expect(result).toEqual(mockResult);
     });
   });
