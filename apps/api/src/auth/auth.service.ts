@@ -105,12 +105,15 @@ export class AuthService {
     rawToken: string,
   ): Promise<void> {
     const url = `${webAppUrl()}/verify-email?token=${encodeURIComponent(rawToken)}`;
+    // El nombre es input del usuario: escapado antes de entrar al HTML del
+    // correo para no convertir el signup en un vector de phishing.
+    const safeName = escapeHtml(name);
     try {
       await this.brevo.sendEmail({
         to: [{ email, name }],
         subject: 'Verifica tu correo en Versale',
         text: `Hola${name ? ` ${name}` : ''}: confirma tu correo con este enlace (vence en 24 horas): ${url}`,
-        html: `<p>Hola${name ? ` ${name}` : ''}:</p><p>Confirma tu correo con <a href="${url}">este enlace</a>. Vence en 24 horas.</p>`,
+        html: `<p>Hola${safeName ? ` ${safeName}` : ''}:</p><p>Confirma tu correo con <a href="${url}">este enlace</a>. Vence en 24 horas.</p>`,
       });
     } catch (error) {
       this.logger.error(
@@ -162,22 +165,25 @@ export class AuthService {
     });
 
     // Item 17: el token sale por correo (Brevo) hacia el enlace de
-    // /reset-password del frontend. Igual que en signup, un fallo del
-    // proveedor no cambia la respuesta — que no varía exista o no el correo.
+    // /reset-password del frontend. Se envía SIN esperar (fire-and-forget):
+    // además de no bloquear la respuesta por un tercero lento, esperar solo
+    // cuando count > 0 convertiría la latencia en un oráculo de enumeración
+    // de correos registrados — exactamente lo que esta respuesta genérica
+    // y el updateMany simétrico existen para evitar.
     if (count > 0) {
       const url = `${webAppUrl()}/reset-password?token=${encodeURIComponent(resetToken)}`;
-      try {
-        await this.brevo.sendEmail({
+      void this.brevo
+        .sendEmail({
           to: [{ email }],
           subject: 'Restablece tu contraseña en Versale',
           text: `Para restablecer tu contraseña usa este enlace (vence en 1 hora): ${url}`,
           html: `<p>Para restablecer tu contraseña usa <a href="${url}">este enlace</a>. Vence en 1 hora.</p><p>Si no fuiste tú, ignora este mensaje.</p>`,
+        })
+        .catch((error: unknown) => {
+          this.logger.error(
+            `No se pudo enviar el correo de restablecimiento a ${email}: ${error}`,
+          );
         });
-      } catch (error) {
-        this.logger.error(
-          `No se pudo enviar el correo de restablecimiento a ${email}: ${error}`,
-        );
-      }
     }
 
     // This must default to OFF (fail
@@ -338,4 +344,13 @@ export class AuthService {
 // (unlike bcrypt) on purpose, since the lookup is by exact match.
 function hashOpaqueToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
