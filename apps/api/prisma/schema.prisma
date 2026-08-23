@@ -176,6 +176,7 @@ model Order {
   updatedAt     DateTime @updatedAt
   items         OrderItem[] @relation("OrderItemOrder")
   notifications Notification[]
+  payments      Payment[]
 
   // Cron sweeps filter by these deadline columns every hour.
   @@index([status, paidAt])
@@ -203,6 +204,24 @@ enum OrderStatus {
   CANCELLED
   DISPUTED
   REFUNDED
+}
+
+// Item 16: pagos de MercadoPago. paymentId único = la idempotencia del
+// webhook vive en la base de datos: MP reintenta notificaciones y dos
+// webhooks con el mismo pago no pueden crear dos filas ni procesarse dos
+// veces.
+model Payment {
+  id        String   @id @default(uuid())
+  // ID del pago en MercadoPago (data.id de la notificación).
+  paymentId String   @unique
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  status    String   // estado reportado por MP (approved, rejected…)
+  amount    Float
+  rawPayload Json?   // respuesta completa de MP para auditoría/soporte
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
 }
 
 model OrderItem {

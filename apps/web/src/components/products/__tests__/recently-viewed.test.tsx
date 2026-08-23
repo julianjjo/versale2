@@ -50,6 +50,7 @@ function productFixture(overrides: Partial<Product> & { id: string; title: strin
     condition: "Good",
     price: 45000,
     sellerId: "s1",
+    status: "AVAILABLE",
     isApproved: true,
     createdAt: new Date("2026-01-10T10:00:00Z").toISOString(),
     updatedAt: new Date("2026-01-10T10:00:00Z").toISOString(),
