@@ -1,64 +1,94 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import axios from "axios";
-import { extractApiError, extractBlobApiError } from "../api";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError, api, extractApiError, extractBlobApiError } from "../api";
 
 vi.mock("../token", () => ({
   tokenStore: {
     get: vi.fn(),
     set: vi.fn(),
     clear: vi.fn(),
+    subscribe: vi.fn(() => () => {}),
   },
 }));
 
 import { tokenStore } from "../token";
-import { api } from "../api";
 import { onUnauthorized } from "../auth-events";
 
 const mockedTokenStore = tokenStore as unknown as {
   get: ReturnType<typeof vi.fn>;
-  set: ReturnType<typeof vi.fn>;
   clear: ReturnType<typeof vi.fn>;
 };
 
+const jsonResponse = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+
+const fetchMock = vi.fn();
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.stubGlobal("fetch", fetchMock);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("api client", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("exposes a baseURL from env or falls back to localhost:3001", () => {
-    expect(api.defaults.baseURL).toBeDefined();
-  });
-
   it("attaches Authorization header when a token is present", async () => {
     mockedTokenStore.get.mockReturnValue("token-123");
-    const response = await api.get("/products", {
-      adapter: async (config) => ({
-        data: null,
-        status: 200,
-        statusText: "OK",
-        headers: {},
-        config,
-        request: {},
-      }),
-    });
-    expect(response.config.headers.get("Authorization")).toBe(
+    fetchMock.mockResolvedValue(jsonResponse(200, []));
+
+    await api.get("/products");
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/products");
+    expect(new Headers(init.headers).get("Authorization")).toBe(
       "Bearer token-123",
     );
   });
 
   it("does not attach Authorization header when no token is present", async () => {
     mockedTokenStore.get.mockReturnValue(null);
-    const response = await api.get("/products", {
-      adapter: async (config) => ({
-        data: null,
-        status: 200,
-        statusText: "OK",
-        headers: {},
-        config,
-        request: {},
-      }),
-    });
-    expect(response.config.headers.get("Authorization")).toBeUndefined();
+    fetchMock.mockResolvedValue(jsonResponse(200, []));
+
+    await api.get("/products");
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new Headers(init.headers).get("Authorization")).toBeNull();
+  });
+
+  it("serializes the body and content type for mutations", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    fetchMock.mockResolvedValue(jsonResponse(201, { id: "p1" }));
+
+    const res = await api.post("/products", { title: "Camiseta", price: 1000 });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/products");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBe(JSON.stringify({ title: "Camiseta", price: 1000 }));
+    expect(res.data).toEqual({ id: "p1" });
+  });
+
+  it("appends params as a query string", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    fetchMock.mockResolvedValue(jsonResponse(200, []));
+
+    await api.get("/notifications", { params: { limit: 10 } });
+
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).toContain("limit=10");
+  });
+
+  it("returns parsed JSON data on success", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    fetchMock.mockResolvedValue(jsonResponse(200, { items: [1, 2] }));
+
+    const res = await api.get<{ items: number[] }>("/anything");
+
+    expect(res.data).toEqual({ items: [1, 2] });
   });
 
   it("clears the token and notifies unauthorized subscribers on 401", async () => {
@@ -66,20 +96,9 @@ describe("api client", () => {
     const off = onUnauthorized(handler);
 
     mockedTokenStore.get.mockReturnValue("stale");
-    await expect(
-      api.get("/products", {
-        adapter: async () => {
-          throw {
-            isAxiosError: true,
-            response: { status: 401, data: { message: "Unauthorized" } },
-            config: { url: "/products" },
-            toJSON: () => ({}),
-            name: "AxiosError",
-            message: "Request failed",
-          };
-        },
-      }),
-    ).rejects.toBeDefined();
+    fetchMock.mockResolvedValue(jsonResponse(401, { message: "Unauthorized" }));
+
+    await expect(api.get("/products")).rejects.toBeInstanceOf(ApiError);
 
     expect(mockedTokenStore.clear).toHaveBeenCalled();
     expect(handler).toHaveBeenCalledTimes(1);
@@ -92,20 +111,10 @@ describe("api client", () => {
     const handler = vi.fn();
     const off = onUnauthorized(handler);
 
-    await expect(
-      api.get("/auth/login", {
-        adapter: async () => {
-          throw {
-            isAxiosError: true,
-            response: { status: 401, data: { message: "Bad creds" } },
-            config: { url: "/auth/login" },
-            toJSON: () => ({}),
-            name: "AxiosError",
-            message: "Request failed",
-          };
-        },
-      }),
-    ).rejects.toBeDefined();
+    mockedTokenStore.get.mockReturnValue(null);
+    fetchMock.mockResolvedValue(jsonResponse(401, { message: "Bad creds" }));
+
+    await expect(api.get("/auth/login")).rejects.toBeInstanceOf(ApiError);
 
     expect(handler).toHaveBeenCalledTimes(1);
     off();
@@ -115,66 +124,70 @@ describe("api client", () => {
     const handler = vi.fn();
     const off = onUnauthorized(handler);
 
-    await expect(
-      api.get("/products", {
-        adapter: async () => {
-          throw {
-            isAxiosError: true,
-            response: { status: 500, data: { message: "Boom" } },
-            config: { url: "/products" },
-            toJSON: () => ({}),
-            name: "AxiosError",
-            message: "Request failed",
-          };
-        },
-      }),
-    ).rejects.toBeDefined();
+    mockedTokenStore.get.mockReturnValue(null);
+    fetchMock.mockResolvedValue(jsonResponse(500, { message: "Boom" }));
 
+    await expect(api.get("/products")).rejects.toMatchObject({
+      response: { status: 500 },
+    });
     expect(handler).not.toHaveBeenCalled();
     off();
+  });
+
+  it("wraps transport failures without an HTTP status", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+
+    await expect(api.get("/products")).rejects.toMatchObject({
+      response: { status: 0, data: undefined },
+    });
+    expect(mockedTokenStore.clear).not.toHaveBeenCalled();
+  });
+
+  it("returns a Blob for responseType blob downloads", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    fetchMock.mockResolvedValue(
+      new Response("ID,Comprador\r\n1,Ana", {
+        status: 200,
+        headers: { "Content-Type": "text/csv" },
+      }),
+    );
+
+    const res = await api.get<Blob>("/orders/admin/export", {
+      responseType: "blob",
+    });
+
+    // Duck-typed: jsdom and undici ship different Blob classes, so
+    // instanceof breaks depending on which realm produced the response.
+    expect(res.data).toMatchObject({
+      type: "text/csv",
+      size: expect.any(Number),
+    });
   });
 });
 
 describe("extractApiError", () => {
   it("returns the backend message string when present", () => {
-    const err = new axios.AxiosError(
-      "Request failed",
-      "ERR_BAD_REQUEST",
-      { url: "/x" } as never,
-      null,
-      { status: 400, data: { message: "Bad input" } } as never,
-    );
+    const err = new ApiError(400, { message: "Bad input" });
     expect(extractApiError(err, "fallback")).toBe("Bad input");
   });
 
   it("joins multiple messages with comma", () => {
-    const err = new axios.AxiosError(
-      "Request failed",
-      "ERR_BAD_REQUEST",
-      { url: "/x" } as never,
-      null,
-      {
-        status: 400,
-        data: { message: ["name required", "email required"] },
-      } as never,
-    );
+    const err = new ApiError(400, {
+      message: ["name required", "email required"],
+    });
     expect(extractApiError(err, "fallback")).toBe(
       "name required, email required",
     );
   });
 
-  it("returns Error message for non-axios errors", () => {
+  it("returns Error message for non-API errors", () => {
     expect(extractApiError(new Error("boom"), "fallback")).toBe("boom");
   });
 
-  it("returns the fallback instead of axios's English network-error text", () => {
-    const err = new axios.AxiosError(
-      "Network Error",
-      "ERR_NETWORK",
-      { url: "/x" } as never,
-      null,
-      undefined,
-    );
+  it("returns the fallback instead of browser network-error text", () => {
+    // Transport failures surface as ApiError(0) — no backend message to show.
+    const err = new ApiError(0, undefined);
     expect(extractApiError(err, "No pudimos iniciar sesión")).toBe(
       "No pudimos iniciar sesión",
     );
@@ -188,78 +201,66 @@ describe("extractApiError", () => {
 });
 
 describe("extractBlobApiError", () => {
-  it("reads the real backend message out of a Blob-typed error response", async () => {
-    const blob = new Blob([JSON.stringify({ message: "No autorizado" })], {
-      type: "application/json",
-    });
-    const err = new axios.AxiosError(
-      "Request failed",
-      "ERR_BAD_REQUEST",
-      { url: "/x" } as never,
-      null,
-      { status: 403, data: blob } as never,
-    );
-    await expect(extractBlobApiError(err, "fallback")).resolves.toBe(
+  it("reads the backend JSON error of a blob download (CSV export case)", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    fetchMock.mockResolvedValue(jsonResponse(403, { message: "No autorizado" }));
+
+    let caught: unknown;
+    try {
+      await api.get<Blob>("/orders/admin/export", { responseType: "blob" });
+    } catch (err) {
+      caught = err;
+    }
+
+    await expect(extractBlobApiError(caught, "fallback")).resolves.toBe(
       "No autorizado",
     );
   });
 
-  it("joins multiple messages from a Blob error body", async () => {
-    const blob = new Blob([JSON.stringify({ message: ["a", "b"] })], {
-      type: "application/json",
-    });
-    const err = new axios.AxiosError(
-      "Request failed",
-      "ERR_BAD_REQUEST",
-      { url: "/x" } as never,
-      null,
-      { status: 400, data: blob } as never,
+  it("joins multiple messages from a blob request's error body", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    fetchMock.mockResolvedValue(
+      jsonResponse(400, { message: ["a", "b"] }),
     );
-    await expect(extractBlobApiError(err, "fallback")).resolves.toBe("a, b");
+
+    let caught: unknown;
+    try {
+      await api.get<Blob>("/orders/admin/export", { responseType: "blob" });
+    } catch (err) {
+      caught = err;
+    }
+
+    await expect(extractBlobApiError(caught, "fallback")).resolves.toBe("a, b");
   });
 
-  it("falls back when the Blob isn't JSON-typed", async () => {
-    const blob = new Blob(["ID,Comprador"], { type: "text/csv" });
-    const err = new axios.AxiosError(
-      "Request failed",
-      "ERR_BAD_REQUEST",
-      { url: "/x" } as never,
-      null,
-      { status: 500, data: blob } as never,
+  it("falls back when the error body is not JSON", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    fetchMock.mockResolvedValue(
+      new Response("<html>boom</html>", {
+        status: 500,
+        headers: { "Content-Type": "text/html" },
+      }),
     );
-    await expect(extractBlobApiError(err, "fallback")).resolves.toBe(
+
+    let caught: unknown;
+    try {
+      await api.get<Blob>("/orders/admin/export", { responseType: "blob" });
+    } catch (err) {
+      caught = err;
+    }
+
+    await expect(extractBlobApiError(caught, "fallback")).resolves.toBe(
       "fallback",
     );
   });
 
-  it("falls back when a Blob claims JSON but the body doesn't parse", async () => {
-    const blob = new Blob(["not valid json"], { type: "application/json" });
-    const err = new axios.AxiosError(
-      "Request failed",
-      "ERR_BAD_REQUEST",
-      { url: "/x" } as never,
-      null,
-      { status: 500, data: blob } as never,
-    );
-    await expect(extractBlobApiError(err, "fallback")).resolves.toBe(
-      "fallback",
-    );
+  it("delegates to extractApiError for non-blob errors too", async () => {
+    await expect(
+      extractBlobApiError(new ApiError(400, { message: "Bad input" }), "fallback"),
+    ).resolves.toBe("Bad input");
   });
 
-  it("delegates to extractApiError for a non-Blob response", async () => {
-    const err = new axios.AxiosError(
-      "Request failed",
-      "ERR_BAD_REQUEST",
-      { url: "/x" } as never,
-      null,
-      { status: 400, data: { message: "Bad input" } } as never,
-    );
-    await expect(extractBlobApiError(err, "fallback")).resolves.toBe(
-      "Bad input",
-    );
-  });
-
-  it("returns Error message for a non-axios error, same as extractApiError", async () => {
+  it("returns Error message for a plain error, same as extractApiError", async () => {
     await expect(
       extractBlobApiError(new Error("boom"), "fallback"),
     ).resolves.toBe("boom");

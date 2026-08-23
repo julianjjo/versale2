@@ -132,7 +132,7 @@ vi.mock("@/lib/api", () => ({
 
 import { api } from "@/lib/api";
 
-// `/orders` is paginated now: the axios-style `{ data: ... }` wraps a second
+// `/orders` is paginated now: the client-style `{ data: ... }` wrap a second
 // `{ data, meta }` envelope, not a bare array.
 function ordersResponse(orders: unknown[]) {
   return {

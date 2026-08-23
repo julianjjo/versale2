@@ -6,8 +6,6 @@
   "exclude": [
     "node_modules",
     "test",
-    "bench",
-    "vitest.bench.config.mts",
     "dist",
     "**/*spec.ts",
     "prisma.config.ts",

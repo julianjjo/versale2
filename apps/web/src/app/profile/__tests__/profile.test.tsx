@@ -173,7 +173,7 @@ describe("ProfilePage", () => {
   it("muestra el mensaje en español que devuelve la API cuando la contraseña actual es incorrecta", async () => {
     const user = userEvent.setup();
     // 403, not 401: the API deliberately uses 403 here so the web app's
-    // global axios interceptor (which force-logs-out on any 401) doesn't
+    // global 401 interceptor in lib/api (which force-logs-out on any 401) doesn't
     // treat a mere password typo as an expired session.
     vi.mocked(api.patch).mockRejectedValue({
       response: {

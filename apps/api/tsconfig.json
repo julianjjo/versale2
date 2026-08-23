@@ -25,7 +25,6 @@
       "jest",
       "multer",
       "node",
-      "passport-jwt",
       "supertest"
     ]
   },

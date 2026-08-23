@@ -41,8 +41,6 @@ function webAppUrl(): string {
 export const TIMING_SAFE_DUMMY_HASH =
   '$2b$10$H/BlKyoyPzxsME37eNXFdea6VNbzmOqBEr515gyGZiwqjf11EBS32';
 
-export type AuthenticatedUser = Omit<User, 'password'>;
-
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -307,32 +305,6 @@ export class AuthService {
         role: user.role,
       },
     };
-  }
-
-  async validateUser(
-    email: string,
-    password: string,
-  ): Promise<AuthenticatedUser | null> {
-    const user = await this.prisma.client.user.findUnique({ where: { email } });
-
-    // Same reasoning as login() above: both branches must pay bcrypt's cost
-    // before rejecting, or "no such account" vs "wrong password" becomes an
-    // email-enumeration oracle by response timing alone. This method has no
-    // caller wired up today, but it exists for the day a Passport
-    // LocalStrategy calls it directly — better to close this before that
-    // happens than depend on whoever wires it up remembering to.
-    const isPasswordValid = await bcrypt.compare(
-      password,
-      user?.password ?? TIMING_SAFE_DUMMY_HASH,
-    );
-
-    if (!user || !isPasswordValid) {
-      return null;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password: _password, ...result } = user;
-    return result;
   }
 }
 
