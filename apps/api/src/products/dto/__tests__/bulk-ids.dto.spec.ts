@@ -1,11 +1,11 @@
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
-import { BulkApproveDto } from '../bulk-approve.dto';
+import { BulkIdsDto } from '../bulk-ids.dto';
 
-describe('BulkApproveDto with the global ValidationPipe', () => {
+describe('BulkIdsDto with the global ValidationPipe', () => {
   const pipe = new ValidationPipe({ whitelist: true, transform: true });
   const metadata = {
     type: 'body' as const,
-    metatype: BulkApproveDto,
+    metatype: BulkIdsDto,
   };
 
   it('accepts a list of string ids', async () => {

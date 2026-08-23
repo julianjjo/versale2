@@ -17,10 +17,8 @@ import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { RejectProductDto } from './dto/reject-product.dto';
-import { BulkApproveDto } from './dto/bulk-approve.dto';
+import { BulkIdsDto } from './dto/bulk-ids.dto';
 import { BulkRejectDto } from './dto/bulk-reject.dto';
-import { BulkPauseDto } from './dto/bulk-pause.dto';
-import { BulkUnpauseDto } from './dto/bulk-unpause.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -109,7 +107,7 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard)
   @Patch('bulk-pause')
   async bulkPauseProducts(
-    @Body() bulkPauseDto: BulkPauseDto,
+    @Body() bulkPauseDto: BulkIdsDto,
     @Req() req: AuthRequest,
   ) {
     return this.productsService.bulkPause(
@@ -122,7 +120,7 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard)
   @Patch('bulk-unpause')
   async bulkUnpauseProducts(
-    @Body() bulkUnpauseDto: BulkUnpauseDto,
+    @Body() bulkUnpauseDto: BulkIdsDto,
     @Req() req: AuthRequest,
   ) {
     return this.productsService.bulkUnpause(
@@ -189,7 +187,7 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Patch('admin/bulk-approve')
-  async bulkApproveProducts(@Body() bulkApproveDto: BulkApproveDto) {
+  async bulkApproveProducts(@Body() bulkApproveDto: BulkIdsDto) {
     return this.productsService.bulkApprove(bulkApproveDto.ids);
   }
 

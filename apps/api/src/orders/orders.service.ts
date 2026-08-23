@@ -5,6 +5,8 @@ import {
   BadRequestException,
   ForbiddenException,
   ConflictException,
+  OnModuleInit,
+  OnModuleDestroy,
 } from '@nestjs/common';
 import { NotificationType, Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -17,7 +19,6 @@ import { translatePrismaError } from '../common/prisma-error';
 import { toCsv, withExcelCompat } from '../common/csv';
 import { logAndSwallow } from '../common/log-and-swallow';
 import { NotificationsService } from '../notifications/notifications.service';
-import { Interval } from '@nestjs/schedule';
 
 // Maps a target order status to the notification "flavor" a recipient sees
 // in the bell dropdown — SHIPPED/CANCELLED get their own icon-friendly type,
@@ -133,13 +134,27 @@ const PAID_STATUSES: OrderStatus[] = [
 ];
 
 @Injectable()
-export class OrdersService {
+export class OrdersService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OrdersService.name);
+  private sweepInterval?: NodeJS.Timeout;
 
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
   ) {}
+
+  onModuleInit() {
+    // Hourly sweeps — native interval, no @nestjs/schedule needed
+    this.sweepInterval = setInterval(() => {
+      void this.runOrderDeadlineSweeps();
+    }, 60 * 60 * 1000);
+    // Allow process to exit even if interval is still scheduled (tests, e2e)
+    if (this.sweepInterval.unref) this.sweepInterval.unref();
+  }
+
+  onModuleDestroy() {
+    if (this.sweepInterval) clearInterval(this.sweepInterval);
+  }
 
   // A notification is a side effect of an order mutation that has already
   // committed — it must never turn an otherwise-successful ship/cancel/
@@ -1122,7 +1137,6 @@ export class OrdersService {
     return stale.length;
   }
 
-  @Interval(60 * 60 * 1000)
   async runOrderDeadlineSweeps() {
     await this.autoCancelStalePendingOrders();
     await this.autoRefundUnshippedPaidOrders();
