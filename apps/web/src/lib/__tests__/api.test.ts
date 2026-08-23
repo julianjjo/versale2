@@ -157,7 +157,12 @@ describe("api client", () => {
       responseType: "blob",
     });
 
-    expect(res.data).toBeInstanceOf(Blob);
+    // Duck-typed: jsdom and undici ship different Blob classes, so
+    // instanceof breaks depending on which realm produced the response.
+    expect(res.data).toMatchObject({
+      type: "text/csv",
+      size: expect.any(Number),
+    });
   });
 });
 
