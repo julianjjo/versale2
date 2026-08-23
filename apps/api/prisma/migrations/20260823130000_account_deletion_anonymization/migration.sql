@@ -4,3 +4,9 @@
 -- AlterTable
 ALTER TABLE "User" ADD COLUMN "deletedAt" DATETIME;
 ALTER TABLE "Order" ADD COLUMN "shippingAddressRedactedAt" DATETIME;
+
+-- CreateIndex
+CREATE INDEX "User_deletedAt_idx" ON "User"("deletedAt");
+
+-- CreateIndex
+CREATE INDEX "ReviewHelpfulVote_userId_idx" ON "ReviewHelpfulVote"("userId");

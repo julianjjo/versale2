@@ -24,15 +24,6 @@ function spyOnBcryptCompare() {
   return jest.spyOn(bcrypt as unknown as { compare: BcryptCompare }, 'compare');
 }
 
-// Simulates the error Prisma throws when a write's `where` filter matches no
-// row — e.g. a second concurrent delete of the same, already-deleted user.
-function notFoundError() {
-  return new Prisma.PrismaClientKnownRequestError('No record found', {
-    code: 'P2025',
-    clientVersion: 'test',
-  });
-}
-
 // Simulates the error Prisma throws when a unique constraint is violated —
 // e.g. two concurrent requests racing to claim the same not-yet-taken email.
 function uniqueConstraintError() {
@@ -68,6 +59,20 @@ describe('UsersService', () => {
   const mockNotificationClient = { deleteMany: jest.fn() };
   const mockOrderClient = { updateMany: jest.fn() };
 
+  // Contenido comunitario que DEBE sobrevivir al borrado: si algún día el
+  // servicio intenta borrarlo, estos mocks hacen visible la violación de
+  // contrato (y los specs lo asertan explícitamente).
+  const mockReviewClient = {
+    deleteMany: jest.fn(),
+    update: jest.fn(),
+    updateMany: jest.fn(),
+  };
+  const mockProductQuestionClient = {
+    deleteMany: jest.fn(),
+    update: jest.fn(),
+  };
+  const mockProductReportClient = { deleteMany: jest.fn(), update: jest.fn() };
+
   const txClient = {
     user: mockUserClient,
     product: mockProductClient,
@@ -77,6 +82,9 @@ describe('UsersService', () => {
     reviewHelpfulVote: mockReviewHelpfulVoteClient,
     notification: mockNotificationClient,
     order: mockOrderClient,
+    review: mockReviewClient,
+    productQuestion: mockProductQuestionClient,
+    productReport: mockProductReportClient,
   };
 
   const mockPrismaService = {
@@ -117,6 +125,10 @@ describe('UsersService', () => {
   afterEach(() => {
     jest.clearAllMocks();
   });
+
+  // Reloj congelado compartido por las aserciones de predicado exacto de la
+  // redacción de direcciones (deleteOwnAccount y el cron).
+  const FROZEN_NOW = new Date('2026-08-23T12:00:00Z');
 
   describe('create', () => {
     it('should create a new user with hashed password', async () => {
@@ -171,7 +183,7 @@ describe('UsersService', () => {
       const result = await service.findAll();
 
       expect(mockPrismaService.client.user.findMany).toHaveBeenCalledWith({
-        where: {},
+        where: { deletedAt: null },
         skip: 0,
         take: 10,
         orderBy: { createdAt: 'desc' },
@@ -186,7 +198,7 @@ describe('UsersService', () => {
         },
       });
       expect(mockPrismaService.client.user.count).toHaveBeenCalledWith({
-        where: {},
+        where: { deletedAt: null },
       });
       expect(result).toEqual({
         data: mockUsers,
@@ -220,8 +232,46 @@ describe('UsersService', () => {
       await service.findAll({ role: 'BOGUS' });
 
       expect(mockPrismaService.client.user.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: {} }),
+        expect.objectContaining({ where: { deletedAt: null } }),
       );
+    });
+
+    it('excluye las cuentas anonimizadas del panel por defecto', async () => {
+      mockPrismaService.client.user.findMany.mockResolvedValue([]);
+      mockPrismaService.client.user.count.mockResolvedValue(0);
+
+      await service.findAll();
+
+      expect(mockPrismaService.client.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { deletedAt: null } }),
+      );
+    });
+
+    it('lista solo cuentas eliminadas con ?deleted=true', async () => {
+      mockPrismaService.client.user.findMany.mockResolvedValue([]);
+      mockPrismaService.client.user.count.mockResolvedValue(0);
+
+      await service.findAll({ deleted: 'true' });
+
+      expect(mockPrismaService.client.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { deletedAt: { not: null } },
+        }),
+      );
+    });
+
+    it('no filtra por deletedAt con ?deleted=all (auditoría completa)', async () => {
+      mockPrismaService.client.user.findMany.mockResolvedValue([]);
+      mockPrismaService.client.user.count.mockResolvedValue(0);
+
+      await service.findAll({ deleted: 'all' });
+
+      const where = (
+        mockPrismaService.client.user.findMany as unknown as {
+          mock: { calls: Array<[{ where: Record<string, unknown> }]> };
+        }
+      ).mock.calls[0][0].where;
+      expect(where).not.toHaveProperty('deletedAt');
     });
 
     it('should filter by search term across name and email', async () => {
@@ -233,6 +283,7 @@ describe('UsersService', () => {
       expect(mockPrismaService.client.user.findMany).toHaveBeenCalledWith({
         where: {
           OR: [{ name: { contains: 'ana' } }, { email: { contains: 'ana' } }],
+          deletedAt: null,
         },
         skip: 5,
         take: 5,
@@ -256,7 +307,7 @@ describe('UsersService', () => {
       await service.findAll({ role: 'ADMIN' });
 
       expect(mockPrismaService.client.user.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { role: 'ADMIN' } }),
+        expect.objectContaining({ where: { role: 'ADMIN', deletedAt: null } }),
       );
     });
   });
@@ -321,13 +372,20 @@ describe('UsersService', () => {
       const userId = 'user1';
       const updateUserDto = { name: 'Updated Name' };
 
+      // El guard de cuentas anonimizadas lee deletedAt antes de escribir.
+      mockPrismaService.client.user.findUnique
+        .mockResolvedValueOnce({ deletedAt: null })
+        .mockResolvedValue(mockUpdatedUser);
       mockPrismaService.client.user.update.mockResolvedValue(mockUpdatedUser);
 
       const result = await service.update(userId, updateUserDto, {
         isSelfService: true,
       });
 
-      expect(mockPrismaService.client.user.findUnique).not.toHaveBeenCalled();
+      expect(mockPrismaService.client.user.findUnique).toHaveBeenCalledWith({
+        where: { id: userId },
+        select: { deletedAt: true },
+      });
       expect(mockPrismaService.client.user.update).toHaveBeenCalledWith({
         where: { id: userId },
         data: updateUserDto,
@@ -342,6 +400,19 @@ describe('UsersService', () => {
         },
       });
       expect(result).toEqual(mockUpdatedUser);
+    });
+
+    it('rechaza con 404 la actualización de una cuenta ya anonimizada', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        deletedAt: new Date(),
+      });
+
+      await expect(
+        service.update('ghost', { name: 'Revive' }, { isSelfService: true }),
+      ).rejects.toThrow(
+        new NotFoundException('Usuario con ID ghost no encontrado'),
+      );
+      expect(mockPrismaService.client.user.update).not.toHaveBeenCalled();
     });
 
     it('should hash password if provided in update', async () => {
@@ -492,9 +563,11 @@ describe('UsersService', () => {
     it('resets isVerified and clears the verification token when the email actually changes', async () => {
       spyOnBcryptCompare().mockResolvedValue(true);
       mockPrismaService.client.user.findUnique
-        // First call: the requester's own record, for the current-password check.
+        // First call: the deletedAt guard.
+        .mockResolvedValueOnce({ deletedAt: null })
+        // Second call: the requester's own record, for the current-password check.
         .mockResolvedValueOnce(storedUser)
-        // Second call: nobody else already has the new email.
+        // Third call: nobody else already has the new email.
         .mockResolvedValueOnce(null);
       mockPrismaService.client.user.update.mockResolvedValue(mockUpdatedUser);
 
@@ -536,6 +609,9 @@ describe('UsersService', () => {
     // Regression: a name-only update must not bump tokenVersion — only an
     // actual credential change should invalidate existing sessions.
     it('does not bump tokenVersion when no password is being changed', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValueOnce({
+        deletedAt: null,
+      });
       mockPrismaService.client.user.update.mockResolvedValue(mockUpdatedUser);
 
       await service.update('user1', { name: 'Updated Name' });
@@ -557,6 +633,7 @@ describe('UsersService', () => {
 
     it('throws a Spanish ConflictException when the new email is already taken', async () => {
       mockPrismaService.client.user.findUnique
+        .mockResolvedValueOnce({ deletedAt: null })
         .mockResolvedValueOnce(storedUser)
         .mockResolvedValueOnce({ id: 'user2', email: 'taken@example.com' });
 
@@ -586,6 +663,7 @@ describe('UsersService', () => {
     // as the same Spanish 409 instead of an unhandled 500.
     it('throws a Spanish ConflictException when a concurrent request claims the email first', async () => {
       mockPrismaService.client.user.findUnique
+        .mockResolvedValueOnce({ deletedAt: null })
         .mockResolvedValueOnce(storedUser)
         .mockResolvedValueOnce(null);
       mockPrismaService.client.user.update.mockRejectedValue(
@@ -607,7 +685,10 @@ describe('UsersService', () => {
     // matched-no-row write; it must still read as the same Spanish 404
     // instead of an unhandled 500.
     it('throws a Spanish NotFoundException when updating a user deleted moments earlier', async () => {
-      mockPrismaService.client.user.update.mockRejectedValue(notFoundError());
+      // El guard de deletedAt ya devuelve 404 antes de tocar Prisma.
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        deletedAt: new Date(),
+      });
 
       await expect(
         service.update('user1', { name: 'Updated Name' }),
@@ -618,6 +699,9 @@ describe('UsersService', () => {
 
     it('re-throws an unrelated update error unchanged', async () => {
       const unrelatedError = new Error('boom');
+      mockPrismaService.client.user.findUnique.mockResolvedValueOnce({
+        deletedAt: null,
+      });
       mockPrismaService.client.user.update.mockRejectedValue(unrelatedError);
 
       await expect(
@@ -632,9 +716,10 @@ describe('UsersService', () => {
 
       mockPrismaService.client.user.findUnique.mockResolvedValue({
         id: targetId,
-        role: 'USER',
+        deletedAt: null,
       });
       mockPrismaService.client.user.update.mockResolvedValue({ id: targetId });
+      mockPrismaService.client.user.count.mockResolvedValue(1);
 
       await service.remove(targetId, 'admin1');
 
@@ -644,13 +729,15 @@ describe('UsersService', () => {
         where: { sellerId: targetId, status: 'AVAILABLE' },
         data: { status: 'WITHDRAWN' },
       });
-      // La identidad queda sustituida, con deletedAt sellado.
+      // La identidad queda sustituida (rol incluido: un admin anonimizado
+      // deja de contar como admin), con deletedAt sellado.
       expect(mockPrismaService.client.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: targetId },
           data: expect.objectContaining({
             name: 'Usuario eliminado',
             email: `eliminado-${targetId}@anonymized.invalid`,
+            role: 'USER',
             isVerified: false,
             verificationToken: null,
             resetToken: null,
@@ -669,6 +756,18 @@ describe('UsersService', () => {
       expect(mockPrismaService.client.$transaction).not.toHaveBeenCalled();
     });
 
+    it('rechaza con 404 una fila ya anonimizada (no re-sella)', async () => {
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        id: 'ghost',
+        deletedAt: new Date(),
+      });
+
+      await expect(service.remove('ghost', 'admin1')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockPrismaService.client.$transaction).not.toHaveBeenCalled();
+    });
+
     it('should throw ForbiddenException when an admin tries to delete their own account', async () => {
       const adminId = 'admin1';
 
@@ -679,23 +778,25 @@ describe('UsersService', () => {
       expect(mockPrismaService.client.$transaction).not.toHaveBeenCalled();
     });
 
-    it('should throw ForbiddenException when deleting the last remaining admin', async () => {
+    it('revierte si al anonimizar queda cero administrador vivo', async () => {
       const targetId = 'admin2';
-      const requesterId = 'admin1';
 
       mockPrismaService.client.user.findUnique.mockResolvedValue({
         id: targetId,
-        role: 'ADMIN',
+        deletedAt: null,
       });
-      mockPrismaService.client.user.count.mockResolvedValue(1);
+      mockPrismaService.client.user.count.mockResolvedValue(0);
 
-      await expect(service.remove(targetId, requesterId)).rejects.toThrow(
+      await expect(service.remove(targetId, 'admin1')).rejects.toThrow(
         ForbiddenException,
       );
       expect(mockPrismaService.client.user.count).toHaveBeenCalledWith({
-        where: { role: 'ADMIN' },
+        where: { role: 'ADMIN', deletedAt: null },
       });
-      expect(mockPrismaService.client.user.update).not.toHaveBeenCalled();
+      // Nada posterior a la guardia llegó a ejecutarse.
+      expect(
+        mockPrismaService.client.product.updateMany,
+      ).not.toHaveBeenCalled();
     });
 
     it('should allow deleting an admin when other admins remain', async () => {
@@ -704,7 +805,7 @@ describe('UsersService', () => {
 
       mockPrismaService.client.user.findUnique.mockResolvedValue({
         id: targetId,
-        role: 'ADMIN',
+        deletedAt: null,
       });
       mockPrismaService.client.user.count.mockResolvedValue(2);
       mockPrismaService.client.user.update.mockResolvedValue({ id: targetId });
@@ -726,7 +827,29 @@ describe('UsersService', () => {
       id: userId,
       password: 'stored_hash',
       role: 'USER',
+      deletedAt: null,
     };
+
+    /**
+     * Congela el reloj y devuelve el predicado EXACTO que la redacción debe
+     * usar: sin esto, un toMatchObject dejaría pasar la desaparición de la
+     * cláusula crítica OR (redactar TODAS las órdenes, incluidas las
+     * PENDING/PAID/SHIPPED que aún deben entregarse). Con el reloj fijado,
+     * el corte de 30 días es determinista.
+     */
+    function expectExactRedactionWhere(
+      scope: Record<string, unknown>,
+    ): Record<string, unknown> {
+      const cutoff = new Date(FROZEN_NOW.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return {
+        ...scope,
+        shippingAddressRedactedAt: null,
+        OR: [
+          { status: { in: ['CANCELLED', 'REFUNDED'] } },
+          { deliveredAt: { lte: cutoff } },
+        ],
+      };
+    }
 
     function expectAnonymizationWrites() {
       // Prendas activas fuera del catálogo…
@@ -754,6 +877,14 @@ describe('UsersService', () => {
       expect(
         mockPrismaService.client.notification.deleteMany,
       ).toHaveBeenCalledWith({ where: { userId } });
+      // …el contenido comunitario NUNCA se borra (contrato del diseño).
+      expect(mockPrismaService.client.review.deleteMany).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.client.productQuestion.deleteMany,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.client.productReport.deleteMany,
+      ).not.toHaveBeenCalled();
       // …direcciones ya prescribidas redactadas al instante.
       expect(mockPrismaService.client.order.updateMany).toHaveBeenCalledTimes(
         1,
@@ -772,8 +903,7 @@ describe('UsersService', () => {
         };
       };
       const orderWrite = orderUpdate.mock.calls[0][0];
-      expect(orderWrite.where).toMatchObject({ userId });
-      expect(orderWrite.where.shippingAddressRedactedAt).toBeNull();
+      expect(orderWrite.where).toEqual(expectExactRedactionWhere({ userId }));
       // …y la PII de la fila sobrescrita con la sesión invalidada.
       expect(mockPrismaService.client.user.update).toHaveBeenCalledTimes(1);
       const userUpdate = mockPrismaService.client.user.update as unknown as {
@@ -788,6 +918,7 @@ describe('UsersService', () => {
       expect(write.data).toMatchObject({
         name: 'Usuario eliminado',
         email: `eliminado-${userId}@anonymized.invalid`,
+        role: 'USER',
         isVerified: false,
         verificationToken: null,
         verificationTokenExpires: null,
@@ -796,26 +927,35 @@ describe('UsersService', () => {
         tokenVersion: { increment: 1 },
       });
       expect(write.data.deletedAt).toBeInstanceOf(Date);
-      expect(typeof write.data.password).toBe('string');
+      // El hash sustituto es exactamente el calculado FUERA de la
+      // transacción (spy del bcrypt).
+      expect(write.data.password).toBe('random_replacement_hash');
     }
 
     it('anonimiza la cuenta cuando la contraseña actual es correcta', async () => {
-      spyOnBcryptCompare().mockResolvedValue(true);
-      spyOnBcryptHash().mockResolvedValue('random_replacement_hash');
-      mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
+      jest.useFakeTimers();
+      jest.setSystemTime(FROZEN_NOW);
+      try {
+        spyOnBcryptCompare().mockResolvedValue(true);
+        spyOnBcryptHash().mockResolvedValue('random_replacement_hash');
+        mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
+        mockPrismaService.client.user.count.mockResolvedValue(3);
 
-      const result = await service.deleteOwnAccount(userId, {
-        currentPassword: 'correcta',
-      });
+        const result = await service.deleteOwnAccount(userId, {
+          currentPassword: 'correcta',
+        });
 
-      expect(bcrypt.compare).toHaveBeenCalledWith(
-        'correcta',
-        storedUser.password,
-      );
-      expectAnonymizationWrites();
-      expect(result).toEqual({
-        message: 'Tu cuenta se eliminó correctamente',
-      });
+        expect(bcrypt.compare).toHaveBeenCalledWith(
+          'correcta',
+          storedUser.password,
+        );
+        expectAnonymizationWrites();
+        expect(result).toEqual({
+          message: 'Tu cuenta se eliminó correctamente',
+        });
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('rechaza con 403 cuando la contraseña actual es incorrecta y no escribe nada', async () => {
@@ -830,24 +970,45 @@ describe('UsersService', () => {
       expect(mockPrismaService.client.$transaction).not.toHaveBeenCalled();
     });
 
-    it('rechaza con 403 al último administrador sin tocar sus datos', async () => {
-      spyOnBcryptCompare().mockResolvedValue(true);
+    it('rechaza con 404 una cuenta ya eliminada (defensa en profundidad)', async () => {
       mockPrismaService.client.user.findUnique.mockResolvedValue({
         ...storedUser,
-        role: 'ADMIN',
+        deletedAt: new Date(),
       });
-      mockPrismaService.client.user.count.mockResolvedValue(1);
+
+      await expect(
+        service.deleteOwnAccount(userId, { currentPassword: 'correcta' }),
+      ).rejects.toThrow(NotFoundException);
+      expect(bcrypt.compare).not.toHaveBeenCalled();
+      expect(mockPrismaService.client.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('revierte toda la anonimización si queda cero administrador vivo', async () => {
+      spyOnBcryptCompare().mockResolvedValue(true);
+      spyOnBcryptHash().mockResolvedValue('random_replacement_hash');
+      mockPrismaService.client.user.findUnique.mockResolvedValue(storedUser);
+      // Tras el update del propio usuario, quedan cero admins vivos.
+      mockPrismaService.client.user.count.mockResolvedValue(0);
 
       await expect(
         service.deleteOwnAccount(userId, { currentPassword: 'correcta' }),
       ).rejects.toThrow(
         new ForbiddenException('No puedes eliminar al último administrador.'),
       );
-      // El guardia corre dentro de la transacción: nada más se escribió.
+      // El guardia corre DESPUÉS del update dentro de la transacción; en la
+      // BD real la excepción revierte también ese update. Lo observable aquí:
+      // nada posterior a la guardia llegó a ejecutarse.
+      expect(mockPrismaService.client.user.update).toHaveBeenCalledTimes(1);
       expect(
         mockPrismaService.client.product.updateMany,
       ).not.toHaveBeenCalled();
-      expect(mockPrismaService.client.user.update).not.toHaveBeenCalled();
+      expect(
+        mockPrismaService.client.cartItem.deleteMany,
+      ).not.toHaveBeenCalled();
+      expect(mockPrismaService.client.order.updateMany).not.toHaveBeenCalled();
+      expect(mockPrismaService.client.user.count).toHaveBeenCalledWith({
+        where: { role: 'ADMIN', deletedAt: null },
+      });
     });
 
     it('lanza 404 si el usuario no existe', async () => {
@@ -861,28 +1022,52 @@ describe('UsersService', () => {
   });
 
   describe('redactAddressesForDeletedAccounts (cron horario)', () => {
-    it('redacta solo direcciones prescribidas de cuentas borradas', async () => {
-      mockPrismaService.client.order.updateMany.mockResolvedValue({
-        count: 3,
-      });
+    it('redacta solo direcciones prescribidas de cuentas borradas (predicado exacto)', async () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(FROZEN_NOW);
+      try {
+        mockPrismaService.client.order.updateMany.mockResolvedValue({
+          count: 3,
+        });
 
-      const result = await service.redactAddressesForDeletedAccounts();
+        const result = await service.redactAddressesForDeletedAccounts();
 
-      expect(result).toBe(3);
-      expect(mockPrismaService.client.order.updateMany).toHaveBeenCalledTimes(
-        1,
-      );
-      const orderUpdate = mockPrismaService.client.order
-        .updateMany as unknown as {
-        mock: { calls: Array<[Record<string, unknown>]> };
-      };
-      expect(orderUpdate.mock.calls[0][0].where).toMatchObject({
-        shippingAddressRedactedAt: null,
-        user: { deletedAt: { not: null } },
-      });
+        expect(result).toBe(3);
+        expect(mockPrismaService.client.order.updateMany).toHaveBeenCalledTimes(
+          1,
+        );
+        const orderUpdate = mockPrismaService.client.order
+          .updateMany as unknown as {
+          mock: { calls: Array<[Record<string, unknown>]> };
+        };
+        // Predicado EXACTO: la cláusula OR es lo que evita redactar la
+        // dirección de una orden PENDING/PAID/SHIPPED aún entregable.
+        expect(orderUpdate.mock.calls[0][0].where).toEqual({
+          user: { deletedAt: { not: null } },
+          shippingAddressRedactedAt: null,
+          OR: [
+            { status: { in: ['CANCELLED', 'REFUNDED'] } },
+            {
+              deliveredAt: {
+                lte: new Date(FROZEN_NOW.getTime() - 30 * 24 * 60 * 60 * 1000),
+              },
+            },
+          ],
+        });
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('no registra nada cuando no hay direcciones por redactar', async () => {
+      const logger = (
+        service as unknown as {
+          logger: { log: (m: string) => void };
+        }
+      ).logger;
+      const logSpy = jest
+        .spyOn(logger, 'log')
+        .mockImplementation(() => undefined);
       mockPrismaService.client.order.updateMany.mockResolvedValue({
         count: 0,
       });
@@ -890,6 +1075,7 @@ describe('UsersService', () => {
       await expect(service.redactAddressesForDeletedAccounts()).resolves.toBe(
         0,
       );
+      expect(logSpy).not.toHaveBeenCalled();
     });
   });
 });

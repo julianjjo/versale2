@@ -14,6 +14,7 @@ describe('UsersController', () => {
     findOne: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
+    deleteOwnAccount: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -174,6 +175,62 @@ describe('UsersController', () => {
         },
       );
       expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('deleteOwnAccount', () => {
+    it('delega en usersService.deleteOwnAccount con el id del request', async () => {
+      const userId = 'user1';
+      const dto = { currentPassword: 'clave-actual' };
+      const mockReq = {
+        user: { id: userId, email: 'test@example.com', role: 'USER' },
+      } as AuthRequest;
+      const mockResult = { message: 'Tu cuenta se eliminó correctamente' };
+
+      mockUsersService.deleteOwnAccount.mockResolvedValue(mockResult);
+
+      const result = await controller.deleteOwnAccount(mockReq, dto);
+
+      expect(mockUsersService.deleteOwnAccount).toHaveBeenCalledWith(
+        userId,
+        dto,
+      );
+      expect(result).toEqual(mockResult);
+    });
+
+    it('no exige rol ADMIN (cualquier usuario autenticado puede borrarse)', () => {
+      const reflector = new Reflector();
+      const requiredRoles = reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
+        // Referencia usada solo como clave de metadatos, nunca invocada.
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        UsersController.prototype.deleteOwnAccount,
+        UsersController,
+      ]);
+
+      expect(requiredRoles).toBeUndefined();
+    });
+
+    // Garantía de la que depende todo el autoserborrado: si @Delete('me')
+    // dejara de declararse antes de @Delete(':id'), Nest encajaría "me"
+    // como :id del endpoint admin y devolvería 403 en silencio.
+    it('declara la ruta "me" ANTES que ":id" para ganar el despacho', () => {
+      // @nestjs/common define PATH_METADATA = 'path' sobre cada handler.
+      const getPaths = (proto: object): string[] =>
+        Object.getOwnPropertyNames(proto)
+          .map((name) => {
+            const descriptor = Object.getOwnPropertyDescriptor(proto, name);
+            if (!descriptor?.value) return null;
+            return (
+              (Reflect.getMetadata('path', descriptor.value as object) as
+                string | undefined) ?? null
+            );
+          })
+          .filter((p): p is string => p !== null);
+
+      const paths = getPaths(UsersController.prototype);
+      expect(paths.indexOf('me')).toBeGreaterThanOrEqual(0);
+      expect(paths.indexOf(':id')).toBeGreaterThanOrEqual(0);
+      expect(paths.indexOf('me')).toBeLessThan(paths.indexOf(':id'));
     });
   });
 });

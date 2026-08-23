@@ -574,15 +574,24 @@ export default function OrderDetailPage() {
         <Card className="mt-4">
           <h2 className="heading-card mb-3">Dirección de envío</h2>
           <div className="space-y-1 text-sm text-text-primary">
-            {shipping.street && <p>{shipping.street}</p>}
-            {(shipping.city || shipping.state || shipping.zip) && (
-              <p>
-                {[shipping.city, shipping.state, shipping.zip]
-                  .filter(Boolean)
-                  .join(", ")}
-              </p>
+            {/* Borrado de cuenta: la dirección fue redactada al vencer la
+                ventana de conservación — se muestra el aviso en vez de los
+                campos (que ya no existen dentro del Json). */}
+            {typeof shipping.eliminada === "string" ? (
+              <p className="text-text-muted">{shipping.eliminada}</p>
+            ) : (
+              <>
+                {shipping.street && <p>{shipping.street}</p>}
+                {(shipping.city || shipping.state || shipping.zip) && (
+                  <p>
+                    {[shipping.city, shipping.state, shipping.zip]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </p>
+                )}
+                {shipping.country && <p>{shipping.country}</p>}
+              </>
             )}
-            {shipping.country && <p>{shipping.country}</p>}
           </div>
         </Card>
       )}

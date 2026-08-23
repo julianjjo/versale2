@@ -17,6 +17,8 @@ Autoserborrado de cuenta (`DELETE /users/me`) con limpieza de PII dentro de una 
 | Direcciones de envío | Se conservan hasta 30 días tras `deliveredAt` (ventana de disputa de 2.2); `CANCELLED`/`REFUNDED` se redactan al instante; cron horario completa el resto | No romper disputas/entregas en curso; mismo plazo que la expiración de disputas |
 | Confirmación | `currentPassword` obligatorio (patrón self-service existente en `update()`); último ADMIN bloqueado | Evita takeover por sesión robada; no dejar el marketplace sin moderación |
 | Sesiones | `tokenVersion { increment: 1 }` + chequeo `deletedAt` en login y `JwtStrategy.validate` | Invalida todos los JWT; defensa en profundidad |
+| Rol del anonimizado | El `user.update` de la anonimización baja `role → USER`; el conteo de admins vivos filtra `deletedAt: null` y corre DESPUÉS de la primera escritura (lock de SQLite) dentro de la transacción | Un admin borrado no puede seguir contando como admin (zombi) ni dos admins pueden autoborrarse a la vez por TOCTOU |
+| PII en texto libre | Reseñas/preguntas/reportes escritos por el usuario se conservan íntegros (sin ventana de redacción) — decisión aceptada: su contenido es público desde el origen y moderable por admin | Difiere de shippingAddress, que era dato privado de la transacción |
 
 ## Cambios
 
@@ -34,7 +36,7 @@ Autoserborrado de cuenta (`DELETE /users/me`) con limpieza de PII dentro de una 
      3. `favorite.deleteMany`, `reviewHelpfulVote.deleteMany`, `notification.deleteMany`
      4. `order.updateMany`: redacción inmediata de direcciones ya prescribidas (`status ∈ {CANCELLED, REFUNDED}` ∨ `deliveredAt ≤ now−30d`) → `shippingAddress = { eliminada: '…' }` + `shippingAddressRedactedAt`
      5. `user.update`: `deletedAt=now`, `name='Usuario eliminado'`, email anonimizado, password aleatoria (bcrypt de 32 bytes random), tokens nulos, `isVerified=false`, `tokenVersion+1`
-   - `remove()` (admin): reutiliza `anonymizeUserInTransaction` (conserva guardias de auto-borrado y último admin; elimina el handler P2003 que ya no aplica).
+   - `remove()` (admin): reutiliza `anonymizeUserInTransaction` (conserva guardias de auto-borrado y último admin; elimina el handler P2003 que ya no aplica). Tanto `update()` como `remove()` rechazan con 404 filas ya anonimizadas, y `findAll()` las excluye del panel salvo `?deleted=true|all`.
    - Cron `@Interval(1h) redactAddressesForDeletedAccounts()`: mismo `where` de redacción para usuarios con `deletedAt ≠ null`; público para tests.
 4. **Auth hardening**:
    - `login()`/`validateUser()`: `user.deletedAt ≠ null` → rechazo genérico (el bcrypt ya se pagó, sin oracle de timing).

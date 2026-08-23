@@ -49,6 +49,11 @@ model User {
   productQuestions ProductQuestion[]
   reviewHelpfulVotes ReviewHelpfulVote[]
   notifications Notification[]
+
+  // El barrido horario de redacción de direcciones conduce el plan desde
+  // las cuentas borradas (conjunto mínimo) hacia sus órdenes; sin este
+  // índice cada pasada escanearía User completo buscando deletedAt.
+  @@index([deletedAt])
 }
 
 enum Role {
@@ -135,7 +140,6 @@ model Product {
   // Resolving a seller's own listings.
   @@index([sellerId])
 }
-
 model Cart {
   id            String   @id @default(uuid())
   userId        String   @unique
@@ -288,6 +292,10 @@ model ReviewHelpfulVote {
 
   // A voter can mark a given review helpful only once.
   @@unique([reviewId, userId])
+  // El anonimizado de cuenta borra los votos del usuario por userId; el
+  // @@unique de arriba no puede servir esta lookup (prefijo izquierdo es
+  // reviewId).
+  @@index([userId])
 }
 
 model Favorite {

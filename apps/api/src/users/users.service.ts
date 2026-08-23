@@ -95,10 +95,20 @@ export class UsersService {
   }
 
   async findAll(query: Record<string, unknown> = {}) {
-    const { search, role, page, limit } = query ?? {};
+    const { search, role, page, limit, deleted } = query ?? {};
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const where: Prisma.UserWhereInput = {};
+    // Las cuentas anonimizadas («Usuario eliminado») no son usuarios del
+    // panel: se excluyen por defecto. ?deleted=true las lista explícitamente
+    // para auditoría.
+    if (deleted === 'true') {
+      where.deletedAt = { not: null };
+    } else if (deleted === 'all') {
+      // Sin filtro: auditoría completa.
+    } else {
+      where.deletedAt = null;
+    }
     if (typeof search === 'string' && search) {
       const term = search;
       where.OR = [{ name: { contains: term } }, { email: { contains: term } }];
@@ -154,6 +164,17 @@ export class UsersService {
     const wantsPasswordChange = data.password !== undefined;
     const wantsEmailChange = nextEmail !== undefined;
     let changesEmail = false;
+
+    // Una cuenta anonimizada no se puede "actualizar": repueblar su email o
+    // nombre reales rompería el invariante de que tras el borrado la fila no
+    // contiene PII (aunque el login siga bloqueado por deletedAt).
+    const existingRow = await this.prisma.client.user.findUnique({
+      where: { id },
+      select: { deletedAt: true },
+    });
+    if (!existingRow || existingRow.deletedAt) {
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    }
 
     if (wantsPasswordChange || wantsEmailChange) {
       const currentUser = await this.prisma.client.user.findUnique({
@@ -268,9 +289,11 @@ export class UsersService {
   async deleteOwnAccount(id: string, dto: DeleteAccountDto) {
     const user = await this.prisma.client.user.findUnique({
       where: { id },
-      select: { id: true, password: true, role: true },
+      select: { id: true, password: true, deletedAt: true },
     });
-    if (!user) {
+    if (!user || user.deletedAt) {
+      // Segunda barrera (JwtStrategy ya bloquea el token): una cuenta
+      // borrada no vuelve a pasar por aquí ni por error de carrera.
       throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
     }
 
@@ -284,7 +307,7 @@ export class UsersService {
       throw new ForbiddenException('La contraseña actual es incorrecta');
     }
 
-    await this.anonymizeUserInTransaction(id, String(user.role));
+    await this.anonymizeUserInTransaction(id);
     return { message: 'Tu cuenta se eliminó correctamente' };
   }
 
@@ -296,19 +319,56 @@ export class UsersService {
    * contraseña). La fila nunca desaparece: órdenes, reseñas, preguntas y
    * reportes la referencian con FK RESTRICT y son registros que el
    * marketplace debe conservar.
+   *
+   * Orden deliberado contra el TOCTOU del guardia de último admin: la
+   * PRIMERA escritura (el propio user.update) adquiere ya el lock de
+   * escritura de SQLite, así que dos admins que se borran a la vez se
+   * serializan — el segundo cuenta admins DESPUÉS de que el primero
+   * commitó, ve cero vivos y su transacción entera revierte.
    */
-  private async anonymizeUserInTransaction(
-    id: string,
-    role?: string,
-  ): Promise<void> {
+  private async anonymizeUserInTransaction(id: string): Promise<void> {
+    // Fuera de la transacción: bcrypt puro-JS (~100 ms) no debe retener el
+    // lock de escritura de SQLite.
+    const replacementPasswordHash = await bcrypt.hash(
+      crypto.randomBytes(32).toString('hex'),
+      BCRYPT_SALT_ROUNDS,
+    );
+
     await this.prisma.client.$transaction(async (tx) => {
-      if (String(role) === String(Role.ADMIN)) {
-        const adminCount = await tx.user.count({ where: { role: Role.ADMIN } });
-        if (adminCount <= 1) {
-          throw new ForbiddenException(
-            'No puedes eliminar al último administrador.',
-          );
-        }
+      // La PII de la propia fila se sobrescribe, no se borra: el email
+      // sustituto libera el original para un futuro registro, el hash
+      // aleatorio hace imposible cualquier login residual, los tokens
+      // nulos cierran los flujos de verificación/reset a medio hacer y el
+      // bump de tokenVersion expulsa todas las sesiones abiertas al vuelo.
+      // role pasa a USER: un admin anonimizado no puede seguir contando
+      // como admin vivo en ninguna guardia.
+      await tx.user.update({
+        where: { id },
+        data: {
+          deletedAt: new Date(),
+          name: ANONYMIZED_NAME,
+          email: anonymizedEmail(id),
+          password: replacementPasswordHash,
+          role: Role.USER,
+          isVerified: false,
+          verificationToken: null,
+          verificationTokenExpires: null,
+          resetToken: null,
+          resetTokenExpires: null,
+          tokenVersion: { increment: 1 },
+        },
+      });
+
+      // Guardia post-escritura: si al contar SOLO admins vivos quedara
+      // ninguno, la excepción revierte toda la transacción (incluido el
+      // update anterior).
+      const liveAdminCount = await tx.user.count({
+        where: { role: Role.ADMIN, deletedAt: null },
+      });
+      if (liveAdminCount === 0) {
+        throw new ForbiddenException(
+          'No puedes eliminar al último administrador.',
+        );
       }
 
       // Prendas únicas aún a la venta: fuera del catálogo. updateMany por
@@ -319,6 +379,8 @@ export class UsersService {
       });
 
       // Datos personales sin valor comunitario ni transaccional: fuera.
+      // Reseñas, preguntas y reportes NO se tocan: contenido comunitario e
+      // historial que queda atribuido a «Usuario eliminado».
       await tx.cartItem.deleteMany({ where: { cart: { userId: id } } });
       await tx.cart.deleteMany({ where: { userId: id } });
       await tx.favorite.deleteMany({ where: { userId: id } });
@@ -332,30 +394,6 @@ export class UsersService {
         data: {
           shippingAddress: REDACTED_SHIPPING_ADDRESS,
           shippingAddressRedactedAt: new Date(),
-        },
-      });
-
-      // La PII de la propia fila se sobrescribe, no se borra: el email
-      // sustituto libera el original para un futuro registro, el hash
-      // aleatorio hace imposible cualquier login residual, los tokens
-      // nulos cierran los flujos de verificación/reset a medio hacer, y el
-      // bump de tokenVersion expulsa todas las sesiones abiertas al vuelo.
-      await tx.user.update({
-        where: { id },
-        data: {
-          deletedAt: new Date(),
-          name: ANONYMIZED_NAME,
-          email: anonymizedEmail(id),
-          password: await bcrypt.hash(
-            crypto.randomBytes(32).toString('hex'),
-            BCRYPT_SALT_ROUNDS,
-          ),
-          isVerified: false,
-          verificationToken: null,
-          verificationTokenExpires: null,
-          resetToken: null,
-          resetTokenExpires: null,
-          tokenVersion: { increment: 1 },
         },
       });
     });
@@ -391,9 +429,11 @@ export class UsersService {
 
     const target = await this.prisma.client.user.findUnique({
       where: { id },
-      select: { id: true, role: true },
+      select: { id: true, deletedAt: true },
     });
-    if (!target) {
+    if (!target || target.deletedAt) {
+      // Re-anonimizar una fila ya anonimizada sobrescribiría su sello con
+      // otra fecha y otro hash sin ningún beneficio: se lee como 404.
       throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
     }
 
@@ -402,7 +442,7 @@ export class UsersService {
     // reseñas revienta por FK RESTRICT (el antiguo handler P2003 devolvía un
     // 400 y el usuario quedaba indestructible justamente cuando había que
     // moderarlo); anonimizar cumple la solicitud sin romper el historial.
-    await this.anonymizeUserInTransaction(id, String(target.role));
+    await this.anonymizeUserInTransaction(id);
     return { message: `Cuenta de ${id} anonimizada correctamente` };
   }
 }
