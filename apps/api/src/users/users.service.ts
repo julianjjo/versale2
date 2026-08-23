@@ -274,7 +274,10 @@ export class UsersService {
       throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
     }
 
-    const isPasswordValid = await bcrypt.compare(dto.currentPassword, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      dto.currentPassword,
+      user.password,
+    );
     if (!isPasswordValid) {
       // 403, no 401: el token sigue siendo válido, solo falla la contraseña
       // — un 401 dispararía el logout global del interceptor del frontend.
