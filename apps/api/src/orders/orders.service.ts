@@ -145,9 +145,12 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit() {
     // Hourly sweeps — native interval, no @nestjs/schedule needed
-    this.sweepInterval = setInterval(() => {
-      void this.runOrderDeadlineSweeps();
-    }, 60 * 60 * 1000);
+    this.sweepInterval = setInterval(
+      () => {
+        void this.runOrderDeadlineSweeps();
+      },
+      60 * 60 * 1000,
+    );
     // Allow process to exit even if interval is still scheduled (tests, e2e)
     if (this.sweepInterval.unref) this.sweepInterval.unref();
   }
