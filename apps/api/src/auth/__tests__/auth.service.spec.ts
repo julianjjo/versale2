@@ -34,8 +34,18 @@ describe('AuthService', () => {
 
   // Item 17: "entorno SMTP" simulado — el envío real de emails se prueba
   // mockeando BrevoService y afirmando destinatario/asunto/enlace.
+  // Tipado con la firma real de BrevoService.sendEmail: sin él, cada
+  // .mock.calls[0][0] es `any` y el linter estricto rechaza el acceso.
+  type BrevoEmailPayload = {
+    to: { email: string; name?: string }[];
+    subject: string;
+    html?: string;
+    text?: string;
+  };
   const mockBrevoService = {
-    sendEmail: jest.fn().mockResolvedValue({}),
+    sendEmail: jest
+      .fn<Promise<Record<string, unknown>>, [BrevoEmailPayload]>()
+      .mockResolvedValue({}),
   };
 
   beforeEach(async () => {
@@ -243,9 +253,7 @@ describe('AuthService', () => {
         mock: { calls: Array<[{ data: { verificationToken: string } }]> };
       };
       const writtenHash = createMock.mock.calls[0][0].data.verificationToken;
-      const rawToken = decodeURIComponent(
-        link.split('token=')[1],
-      );
+      const rawToken = decodeURIComponent(link.split('token=')[1]);
       expect(crypto.createHash('sha256').update(rawToken).digest('hex')).toBe(
         writtenHash,
       );
@@ -539,8 +547,7 @@ describe('AuthService', () => {
       expect(mockBrevoService.sendEmail).toHaveBeenCalledTimes(1);
       const mailCall = mockBrevoService.sendEmail.mock.calls[0][0];
       expect(mailCall.to).toEqual([{ email }]);
-      const link =
-        /https?:\/\/\S+/.exec(mailCall.text as string)?.[0] ?? '';
+      const link = /https?:\/\/\S+/.exec(mailCall.text as string)?.[0] ?? '';
       expect(link).toContain('/reset-password?token=');
       expect(decodeURIComponent(link.split('token=')[1])).toBe(
         result.resetToken,
@@ -767,7 +774,9 @@ describe('AuthService', () => {
       });
       expect(mockBrevoService.sendEmail).toHaveBeenCalledTimes(1);
       const call = mockBrevoService.sendEmail.mock.calls[0][0];
-      expect(call.to).toEqual([{ email: 'test@example.com', name: 'Test User' }]);
+      expect(call.to).toEqual([
+        { email: 'test@example.com', name: 'Test User' },
+      ]);
       expect(call.subject).toContain('Verifica');
     });
 

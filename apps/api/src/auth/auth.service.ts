@@ -117,7 +117,7 @@ export class AuthService {
       });
     } catch (error) {
       this.logger.error(
-        `No se pudo enviar el correo de verificación a ${email}: ${error}`,
+        `No se pudo enviar el correo de verificación a ${email}: ${String(error)}`,
       );
     }
   }
@@ -181,7 +181,7 @@ export class AuthService {
         })
         .catch((error: unknown) => {
           this.logger.error(
-            `No se pudo enviar el correo de restablecimiento a ${email}: ${error}`,
+            `No se pudo enviar el correo de restablecimiento a ${email}: ${String(error)}`,
           );
         });
     }

@@ -1,10 +1,4 @@
-import {
-  Body,
-  Controller,
-  Post,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthRequest } from '../types/request.types';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PaymentsService } from './payments.service';
@@ -28,14 +22,10 @@ export class PaymentsController {
   ) {
     const fallback =
       process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
-    return this.paymentsService.createPreference(
-      req.user.id,
-      body.orderId,
-      {
-        success: body.backUrls?.success ?? `${fallback}/orders/${body.orderId}`,
-        failure: body.backUrls?.failure ?? `${fallback}/cart`,
-      },
-    );
+    return this.paymentsService.createPreference(req.user.id, body.orderId, {
+      success: body.backUrls?.success ?? `${fallback}/orders/${body.orderId}`,
+      failure: body.backUrls?.failure ?? `${fallback}/cart`,
+    });
   }
 
   /**

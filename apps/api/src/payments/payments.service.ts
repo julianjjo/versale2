@@ -91,7 +91,10 @@ export class PaymentsService {
         'No tienes autorización para pagar este pedido',
       );
     }
-    if (order.status !== OrderStatus.PENDING) {
+    // El status llega como enum generado de @prisma/client; la comparación
+    // contra el enum local del repo (mismos valores) se alinea con un cast
+    // para satisfacer no-unsafe-enum-comparison sin duplicar la fuente.
+    if ((order.status as OrderStatus) !== OrderStatus.PENDING) {
       throw new BadRequestException('Este pedido ya no está pendiente de pago');
     }
 
@@ -237,7 +240,7 @@ export class PaymentsService {
     }
 
     // El pedido pasa a PAID por el camino canónico (CAS + paidAt stamp).
-    if (order.status === OrderStatus.PENDING) {
+    if ((order.status as OrderStatus) === OrderStatus.PENDING) {
       try {
         await this.ordersService.updateOrderStatus(orderId, OrderStatus.PAID);
       } catch (error) {
@@ -245,7 +248,7 @@ export class PaymentsService {
         // CAS del update. El pago ya quedó registrado y auditado — no vale
         // la pena responderle 400 a MP y provocarle una retrollamada extra.
         this.logger.warn(
-          `Pago ${dataId} aprobado pero la orden ${orderId} ya no estaba PENDING: ${error}`,
+          `Pago ${dataId} aprobado pero la orden ${orderId} ya no estaba PENDING: ${String(error)}`,
         );
         return { processed: false, duplicate: false };
       }
