@@ -1,80 +1,143 @@
-import axios, { type AxiosInstance, type AxiosError } from "axios";
 import { tokenStore } from "./token";
 import { notifyUnauthorized } from "./auth-events";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-export const api: AxiosInstance = axios.create({ baseURL: API_URL });
+// Thrown for every non-2xx response so callers can narrow by status and read
+// the backend's message body (`error.response.status`, `.response.data`).
+export class ApiError extends Error {
+  readonly status: number;
+  readonly response: { status: number; data: unknown };
 
-api.interceptors.request.use((config) => {
-  const token = tokenStore.get();
-  if (token) {
-    config.headers.set("Authorization", `Bearer ${token}`);
+  constructor(status: number, data: unknown) {
+    super(`Request failed with status ${status}`);
+    this.name = "ApiError";
+    this.status = status;
+    this.response = { status, data };
   }
-  return config;
-});
+}
 
-api.interceptors.response.use(
-  (response) => response,
-  (error: AxiosError) => {
-    if (error.response?.status === 401) {
+type QueryParams = Record<string, string | number | boolean | undefined>;
+
+export interface RequestConfig {
+  params?: QueryParams;
+  /** `"blob"` for file downloads (CSV export): `data` comes back as a Blob. */
+  responseType?: "json" | "blob";
+}
+
+function buildUrl(path: string, config?: RequestConfig): string {
+  const url = new URL(path, API_URL);
+  for (const [key, value] of Object.entries(config?.params ?? {})) {
+    if (value !== undefined) url.searchParams.set(key, String(value));
+  }
+  return url.toString();
+}
+
+// The error body is always decoded as text and JSON-parsed when possible,
+// regardless of the request's responseType — a failed CSV download still
+// carries a normal JSON error body, and callers shouldn't have to know.
+async function toApiError(response: Response): Promise<ApiError> {
+  let data: unknown;
+  try {
+    const text = await response.text();
+    data = text ? JSON.parse(text) : undefined;
+  } catch {
+    data = undefined;
+  }
+  return new ApiError(response.status, data);
+}
+
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  config?: RequestConfig,
+): Promise<{ data: T }> {
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  const headers: Record<string, string> = {};
+  const token = tokenStore.get();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (body !== undefined && !isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path, config), {
+      method,
+      headers,
+      body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
+    });
+  } catch {
+    // Transport-level failure (offline, DNS, CORS): no status exists, so
+    // report one that reads as "no HTTP response" instead of letting the
+    // browser's English TypeError leak toward the UI.
+    throw new ApiError(0, undefined);
+  }
+
+  if (!response.ok) {
+    if (response.status === 401) {
       tokenStore.clear();
       // Notify subscribers (AuthProvider) so they can clear state and route
       // to /login via Next router — avoids a full-page reload.
       notifyUnauthorized();
     }
-    return Promise.reject(error);
-  },
-);
+    throw await toApiError(response);
+  }
+
+  if (config?.responseType === "blob") {
+    return { data: (await response.blob()) as T };
+  }
+  if (response.status === 204) return { data: undefined as T };
+  const text = await response.text();
+  return { data: (text ? JSON.parse(text) : undefined) as T };
+}
+
+// `any` on purpose: untyped call sites get axios's old ergonomics back
+// (`res.data` stays fluid); callers that pass an explicit generic keep the
+// narrow type.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export const api = {
+  get: <T = any>(path: string, config?: RequestConfig) =>
+    request<T>("GET", path, undefined, config),
+  post: <T = any>(path: string, body?: unknown, config?: RequestConfig) =>
+    request<T>("POST", path, body, config),
+  put: <T = any>(path: string, body?: unknown, config?: RequestConfig) =>
+    request<T>("PUT", path, body, config),
+  patch: <T = any>(path: string, body?: unknown, config?: RequestConfig) =>
+    request<T>("PATCH", path, body, config),
+  delete: <T = any>(path: string, config?: RequestConfig) =>
+    request<T>("DELETE", path, undefined, config),
+};
 
 export function extractApiError(
   err: unknown,
   fallback = "Ocurrió un error. Intenta de nuevo.",
 ): string {
-  if (axios.isAxiosError(err)) {
-    const data = err.response?.data as
+  if (err instanceof ApiError) {
+    const data = err.response.data as
       | { message?: string | string[] }
       | undefined;
     if (data?.message) {
       return Array.isArray(data.message) ? data.message.join(", ") : data.message;
     }
     // No response.data.message means the backend never responded (network
-    // failure, timeout, CORS) — axios's own error text ("Network Error") is
-    // English and would leak into the UI, so fall back to the caller's copy.
+    // failure, timeout, CORS) — the browser's own error text ("Failed to
+    // fetch") is English and would leak into the UI, so fall back to the
+    // caller's copy.
     return fallback;
   }
   if (err instanceof Error) return err.message;
   return fallback;
 }
 
-// A request made with `responseType: "blob"` (a file download, e.g. the CSV
-// export) gets its ERROR body decoded as a Blob too — axios applies the
-// request's responseType to non-2xx responses the same as 2xx ones — so
-// `extractApiError`'s `.message` read is silently a no-op for it even though
-// the backend sent a normal JSON error body. This re-reads that Blob as
-// text and parses it before falling back to extractApiError's own handling.
+// Kept as its own name because download flows (CSV export) call it after a
+// `responseType: "blob"` request; since toApiError already decodes every
+// error body the same way, it is exactly extractApiError today.
 export async function extractBlobApiError(
   err: unknown,
   fallback = "Ocurrió un error. Intenta de nuevo.",
 ): Promise<string> {
-  if (
-    axios.isAxiosError(err) &&
-    err.response?.data instanceof Blob &&
-    err.response.data.type.includes("json")
-  ) {
-    try {
-      const data = JSON.parse(await err.response.data.text()) as {
-        message?: string | string[];
-      };
-      if (data?.message) {
-        return Array.isArray(data.message)
-          ? data.message.join(", ")
-          : data.message;
-      }
-    } catch {
-      // Not parseable JSON after all — fall through to the generic path.
-    }
-  }
   return extractApiError(err, fallback);
 }

@@ -1,5 +1,5 @@
-// react-query's `error` is typed `unknown`, and axios doesn't thread its
-// response shape through it — every page that needs to distinguish a real
+// react-query's `error` is typed `unknown`, and the api client doesn't thread
+// its response shape through it — every page that needs to distinguish a real
 // HTTP status (404, 403, ...) from a transient failure (network error,
 // timeout, 5xx) has to narrow it by hand. Centralizing that narrowing is what
 // stops each page from re-deriving (and possibly disagreeing on) the same

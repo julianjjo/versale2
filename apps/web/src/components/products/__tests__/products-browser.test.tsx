@@ -294,7 +294,7 @@ describe("ProductsBrowser", () => {
   });
 
   it("muestra el mensaje genérico cuando falla la carga sin un mensaje específico", async () => {
-    // Sin `instanceof Error` ni forma de axios: extractApiError no tiene de
+    // Sin `instanceof Error` ni forma de ApiError: extractApiError no tiene de
     // dónde sacar un mensaje propio, así que cae al fallback genérico.
     vi.mocked(api.get).mockRejectedValue("boom");
     render(

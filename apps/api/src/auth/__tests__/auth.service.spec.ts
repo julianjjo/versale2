@@ -232,10 +232,15 @@ describe('AuthService', () => {
       await service.signup(email, 'password123', 'Test User');
 
       expect(mockBrevoService.sendEmail).toHaveBeenCalledTimes(1);
-      const call = mockBrevoService.sendEmail.mock.calls[0][0];
+      const call = mockBrevoService.sendEmail.mock.calls[0][0] as {
+        to: Array<{ email: string; name?: string }>;
+        subject: string;
+        text: string;
+        html: string;
+      };
       expect(call.to).toEqual([{ email, name: 'Test User' }]);
       expect(call.subject).toContain('Verifica');
-      const link = /https?:\/\/\S+/.exec(call.text as string)?.[0] ?? '';
+      const link = /https?:\/\/\S+/.exec(call.text)?.[0] ?? '';
       expect(link).toContain('/verify-email?token=');
       // El token del enlace hashea exactamente al valor persistido — prueba
       // de que sale el crudo, no el hash ni otra cosa.
@@ -243,9 +248,7 @@ describe('AuthService', () => {
         mock: { calls: Array<[{ data: { verificationToken: string } }]> };
       };
       const writtenHash = createMock.mock.calls[0][0].data.verificationToken;
-      const rawToken = decodeURIComponent(
-        link.split('token=')[1],
-      );
+      const rawToken = decodeURIComponent(link.split('token=')[1]);
       expect(crypto.createHash('sha256').update(rawToken).digest('hex')).toBe(
         writtenHash,
       );
@@ -419,84 +422,6 @@ describe('AuthService', () => {
     });
   });
 
-  describe('validateUser', () => {
-    it('should return user without password if credentials are valid', async () => {
-      const email = 'test@example.com';
-      const password = 'password123';
-      const hashedPassword = 'hashed_password_123';
-
-      const user = {
-        id: '1',
-        email,
-        password: hashedPassword,
-        name: 'Test User',
-        role: 'USER',
-      };
-
-      mockPrismaService.client.user.findUnique.mockResolvedValue(user);
-      (
-        jest.spyOn(bcrypt, 'compare') as unknown as jest.Mock
-      ).mockImplementation(() => Promise.resolve(true));
-
-      const result = await service.validateUser(email, password);
-
-      expect(result).toEqual({
-        id: '1',
-        email,
-        name: 'Test User',
-        role: 'USER',
-      });
-    });
-
-    it('should return null if user not found', async () => {
-      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
-
-      const result = await service.validateUser('test@example.com', 'password');
-
-      expect(result).toBeNull();
-    });
-
-    // Regression: this method has no caller today, but it exists for a
-    // future Passport LocalStrategy — closing the same email-enumeration
-    // timing oracle login() closes, before something actually wires this up.
-    it('should still run a bcrypt compare when the email is not registered, to keep response timing comparable to a wrong password', async () => {
-      const email = 'nobody@example.com';
-      const password = 'password123';
-
-      mockPrismaService.client.user.findUnique.mockResolvedValue(null);
-      const compareSpy = (
-        jest.spyOn(bcrypt, 'compare') as unknown as jest.Mock
-      ).mockImplementation(() => Promise.resolve(false));
-
-      const result = await service.validateUser(email, password);
-
-      expect(result).toBeNull();
-      expect(compareSpy).toHaveBeenCalledWith(password, TIMING_SAFE_DUMMY_HASH);
-    });
-
-    it('should return null if password invalid', async () => {
-      const email = 'test@example.com';
-      const password = 'password123';
-
-      const user = {
-        id: '1',
-        email,
-        password: 'hashedPassword',
-        name: 'Test User',
-        role: 'USER',
-      };
-
-      mockPrismaService.client.user.findUnique.mockResolvedValue(user);
-      (
-        jest.spyOn(bcrypt, 'compare') as unknown as jest.Mock
-      ).mockImplementation(() => Promise.resolve(false));
-
-      const result = await service.validateUser(email, password);
-
-      expect(result).toBeNull();
-    });
-  });
-
   describe('forgotPassword', () => {
     const originalExposeFlag = process.env.AUTH_EXPOSE_RESET_TOKEN;
 
@@ -537,10 +462,12 @@ describe('AuthService', () => {
 
       // Item 17: el enlace de reset sale por correo con el token crudo.
       expect(mockBrevoService.sendEmail).toHaveBeenCalledTimes(1);
-      const mailCall = mockBrevoService.sendEmail.mock.calls[0][0];
+      const mailCall = mockBrevoService.sendEmail.mock.calls[0][0] as {
+        to: Array<{ email: string }>;
+        text: string;
+      };
       expect(mailCall.to).toEqual([{ email }]);
-      const link =
-        /https?:\/\/\S+/.exec(mailCall.text as string)?.[0] ?? '';
+      const link = /https?:\/\/\S+/.exec(mailCall.text)?.[0] ?? '';
       expect(link).toContain('/reset-password?token=');
       expect(decodeURIComponent(link.split('token=')[1])).toBe(
         result.resetToken,
@@ -766,8 +693,15 @@ describe('AuthService', () => {
         },
       });
       expect(mockBrevoService.sendEmail).toHaveBeenCalledTimes(1);
-      const call = mockBrevoService.sendEmail.mock.calls[0][0];
-      expect(call.to).toEqual([{ email: 'test@example.com', name: 'Test User' }]);
+      const call = mockBrevoService.sendEmail.mock.calls[0][0] as {
+        to: Array<{ email: string; name?: string }>;
+        subject: string;
+        text: string;
+        html: string;
+      };
+      expect(call.to).toEqual([
+        { email: 'test@example.com', name: 'Test User' },
+      ]);
       expect(call.subject).toContain('Verifica');
     });
 

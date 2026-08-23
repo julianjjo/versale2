@@ -250,10 +250,11 @@ function SellForm() {
     const data = new FormData();
     data.append("files", file);
     try {
+      // FormData: the client sends it raw and lets fetch set the
+      // multipart boundary; a manual content-type would break the upload.
       const res = await api.post<{ images: { url: string; key: string }[] }>(
         "/uploads/images",
         data,
-        { headers: { "Content-Type": "multipart/form-data" } },
       );
       const uploaded = res.data.images?.[0];
       if (!uploaded?.url) {

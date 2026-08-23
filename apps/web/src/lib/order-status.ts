@@ -74,6 +74,3 @@ export const ORDER_STATUS_REASSURANCE: Record<OrderStatus, string> = {
   REFUNDED: "El monto de este pedido te fue reembolsado.",
 };
 
-export function statusVariantFor(status: OrderStatus): BadgeVariant {
-  return ORDER_STATUS_VARIANT[status];
-}

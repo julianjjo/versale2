@@ -71,6 +71,67 @@ export function Button({
   );
 }
 
+// Shared by every labeled control: wrapper layout, label, and the mutually
+// exclusive hint/error line (an error replaces the hint).
+function Field({
+  fieldId,
+  label,
+  hint,
+  error,
+  className = "",
+  children,
+}: {
+  fieldId: string;
+  label?: string;
+  hint?: string;
+  error?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`flex flex-col gap-1.5 ${className}`}>
+      {label && (
+        <label
+          htmlFor={fieldId}
+          className="text-sm font-medium text-text-primary"
+        >
+          {label}
+        </label>
+      )}
+      {children}
+      {hint && !error && (
+        <p id={`${fieldId}-hint`} className="text-xs text-text-muted">
+          {hint}
+        </p>
+      )}
+      {error && (
+        <p
+          id={`${fieldId}-error`}
+          className="text-xs font-medium text-danger"
+          role="alert"
+        >
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// One place for the id/aria-describedby wiring every labeled control needs.
+function useFieldAria(
+  id: string | undefined,
+  hint: string | undefined,
+  error: string | undefined,
+  ariaDescribedBy: string | undefined,
+) {
+  const generatedId = useId();
+  const fieldId = id ?? generatedId;
+  const messageId = error ? `${fieldId}-error` : hint ? `${fieldId}-hint` : undefined;
+  const describedBy =
+    [ariaDescribedBy, messageId].filter(Boolean).join(" ") || undefined;
+  return { fieldId, describedBy };
+}
+
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
@@ -79,6 +140,9 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
    *  `className` stays scoped to the control itself (width, height, etc). */
   wrapperClassName?: string;
 }
+
+const controlClasses =
+  "w-full rounded-md border border-border bg-surface text-sm text-text-primary placeholder:text-text-muted transition-colors focus:border-text-primary focus:outline-none focus:ring-2 focus:ring-text-primary/20 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:opacity-60";
 
 export function Input({
   label,
@@ -90,41 +154,17 @@ export function Input({
   "aria-describedby": ariaDescribedBy,
   ...props
 }: InputProps) {
-  const generatedId = useId();
-  const fieldId = id ?? generatedId;
-  const hintId = hint ? `${fieldId}-hint` : undefined;
-  const errorId = error ? `${fieldId}-error` : undefined;
-  const describedBy =
-    [ariaDescribedBy, error ? errorId : hintId].filter(Boolean).join(" ") ||
-    undefined;
+  const { fieldId, describedBy } = useFieldAria(id, hint, error, ariaDescribedBy);
   return (
-    <div className={`flex flex-col gap-1.5 ${wrapperClassName}`}>
-      {label && (
-        <label
-          htmlFor={fieldId}
-          className="text-sm font-medium text-text-primary"
-        >
-          {label}
-        </label>
-      )}
+    <Field fieldId={fieldId} label={label} hint={hint} error={error} className={wrapperClassName}>
       <input
         id={fieldId}
         aria-describedby={describedBy}
         aria-invalid={error ? true : undefined}
-        className={`h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:border-text-primary focus:outline-none focus:ring-2 focus:ring-text-primary/20 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:opacity-60 ${className}`}
+        className={`h-10 px-3 ${controlClasses} ${className}`}
         {...props}
       />
-      {hint && !error && (
-        <p id={hintId} className="text-xs text-text-muted">
-          {hint}
-        </p>
-      )}
-      {error && (
-        <p id={errorId} className="text-xs font-medium text-danger" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
+    </Field>
   );
 }
 
@@ -145,41 +185,17 @@ export function Textarea({
   "aria-describedby": ariaDescribedBy,
   ...props
 }: TextareaProps) {
-  const generatedId = useId();
-  const fieldId = id ?? generatedId;
-  const hintId = hint ? `${fieldId}-hint` : undefined;
-  const errorId = error ? `${fieldId}-error` : undefined;
-  const describedBy =
-    [ariaDescribedBy, error ? errorId : hintId].filter(Boolean).join(" ") ||
-    undefined;
+  const { fieldId, describedBy } = useFieldAria(id, hint, error, ariaDescribedBy);
   return (
-    <div className={`flex flex-col gap-1.5 ${wrapperClassName}`}>
-      {label && (
-        <label
-          htmlFor={fieldId}
-          className="text-sm font-medium text-text-primary"
-        >
-          {label}
-        </label>
-      )}
+    <Field fieldId={fieldId} label={label} hint={hint} error={error} className={wrapperClassName}>
       <textarea
         id={fieldId}
         aria-describedby={describedBy}
         aria-invalid={error ? true : undefined}
-        className={`min-h-20 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:border-text-primary focus:outline-none focus:ring-2 focus:ring-text-primary/20 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:opacity-60 ${className}`}
+        className={`min-h-20 px-3 py-2 ${controlClasses} ${className}`}
         {...props}
       />
-      {hint && !error && (
-        <p id={hintId} className="text-xs text-text-muted">
-          {hint}
-        </p>
-      )}
-      {error && (
-        <p id={errorId} className="text-xs font-medium text-danger" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
+    </Field>
   );
 }
 
@@ -202,43 +218,19 @@ export function Select({
   children,
   ...props
 }: SelectProps) {
-  const generatedId = useId();
-  const fieldId = id ?? generatedId;
-  const hintId = hint ? `${fieldId}-hint` : undefined;
-  const errorId = error ? `${fieldId}-error` : undefined;
-  const describedBy =
-    [ariaDescribedBy, error ? errorId : hintId].filter(Boolean).join(" ") ||
-    undefined;
+  const { fieldId, describedBy } = useFieldAria(id, hint, error, ariaDescribedBy);
   return (
-    <div className={`flex flex-col gap-1.5 ${wrapperClassName}`}>
-      {label && (
-        <label
-          htmlFor={fieldId}
-          className="text-sm font-medium text-text-primary"
-        >
-          {label}
-        </label>
-      )}
+    <Field fieldId={fieldId} label={label} hint={hint} error={error} className={wrapperClassName}>
       <select
         id={fieldId}
         aria-describedby={describedBy}
         aria-invalid={error ? true : undefined}
-        className={`h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-text-primary transition-colors focus:border-text-primary focus:outline-none focus:ring-2 focus:ring-text-primary/20 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:opacity-60 ${className}`}
+        className={`h-10 px-3 ${controlClasses} ${className}`}
         {...props}
       >
         {children}
       </select>
-      {hint && !error && (
-        <p id={hintId} className="text-xs text-text-muted">
-          {hint}
-        </p>
-      )}
-      {error && (
-        <p id={errorId} className="text-xs font-medium text-danger" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
+    </Field>
   );
 }
 

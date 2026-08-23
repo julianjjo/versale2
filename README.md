@@ -1,6 +1,5 @@
 # Versale — Used Clothing Marketplace
 
-[![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://app.codspeed.io/julianjjo/versale2?utm_source=badge)
 [![codecov](https://codecov.io/gh/julianjjo/versale2/branch/main/graph/badge.svg)](https://codecov.io/gh/julianjjo/versale2)
 
 A full-stack editorial marketplace for buying and selling pre-owned clothing. Versale pairs a NestJS + Prisma backend with a Next.js 15 storefront and a Playwright end-to-end suite, all running from a single npm workspace.
@@ -189,26 +188,6 @@ The Playwright harness is self-contained: it boots its **own** API and Web insta
 That means you do not need the dev servers running to execute e2e — `npm run e2e` brings everything up and tears it down for you.
 
 > Schema bootstrap lives in the API `webServer` (not in `globalSetup`) because the API process opens its SQLite connection before global setup runs. Moving the bootstrap anywhere else triggers `SQLITE_READONLY_DBMOVED`.
-
-### Benchmarks
-
-Performance benchmarks run on Vitest's bench runner and are tracked in CI by [CodSpeed](https://codspeed.io). They live next to the code they measure, in `apps/api/bench/` and `apps/web/bench/`, and use their own Vitest configs (`vitest.bench.config.mts`) so the unit-test setup stays untouched.
-
-| Command             | What it covers                                                                    |
-| ------------------- | --------------------------------------------------------------------------------- |
-| `npm run bench`     | Both workspaces                                                                    |
-| `npm run bench:api` | DTO validation, JWT signing/verification, roles guard, products + orders services  |
-| `npm run bench:web` | UI primitives, product card rendering, API error parsing, product/order list logic |
-
-The API benchmarks drive the services against in-memory Prisma stubs, so they measure service logic (validation, authorization, totals, query building, response shaping) without a database in the loop. Run `npx prisma generate` in `apps/api` once before the first API benchmark run.
-
-To reproduce the CI measurements locally with the [CodSpeed CLI](https://codspeed.io/docs/cli):
-
-```bash
-codspeed run --mode simulation -- npm run bench
-```
-
-Every push to `main` and every pull request runs `.github/workflows/codspeed.yml`, which measures the benchmarks and reports the results back on the PR.
 
 ## Seeded users
 

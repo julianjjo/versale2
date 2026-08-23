@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { getHttpStatus, isTerminalError } from "../http-error";
 
 describe("getHttpStatus", () => {
-  it("reads the status off an axios-shaped error", () => {
+  it("reads the status off an ApiError-shaped error", () => {
     expect(getHttpStatus({ response: { status: 404 } })).toBe(404);
   });
 
