@@ -16,6 +16,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../users/role.enum';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { DeleteAccountDto } from './dto/delete-account.dto';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -37,6 +38,19 @@ export class UsersController {
     return this.usersService.update(userId, updateUserDto, {
       isSelfService: true,
     });
+  }
+
+  /**
+   * Autoserborrado de cuenta. Declarado ANTES de @Delete(':id') para que la
+   * ruta estática gane el despacho — si no, Nest encajaría "me" como :id del
+   * endpoint admin y devolvería 403 a quien quiere borrarse.
+   */
+  @Delete('me')
+  async deleteOwnAccount(
+    @Req() req: AuthRequest,
+    @Body() dto: DeleteAccountDto,
+  ) {
+    return this.usersService.deleteOwnAccount(req.user.id, dto);
   }
 
   @UseGuards(RolesGuard)

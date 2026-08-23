@@ -29,6 +29,14 @@ model User {
   // stands as evidence of consent. Nullable because accounts created before
   // this field existed have no such record.
   termsAcceptedAt DateTime?
+  // Borrado de cuenta: soft-delete. La fila NUNCA se elimina — Order.userId,
+  // Review.userId, ProductReport.reporterId y ProductQuestion.askerId son
+  // ON DELETE RESTRICT, así que un delete físico de un usuario con actividad
+  // revienta por FK. En su lugar, el anonimizado sobrescribe la PII (email,
+  // nombre, hash de contraseña, tokens) dentro de una $transaction y deja
+  // este sello: login y JwtStrategy lo consultan para tratar la cuenta como
+  // inexistente. No nulo ⇒ el correo original queda libre para re-registro.
+  deletedAt DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   products      Product[]
@@ -164,6 +172,13 @@ model Order {
   status        OrderStatus @default(PENDING)
   totalAmount   Float
   shippingAddress Json   // or separate ShippingAddress model (now required)
+  // Borrado de cuenta: la dirección de envío es PII que sobrevive dentro de
+  // la orden (registro transaccional), pero no para siempre — se redacta en
+  // cuanto prescriben las disputas (30 días tras deliveredAt, misma ventana
+  // de 2.2; CANCELLED/REFUNDED al instante). SQLite no puede filtrar por
+  // contenido Json, así que este timestamp es la marca explícita que el cron
+  // horario usa para encontrar lo pendiente sin reescribir dos veces.
+  shippingAddressRedactedAt DateTime?
   trackingNumber String?
   // Item 12 timestamps that drive the automated deadlines: the 7-day
   // unshipped refund counts from paidAt, the 48h dispute window and the
