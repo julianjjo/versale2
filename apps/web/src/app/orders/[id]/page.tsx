@@ -63,7 +63,13 @@ export default function OrderDetailPage() {
     onSuccess: (pref) => {
       // Sandbox y producción: MP devuelve init_point (o sandbox_init_point,
       // que el API ya prefiere).
-      if (pref.initPoint) window.location.href = pref.initPoint;
+      if (pref.initPoint) {
+        window.location.href = pref.initPoint;
+      } else {
+        setPreferenceError(
+          "MercadoPago no devolvió una URL de pago. Intenta de nuevo.",
+        );
+      }
     },
     onError: (err) =>
       setPreferenceError(extractApiError(err, "No pudimos iniciar el pago")),

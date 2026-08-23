@@ -238,7 +238,17 @@ export class PaymentsService {
 
     // El pedido pasa a PAID por el camino canónico (CAS + paidAt stamp).
     if (order.status === OrderStatus.PENDING) {
-      await this.ordersService.updateOrderStatus(orderId, OrderStatus.PAID);
+      try {
+        await this.ordersService.updateOrderStatus(orderId, OrderStatus.PAID);
+      } catch (error) {
+        // Carrera perdida: otra ruta movió la orden entre nuestro read y el
+        // CAS del update. El pago ya quedó registrado y auditado — no vale
+        // la pena responderle 400 a MP y provocarle una retrollamada extra.
+        this.logger.warn(
+          `Pago ${dataId} aprobado pero la orden ${orderId} ya no estaba PENDING: ${error}`,
+        );
+        return { processed: false, duplicate: false };
+      }
       await this.prisma.client.notification
         .create({
           data: {

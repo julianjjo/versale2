@@ -206,6 +206,26 @@ describe('PaymentsService', () => {
       expect(mockOrdersService.updateOrderStatus).not.toHaveBeenCalled();
     });
 
+    it('no revienta si la orden dejó de estar PENDING entre el read y la transición', async () => {
+      mockPrismaService.client.payment.findUnique.mockResolvedValue(null);
+      mockPrismaService.client.payment.create.mockResolvedValue({});
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        userId: 'buyer1',
+        status: OrderStatus.PENDING,
+        totalAmount: 80000,
+      });
+      // Otra ruta (admin, otro pago) movió la orden justo después del read:
+      // el CAS del camino canónico falla con 400.
+      mockOrdersService.updateOrderStatus.mockRejectedValue(
+        new BadRequestException('No se puede cambiar el estado del pedido'),
+      );
+
+      const result = await service.processWebhookNotification('123456789');
+
+      expect(result).toEqual({ processed: false, duplicate: false });
+    });
+
     it('no marca PAID un pago approved por menos del total del pedido', async () => {
       stubFetch({
         ok: true,
