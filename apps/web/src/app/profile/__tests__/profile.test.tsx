@@ -192,3 +192,126 @@ describe("ProfilePage", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("ProfilePage — zona de peligro (borrado de cuenta)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("explica las consecuencias y pide confirmación de contraseña", () => {
+    renderPage();
+
+    expect(screen.getByText(/zona de peligro/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/eliminar tu cuenta es definitivo/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/confirma tu contraseña/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /eliminar mi cuenta/i }),
+    ).toBeDisabled();
+  });
+
+  it("habilita el botón al escribir la contraseña y abre un diálogo de confirmación accesible", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const deleteButton = screen.getByRole("button", {
+      name: /eliminar mi cuenta/i,
+    });
+    expect(deleteButton).toBeDisabled();
+
+    await user.type(
+      screen.getByLabelText(/confirma tu contraseña/i),
+      "claveSegura1",
+    );
+    expect(deleteButton).toBeEnabled();
+    await user.click(deleteButton);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(
+      screen.getByText(/esta acción no se puede deshacer/i),
+    ).toBeInTheDocument();
+  });
+
+  it("cancelar cierra el diálogo sin llamar a la API", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(
+      screen.getByLabelText(/confirma tu contraseña/i),
+      "claveSegura1",
+    );
+    await user.click(
+      screen.getByRole("button", { name: /eliminar mi cuenta/i }),
+    );
+    await user.click(await screen.findByRole("button", { name: /cancelar/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(api.delete).not.toHaveBeenCalled();
+    expect(authState.logout).not.toHaveBeenCalled();
+  });
+
+  it("elimina la cuenta, cierra sesión y redirige a login con reason=account_deleted", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.delete).mockResolvedValue({
+      data: { message: "Tu cuenta se eliminó correctamente" },
+    });
+    renderPage();
+
+    await user.type(
+      screen.getByLabelText(/confirma tu contraseña/i),
+      "claveSegura1",
+    );
+    await user.click(
+      screen.getByRole("button", { name: /eliminar mi cuenta/i }),
+    );
+    await user.click(
+      await screen.findByRole("button", {
+        name: /sí, eliminar definitivamente/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(api.delete).toHaveBeenCalledWith("/users/me", {
+        data: { currentPassword: "claveSegura1" },
+      });
+    });
+    expect(authState.logout).toHaveBeenCalled();
+    expect(pushMock).toHaveBeenCalledWith("/login?reason=account_deleted");
+  });
+
+  it("muestra en español el error de la API cuando la contraseña es incorrecta y no cierra sesión", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.delete).mockRejectedValue({
+      response: {
+        status: 403,
+        data: { message: "La contraseña actual es incorrecta" },
+      },
+    });
+    renderPage();
+
+    await user.type(
+      screen.getByLabelText(/confirma tu contraseña/i),
+      "equivocada",
+    );
+    await user.click(
+      screen.getByRole("button", { name: /eliminar mi cuenta/i }),
+    );
+    await user.click(
+      await screen.findByRole("button", {
+        name: /sí, eliminar definitivamente/i,
+      }),
+    );
+
+    expect(
+      await screen.findByText("La contraseña actual es incorrecta"),
+    ).toBeInTheDocument();
+    expect(authState.logout).not.toHaveBeenCalled();
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+});
