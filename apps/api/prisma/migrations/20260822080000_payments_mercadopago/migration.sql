@@ -8,7 +8,7 @@ CREATE TABLE "Payment" (
     "orderId" TEXT NOT NULL,
     "status" TEXT NOT NULL,
     "amount" REAL NOT NULL,
-    "rawPayload" JSONB,
+    "rawPayload" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "Payment_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
