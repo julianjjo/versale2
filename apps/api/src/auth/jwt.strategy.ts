@@ -21,6 +21,7 @@ interface ValidatedUserRow {
 }
 
 @Injectable()
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call -- passport-jwt Strategy types are any
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private prisma: PrismaService) {
     const jwtSecret = process.env.JWT_SECRET;
@@ -30,9 +31,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // passport-jwt's ExtractJwt namespace is typed as `any` in some
     // resolutions; keep a typed alias to satisfy no-unsafe-* rules without
     // resorting to `any` in the strategy options.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- passport-jwt ExtractJwt is typed as any
     const jwtFromRequest: JwtFromRequestFunction =
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- passport-jwt ExtractJwt types are any
       ExtractJwt.fromAuthHeaderAsBearerToken();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- PassportStrategy super() is typed as any
     super({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- PassportStrategy options are typed as any
       jwtFromRequest,
       ignoreExpiration: false,
       secretOrKey: jwtSecret,
