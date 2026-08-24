@@ -35,7 +35,7 @@ export async function resolveBearerUser(
   const user = await prisma.client.user.findUnique({
     where: { id: payload.sub ?? '' },
   });
-  if (!user || (payload.tokenVersion ?? 0) !== user.tokenVersion) return null;
+  if (!user || user.deletedAt || (payload.tokenVersion ?? 0) !== user.tokenVersion) return null;
 
   return { id: user.id, email: user.email, role: user.role };
 }

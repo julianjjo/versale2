@@ -25,7 +25,9 @@ import type { Cart, CartItem, Order, PaginatedResponse } from "@/lib/types";
 
 // How fresh a recovered order has to be to trust it as "the one this
 // checkout attempt just created" (see the checkout mutation's onError).
-const RECENT_ORDER_WINDOW_MS = 30_000;
+// 120s idempotency window: covers slow network retries and MP webhook race
+// without trusting a stale order from another tab/device.
+export const RECENT_ORDER_WINDOW_MS = 120_000;
 
 function isSold(item: CartItem): boolean {
   return item.product?.status === "SOLD";
