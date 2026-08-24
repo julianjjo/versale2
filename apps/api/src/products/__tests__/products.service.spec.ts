@@ -1836,14 +1836,14 @@ describe('ProductsService', () => {
           status: 'AVAILABLE' as const,
           pausedAt: null,
           OR: [
-            { title: { contains: 'test' } },
-            { description: { contains: 'test' } },
-            { brand: { contains: 'test' } },
-            { category: { contains: 'test' } },
+            { title: { contains: 'test', mode: 'insensitive' } },
+            { description: { contains: 'test', mode: 'insensitive' } },
+            { brand: { contains: 'test', mode: 'insensitive' } },
+            { category: { contains: 'test', mode: 'insensitive' } },
           ],
           price: { gte: 10, lte: 100 },
           size: 'M',
-          brand: { contains: 'TestBrand' },
+          brand: { contains: 'TestBrand', mode: 'insensitive' },
           condition: 'New',
         },
         skip: 0,
@@ -1859,14 +1859,14 @@ describe('ProductsService', () => {
           status: 'AVAILABLE' as const,
           pausedAt: null,
           OR: [
-            { title: { contains: 'test' } },
-            { description: { contains: 'test' } },
-            { brand: { contains: 'test' } },
-            { category: { contains: 'test' } },
+            { title: { contains: 'test', mode: 'insensitive' } },
+            { description: { contains: 'test', mode: 'insensitive' } },
+            { brand: { contains: 'test', mode: 'insensitive' } },
+            { category: { contains: 'test', mode: 'insensitive' } },
           ],
           price: { gte: 10, lte: 100 },
           size: 'M',
-          brand: { contains: 'TestBrand' },
+          brand: { contains: 'TestBrand', mode: 'insensitive' },
           condition: 'New',
         },
       });
@@ -1945,7 +1945,7 @@ describe('ProductsService', () => {
             isApproved: true,
             status: 'AVAILABLE' as const,
             pausedAt: null,
-            category: 'Jackets',
+            category: { equals: 'Jackets', mode: 'insensitive' },
           },
         }),
       );
@@ -1954,7 +1954,7 @@ describe('ProductsService', () => {
           isApproved: true,
           status: 'AVAILABLE' as const,
           pausedAt: null,
-          category: 'Jackets',
+          category: { equals: 'Jackets', mode: 'insensitive' },
         },
       });
     });
@@ -2035,9 +2035,9 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            category: 'Jeans',
+            category: { equals: 'Jeans', mode: 'insensitive' },
             size: 'M',
-            brand: { contains: 'Levi' },
+            brand: { contains: 'Levi', mode: 'insensitive' },
             condition: 'Good',
             sellerId: 'seller1',
           }) as Record<string, unknown>,
@@ -2064,6 +2064,84 @@ describe('ProductsService', () => {
         orderBy: [{ price: 'asc' }, { id: 'asc' }],
         include: { seller: { select: { id: true, name: true } } },
       });
+    });
+
+    it('should sort by viewCount desc when sortBy=most_viewed', async () => {
+      await service.findAll({ sortBy: 'most_viewed' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ viewCount: 'desc' }, { id: 'asc' }],
+        }),
+      );
+    });
+
+    it('should sort by favoritedBy count desc when sortBy=most_favorited', async () => {
+      await service.findAll({ sortBy: 'most_favorited' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ favoritedBy: { _count: 'desc' } }, { id: 'asc' }],
+        }),
+      );
+    });
+
+    it('should sort top_rated in-memory by averageRating desc with id tiebreaker', async () => {
+      const mockProducts = [
+        { id: 'b', title: 'B' },
+        { id: 'a', title: 'A' },
+        { id: 'c', title: 'C' },
+      ];
+      mockPrismaService.client.product.findMany.mockResolvedValue(mockProducts);
+      mockPrismaService.client.product.count.mockResolvedValue(3);
+      mockPrismaService.client.review.groupBy.mockResolvedValue([
+        { productId: 'a', _avg: { rating: 5 }, _count: 1 },
+        { productId: 'b', _avg: { rating: 4 }, _count: 1 },
+        { productId: 'c', _avg: { rating: 5 }, _count: 2 },
+      ]);
+      const result = await service.findAll({ sortBy: 'top_rated' });
+      // 5-rated before 4-rated; tie on 5 broken by id asc: a before c
+      expect(result.data.map((p) => p.id)).toEqual(['a', 'c', 'b']);
+    });
+
+    it('should place unrated products last when sorting top_rated', async () => {
+      const mockProducts = [
+        { id: 'p1', title: 'Rated' },
+        { id: 'p2', title: 'Unrated' },
+      ];
+      mockPrismaService.client.product.findMany.mockResolvedValue(mockProducts);
+      mockPrismaService.client.product.count.mockResolvedValue(2);
+      mockPrismaService.client.review.groupBy.mockResolvedValue([
+        { productId: 'p1', _avg: { rating: 3 }, _count: 1 },
+      ]);
+      const result = await service.findAll({ sortBy: 'top_rated' });
+      expect(result.data[0].id).toBe('p1');
+      expect(result.data[1].id).toBe('p2');
+    });
+
+    it('should use case-insensitive contains for search OR and brand', async () => {
+      await service.findAll({ search: 'Chaqueta', brand: 'Zara' });
+      const where = (
+        mockPrismaService.client.product.findMany.mock.calls[0][0] as {
+          where: { OR: Array<Record<string, unknown>>; brand: unknown };
+        }
+      ).where;
+      expect(where.OR).toEqual([
+        { title: { contains: 'Chaqueta', mode: 'insensitive' } },
+        { description: { contains: 'Chaqueta', mode: 'insensitive' } },
+        { brand: { contains: 'Chaqueta', mode: 'insensitive' } },
+        { category: { contains: 'Chaqueta', mode: 'insensitive' } },
+      ]);
+      expect(where.brand).toEqual({ contains: 'Zara', mode: 'insensitive' });
+    });
+
+    it('should use case-insensitive equals for category', async () => {
+      await service.findAll({ category: 'Jeans' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            category: { equals: 'Jeans', mode: 'insensitive' },
+          }) as Record<string, unknown>,
+        }),
+      );
     });
   });
 
@@ -2120,10 +2198,10 @@ describe('ProductsService', () => {
             pausedAt: null,
             sellerId: 'seller1',
             OR: [
-              { title: { contains: 'jacket' } },
-              { description: { contains: 'jacket' } },
-              { brand: { contains: 'jacket' } },
-              { category: { contains: 'jacket' } },
+              { title: { contains: 'jacket', mode: 'insensitive' } },
+              { description: { contains: 'jacket', mode: 'insensitive' } },
+              { brand: { contains: 'jacket', mode: 'insensitive' } },
+              { category: { contains: 'jacket', mode: 'insensitive' } },
             ],
           },
         }),
@@ -2650,10 +2728,10 @@ describe('ProductsService', () => {
           where: {
             sellerId: 'seller1',
             OR: [
-              { title: { contains: 'chaqueta' } },
-              { description: { contains: 'chaqueta' } },
-              { brand: { contains: 'chaqueta' } },
-              { category: { contains: 'chaqueta' } },
+              { title: { contains: 'chaqueta', mode: 'insensitive' } },
+              { description: { contains: 'chaqueta', mode: 'insensitive' } },
+              { brand: { contains: 'chaqueta', mode: 'insensitive' } },
+              { category: { contains: 'chaqueta', mode: 'insensitive' } },
             ],
           },
         }),
@@ -2677,10 +2755,10 @@ describe('ProductsService', () => {
             status: 'AVAILABLE' as const,
             pausedAt: null,
             OR: [
-              { title: { contains: 'lino' } },
-              { description: { contains: 'lino' } },
-              { brand: { contains: 'lino' } },
-              { category: { contains: 'lino' } },
+              { title: { contains: 'lino', mode: 'insensitive' } },
+              { description: { contains: 'lino', mode: 'insensitive' } },
+              { brand: { contains: 'lino', mode: 'insensitive' } },
+              { category: { contains: 'lino', mode: 'insensitive' } },
             ],
           },
         }),
