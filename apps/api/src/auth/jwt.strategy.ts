@@ -1,7 +1,4 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
-import type { JwtFromRequestFunction } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
 
 // Estructura mínima del JWT firmado por generateToken() y de la fila User
@@ -20,28 +17,24 @@ interface ValidatedUserRow {
   deletedAt: Date | null;
 }
 
+// Nota: este archivo existió para Passport (Strategy + ExtractJwt) pero el
+// refactor ponytail de main (615c1b7) eliminó @nestjs/passport/passport-jwt
+// y migró a JwtAuthGuard (JwtService). Se mantiene la clase solo por
+// compatibilidad de rama, sin reintroducir deps borradas, para que `nest build`
+// no rompa en CI donde esas dependencias ya no se instalan. El import
+// `JwtFromRequestFunction` de 6116f96 nunca resolvió sin @types/passport-jwt;
+// se reemplaza por tipado inline controlado sin imports que rompan TS.
 @Injectable()
-// eslint-disable-next-line @typescript-eslint/no-unsafe-call -- passport-jwt Strategy types are any
-export class JwtStrategy extends PassportStrategy(Strategy) {
+export class JwtStrategy {
   constructor(private prisma: PrismaService) {
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
       throw new Error('JWT_SECRET environment variable must be set');
     }
-    // passport-jwt's ExtractJwt namespace is typed as `any` in some
-    // resolutions; keep a typed alias to satisfy no-unsafe-* rules without
-    // resorting to `any` in the strategy options.
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- passport-jwt ExtractJwt is typed as any
-    const jwtFromRequest: JwtFromRequestFunction =
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- passport-jwt ExtractJwt types are any
-      ExtractJwt.fromAuthHeaderAsBearerToken();
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- PassportStrategy super() is typed as any
-    super({
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- PassportStrategy options are typed as any
-      jwtFromRequest,
-      ignoreExpiration: false,
-      secretOrKey: jwtSecret,
-    });
+    // Sin PassportStrategy/super(): AuthModule de main ya no registra
+    // estrategia passport; la verificación vive en JwtAuthGuard.resolveBearerUser.
+    // Mantener el constructor validando JWT_SECRET preserva el contrato de
+    // error temprano sin depender de módulos eliminados.
   }
 
   async validate(payload: JwtPayload) {
