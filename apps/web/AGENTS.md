@@ -8,14 +8,14 @@ Next.js (App Router) frontend for Versale. Renders the public catalog, user auth
 
 - **Local contract**: this file.
 - Source under `src/`:
-  - `src/app/` — Next.js routes (App Router): `(public)`, `admin/`, `cart/`, `login/`, `orders/`, `products/`, `profile/`, `sell/`, `signup/`.
+  - `src/app/` — Next.js routes (App Router): `admin/`, `cart/`, `login/`, `signup/`, `verify-email`, `forgot-password`, `reset-password`, `products/[id]`, `sell`, `mis-productos`, `mis-ventas`, `favoritos`, `vendedores/[id]`, `orders/[id]`, `profile/`, `ayuda`, `contacto`, `terminos`, `privacidad`, `cookies`, `envios`, `sitemap.ts`, `robots.ts` (+ `__tests__/` per route).
   - `src/components/` — shared UI components grouped by domain (`ui/`, `layout/`, `products/`, `marketing/`).
-  - `src/lib/` — client utilities: `api`, `auth`, `token`, `types`, `order-status`, plus `__tests__/`.
+  - `src/lib/` — client utilities: `api`, `auth`, `token`, `types`, `order-status`, `site`, `auth-events`, `recently-viewed`, `categories`, `favorites`, plus `__tests__/`.
   - `src/test-utils/` — test providers and helpers used by Vitest.
 
 ## Local Contracts
 
-- Run mode: `npm run dev` (Next dev server, Turbopack).
+- Run mode: `npm run dev` (Next dev server — `next dev` without an explicit `--turbopack` flag).
 - API URL: `NEXT_PUBLIC_API_URL` env var (e.g. `http://127.0.0.1:3001`).
 - Package manager: `npm` (workspaces resolve at the repo root).
 - All visible UI labels, buttons, errors, and copy are in **Spanish** (`Iniciar sesión`, `Crear cuenta`, `Carrito`, `Pendiente`, etc.). Tests must select elements by their Spanish label.
@@ -24,7 +24,7 @@ Next.js (App Router) frontend for Versale. Renders the public catalog, user auth
 ## Work Guidance
 
 - The `Header` shows admin links only when the logged-in user has role `ADMIN`. The `sell` form (`src/app/sell/page.tsx`) requires authentication; unauthenticated users get the empty-state CTA pointing to `/login`.
-- After creating a product via `/sell`, the app pushes the user to `/products` (the product is `isApproved: false` until an admin approves it).
+- After creating a product via `/sell`, the app pushes the user to `/mis-productos` (the product is `isApproved: false` until an admin approves it).
 - Money is rendered through the `Price` UI component which formats `Float` amounts as COP currency.
 - Order status display goes through `ORDER_STATUS_LABEL` in `src/lib/order-status.ts`. Keep these labels in Spanish.
 - The marketing surface (home page, topbar, header, footer) follows the design tokens documented in `design.md` at the repo root. Marketing-only primitives live in `src/components/marketing/` (e.g. `category-grid.tsx`, `closing-cta.tsx`); the home page (`src/app/page.tsx`) is composed from those primitives plus `ProductsBrowser`.

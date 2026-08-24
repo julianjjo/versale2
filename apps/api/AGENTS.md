@@ -7,16 +7,16 @@ NestJS + Prisma backend for Versale. Exposes REST endpoints for auth, users, pro
 ## Ownership
 
 - **Local contract**: this file.
-- Modules in `src/`: `auth`, `users`, `products`, `cart`, `orders`, `reviews`, `prisma`. Each module owns its controller, service, DTOs, and `__tests__/` specs.
-- The Prisma schema lives in `prisma/schema.prisma`; generated client is at the repo-root `node_modules/.prisma/client`.
+- Modules in `src/`: `auth`, `users`, `products`, `cart`, `orders`, `reviews`, `payments`, `uploads`, `favorites`, `reports`, `questions`, `notifications`, `common`, `prisma` (plus `types`). Each module owns its controller, service, DTOs, and `__tests__/` specs.
+- The Prisma schema lives in `prisma/schema.prisma`; generated client is at `apps/api/node_modules/.prisma/client` (Prisma 7, local `output` via `prisma.config.ts` / `better-sqlite3` adapter).
 
 ## Local Contracts
 
 - Run mode: `npm run start:dev` (Nest watch) for development, `npm run start:prod` after `npm run build`.
 - Database URL: `DATABASE_URL` env var, default `file:./dev.db` (relative to `apps/api`).
 - JWT secret: `JWT_SECRET` env var.
-- Schema management: `npx prisma db push` for prototyping, `npx prisma migrate dev` for new migrations.
-- API base path: `/auth`, `/users`, `/products`, `/cart`, `/orders`, `/reviews`. Admin variants live under each resource's `/admin/*` path.
+- Schema management: `npx prisma migrate dev` for local changes and `npx prisma migrate deploy --schema=./prisma/schema.prisma` for CI/e2e/prod (do not use `prisma db push` — it bypasses the `_prisma_migrations` ledger).
+- API base path: `/auth`, `/users`, `/products`, `/cart`, `/orders`, `/reviews`, `/payments`, `/uploads`, `/favorites`, `/reports`, `/questions`, `/notifications`. Admin variants live under each resource's `/admin/*` path.
 
 ## Work Guidance
 

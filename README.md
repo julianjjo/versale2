@@ -2,7 +2,7 @@
 
 [![codecov](https://codecov.io/gh/julianjjo/versale2/branch/main/graph/badge.svg)](https://codecov.io/gh/julianjjo/versale2)
 
-A full-stack editorial marketplace for buying and selling pre-owned clothing. Versale pairs a NestJS + Prisma backend with a Next.js 15 storefront and a Playwright end-to-end suite, all running from a single npm workspace.
+A full-stack editorial marketplace for buying and selling pre-owned clothing. Versale pairs a NestJS + Prisma backend with a Next.js 16.2.7 storefront and a Playwright end-to-end suite, all running from a single npm workspace.
 
 The visual system (typography, color tokens, button, card, and section patterns) is documented in [`design.md`](./design.md) and is the source of truth for every UI change.
 
@@ -20,11 +20,12 @@ versale/
 ├─ apps/
 │  ├─ api/                  # NestJS + Prisma backend
 │  │  ├─ prisma/            # schema.prisma + migrations
-│  │  ├─ src/               # modules: auth, users, products, cart, orders, reviews
+│  │  ├─ src/               # modules: auth, users, products, cart, orders, reviews, payments, uploads, favorites, reports, questions, notifications, common, prisma
 │  │  └─ AGENTS.md          # backend-specific contract
 │  └─ web/                  # Next.js storefront
-│     ├─ src/app/           # routes (App Router)
+│     ├─ src/app/           # routes: admin, cart, login, signup, verify-email, forgot-password, reset-password, products/[id], sell, mis-productos, mis-ventas, favoritos, vendedores/[id], orders, profile, ayuda, contacto, terminos, privacidad, cookies, envios, sitemap.ts, robots.ts
 │     ├─ src/components/    # layout/, marketing/, products/, ui/
+│     ├─ src/lib/           # api, auth, token, site, auth-events, recently-viewed, categories, etc.
 │     └─ AGENTS.md          # frontend-specific contract
 ├─ e2e/                     # Playwright suites, fixtures, seed
 │  └─ AGENTS.md             # e2e-specific contract
@@ -163,27 +164,21 @@ All commands are run from the repository root unless noted.
 | `npm run start:api` | API from `dist/main`                                   |
 | `npm run start:web` | `next start` on the production build                    |
 
-### Lint & format
-
-| Command          | What it does                                              |
-| ---------------- | --------------------------------------------------------- |
-| `npm run lint`   | ESLint over `.ts` and `.tsx` across the monorepo          |
-| `npm run format` | Prettier write across the whole tree                     |
-
 ### Tests
 
 | Command             | Framework | What it covers                                |
 | ------------------- | --------- | --------------------------------------------- |
-| `npm test`          | Jest + Vitest | API unit/integration + Web unit tests      |
 | `npm run test:api`  | Jest      | API unit + integration tests (Supertest)      |
 | `npm run test:web`  | Vitest    | Web unit + component tests                    |
 | `npm run e2e`       | Playwright | Full-stack end-to-end flows                  |
 | `npm run e2e:ui`    | Playwright | Same suites in the interactive UI runner    |
 | `npm run e2e:report`| —         | Opens the last Playwright HTML report         |
 
+> Scripts reales en `package.json` (root): `dev`, `dev:api`, `dev:web`, `build`, `start`, `start:api`, `start:web`, `test:api`, `test:web`, `e2e`, `e2e:ui`, `e2e:report`.
+
 #### e2e specifics
 
-The Playwright harness is self-contained: it boots its **own** API and Web instances on ports **3101** (API) and **3100** (Web), backed by a dedicated SQLite file at `apps/api/e2e.db`. The API `webServer` command in `playwright.config.ts` runs `prisma db push` against that file before starting Nest, and `e2e/utils/global-setup.ts` only seeds users and products.
+The Playwright harness is self-contained: it boots its **own** API and Web instances on ports **3101** (API) and **3100** (Web), backed by a dedicated SQLite file at `apps/api/e2e.db`. The API `webServer` command in `playwright.config.ts` runs `node e2e/utils/reset-db.js && npx prisma migrate deploy --schema=./prisma/schema.prisma` against that file before starting Nest, and `e2e/utils/global-setup.ts` only seeds users and products.
 
 That means you do not need the dev servers running to execute e2e — `npm run e2e` brings everything up and tears it down for you.
 
@@ -302,7 +297,7 @@ Status values are localized in the UI: `Pendiente`, `Pagado`, `Enviado`, `Entreg
 
 ## Troubleshooting
 
-- **`SQLITE_READONLY_DBMOVED` during e2e** — the API process started before `prisma db push` finished. The fix lives in `playwright.config.ts`; do not move the schema push into `e2e/utils/global-setup.ts`.
+- **`SQLITE_READONLY_DBMOVED` during e2e** — the API process started before `node e2e/utils/reset-db.js && npx prisma migrate deploy` finished. The fix lives in `playwright.config.ts`; do not move the schema bootstrap into `e2e/utils/global-setup.ts` (globalSetup only seeds).
 - **Playwright browser missing** — run `npx playwright install --with-deps chromium` (the suite only needs Chromium).
 - **Stale Prisma client** — after editing `apps/api/prisma/schema.prisma`, run `npx prisma generate` and restart the dev server.
 - **Fonts look like the system fallback** — check that `next/font` can reach Google Fonts in your environment; the dev server prints a warning if the fetch fails.
