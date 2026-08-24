@@ -24,9 +24,9 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 
+const toLimit=(v:string|undefined,f:number)=>{const n=Number(v);return Number.isInteger(n)&&n>0&&n<=1_000_000?n:f;}
 export const PRODUCTS_SEARCH_THROTTLE_TTL = minutes(1);
-export const PRODUCTS_SEARCH_THROTTLE_LIMIT =
-  Number(process.env.PRODUCTS_SEARCH_THROTTLE_LIMIT) || 60;
+export const PRODUCTS_SEARCH_THROTTLE_LIMIT = toLimit(process.env.PRODUCTS_SEARCH_THROTTLE_LIMIT, 60);
 
 @Controller('products')
 export class ProductsController {

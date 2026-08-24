@@ -15,8 +15,9 @@ import { QuestionsModule } from './questions/questions.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PrismaModule } from './prisma/prisma.module';
 
+const toLimit=(v:string|undefined,f:number)=>{const n=Number(v);return Number.isInteger(n)&&n>0&&n<=1_000_000?n:f;}
 export const DEFAULT_THROTTLE_TTL = minutes(1);
-export const DEFAULT_THROTTLE_LIMIT = Number(process.env.THROTTLE_LIMIT) || 300;
+export const DEFAULT_THROTTLE_LIMIT = toLimit(process.env.THROTTLE_LIMIT, 300);
 
 @Module({
   imports: [

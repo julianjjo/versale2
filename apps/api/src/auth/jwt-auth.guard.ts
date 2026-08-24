@@ -47,10 +47,7 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     @Optional() protected readonly jwtService?: JwtService,
     @Optional() protected readonly prisma?: PrismaService,
-    @Optional() opts?: { optional?: boolean },
-  ) {
-    if (opts?.optional) this.optional = true;
-  }
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const [jwtService, prisma] = this.requireDeps();
@@ -75,7 +72,8 @@ export class JwtAuthGuard implements CanActivate {
 }
 
 export class OptionalJwtAuthGuard extends JwtAuthGuard {
+  protected override optional = true;
   constructor(jwtService: JwtService, prisma: PrismaService) {
-    super(jwtService, prisma, { optional: true });
+    super(jwtService, prisma);
   }
 }

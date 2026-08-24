@@ -17,10 +17,10 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 
+const toLimit=(v:string|undefined,f:number)=>{const n=Number(v);return Number.isInteger(n)&&n>0&&n<=1_000_000?n:f;}
 export const AUTH_THROTTLE_TTL = minutes(1);
-export const AUTH_THROTTLE_LIMIT = Number(process.env.AUTH_THROTTLE_LIMIT) || 30;
-export const FORGOT_PASSWORD_THROTTLE_LIMIT =
-  Number(process.env.FORGOT_PASSWORD_THROTTLE_LIMIT) || 10;
+export const AUTH_THROTTLE_LIMIT = toLimit(process.env.AUTH_THROTTLE_LIMIT, 30);
+export const FORGOT_PASSWORD_THROTTLE_LIMIT = toLimit(process.env.FORGOT_PASSWORD_THROTTLE_LIMIT, 10);
 
 @Throttle({
   default: { ttl: AUTH_THROTTLE_TTL, limit: AUTH_THROTTLE_LIMIT },

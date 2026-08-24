@@ -12,6 +12,8 @@ import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { User } from '@prisma/client';
 
+const BCRYPT_ROUNDS = 10;
+
 // Generic response returned whether or not the email is registered — this
 // endpoint must never let a caller distinguish the two, or it becomes an
 // account-enumeration oracle.
@@ -59,7 +61,7 @@ export class AuthService {
       throw new ConflictException('Ya existe una cuenta con ese correo');
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const user = await this.prisma.client.user.create({
       data: {
@@ -207,7 +209,7 @@ export class AuthService {
   }
 
   async resetPassword(token: string, password: string) {
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
     // Validating the token and invalidating it happen in one atomic query:
     // two concurrent submissions of the same token can't both pass a
