@@ -4,6 +4,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { BrevoService } from '../../notifications/brevo.service';
 import * as bcrypt from 'bcryptjs';
+jest.mock('bcryptjs', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+}));
 import * as crypto from 'crypto';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 
@@ -72,8 +76,8 @@ describe('AuthService', () => {
       const name = 'Test User';
       const hashedPassword = 'hashed_password_123';
 
-      (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
-        () => Promise.resolve(hashedPassword),
+      (bcrypt.hash as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve(hashedPassword),
       );
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
       mockPrismaService.client.user.create.mockResolvedValue({
@@ -126,8 +130,8 @@ describe('AuthService', () => {
     // reached (the DTO's @Equals(true) already refused any call otherwise).
     it('records the moment consent was given', async () => {
       const before = Date.now();
-      (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
-        () => Promise.resolve('hashed'),
+      (bcrypt.hash as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve('hashed'),
       );
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
       mockPrismaService.client.user.create.mockResolvedValue({
@@ -154,8 +158,8 @@ describe('AuthService', () => {
       delete process.env.AUTH_EXPOSE_VERIFICATION_TOKEN;
       const email = 'test@example.com';
 
-      (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
-        () => Promise.resolve('hashed'),
+      (bcrypt.hash as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve('hashed'),
       );
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
       mockPrismaService.client.user.create.mockResolvedValue({
@@ -178,8 +182,8 @@ describe('AuthService', () => {
       const email = 'test@example.com';
 
       try {
-        (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
-          () => Promise.resolve('hashed'),
+        (bcrypt.hash as unknown as jest.Mock).mockImplementation(() =>
+          Promise.resolve('hashed'),
         );
         mockPrismaService.client.user.findUnique.mockResolvedValue(null);
         mockPrismaService.client.user.create.mockResolvedValue({
@@ -225,8 +229,8 @@ describe('AuthService', () => {
     it('envía el correo de verificación con el enlace que contiene el token crudo', async () => {
       const email = 'nuevo@example.com';
 
-      (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
-        () => Promise.resolve('hashed'),
+      (bcrypt.hash as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve('hashed'),
       );
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
       mockPrismaService.client.user.create.mockResolvedValue({
@@ -260,8 +264,8 @@ describe('AuthService', () => {
     });
 
     it('no rompe el signup si Brevo falla (la cuenta ya existe; se puede reenviar)', async () => {
-      (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
-        () => Promise.resolve('hashed'),
+      (bcrypt.hash as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve('hashed'),
       );
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
       mockPrismaService.client.user.create.mockResolvedValue({
@@ -285,8 +289,8 @@ describe('AuthService', () => {
     });
 
     it('estampa la expiración del token de verificación a futuro', async () => {
-      (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
-        () => Promise.resolve('hashed'),
+      (bcrypt.hash as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve('hashed'),
       );
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
       mockPrismaService.client.user.create.mockResolvedValue({
@@ -344,9 +348,9 @@ describe('AuthService', () => {
       };
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(user);
-      (
-        jest.spyOn(bcrypt, 'compare') as unknown as jest.Mock
-      ).mockImplementation(() => Promise.resolve(true));
+      (bcrypt.compare as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve(true),
+      );
       mockJwtService.sign.mockReturnValue('fake-jwt-token');
 
       const result = await service.login(email, password);
@@ -394,7 +398,7 @@ describe('AuthService', () => {
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
       const compareSpy = (
-        jest.spyOn(bcrypt, 'compare') as unknown as jest.Mock
+        bcrypt.compare as unknown as jest.Mock
       ).mockImplementation(() => Promise.resolve(false));
 
       await expect(service.login(email, password)).rejects.toThrow(
@@ -421,7 +425,7 @@ describe('AuthService', () => {
         deletedAt: new Date(),
       });
       const compareSpy = (
-        jest.spyOn(bcrypt, 'compare') as unknown as jest.Mock
+        bcrypt.compare as unknown as jest.Mock
       ).mockImplementation(() => Promise.resolve(true));
 
       await expect(service.login(email, password)).rejects.toThrow(
@@ -446,9 +450,9 @@ describe('AuthService', () => {
       };
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(user);
-      (
-        jest.spyOn(bcrypt, 'compare') as unknown as jest.Mock
-      ).mockImplementation(() => Promise.resolve(false));
+      (bcrypt.compare as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve(false),
+      );
 
       await expect(service.login(email, password)).rejects.toThrow(
         UnauthorizedException,
@@ -569,8 +573,8 @@ describe('AuthService', () => {
       const newPassword = 'newPassword123';
       const hashedPassword = 'hashed_new_password';
 
-      (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
-        () => Promise.resolve(hashedPassword),
+      (bcrypt.hash as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve(hashedPassword),
       );
       mockPrismaService.client.user.updateMany.mockResolvedValue({
         count: 1,

@@ -17,7 +17,7 @@ import { AnswerQuestionDto } from './dto/answer-question.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { Role } from '../users/role.enum';
+import { Role } from '@prisma/client';
 
 @Controller('questions')
 export class QuestionsController {
@@ -53,6 +53,6 @@ export class QuestionsController {
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   async remove(@Req() req: AuthRequest, @Param('id') id: string) {
-    return this.questionsService.remove(id, req.user.id, req.user.role as Role);
+    return this.questionsService.remove(id, req.user.id, req.user.role);
   }
 }

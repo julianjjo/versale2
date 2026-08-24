@@ -16,10 +16,6 @@ export interface ResolvedUser {
   role: Role;
 }
 
-// Same job the old passport-jwt strategy did, minus the Passport layer:
-// verify the Bearer token, load its user, and reject anything signed before
-// the latest password reset (tokenVersion). Returns null instead of throwing
-// so the optional variant can swallow failures.
 export async function resolveBearerUser(
   jwtService: JwtService,
   prisma: PrismaService,
@@ -46,10 +42,8 @@ export async function resolveBearerUser(
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  // Optional so plain controller unit-test modules (which register neither
-  // JwtModule nor PrismaModule) can still instantiate their controllers, the
-  // same way passport's zero-dependency AuthGuard did. A guard asked to
-  // actually authenticate without its deps must fail loudly, never open.
+  protected optional = false;
+
   constructor(
     @Optional() protected readonly jwtService?: JwtService,
     @Optional() protected readonly prisma?: PrismaService,
@@ -60,6 +54,7 @@ export class JwtAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthRequest>();
     const user = await resolveBearerUser(jwtService, prisma, request);
     if (!user) {
+      if (this.optional) return true;
       throw new UnauthorizedException('Token inválido');
     }
     request.user = user;
@@ -73,5 +68,12 @@ export class JwtAuthGuard implements CanActivate {
       );
     }
     return [this.jwtService, this.prisma];
+  }
+}
+
+export class OptionalJwtAuthGuard extends JwtAuthGuard {
+  protected override optional = true;
+  constructor(jwtService: JwtService, prisma: PrismaService) {
+    super(jwtService, prisma);
   }
 }

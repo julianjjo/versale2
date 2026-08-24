@@ -1,8 +1,6 @@
 import { tokenStore } from "./token";
 import { notifyUnauthorized } from "./auth-events";
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_URL } from "./site";
 
 // Thrown for every non-2xx response so callers can narrow by status and read
 // the backend's message body (`error.response.status`, `.response.data`).
@@ -134,12 +132,4 @@ export function extractApiError(
   return fallback;
 }
 
-// Kept as its own name because download flows (CSV export) call it after a
-// `responseType: "blob"` request; since toApiError already decodes every
-// error body the same way, it is exactly extractApiError today.
-export async function extractBlobApiError(
-  err: unknown,
-  fallback = "Ocurrió un error. Intenta de nuevo.",
-): Promise<string> {
-  return extractApiError(err, fallback);
-}
+

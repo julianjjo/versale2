@@ -13,19 +13,14 @@ import { FavoritesModule } from './favorites/favorites.module';
 import { ReportsModule } from './reports/reports.module';
 import { QuestionsModule } from './questions/questions.module';
 import { NotificationsModule } from './notifications/notifications.module';
-import { BrevoModule } from './notifications/brevo.module';
 import { PrismaModule } from './prisma/prisma.module';
-import { parsePositiveIntEnv } from './common/env';
 
-// Rate limits are tracked per IP and per endpoint. The default ceiling is
-// generous enough for normal browsing and the automated suites; the auth
-// endpoints opt into a much stricter limit (see AuthController).
-// Overridable via THROTTLE_LIMIT so a test run can raise it from a single IP.
+const toLimit = (v: string | undefined, f: number) => {
+  const n = Number(v);
+  return Number.isInteger(n) && n > 0 && n <= 1_000_000 ? n : f;
+};
 export const DEFAULT_THROTTLE_TTL = minutes(1);
-export const DEFAULT_THROTTLE_LIMIT = parsePositiveIntEnv(
-  process.env.THROTTLE_LIMIT,
-  300,
-);
+export const DEFAULT_THROTTLE_LIMIT = toLimit(process.env.THROTTLE_LIMIT, 300);
 
 @Module({
   imports: [
@@ -53,7 +48,6 @@ export const DEFAULT_THROTTLE_LIMIT = parsePositiveIntEnv(
     ReportsModule,
     QuestionsModule,
     NotificationsModule,
-    BrevoModule,
   ],
   providers: [
     {

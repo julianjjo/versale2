@@ -4,7 +4,7 @@ import { UsersController } from '../users.controller';
 import { UsersService } from '../users.service';
 import { AuthRequest } from '../../../src/types/request.types';
 import { ROLES_KEY } from '../../auth/roles.decorator';
-import { Role } from '../role.enum';
+import { Role } from '@prisma/client';
 
 describe('UsersController', () => {
   let controller: UsersController;

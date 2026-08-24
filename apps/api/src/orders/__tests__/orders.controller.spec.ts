@@ -16,7 +16,7 @@ import { CreateOrderDto } from '../dto/create-order.dto';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { ROLES_KEY } from '../../auth/roles.decorator';
-import { Role } from '../../users/role.enum';
+import { Role } from '@prisma/client';
 
 describe('OrdersController', () => {
   let controller: OrdersController;

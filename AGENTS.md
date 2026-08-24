@@ -28,7 +28,7 @@ For EVERY feature or task (especially backlog items from `todo-implementacion.md
 
 ## Local Contracts
 
-- Workspace manager: `npm` with `apps/*` and `packages/*` workspaces.
+- Workspace manager: `npm` with `apps/*` workspaces.
 - Primary verification commands (run from repo root):
   - API unit/integration tests: `npm run test:api`
   - Web unit tests: `npm run test:web`

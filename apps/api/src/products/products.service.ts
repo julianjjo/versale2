@@ -10,11 +10,10 @@ import { Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { Role } from '../users/role.enum';
+import { Role } from '@prisma/client';
 import { ProductSortBy } from './product-sort.enum';
 import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
-import { logAndSwallow } from '../common/log-and-swallow';
 import { VERIFIED_PURCHASE_STATUSES } from '../orders/order-status.enum';
 
 // findOne() filters each review's helpfulVotes by this id when there's no
@@ -525,7 +524,9 @@ export class ProductsService {
           // Prisma fetch and serialize the rest of the row back.
           select: { id: true },
         })
-        .catch(logAndSwallow(this.logger, 'Failed to record a product view'));
+        .catch((e) =>
+          this.logger.error('Failed to record a product view', e as Error),
+        );
     }
 
     // Mirrors ReviewsService.findAllByProduct's own verifiedPurchase

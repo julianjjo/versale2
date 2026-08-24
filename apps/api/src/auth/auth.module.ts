@@ -3,7 +3,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
 import { JwtModule } from '@nestjs/jwt';
-import { BrevoModule } from '../notifications/brevo.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret) {
@@ -17,7 +17,7 @@ if (!jwtSecret) {
 @Module({
   imports: [
     UsersModule,
-    BrevoModule,
+    NotificationsModule,
     JwtModule.register({
       secret: jwtSecret,
       signOptions: { expiresIn: '60m' },

@@ -5,8 +5,7 @@ import {
   SellerProfileContent,
   type SellerProfile,
 } from "@/components/products/seller-profile-content";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_URL } from "@/lib/site";
 
 type SellerLookup =
   | { status: "ok"; profile: SellerProfile }

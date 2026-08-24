@@ -11,7 +11,7 @@ import {
 } from '../questions.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProductsService } from '../../products/products.service';
-import { Role } from '../../users/role.enum';
+import { Role } from '@prisma/client';
 
 // Simulates the error Prisma throws when `update`/`delete`'s where clause
 // matches no row — the shape a concurrent delete (a double-click, two tabs,

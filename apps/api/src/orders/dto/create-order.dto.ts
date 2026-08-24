@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return -- Transform value is any from class-transformer */
 import { Transform, Type } from 'class-transformer';
 import {
   IsDefined,
@@ -9,24 +10,19 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-// Trim before validating so a whitespace-only "address" cannot pass @IsNotEmpty
-// and end up rendered as a blank line on the order detail page.
-const Trim = () =>
-  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value));
-
 export class ShippingAddressDto {
   @IsString({ message: 'La dirección debe ser un texto' })
   @IsNotEmpty({ message: 'La dirección es obligatoria' })
   @MaxLength(200, {
     message: 'La dirección no puede superar los 200 caracteres',
   })
-  @Trim()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   street!: string;
 
   @IsString({ message: 'La ciudad debe ser un texto' })
   @IsNotEmpty({ message: 'La ciudad es obligatoria' })
   @MaxLength(100, { message: 'La ciudad no puede superar los 100 caracteres' })
-  @Trim()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   city!: string;
 
   // The checkout form leaves departamento and código postal optional, so they
@@ -36,7 +32,7 @@ export class ShippingAddressDto {
   @MaxLength(100, {
     message: 'El departamento no puede superar los 100 caracteres',
   })
-  @Trim()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   state?: string;
 
   @IsString({ message: 'El código postal debe ser un texto' })
@@ -44,13 +40,13 @@ export class ShippingAddressDto {
   @MaxLength(20, {
     message: 'El código postal no puede superar los 20 caracteres',
   })
-  @Trim()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   zip?: string;
 
   @IsString({ message: 'El país debe ser un texto' })
   @IsNotEmpty({ message: 'El país es obligatorio' })
   @MaxLength(100, { message: 'El país no puede superar los 100 caracteres' })
-  @Trim()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   country!: string;
 }
 

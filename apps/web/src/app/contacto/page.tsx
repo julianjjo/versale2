@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { StaticPage } from "@/components/layout/static-page";
-import { CONTACT_EMAIL, contactMailto } from "@/lib/contact";
-
+const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "";
+function contactMailto(s: string): string | null {
+  if (!CONTACT_EMAIL) return null;
+  return `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(s)}`;
+}
 export const metadata: Metadata = { title: "Contacto — Versale" };
-
 export default function ContactoPage() {
   const mailto = contactMailto("Consulta desde versale.co");
   return (
@@ -27,9 +29,7 @@ export default function ContactoPage() {
             Escríbenos a {CONTACT_EMAIL}
           </a>
         ) : (
-          <p className="text-sm text-text-muted">
-            Canal por correo electrónico: próximamente.
-          </p>
+          <p className="text-sm text-text-muted">Canal por correo electrónico: próximamente.</p>
         )}
       </div>
     </StaticPage>
