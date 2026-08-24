@@ -43,21 +43,14 @@ vi.mock("@/lib/api", async (importOriginal) => {
   };
 });
 
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 
-// Errores con la forma que axios really lanza: el extractApiError real
-// solo lee response.data.message cuando isAxiosError es true; un objeto
-// plano haría caer el test por el camino equivocado del helper.
-function axiosError(status: number | undefined, message?: string): Error {
-  const err = new Error(message ?? "Request failed");
-  Object.assign(
-    err,
-    status !== undefined
-      ? { isAxiosError: true, response: { status, data: { message } } }
-      : { isAxiosError: true },
-  );
-  return err;
-}
+// Errores con la forma real del cliente fetch nativo: ApiError con el body
+// del backend, o ApiError(0) para fallo de transporte sin respuesta HTTP.
+const apiError = (status: number | undefined, message?: string): Error =>
+  status === undefined
+    ? new ApiError(0, undefined)
+    : new ApiError(status, message ? { message } : undefined);
 
 function renderPage() {
   return render(
@@ -195,7 +188,7 @@ describe("ProfilePage", () => {
     // global 401 interceptor in lib/api (which force-logs-out on any 401) doesn't
     // treat a mere password typo as an expired session.
     vi.mocked(api.patch).mockRejectedValue(
-      axiosError(403, "La contraseña actual es incorrecta."),
+      apiError(403, "La contraseña actual es incorrecta."),
     );
     renderPage();
 
@@ -282,7 +275,7 @@ describe("ProfilePage — zona de peligro (borrado de cuenta)", () => {
   it("muestra el mensaje de red en español cuando la API no responde", async () => {
     const user = userEvent.setup();
     vi.mocked(api.delete).mockRejectedValue(
-      axiosError(undefined, "Network Error"),
+      apiError(0),
     );
     renderPage();
 
@@ -347,9 +340,7 @@ describe("ProfilePage — zona de peligro (borrado de cuenta)", () => {
     );
 
     await waitFor(() => {
-      expect(api.delete).toHaveBeenCalledWith("/users/me", {
-        data: { currentPassword: "claveSegura1" },
-      });
+      expect(api.delete).toHaveBeenCalledWith("/users/me", { currentPassword: "claveSegura1" });
     });
     expect(authState.logout).toHaveBeenCalled();
     expect(pushMock).toHaveBeenCalledWith("/login?reason=account_deleted");
@@ -358,7 +349,7 @@ describe("ProfilePage — zona de peligro (borrado de cuenta)", () => {
   it("muestra en español el error de la API cuando la contraseña es incorrecta y no cierra sesión", async () => {
     const user = userEvent.setup();
     vi.mocked(api.delete).mockRejectedValue(
-      axiosError(403, "La contraseña actual es incorrecta"),
+      apiError(403, "La contraseña actual es incorrecta"),
     );
     renderPage();
 

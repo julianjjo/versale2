@@ -235,7 +235,7 @@ function DangerZone() {
     setError(null);
     setIsDeleting(true);
     try {
-      await api.delete("/users/me", { data: { currentPassword: password } });
+      await api.delete("/users/me", { currentPassword: password });
       // La cuenta ya no existe y el token quedó invalidado (tokenVersion):
       // cerrar sesión en limpio y llevar el aviso de éxito a /login.
       logout();

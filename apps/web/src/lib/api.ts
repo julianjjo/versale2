@@ -107,8 +107,10 @@ export const api = {
     request<T>("PUT", path, body, config),
   patch: <T = any>(path: string, body?: unknown, config?: RequestConfig) =>
     request<T>("PATCH", path, body, config),
-  delete: <T = any>(path: string, config?: RequestConfig) =>
-    request<T>("DELETE", path, undefined, config),
+  // Body opcional: DELETE con payload es legítimo en HTTP y el borrado de
+  // cuenta lo usa para llevar la confirmación de contraseña.
+  delete: <T = any>(path: string, body?: unknown, config?: RequestConfig) =>
+    request<T>("DELETE", path, body, config),
 };
 
 export function extractApiError(

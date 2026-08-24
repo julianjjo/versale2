@@ -4,8 +4,9 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleDestroy,
+  OnModuleInit,
 } from '@nestjs/common';
-import { Interval } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -71,10 +72,28 @@ const PUBLIC_USER_SELECT = {
 } as const;
 
 @Injectable()
-export class UsersService {
+export class UsersService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(UsersService.name);
+  private redactInterval?: NodeJS.Timeout;
 
   constructor(private prisma: PrismaService) {}
+
+  onModuleInit() {
+    // Barrido horario — intervalo nativo, sin @nestjs/schedule (mismo
+    // patrón que OrdersService).
+    this.redactInterval = setInterval(
+      () => {
+        void this.redactAddressesForDeletedAccounts();
+      },
+      60 * 60 * 1000,
+    );
+    // Allow process to exit even if interval is still scheduled (tests, e2e)
+    if (this.redactInterval.unref) this.redactInterval.unref();
+  }
+
+  onModuleDestroy() {
+    if (this.redactInterval) clearInterval(this.redactInterval);
+  }
 
   async create(createUserDto: {
     email: string;
@@ -405,7 +424,6 @@ export class UsersService {
    * orden DELIVERED tres días antes de eliminar la cuenta prescribe 27 días
    * más tarde). Público para poder probarlo sin avanzar el reloj.
    */
-  @Interval(60 * 60 * 1000)
   async redactAddressesForDeletedAccounts(): Promise<number> {
     const { count } = await this.prisma.client.order.updateMany({
       where: addressRedactableWhere({ deletedUser: true }),

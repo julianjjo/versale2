@@ -32,9 +32,9 @@ describe('AuthService', () => {
     sign: jest.fn(),
   };
 
-  // Item 17: "entorno SMTP" simulado â€” el envÃ­o real de emails se prueba
+  // Item 17: "entorno SMTP" simulado — el envío real de emails se prueba
   // mockeando BrevoService y afirmando destinatario/asunto/enlace.
-  // Tipado con la firma real de BrevoService.sendEmail: sin Ã©l, cada
+  // Tipado con la firma real de BrevoService.sendEmail: sin él, cada
   // .mock.calls[0][0] es `any` y el linter estricto rechaza el acceso.
   type BrevoEmailPayload = {
     to: { email: string; name?: string }[];
@@ -120,7 +120,7 @@ describe('AuthService', () => {
       });
     });
 
-    // Item 8: the signup checkbox itself only ever ran client-side â€” SignupDto
+    // Item 8: the signup checkbox itself only ever ran client-side — SignupDto
     // now enforces it, but the actual legal evidence is this timestamp,
     // stamped unconditionally by the time this service method is ever
     // reached (the DTO's @Equals(true) already refused any call otherwise).
@@ -195,7 +195,7 @@ describe('AuthService', () => {
 
         expect(result.verificationToken).toEqual(expect.any(String));
         // The value written to the DB must be the actual SHA-256 digest of
-        // the raw token â€” not merely "some other string" â€” or a broken hash
+        // the raw token — not merely "some other string" — or a broken hash
         // implementation (reversible, truncated, wrong algorithm) would
         // still pass a weaker inequality-only check.
         const createMock = mockPrismaService.client.user.create as unknown as {
@@ -220,9 +220,9 @@ describe('AuthService', () => {
       }
     });
 
-    // Item 17: el correo de verificaciÃ³n se envÃ­a DE VERDAD (simulado aquÃ­
+    // Item 17: el correo de verificación se envía DE VERDAD (simulado aquí
     // con el mock de Brevo) y el enlace lleva el token crudo, no el hash.
-    it('envÃ­a el correo de verificaciÃ³n con el enlace que contiene el token crudo', async () => {
+    it('envía el correo de verificación con el enlace que contiene el token crudo', async () => {
       const email = 'nuevo@example.com';
 
       (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
@@ -247,7 +247,7 @@ describe('AuthService', () => {
       expect(call.subject).toContain('Verifica');
       const link = /https?:\/\/\S+/.exec(call.text as string)?.[0] ?? '';
       expect(link).toContain('/verify-email?token=');
-      // El token del enlace hashea exactamente al valor persistido â€” prueba
+      // El token del enlace hashea exactamente al valor persistido — prueba
       // de que sale el crudo, no el hash ni otra cosa.
       const createMock = mockPrismaService.client.user.create as unknown as {
         mock: { calls: Array<[{ data: { verificationToken: string } }]> };
@@ -284,7 +284,7 @@ describe('AuthService', () => {
       expect(result.access_token).toBe('fake-jwt-token');
     });
 
-    it('estampa la expiraciÃ³n del token de verificaciÃ³n a futuro', async () => {
+    it('estampa la expiración del token de verificación a futuro', async () => {
       (jest.spyOn(bcrypt, 'hash') as unknown as jest.Mock).mockImplementation(
         () => Promise.resolve('hashed'),
       );
@@ -385,7 +385,7 @@ describe('AuthService', () => {
 
     // Regression: without this dummy compare(), "no such account" returned
     // after a single indexed SELECT while "wrong password" additionally paid
-    // bcrypt's cost-10 compare â€” a timing gap reliable enough to enumerate
+    // bcrypt's cost-10 compare — a timing gap reliable enough to enumerate
     // registered emails, the exact oracle forgotPassword() is already
     // deliberately hardened against.
     it('should still run a bcrypt compare when the email is not registered, to keep response timing comparable to a wrong password', async () => {
@@ -404,10 +404,10 @@ describe('AuthService', () => {
       expect(compareSpy).toHaveBeenCalledWith(password, TIMING_SAFE_DUMMY_HASH);
     });
 
-    // Cuenta eliminada: el bcrypt ya se pagÃ³ (sin oracle de timing) y el
-    // mensaje es idÃ©ntico al de credenciales invÃ¡lidas â€” que la cuenta
-    // existiÃ³ y fue borrada no es informaciÃ³n para terceros.
-    it('rechaza el login de una cuenta eliminada con el mismo error genÃ©rico', async () => {
+    // Cuenta eliminada: el bcrypt ya se pagó (sin oracle de timing) y el
+    // mensaje es idéntico al de credenciales inválidas — que la cuenta
+    // existió y fue borrada no es información para terceros.
+    it('rechaza el login de una cuenta eliminada con el mismo error genérico', async () => {
       const email = 'test@example.com';
       const password = 'password123';
 
@@ -425,10 +425,10 @@ describe('AuthService', () => {
       ).mockImplementation(() => Promise.resolve(true));
 
       await expect(service.login(email, password)).rejects.toThrow(
-        new UnauthorizedException('Credenciales invÃ¡lidas'),
+        new UnauthorizedException('Credenciales inválidas'),
       );
-      // El compare se ejecutÃ³ antes del rechazo: sin atajo que filtre por
-      // latencia quÃ© correos pertenecieron a cuentas borradas.
+      // El compare se ejecutó antes del rechazo: sin atajo que filtre por
+      // latencia qué correos pertenecieron a cuentas borradas.
       expect(compareSpy).toHaveBeenCalled();
       expect(mockJwtService.sign).not.toHaveBeenCalled();
     });
@@ -456,6 +456,7 @@ describe('AuthService', () => {
     });
   });
 
+
   describe('forgotPassword', () => {
     const originalExposeFlag = process.env.AUTH_EXPOSE_RESET_TOKEN;
 
@@ -474,8 +475,8 @@ describe('AuthService', () => {
       const result = await service.forgotPassword(email);
 
       expect(mockPrismaService.client.user.updateMany).toHaveBeenCalledWith({
-        // Cuenta eliminada: excluida del updateMany â€” sin token que "reviva"
-        // una cuenta borrada, manteniendo el updateMany simÃ©trico.
+        // Cuenta eliminada: excluida del updateMany — sin token que "reviva"
+        // una cuenta borrada, manteniendo el updateMany simétrico.
         where: { email, deletedAt: null },
         data: {
           // Stored hashed, never the raw token.
@@ -489,7 +490,7 @@ describe('AuthService', () => {
       };
       const writtenToken = updateManyMock.mock.calls[0][0].data.resetToken;
       expect(result.message).toBe(
-        'Si el correo existe, enviaremos instrucciones para restablecer la contraseÃ±a',
+        'Si el correo existe, enviaremos instrucciones para restablecer la contraseña',
       );
       expect(result.resetToken).toEqual(expect.any(String));
       // The value returned to the caller must be the raw token, not the
@@ -520,11 +521,11 @@ describe('AuthService', () => {
 
       expect(result).toEqual({
         message:
-          'Si el correo existe, enviaremos instrucciones para restablecer la contraseÃ±a',
+          'Si el correo existe, enviaremos instrucciones para restablecer la contraseña',
       });
     });
 
-    // Must respond identically whether or not the email is registered â€”
+    // Must respond identically whether or not the email is registered —
     // otherwise the endpoint becomes an account-enumeration oracle. Running
     // the same `updateMany` query either way (it just matches zero rows)
     // instead of a read-then-write also keeps the two cases from differing
@@ -539,15 +540,15 @@ describe('AuthService', () => {
 
       expect(result).toEqual({
         message:
-          'Si el correo existe, enviaremos instrucciones para restablecer la contraseÃ±a',
+          'Si el correo existe, enviaremos instrucciones para restablecer la contraseña',
       });
-      // Sin fila afectada no hay token que enviar: cero emails (y asÃ­ el
-      // endpoint tampoco delata por el canal de correo quÃ© correos existen).
+      // Sin fila afectada no hay token que enviar: cero emails (y así el
+      // endpoint tampoco delata por el canal de correo qué correos existen).
       expect(mockBrevoService.sendEmail).not.toHaveBeenCalled();
     });
 
     // Item 17: un fallo del proveedor no cambia la respuesta ni rompe el
-    // flujo â€” el usuario reintenta con otro forgot-password.
+    // flujo — el usuario reintenta con otro forgot-password.
     it('no revienta si Brevo falla al enviar el enlace de reset', async () => {
       delete process.env.AUTH_EXPOSE_RESET_TOKEN;
       mockPrismaService.client.user.updateMany.mockResolvedValue({
@@ -558,7 +559,7 @@ describe('AuthService', () => {
       const result = await service.forgotPassword('test@example.com');
 
       expect(result.message).toBe(
-        'Si el correo existe, enviaremos instrucciones para restablecer la contraseÃ±a',
+        'Si el correo existe, enviaremos instrucciones para restablecer la contraseña',
       );
     });
   });
@@ -600,7 +601,7 @@ describe('AuthService', () => {
       const lookupHash = updateManyMock.mock.calls[0][0].where.resetToken;
       expect(lookupHash).not.toBe(token);
       expect(result).toEqual({
-        message: 'Tu contraseÃ±a se actualizÃ³ correctamente',
+        message: 'Tu contraseña se actualizó correctamente',
       });
     });
 
@@ -612,7 +613,7 @@ describe('AuthService', () => {
       await expect(
         service.resetPassword('bad-token', 'newPassword123'),
       ).rejects.toThrow(
-        'El enlace para restablecer la contraseÃ±a no es vÃ¡lido o expirÃ³',
+        'El enlace para restablecer la contraseña no es válido o expiró',
       );
       await expect(
         service.resetPassword('bad-token', 'newPassword123'),
@@ -649,7 +650,7 @@ describe('AuthService', () => {
         where: {
           verificationToken: anyString(),
           // Item 17: la validez temporal se valida en la MISMA escritura
-          // condicional â€” expirado, consumido y desconocido caen juntos en
+          // condicional — expirado, consumido y desconocido caen juntos en
           // count === 0 sin ventana de carrera.
           verificationTokenExpires: { gt: anyDate() },
         },
@@ -660,7 +661,7 @@ describe('AuthService', () => {
         },
       });
       // Looked up by the actual SHA-256 digest of the token, never the raw
-      // value â€” a weaker "just not equal to the raw token" check would still
+      // value — a weaker "just not equal to the raw token" check would still
       // pass for a broken/wrong hash implementation.
       const updateManyMock = mockPrismaService.client.user
         .updateMany as unknown as {
@@ -672,7 +673,7 @@ describe('AuthService', () => {
         crypto.createHash('sha256').update('a-valid-token').digest('hex'),
       );
       expect(result).toEqual({
-        message: 'Tu correo se verificÃ³ correctamente',
+        message: 'Tu correo se verificó correctamente',
       });
     });
 
@@ -682,7 +683,7 @@ describe('AuthService', () => {
       });
 
       await expect(service.verifyEmail('bad-token')).rejects.toThrow(
-        'El enlace de verificaciÃ³n no es vÃ¡lido o ya fue usado',
+        'El enlace de verificación no es válido o ya fue usado',
       );
       await expect(service.verifyEmail('bad-token')).rejects.toThrow(
         BadRequestException,
@@ -691,20 +692,20 @@ describe('AuthService', () => {
 
     // Item 17: un token EXPIRADO no encuentra fila (el filtro
     // verificationTokenExpires > now no matchea) y recibe el mismo error
-    // genÃ©rico â€” sin revelar cuÃ¡l de las tres razones fue.
-    it('rechaza un token expirado con el mismo error genÃ©rico', async () => {
+    // genérico — sin revelar cuál de las tres razones fue.
+    it('rechaza un token expirado con el mismo error genérico', async () => {
       mockPrismaService.client.user.updateMany.mockResolvedValue({
         count: 0,
       });
 
       await expect(service.verifyEmail('expired-token')).rejects.toThrow(
-        'El enlace de verificaciÃ³n no es vÃ¡lido o ya fue usado',
+        'El enlace de verificación no es válido o ya fue usado',
       );
     });
   });
 
   describe('resendVerification (item 17)', () => {
-    it('re-emite el token, estampa nueva expiraciÃ³n y envÃ­a el correo', async () => {
+    it('re-emite el token, estampa nueva expiración y envía el correo', async () => {
       mockPrismaService.client.user.findUnique.mockResolvedValue({
         id: 'u1',
         email: 'test@example.com',
@@ -716,7 +717,7 @@ describe('AuthService', () => {
       const result = await service.resendVerification('u1');
 
       expect(result).toEqual({
-        message: 'Te enviamos un nuevo enlace de verificaciÃ³n',
+        message: 'Te enviamos un nuevo enlace de verificación',
       });
       expect(mockPrismaService.client.user.update).toHaveBeenCalledWith({
         where: { id: 'u1' },
@@ -733,7 +734,7 @@ describe('AuthService', () => {
       expect(call.subject).toContain('Verifica');
     });
 
-    it('rechaza si la cuenta ya estÃ¡ verificada', async () => {
+    it('rechaza si la cuenta ya está verificada', async () => {
       mockPrismaService.client.user.findUnique.mockResolvedValue({
         id: 'u1',
         email: 'test@example.com',
