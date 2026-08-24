@@ -2,175 +2,48 @@ import type { APIRequestContext } from "@playwright/test";
 import { E2E_USERS } from "./seed";
 
 export const API_URL = "http://127.0.0.1:3101";
-
-/**
- * A shipping address that satisfies the API's ShippingAddressDto.
- * `POST /orders` rejects a missing or empty address, so every checkout in the
- * suite has to send a real one.
- */
-export const E2E_SHIPPING_ADDRESS = {
-  street: "Calle 100 #20-30",
-  city: "Bogotá",
-  state: "Cundinamarca",
-  zip: "110111",
-  country: "Colombia",
-};
-
-async function login(
-  request: APIRequestContext,
-  credentials: { email: string; password: string },
-): Promise<string> {
-  const res = await request.post(`${API_URL}/auth/login`, {
-    data: { email: credentials.email, password: credentials.password },
-  });
-  if (!res.ok()) {
-    throw new Error(
-      `No se pudo iniciar sesión como ${credentials.email}: ${res.status()} ${await res.text()}`,
-    );
-  }
-  return (await res.json()).access_token;
-}
-
-export async function getToken(
-  request: APIRequestContext,
-  who: keyof typeof E2E_USERS,
-): Promise<string> {
-  return login(request, E2E_USERS[who]);
-}
-
-/**
- * Creates a fresh, still-unapproved product owned by the seeded author.
- *
- * The seed carries exactly ONE pending listing, so a test that approves "the"
- * pending product consumes a fixture nothing puts back: on a CI retry (or a
- * second test wanting the same thing) the queue is empty and the assertion
- * fails on fixture exhaustion instead of on the real regression. A test that
- * moderates therefore mints its own listing.
- */
-export async function createPendingProduct(
-  request: APIRequestContext,
-  overrides: Partial<{ title: string; price: number }> = {},
-): Promise<{ id: string; title: string; price: number }> {
-  const authorToken = await getToken(request, "author");
-
-  // Date.now() alone is millisecond-resolution, and specs run in parallel — two
-  // products can land on the same title. The sold-out spec asserts on a
-  // title search returning zero, so a same-named unsold twin would break it.
-  const title =
-    overrides.title ??
-    `Prenda de prueba ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const price = overrides.price ?? 50000;
-
-  const created = await request.post(`${API_URL}/products`, {
-    headers: { Authorization: `Bearer ${authorToken}` },
-    data: {
-      title,
-      description: "Prenda creada por la suite e2e para probar la compra.",
-      category: "Chaquetas",
-      size: "M",
-      condition: "Good",
-      price,
-    },
-  });
-  if (!created.ok()) {
-    throw new Error(
-      `No se pudo crear el producto de prueba: ${created.status()} ${await created.text()}`,
-    );
-  }
-  const product = await created.json();
-
-  return { id: product.id, title, price };
-}
-
-/**
- * Creates a fresh, admin-approved product owned by the seeded author, and
- * returns it ready to be bought by the seeded `user`.
- *
- * Products are one-of-a-kind: checkout stamps `status: SOLD` and the item leaves the
- * catalog for good. So a purchase test cannot reuse a shared seeded product —
- * it would pass once and then fail on the next run or on a CI retry. Each test
- * mints its own item instead.
- */
-export async function createPurchasableProduct(
-  request: APIRequestContext,
-  overrides: Partial<{ title: string; price: number }> = {},
-): Promise<{ id: string; title: string; price: number }> {
-  const product = await createPendingProduct(request, overrides);
-  const adminToken = await getToken(request, "admin");
-
-  const approved = await request.patch(
-    `${API_URL}/products/admin/${product.id}/approve`,
-    {
-      headers: { Authorization: `Bearer ${adminToken}` },
-      data: {},
-    },
-  );
-  if (!approved.ok()) {
-    throw new Error(
-      `No se pudo aprobar el producto de prueba: ${approved.status()} ${await approved.text()}`,
-    );
-  }
-
-  return product;
-}
-
-/**
- * Registers a throwaway buyer and returns its token.
- *
- * The seeded `user` has ONE cart, and spec files run in parallel — so two tests
- * that both drive that account can interleave, and a checkout in one will sweep
- * up whatever the other just added. That used to be harmless; now that checkout
- * stamps `status: SOLD`, it permanently consumes a seeded product and breaks every
- * later test that expected it in the catalog. A test that checks out therefore
- * gets its own buyer, and its own cart.
- *
- * Not "password123": IsNotCommonPasswordConstraint (apps/api/src/common/
- * password-validation.ts) rejects it at signup, same as it would for a real
- * user — a fixture password has to actually clear the API's own rules.
- */
+export const E2E_SHIPPING_ADDRESS = { street: "Calle 100 #20-30", city: "Bogotá", state: "Cundinamarca", zip: "110111", country: "Colombia" };
 export const E2E_BUYER_PASSWORD = "segura12345";
 
-export async function createBuyer(
-  request: APIRequestContext,
-): Promise<{ token: string; email: string; password: string }> {
-  const email = `buyer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@e2e.test`;
-  const res = await request.post(`${API_URL}/auth/signup`, {
-    data: {
-      email,
-      name: "Comprador E2E",
-      password: E2E_BUYER_PASSWORD,
-      acceptedTerms: true,
-    },
-  });
-  if (!res.ok()) {
-    throw new Error(
-      `No se pudo registrar el comprador de prueba: ${res.status()} ${await res.text()}`,
-    );
-  }
-  return {
-    token: (await res.json()).access_token,
-    email,
-    password: E2E_BUYER_PASSWORD,
-  };
+const hdr = (t?: string) => (t ? { Authorization: `Bearer ${t}` } : undefined);
+async function mustOk(r: { ok(): boolean; status(): number; text(): Promise<string> }, msg: string) {
+  if (!r.ok()) throw new Error(`${msg}: ${r.status()} ${await r.text()}`);
 }
 
-/**
- * Empties the given user's cart so a test starts from a known state.
- *
- * Throws on failure: a silently-failed cleanup leaves the caller asserting
- * against leftover items while believing the cart is empty, which is exactly
- * the kind of shared-state bug this helper exists to prevent.
- */
-export async function clearCart(
-  request: APIRequestContext,
-  token: string,
-): Promise<void> {
-  const response = await request.delete(`${API_URL}/cart`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!response.ok()) {
-    throw new Error(
-      `No se pudo vaciar el carrito de prueba: ${response.status()} ${await response.text()}`,
-    );
-  }
+async function login(req: APIRequestContext, c: { email: string; password: string }) {
+  const r = await req.post(`${API_URL}/auth/login`, { data: c });
+  await mustOk(r, `No se pudo iniciar sesión como ${c.email}`);
+  return (await r.json()).access_token as string;
+}
+
+export const getToken = (req: APIRequestContext, who: keyof typeof E2E_USERS) => login(req, E2E_USERS[who]);
+
+export async function createPendingProduct(req: APIRequestContext, o: Partial<{ title: string; price: number }> = {}) {
+  const t = await getToken(req, "author");
+  const title = o.title ?? `Prenda de prueba ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const price = o.price ?? 50000;
+  const r = await req.post(`${API_URL}/products`, { headers: hdr(t), data: { title, description: "Prenda creada por la suite e2e para probar la compra.", category: "Chaquetas", size: "M", condition: "Good", price } });
+  await mustOk(r, "No se pudo crear el producto de prueba");
+  const p = await r.json();
+  return { id: p.id as string, title, price };
+}
+
+export async function createPurchasableProduct(req: APIRequestContext, o: Partial<{ title: string; price: number }> = {}) {
+  const p = await createPendingProduct(req, o);
+  const t = await getToken(req, "admin");
+  const r = await req.patch(`${API_URL}/products/admin/${p.id}/approve`, { headers: hdr(t), data: {} });
+  await mustOk(r, "No se pudo aprobar el producto de prueba");
+  return p;
+}
+
+export async function createBuyer(req: APIRequestContext) {
+  const email = `buyer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@e2e.test`;
+  const r = await req.post(`${API_URL}/auth/signup`, { data: { email, name: "Comprador E2E", password: E2E_BUYER_PASSWORD, acceptedTerms: true } });
+  await mustOk(r, "No se pudo registrar el comprador de prueba");
+  return { token: (await r.json()).access_token as string, email, password: E2E_BUYER_PASSWORD };
+}
+
+export async function clearCart(req: APIRequestContext, token: string) {
+  const r = await req.delete(`${API_URL}/cart`, { headers: hdr(token) });
+  await mustOk(r, "No se pudo vaciar el carrito de prueba");
 }
