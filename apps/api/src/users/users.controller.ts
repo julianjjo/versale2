@@ -56,7 +56,7 @@ export class UsersController {
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Get()
-  async findAll(@Query() query: any) {
+  async findAll(@Query() query: Record<string, unknown>) {
     return this.usersService.findAll(query);
   }
 

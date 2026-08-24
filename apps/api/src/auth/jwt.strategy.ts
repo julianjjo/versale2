@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import type { JwtFromRequestFunction } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
 
 // Estructura mínima del JWT firmado por generateToken() y de la fila User
@@ -26,8 +27,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!jwtSecret) {
       throw new Error('JWT_SECRET environment variable must be set');
     }
+    // passport-jwt's ExtractJwt namespace is typed as `any` in some
+    // resolutions; keep a typed alias to satisfy no-unsafe-* rules without
+    // resorting to `any` in the strategy options.
+    const jwtFromRequest: JwtFromRequestFunction =
+      ExtractJwt.fromAuthHeaderAsBearerToken();
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest,
       ignoreExpiration: false,
       secretOrKey: jwtSecret,
     });

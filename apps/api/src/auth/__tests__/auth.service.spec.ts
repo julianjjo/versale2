@@ -456,7 +456,6 @@ describe('AuthService', () => {
     });
   });
 
-
   describe('forgotPassword', () => {
     const originalExposeFlag = process.env.AUTH_EXPOSE_RESET_TOKEN;
 
