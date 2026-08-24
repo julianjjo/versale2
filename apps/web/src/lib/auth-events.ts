@@ -1,20 +1,9 @@
-type UnauthorizedHandler = () => void;
-
-const handlers = new Set<UnauthorizedHandler>();
-
-export function onUnauthorized(handler: UnauthorizedHandler): () => void {
-  handlers.add(handler);
-  return () => {
-    handlers.delete(handler);
-  };
+export function onUnauthorized(h: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener("versale:unauthorized", h);
+  return () => window.removeEventListener("versale:unauthorized", h);
 }
-
 export function notifyUnauthorized(): void {
-  for (const handler of handlers) {
-    try {
-      handler();
-    } catch {
-      // Swallow individual handler errors so all subscribers still run.
-    }
-  }
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("versale:unauthorized"));
 }
