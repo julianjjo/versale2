@@ -1,4 +1,4 @@
-# AGENTS — Versale Repo Root
+﻿# AGENTS — Versale Repo Root
 
 ## Purpose
 
@@ -52,8 +52,10 @@ For EVERY feature or task (especially backlog items from `todo-implementacion.md
 
 ## Child DOX Index
 
-- `apps/api/AGENTS.md` — NestJS backend, Prisma data layer, modules (`auth`, `users`, `products`, `cart`, `orders`, `reviews`).
-- `apps/web/AGENTS.md` — Next.js frontend, React Query, Vitest.
+- `apps/api/AGENTS.md` — NestJS backend, Prisma data layer, modules (`auth`, `users`, `products`, `cart`, `orders`, `reviews`, `payments`, `uploads`, `favorites`, `reports`, `questions`, `notifications`, `common`, `prisma`).
+- `apps/web/AGENTS.md` — Next.js 16.2.7 frontend, React Query, Vitest, routes `mis-productos`, `mis-ventas`, `favoritos`, `vendedores/[id]`, `verify-email`, `sitemap.ts`/ `robots.ts`.
 - `e2e/AGENTS.md` — Playwright suites, fixtures, global setup, seed.
 - `design.md` — Visual design system (tokens, components, accessibility, anti-patterns) adapted from the static reference in `index.html`. Owns all palette, type, spacing, and component-level rules for the web app.
-- `docs/funcionalidades-propuestas.md` — Roadmap de funcionalidades por hitos (v4, revisado con agentes). Cerrado y estable: implementar desde "Orden de implementación del Hito 1"; reabrir solo si cambia una premisa verificada del código o llega tracción real.
+- `docs/funcionalidades-propuestas.md` — Roadmap por hitos (v4 histórico + Estado actual v5 verificado 2026-08-24). Cerrado y estable: implementar desde "Orden de implementación del Hito 1"; reabrir solo si cambia una premisa verificada del código o llega tracción real.
+- `docs/todo-implementacion.md` — 17 ítems sincronizados a v5 (verificados en main); pipeline ahora en `AGENTS.md §8-Step Pipeline` (reemplaza `docs/WORKFLOW.md` eliminado).
+- `docs/borrado-cuenta-anonimizacion/design.md`, `docs/envio-definido`, `docs/uploads-seguros`, `docs/mis-publicaciones` — ya alineados, no tocar.

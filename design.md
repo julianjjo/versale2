@@ -38,7 +38,7 @@ content breathable.
 | `--color-paper-3`  | `#e8e0d2`  | Image placeholder, product image background.                |
 | `--color-muted`    | `#7a6a55`  | Secondary text (eyebrows, captions).                        |
 | `--color-muted-2`  | `#5a5045`  | Body text on paper.                                         |
-| `--color-muted-3`  | `#a09a90`  | Disabled text, strikethrough.                               |
+| `--color-muted-3`  | `#8f887c`  | Disabled text, strikethrough (darkened from `#a09a90` for 4.5:1 on paper). |
 | `--color-line`     | `rgba(26,26,26,.1)`  | Hairline borders on paper.                          |
 | `--color-line-2`   | `rgba(26,26,26,.15)` | Stronger hairline borders.                         |
 | `--color-line-3`   | `rgba(246,243,238,.1)` | Hairline borders on ink.                         |
@@ -46,9 +46,9 @@ content breathable.
 | `--color-terracotta` | `#c8623a` | Brand accent — italic emphasis, badges, icons, large text. |
 | `--color-terracotta-deep` | `#a04d2c` | Darker accent step. Required for solid-fill CTA backgrounds and for terracotta text below 14px — plain `--color-terracotta` doesn't clear 4.5:1 as a background against paper or ink text at those sizes. |
 | `--color-terracotta-light` | `#d67348` | Lighter accent step, for terracotta text/eyebrows on `--color-ink` surfaces (plain terracotta fails 4.5:1 there too). |
-| `--color-success`  | `#4a8a4a`  | "Live" pulse, positive status.                             |
-| `--color-danger`   | `#DC2626`  | Destructive actions, form errors.                           |
-| `--color-warning`  | `#D97706`  | "Pending" status.                                           |
+| `--color-success`  | `#166534`  | "Live" pulse, positive status (darkened from `#4a8a4a` for 4.5:1). |
+| `--color-danger`   | `#b91c1c`  | Destructive actions, form errors (darkened from `#DC2626` for 4.5:1). |
+| `--color-warning`  | `#9a3412`  | "Pending" status (darkened from `#D97706` for 4.5:1).       |
 | `--color-info`     | `#2563EB`  | Neutral informational states.                               |
 
 Aliases (kept stable from the previous system so existing Tailwind classes

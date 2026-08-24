@@ -17,6 +17,18 @@
 - SEO (verificado): sin `metadata`/`generateMetadata` en detalle ni listado de productos, sin `sitemap.ts`, sin `robots.ts` — cero adquisición orgánica hoy.
 - Cuenta (verificado): no existe autoserborrado de cuenta; `DELETE /users/:id` es solo-ADMIN y hace `user.delete` directo (`users.service.ts` ~69) — sobre un usuario con productos/órdenes/resenas fallaría por restricciones de FK. La dirección de envío vive como `Json` dentro de cada Order.
 
+## Estado actual v5 (verificado 2026-08-24)
+
+> **V4 archivado como referencia histórica** ? el snapshot v4 se conserva intacto arriba. Lo que sigue refleja el estado real del código en `main` al 2026-08-24 y no contradice `AGENTS.md:59` (evolucion documentada, no reescritura).
+
+- **Auth + verificación email / recuperación:** `isVerified`, `verificationToken`, `resetToken` implementados con flujos reales; `Brevo` (`apps/api/src/notifications/brevo.service.ts`) envía emails transaccionales (no-op sin API key, script de prueba `apps/api/scripts/brevo-test.mjs`).
+- **Rate limiting:** `@nestjs/throttler` activo en `app.module.ts` (`ThrottlerModule` + `ThrottlerGuard`), límite base 300 req/min (definido en módulo, con overrides por ruta donde aplica).
+- **Uploads:** validación por magic-bytes (`apps/api/src/uploads/magic-bytes.ts` + `sniffImageMime`), limite 20 publicaciones activas por vendedor, 5 archivos por request, extensión derivada del MIME verificado (no del `originalname`), dominio R2 en `remotePatterns`.
+- **SEO:** `sitemap.ts` (solo productos `isApproved: true` + páginas legales, `force-dynamic` con fallback estático) y `robots.ts` (`disallow: /admin,/cart,/orders,etc.`) implementados en `apps/web/src/app/`.
+- **Borrado / anonimización:** `User.deletedAt` + `@@index([deletedAt])`, soft-delete transaccional (`users.service.ts`), anonimizacion de PII, ordenes conservadas, reseñas a "Usuario eliminado", productos activos -> `WITHDRAWN`, cron diario con `@nestjs/schedule` (~30 dias tras `DELIVERED`).
+- **Índices Prisma:** ya no cero ? `Product` (`isApproved,status,pausedAt,createdAt/price/category/size/condition`, `isApproved,rejectedAt`, `sellerId`), `Order` (`status,paidAt/disputeExpiresAt/createdAt`, `userId,createdAt`), `OrderItem` (`productId`), `Review` (`@@unique([userId,productId])`), `Favorite`, `Report`, `Question`, etc.
+- **Catálogo / rutas web:** `mis-productos`, `mis-ventas`, `favoritos`, `vendedores/[id]`, `verify-email`, `forgot-password`, `reset-password`, `ayuda`, `contacto`, `terminos`, `privacidad`, `cookies`, `envios`.
+
 ---
 
 ## Hito 1 — Núcleo transaccional (el negocio funciona)
