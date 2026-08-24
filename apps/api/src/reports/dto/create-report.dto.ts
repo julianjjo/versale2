@@ -1,6 +1,6 @@
+import { Transform } from 'class-transformer';
 import { IsEnum, IsString, IsNotEmpty, MaxLength } from 'class-validator';
 import { ReportCategory } from '@prisma/client';
-import { Trim } from '../../common/trim.decorator';
 
 export class CreateReportDto {
   @IsString({ message: 'El producto seleccionado no es válido' })
@@ -19,6 +19,6 @@ export class CreateReportDto {
   @MaxLength(500, {
     message: 'El motivo no puede superar los 500 caracteres',
   })
-  @Trim()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   reason!: string;
 }

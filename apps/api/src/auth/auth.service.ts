@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
-import { BCRYPT_SALT_ROUNDS } from '../common/bcrypt';
 import { BrevoService } from '../notifications/brevo.service';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
@@ -60,7 +59,7 @@ export class AuthService {
       throw new ConflictException('Ya existe una cuenta con ese correo');
     }
 
-    const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+    const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const user = await this.prisma.client.user.create({
       data: {
@@ -208,7 +207,7 @@ export class AuthService {
   }
 
   async resetPassword(token: string, password: string) {
-    const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Validating the token and invalidating it happen in one atomic query:
     // two concurrent submissions of the same token can't both pass a

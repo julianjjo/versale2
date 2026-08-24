@@ -3,8 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthRequest } from '../../types/request.types';
-import { JwtAuthGuard, resolveBearerUser } from '../jwt-auth.guard';
-import { OptionalJwtAuthGuard } from '../optional-jwt-auth.guard';
+import { JwtAuthGuard, OptionalJwtAuthGuard, resolveBearerUser } from '../jwt-auth.guard';
 
 const mockJwtService = { verifyAsync: jest.fn() };
 const mockPrismaService = {

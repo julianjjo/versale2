@@ -16,7 +16,6 @@ import { Role } from '@prisma/client';
 import { OrderStatus } from '../orders/order-status.enum';
 import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
-import { BCRYPT_SALT_ROUNDS } from '../common/bcrypt';
 import * as bcrypt from 'bcryptjs';
 
 // Borrado de cuenta: identidad sustituta tras el anonimizado. El uuid de la
@@ -100,10 +99,7 @@ export class UsersService implements OnModuleInit, OnModuleDestroy {
     name: string;
     password: string;
   }) {
-    const hashedPassword = await bcrypt.hash(
-      createUserDto.password,
-      BCRYPT_SALT_ROUNDS,
-    );
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
     return this.prisma.client.user.create({
       data: {
         email: createUserDto.email,
@@ -240,7 +236,7 @@ export class UsersService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (data.password) {
-      data.password = await bcrypt.hash(data.password, BCRYPT_SALT_ROUNDS);
+      data.password = await bcrypt.hash(data.password, 10);
     }
 
     // A verification only ever proved ownership of the *old* address — a new
@@ -350,7 +346,7 @@ export class UsersService implements OnModuleInit, OnModuleDestroy {
     // lock de escritura de SQLite.
     const replacementPasswordHash = await bcrypt.hash(
       crypto.randomBytes(32).toString('hex'),
-      BCRYPT_SALT_ROUNDS,
+      10,
     );
 
     await this.prisma.client.$transaction(async (tx) => {

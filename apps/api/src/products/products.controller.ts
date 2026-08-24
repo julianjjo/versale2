@@ -19,25 +19,14 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { RejectProductDto } from './dto/reject-product.dto';
 import { BulkIdsDto } from './dto/bulk-ids.dto';
 import { BulkRejectDto } from './dto/bulk-reject.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
+import { JwtAuthGuard, OptionalJwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
-import { parsePositiveIntEnv } from '../common/env';
 
-// The public catalog needs no auth, so it's the one search surface anyone
-// (including a script) can hit for free — and every call runs the same
-// substring `contains` filter twice (findMany + count, see
-// ProductsService#findAll), the most expensive query pattern in this API.
-// Tighter than the global default so a search-scraping burst gets throttled
-// well before it can degrade the catalog for everyone else, but loose enough
-// that normal browsing/pagination/filter-clicking never comes close.
 export const PRODUCTS_SEARCH_THROTTLE_TTL = minutes(1);
-export const PRODUCTS_SEARCH_THROTTLE_LIMIT = parsePositiveIntEnv(
-  process.env.PRODUCTS_SEARCH_THROTTLE_LIMIT,
-  60,
-);
+export const PRODUCTS_SEARCH_THROTTLE_LIMIT =
+  Number(process.env.PRODUCTS_SEARCH_THROTTLE_LIMIT) || 60;
 
 @Controller('products')
 export class ProductsController {

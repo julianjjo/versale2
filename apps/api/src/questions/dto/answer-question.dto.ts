@@ -1,5 +1,5 @@
+import { Transform } from 'class-transformer';
 import { IsString, IsNotEmpty, Matches, MaxLength } from 'class-validator';
-import { Trim } from '../../common/trim.decorator';
 
 export class AnswerQuestionDto {
   @IsString({ message: 'La respuesta debe ser un texto' })
@@ -8,6 +8,6 @@ export class AnswerQuestionDto {
   @MaxLength(1000, {
     message: 'La respuesta no puede superar los 1000 caracteres',
   })
-  @Trim()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   answer!: string;
 }

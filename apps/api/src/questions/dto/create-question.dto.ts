@@ -1,5 +1,5 @@
+import { Transform } from 'class-transformer';
 import { IsString, IsNotEmpty, Matches, MaxLength } from 'class-validator';
-import { Trim } from '../../common/trim.decorator';
 
 export class CreateQuestionDto {
   @IsString({ message: 'El producto seleccionado no es válido' })
@@ -15,6 +15,6 @@ export class CreateQuestionDto {
   @MaxLength(500, {
     message: 'La pregunta no puede superar los 500 caracteres',
   })
-  @Trim()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   question!: string;
 }
