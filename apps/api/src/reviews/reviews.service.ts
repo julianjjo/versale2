@@ -7,7 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
-import { Role } from '../users/role.enum';
+import { Role } from '@prisma/client';
 import { resolvePagination } from '../common/pagination';
 import {
   OrderStatus,

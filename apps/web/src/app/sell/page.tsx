@@ -17,6 +17,7 @@ import {
 } from "@/components/ui";
 import { CONDITION_OPTIONS } from "@/lib/product-condition";
 import { PRODUCT_CATEGORIES, DEFAULT_PRODUCT_CATEGORY } from "@/lib/categories";
+import { readJson, writeJson, removeKey } from "@/lib/storage";
 
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
@@ -82,50 +83,18 @@ function readPrefill(searchParams: ReturnType<typeof useSearchParams>) {
   };
 }
 
-// Item 10: borrador automático. localStorage sobrevive recargas y
-// cierres de pestaña — escribir una publicación buena toma tiempo y perderla
-// por un refresh accidental es la fricción más cara del funnel de venta.
 const DRAFT_STORAGE_KEY = "versale:sell-draft:v1";
-
 type SellDraft = Partial<Record<string, string>>;
-
 function readDraft(): SellDraft {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(DRAFT_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed: unknown = JSON.parse(raw);
-    // `JSON.parse` acepta "null"/"42"/'"texto"'/"[]" sin lanzar — solo un
-    // objeto plano es un borrador válido; cualquier otra forma se trata
-    // igual que un JSON corrupto (ver catch de abajo).
-    if (
-      typeof parsed !== "object" ||
-      parsed === null ||
-      Array.isArray(parsed)
-    ) {
-      return {};
-    }
-    return parsed as SellDraft;
-  } catch {
-    // JSON corrupto o storage bloqueado: un borrador nunca debe romper /sell.
-    return {};
-  }
+  const parsed = readJson<unknown>(DRAFT_STORAGE_KEY, {});
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
+  return parsed as SellDraft;
 }
-
 function writeDraft(form: Record<string, string>) {
-  try {
-    window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(form));
-  } catch {
-    // Cuota llena o modo privado: el borrador es best-effort.
-  }
+  writeJson(DRAFT_STORAGE_KEY, form);
 }
-
 function clearDraft() {
-  try {
-    window.localStorage.removeItem(DRAFT_STORAGE_KEY);
-  } catch {
-    // noop: sin borrador que limpiar no hay nada que hacer.
-  }
+  removeKey(DRAFT_STORAGE_KEY);
 }
 
 const FORM_FIELDS = [

@@ -19,22 +19,17 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { RejectProductDto } from './dto/reject-product.dto';
 import { BulkIdsDto } from './dto/bulk-ids.dto';
 import { BulkRejectDto } from './dto/bulk-reject.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
+import { JwtAuthGuard, OptionalJwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { Role } from '../users/role.enum';
-import { parsePositiveIntEnv } from '../common/env';
+import { Role } from '@prisma/client';
 
-// The public catalog needs no auth, so it's the one search surface anyone
-// (including a script) can hit for free — and every call runs the same
-// substring `contains` filter twice (findMany + count, see
-// ProductsService#findAll), the most expensive query pattern in this API.
-// Tighter than the global default so a search-scraping burst gets throttled
-// well before it can degrade the catalog for everyone else, but loose enough
-// that normal browsing/pagination/filter-clicking never comes close.
+const toLimit = (v: string | undefined, f: number) => {
+  const n = Number(v);
+  return Number.isInteger(n) && n > 0 && n <= 1_000_000 ? n : f;
+};
 export const PRODUCTS_SEARCH_THROTTLE_TTL = minutes(1);
-export const PRODUCTS_SEARCH_THROTTLE_LIMIT = parsePositiveIntEnv(
+export const PRODUCTS_SEARCH_THROTTLE_LIMIT = toLimit(
   process.env.PRODUCTS_SEARCH_THROTTLE_LIMIT,
   60,
 );
@@ -113,7 +108,7 @@ export class ProductsController {
     return this.productsService.bulkPause(
       bulkPauseDto.ids,
       req.user.id,
-      req.user.role as Role,
+      req.user.role,
     );
   }
 
@@ -126,7 +121,7 @@ export class ProductsController {
     return this.productsService.bulkUnpause(
       bulkUnpauseDto.ids,
       req.user.id,
-      req.user.role as Role,
+      req.user.role,
     );
   }
 
@@ -141,14 +136,14 @@ export class ProductsController {
       id,
       updateProductDto,
       req.user.id,
-      req.user.role as Role,
+      req.user.role,
     );
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   async remove(@Param('id') id: string, @Req() req: AuthRequest) {
-    return this.productsService.remove(id, req.user.id, req.user.role as Role);
+    return this.productsService.remove(id, req.user.id, req.user.role);
   }
 
   // Two segments (':id/pause', ':id/unpause'), so neither collides with the
@@ -157,21 +152,13 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard)
   @Patch(':id/pause')
   async pause(@Param('id') id: string, @Req() req: AuthRequest) {
-    return this.productsService.pauseProduct(
-      id,
-      req.user.id,
-      req.user.role as Role,
-    );
+    return this.productsService.pauseProduct(id, req.user.id, req.user.role);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id/unpause')
   async unpause(@Param('id') id: string, @Req() req: AuthRequest) {
-    return this.productsService.unpauseProduct(
-      id,
-      req.user.id,
-      req.user.role as Role,
-    );
+    return this.productsService.unpauseProduct(id, req.user.id, req.user.role);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

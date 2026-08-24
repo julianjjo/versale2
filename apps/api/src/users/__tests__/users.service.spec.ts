@@ -8,20 +8,22 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+jest.mock('bcryptjs', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+}));
 
 // bcryptjs's hash()/compare() are each overloaded (a Promise-returning
 // signature and a Node-callback, void-returning one); jest.spyOn on the
 // bare overloaded function infers a mock whose value type collapses to
 // `never`. Spying through a narrowed, single-signature view of the module
 // picks the Promise overload unambiguously.
-type BcryptHash = (password: string, salt: number | string) => Promise<string>;
-type BcryptCompare = (password: string, hash: string) => Promise<boolean>;
 
 function spyOnBcryptHash() {
-  return jest.spyOn(bcrypt as unknown as { hash: BcryptHash }, 'hash');
+  return bcrypt.hash as unknown as jest.Mock;
 }
 function spyOnBcryptCompare() {
-  return jest.spyOn(bcrypt as unknown as { compare: BcryptCompare }, 'compare');
+  return bcrypt.compare as unknown as jest.Mock;
 }
 
 // Simulates the error Prisma throws when a unique constraint is violated —

@@ -18,7 +18,6 @@ import {
   StarRating,
   Divider,
 } from "@/components/ui";
-import { MAX_ITEM_QUANTITY } from "@/lib/cart";
 import { conditionLabel } from "@/lib/product-condition";
 import { formatPublishDate } from "@/lib/format-date";
 import { isTerminalError } from "@/lib/http-error";
@@ -203,7 +202,7 @@ export function ProductDetail({
     mutationFn: async () => {
       await api.post("/cart/items", {
         productId: id,
-        quantity: MAX_ITEM_QUANTITY,
+        quantity: 1,
       });
     },
     onSuccess: () => {
@@ -546,9 +545,7 @@ export function ProductDetail({
             </dd>
           </dl>
 
-          {/* No quantity picker: each listing is a single secondhand garment, so
-              the only quantity the API accepts is `MAX_ITEM_QUANTITY`. A stepper
-              here offered 1–99 and every value above 1 came back as a 400. */}
+          {/* No quantity picker: each listing is a single garment, so the only quantity the API accepts is 1. */}
           {isSold ? (
             <Badge variant="warning">Ya se vendió</Badge>
           ) : isOwn ? (

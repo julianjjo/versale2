@@ -10,7 +10,7 @@ import {
 import { NotificationType, Prisma, ProductStatus } from '@prisma/client';
 import { OrderStatus } from '../order-status.enum';
 import { CreateOrderDto } from '../dto/create-order.dto';
-import { Role } from '../../users/role.enum';
+import { Role } from '@prisma/client';
 import { NotificationsService } from '../../notifications/notifications.service';
 
 // Simulates the error Prisma throws when the compare-and-swap `where` clause

@@ -7,7 +7,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { Role } from '../../users/role.enum';
+import { Role } from '@prisma/client';
 
 describe('ReviewsService', () => {
   let service: ReviewsService;

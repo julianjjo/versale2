@@ -10,23 +10,10 @@ vi.mock("@/lib/api", () => ({
     get: vi.fn(),
     patch: vi.fn(),
   },
-  extractApiError: (err: unknown, fallback: string) =>
-    err instanceof Error ? err.message : fallback,
-  // Mirrors the real extractBlobApiError's shape closely enough to exercise
-  // handleExportCsv's error path: read a Blob-typed response.data as JSON
-  // before falling back, same as the real implementation does.
-  extractBlobApiError: async (err: unknown, fallback: string) => {
-    const response = (err as { response?: { data?: unknown } })?.response;
-    if (response?.data instanceof Blob) {
-      try {
-        const parsed = JSON.parse(await response.data.text()) as {
-          message?: string;
-        };
-        if (parsed?.message) return parsed.message;
-      } catch {
-        // fall through
-      }
-    }
+  extractApiError: (err: unknown, fallback: string) => {
+    const data = (err as { response?: { data?: { message?: string } } })?.response
+      ?.data;
+    if (data?.message) return data.message;
     return err instanceof Error ? err.message : fallback;
   },
 }));
@@ -208,15 +195,8 @@ describe("AdminOrdersPage", () => {
   });
 
   it("muestra el mensaje real del backend cuando la exportación a CSV falla", async () => {
-    // A `responseType: "blob"` request also decodes its ERROR body as a
-    // Blob, not parsed JSON — this reconstructs that shape to prove the
-    // real backend message (not just a generic fallback) reaches the user.
-    const errorBody = new Blob(
-      [JSON.stringify({ message: "No tienes autorización" })],
-      { type: "application/json" },
-    );
     const blobError = Object.assign(new Error("Request failed"), {
-      response: { data: errorBody },
+      response: { data: { message: "No tienes autorización" } },
     });
     vi.mocked(api.get).mockImplementation(async (url: string) => {
       if (typeof url === "string" && url.startsWith("/orders/admin/export")) {

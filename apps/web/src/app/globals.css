@@ -25,18 +25,6 @@
   --color-warning: #9a3412;
   --color-info: #2563eb;
 
-  /* Backwards-compatible aliases that the rest of the app already uses. */
-  --color-primary: var(--color-terracotta);
-  --color-primary-foreground: var(--color-ink);
-  --color-secondary: var(--color-ink);
-  --color-secondary-foreground: var(--color-paper);
-  --color-surface: var(--color-paper);
-  --color-surface-muted: var(--color-paper-2);
-  --color-text-primary: var(--color-ink);
-  --color-text-muted: var(--color-muted-2);
-  --color-text-inverse: var(--color-paper);
-  --color-border: var(--color-line);
-  --color-border-strong: var(--color-line-2);
 
   --background: var(--color-paper);
   --foreground: var(--color-ink);
@@ -60,21 +48,21 @@
   --color-line-3: var(--color-line-3);
   --color-line-4: var(--color-line-4);
 
-  --color-primary: var(--color-primary);
-  --color-primary-foreground: var(--color-primary-foreground);
-  --color-secondary: var(--color-secondary);
-  --color-secondary-foreground: var(--color-secondary-foreground);
-  --color-surface: var(--color-surface);
-  --color-surface-muted: var(--color-surface-muted);
-  --color-text-primary: var(--color-text-primary);
-  --color-text-muted: var(--color-text-muted);
-  --color-text-inverse: var(--color-text-inverse);
+  --color-primary: var(--color-terracotta);
+  --color-primary-foreground: var(--color-ink);
+  --color-secondary: var(--color-ink);
+  --color-secondary-foreground: var(--color-paper);
+  --color-surface: var(--color-paper);
+  --color-surface-muted: var(--color-paper-2);
+  --color-text-primary: var(--color-ink);
+  --color-text-muted: var(--color-muted-2);
+  --color-text-inverse: var(--color-paper);
   --color-success: var(--color-success);
   --color-warning: var(--color-warning);
   --color-danger: var(--color-danger);
   --color-info: var(--color-info);
-  --color-border: var(--color-border);
-  --color-border-strong: var(--color-border-strong);
+  --color-border: var(--color-line);
+  --color-border-strong: var(--color-line-2);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);

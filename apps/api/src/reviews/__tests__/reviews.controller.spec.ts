@@ -4,7 +4,7 @@ import type { Response } from 'express';
 import { ReviewsController } from '../reviews.controller';
 import { ReviewsService } from '../reviews.service';
 import { AuthRequest } from '../../../src/types/request.types';
-import { Role } from '../../users/role.enum';
+import { Role } from '@prisma/client';
 
 describe('ReviewsController', () => {
   let controller: ReviewsController;
