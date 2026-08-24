@@ -1836,14 +1836,14 @@ describe('ProductsService', () => {
           status: 'AVAILABLE' as const,
           pausedAt: null,
           OR: [
-            { title: { contains: 'test', mode: 'insensitive' } },
-            { description: { contains: 'test', mode: 'insensitive' } },
-            { brand: { contains: 'test', mode: 'insensitive' } },
-            { category: { contains: 'test', mode: 'insensitive' } },
+            { title: { contains: 'test' } },
+            { description: { contains: 'test' } },
+            { brand: { contains: 'test' } },
+            { category: { contains: 'test' } },
           ],
           price: { gte: 10, lte: 100 },
           size: 'M',
-          brand: { contains: 'TestBrand', mode: 'insensitive' },
+          brand: { contains: 'TestBrand' },
           condition: 'New',
         },
         skip: 0,
@@ -1859,14 +1859,14 @@ describe('ProductsService', () => {
           status: 'AVAILABLE' as const,
           pausedAt: null,
           OR: [
-            { title: { contains: 'test', mode: 'insensitive' } },
-            { description: { contains: 'test', mode: 'insensitive' } },
-            { brand: { contains: 'test', mode: 'insensitive' } },
-            { category: { contains: 'test', mode: 'insensitive' } },
+            { title: { contains: 'test' } },
+            { description: { contains: 'test' } },
+            { brand: { contains: 'test' } },
+            { category: { contains: 'test' } },
           ],
           price: { gte: 10, lte: 100 },
           size: 'M',
-          brand: { contains: 'TestBrand', mode: 'insensitive' },
+          brand: { contains: 'TestBrand' },
           condition: 'New',
         },
       });
@@ -1945,7 +1945,7 @@ describe('ProductsService', () => {
             isApproved: true,
             status: 'AVAILABLE' as const,
             pausedAt: null,
-            category: { equals: 'Jackets', mode: 'insensitive' },
+            category: { equals: 'Jackets' },
           },
         }),
       );
@@ -1954,7 +1954,7 @@ describe('ProductsService', () => {
           isApproved: true,
           status: 'AVAILABLE' as const,
           pausedAt: null,
-          category: { equals: 'Jackets', mode: 'insensitive' },
+          category: { equals: 'Jackets' },
         },
       });
     });
@@ -2035,9 +2035,9 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            category: { equals: 'Jeans', mode: 'insensitive' },
+            category: { equals: 'Jeans' },
             size: 'M',
-            brand: { contains: 'Levi', mode: 'insensitive' },
+            brand: { contains: 'Levi' },
             condition: 'Good',
             sellerId: 'seller1',
           }) as Record<string, unknown>,
@@ -2125,12 +2125,12 @@ describe('ProductsService', () => {
         }
       ).where;
       expect(where.OR).toEqual([
-        { title: { contains: 'Chaqueta', mode: 'insensitive' } },
-        { description: { contains: 'Chaqueta', mode: 'insensitive' } },
-        { brand: { contains: 'Chaqueta', mode: 'insensitive' } },
-        { category: { contains: 'Chaqueta', mode: 'insensitive' } },
+        { title: { contains: 'Chaqueta' } },
+        { description: { contains: 'Chaqueta' } },
+        { brand: { contains: 'Chaqueta' } },
+        { category: { contains: 'Chaqueta' } },
       ]);
-      expect(where.brand).toEqual({ contains: 'Zara', mode: 'insensitive' });
+      expect(where.brand).toEqual({ contains: 'Zara' });
     });
 
     it('should use case-insensitive equals for category', async () => {
@@ -2138,7 +2138,7 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            category: { equals: 'Jeans', mode: 'insensitive' },
+            category: { equals: 'Jeans' },
           }) as Record<string, unknown>,
         }),
       );
@@ -2198,10 +2198,10 @@ describe('ProductsService', () => {
             pausedAt: null,
             sellerId: 'seller1',
             OR: [
-              { title: { contains: 'jacket', mode: 'insensitive' } },
-              { description: { contains: 'jacket', mode: 'insensitive' } },
-              { brand: { contains: 'jacket', mode: 'insensitive' } },
-              { category: { contains: 'jacket', mode: 'insensitive' } },
+              { title: { contains: 'jacket' } },
+              { description: { contains: 'jacket' } },
+              { brand: { contains: 'jacket' } },
+              { category: { contains: 'jacket' } },
             ],
           },
         }),
@@ -2728,10 +2728,10 @@ describe('ProductsService', () => {
           where: {
             sellerId: 'seller1',
             OR: [
-              { title: { contains: 'chaqueta', mode: 'insensitive' } },
-              { description: { contains: 'chaqueta', mode: 'insensitive' } },
-              { brand: { contains: 'chaqueta', mode: 'insensitive' } },
-              { category: { contains: 'chaqueta', mode: 'insensitive' } },
+              { title: { contains: 'chaqueta' } },
+              { description: { contains: 'chaqueta' } },
+              { brand: { contains: 'chaqueta' } },
+              { category: { contains: 'chaqueta' } },
             ],
           },
         }),
@@ -2755,10 +2755,10 @@ describe('ProductsService', () => {
             status: 'AVAILABLE' as const,
             pausedAt: null,
             OR: [
-              { title: { contains: 'lino', mode: 'insensitive' } },
-              { description: { contains: 'lino', mode: 'insensitive' } },
-              { brand: { contains: 'lino', mode: 'insensitive' } },
-              { category: { contains: 'lino', mode: 'insensitive' } },
+              { title: { contains: 'lino' } },
+              { description: { contains: 'lino' } },
+              { brand: { contains: 'lino' } },
+              { category: { contains: 'lino' } },
             ],
           },
         }),

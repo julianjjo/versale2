@@ -160,10 +160,10 @@ export class ProductsService {
   // can't silently drift apart the way two hand-copied blocks would.
   private searchTextWhere(term: string) {
     return [
-      { title: { contains: term, mode: 'insensitive' as const } },
-      { description: { contains: term, mode: 'insensitive' as const } },
-      { brand: { contains: term, mode: 'insensitive' as const } },
-      { category: { contains: term, mode: 'insensitive' as const } },
+      { title: { contains: term } },
+      { description: { contains: term } },
+      { brand: { contains: term } },
+      { category: { contains: term } },
     ];
   }
 
@@ -242,9 +242,9 @@ export class ProductsService {
       limit = 10,
     } = query;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
-    const rawSort = this.firstValue(sortBy) as string | undefined;
-    const isTopRated = rawSort === ProductSortBy.TOP_RATED;
-    const orderBy = this.resolveSortOrder(sortBy);
+    const raw = (this.firstValue(sortBy) as string | undefined)?.trim();
+    const isTopRated = raw === ProductSortBy.TOP_RATED;
+    const orderBy = this.resolveSortOrder(raw);
 
     const search = this.firstValue(rawSearch);
     const size = this.firstValue(rawSize);
@@ -290,10 +290,10 @@ export class ProductsService {
       where.size = size;
     }
     if (typeof brand === 'string' && brand) {
-      (where as Record<string, unknown>).brand = { contains: brand, mode: 'insensitive' };
+      where.brand = { contains: brand };
     }
     if (typeof category === 'string' && category) {
-      (where as Record<string, unknown>).category = { equals: category, mode: 'insensitive' };
+      where.category = { equals: category };
     }
     if (typeof condition === 'string' && condition) {
       where.condition = condition;
