@@ -2119,8 +2119,8 @@ describe('ProductsService', () => {
 
     it('should use case-insensitive contains for search OR and brand', async () => {
       await service.findAll({ search: 'Chaqueta', brand: 'Zara' });
-      const where = (
-        mockPrismaService.client.product.findMany.mock.calls[0][0] as {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, prettier/prettier
+      const where = (mockPrismaService.client.product.findMany.mock.calls[0][0] as {
           where: { OR: Array<Record<string, unknown>>; brand: unknown };
         }
       ).where;
