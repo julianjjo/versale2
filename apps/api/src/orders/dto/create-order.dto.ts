@@ -1,4 +1,4 @@
-import { Transform, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
 import {
   IsDefined,
   IsNotEmpty,
@@ -8,11 +8,7 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator';
-
-// Trim before validating so a whitespace-only "address" cannot pass @IsNotEmpty
-// and end up rendered as a blank line on the order detail page.
-const Trim = () =>
-  Transform(({ value }) => (typeof value === 'string' ? value.trim() : value));
+import { Trim } from '../../common/trim.decorator';
 
 export class ShippingAddressDto {
   @IsString({ message: 'La dirección debe ser un texto' })

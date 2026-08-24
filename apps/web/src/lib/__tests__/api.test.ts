@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, api, extractApiError, extractBlobApiError } from "../api";
+import { ApiError, api, extractApiError } from "../api";
 
 vi.mock("../token", () => ({
   tokenStore: {
@@ -200,8 +200,8 @@ describe("extractApiError", () => {
   });
 });
 
-describe("extractBlobApiError", () => {
-  it("reads the backend JSON error of a blob download (CSV export case)", async () => {
+describe("extractApiError for blob downloads", () => {
+  it("reads JSON error body from a failed blob download", async () => {
     mockedTokenStore.get.mockReturnValue(null);
     fetchMock.mockResolvedValue(jsonResponse(403, { message: "No autorizado" }));
 
@@ -212,57 +212,6 @@ describe("extractBlobApiError", () => {
       caught = err;
     }
 
-    await expect(extractBlobApiError(caught, "fallback")).resolves.toBe(
-      "No autorizado",
-    );
-  });
-
-  it("joins multiple messages from a blob request's error body", async () => {
-    mockedTokenStore.get.mockReturnValue(null);
-    fetchMock.mockResolvedValue(
-      jsonResponse(400, { message: ["a", "b"] }),
-    );
-
-    let caught: unknown;
-    try {
-      await api.get<Blob>("/orders/admin/export", { responseType: "blob" });
-    } catch (err) {
-      caught = err;
-    }
-
-    await expect(extractBlobApiError(caught, "fallback")).resolves.toBe("a, b");
-  });
-
-  it("falls back when the error body is not JSON", async () => {
-    mockedTokenStore.get.mockReturnValue(null);
-    fetchMock.mockResolvedValue(
-      new Response("<html>boom</html>", {
-        status: 500,
-        headers: { "Content-Type": "text/html" },
-      }),
-    );
-
-    let caught: unknown;
-    try {
-      await api.get<Blob>("/orders/admin/export", { responseType: "blob" });
-    } catch (err) {
-      caught = err;
-    }
-
-    await expect(extractBlobApiError(caught, "fallback")).resolves.toBe(
-      "fallback",
-    );
-  });
-
-  it("delegates to extractApiError for non-blob errors too", async () => {
-    await expect(
-      extractBlobApiError(new ApiError(400, { message: "Bad input" }), "fallback"),
-    ).resolves.toBe("Bad input");
-  });
-
-  it("returns Error message for a plain error, same as extractApiError", async () => {
-    await expect(
-      extractBlobApiError(new Error("boom"), "fallback"),
-    ).resolves.toBe("boom");
+    expect(extractApiError(caught, "fallback")).toBe("No autorizado");
   });
 });

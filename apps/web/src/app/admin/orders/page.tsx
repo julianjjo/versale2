@@ -6,7 +6,7 @@ import {
   useQueryClient,
   keepPreviousData,
 } from "@tanstack/react-query";
-import { api, extractApiError, extractBlobApiError } from "@/lib/api";
+import { api, extractApiError } from "@/lib/api";
 import {
   Spinner,
   Card,
@@ -106,7 +106,7 @@ export default function AdminOrdersPage() {
       // unaffected either way.
       setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch (err) {
-      setError(await extractBlobApiError(err, "No pudimos generar el archivo CSV"));
+      setError(extractApiError(err, "No pudimos generar el archivo CSV"));
     } finally {
       setIsExporting(false);
     }

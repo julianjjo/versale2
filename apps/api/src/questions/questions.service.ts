@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ProductsService } from '../products/products.service';
 import { translatePrismaError } from '../common/prisma-error';
 import { resolvePagination } from '../common/pagination';
-import { Role } from '../users/role.enum';
+import { Role } from '@prisma/client';
 
 // Unlike Favorite/Report/Review, a question thread genuinely allows more than
 // one row per user+product (asking about size, then later about color, is

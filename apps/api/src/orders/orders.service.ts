@@ -13,11 +13,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ORDER_STATUS_LABEL, OrderStatus } from './order-status.enum';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { MAX_ITEM_QUANTITY } from '../cart/dto/cart.dto';
-import { Role } from '../users/role.enum';
+import { Role } from '@prisma/client';
 import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
 import { toCsv, withExcelCompat } from '../common/csv';
-import { logAndSwallow } from '../common/log-and-swallow';
 import { NotificationsService } from '../notifications/notifications.service';
 
 // Maps a target order status to the notification "flavor" a recipient sees
@@ -167,7 +166,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     try {
       await fn();
     } catch (error) {
-      logAndSwallow(this.logger, 'Failed to send an order notification')(error);
+      this.logger.error('Failed to send an order notification', error as Error);
     }
   }
 

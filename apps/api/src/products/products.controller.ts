@@ -23,7 +23,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { Role } from '../users/role.enum';
+import { Role } from '@prisma/client';
 import { parsePositiveIntEnv } from '../common/env';
 
 // The public catalog needs no auth, so it's the one search surface anyone

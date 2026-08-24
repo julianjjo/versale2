@@ -10,7 +10,6 @@ async function loginAs(page: Page, credentials: Credentials) {
   await page.goto("/login");
   await page.getByLabel("Correo electrónico").fill(credentials.email);
   await page.getByLabel("Contraseña").fill(credentials.password);
-  // Scope to the form's submit button to avoid matching the header button.
   await page
     .getByRole("main")
     .getByRole("button", { name: /iniciar sesión/i })
@@ -18,32 +17,27 @@ async function loginAs(page: Page, credentials: Credentials) {
   await page.waitForURL(/\/products/, { timeout: 10_000 });
 }
 
+function makeAuthFixture(user: keyof typeof E2E_USERS) {
+  return async (
+    { browser }: { browser: import("@playwright/test").Browser },
+    use: (p: Page) => Promise<void>,
+  ) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await loginAs(page, E2E_USERS[user]);
+    await use(page);
+    await ctx.close();
+  };
+}
+
 export const test = base.extend<{
   userPage: Page;
   adminPage: Page;
   authorPage: Page;
 }>({
-  userPage: async ({ browser }, use) => {
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    await loginAs(page, E2E_USERS.user);
-    await use(page);
-    await ctx.close();
-  },
-  adminPage: async ({ browser }, use) => {
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    await loginAs(page, E2E_USERS.admin);
-    await use(page);
-    await ctx.close();
-  },
-  authorPage: async ({ browser }, use) => {
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    await loginAs(page, E2E_USERS.author);
-    await use(page);
-    await ctx.close();
-  },
+  userPage: makeAuthFixture("user"),
+  adminPage: makeAuthFixture("admin"),
+  authorPage: makeAuthFixture("author"),
 });
 
 export { expect };

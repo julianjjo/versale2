@@ -7,7 +7,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
-import { Role } from '../../users/role.enum';
+import { Role } from '@prisma/client';
 
 // Simulates the error Prisma throws when `update`/`delete`'s extra `where`
 // filter (e.g. `status: "AVAILABLE" as const`) matches no row — the shape a concurrent

@@ -70,3 +70,8 @@ pnpm-lock.json
 #pi
 .pi/
 .pi-glla/
+
+# OpenCode loop/BRHP and vendored deps (never commit)
+.opencode/opencode-loop/
+.opencode/brhp/
+.opencode/node_modules/
