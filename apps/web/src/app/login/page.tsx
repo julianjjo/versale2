@@ -15,6 +15,8 @@ const LOGIN_REASON_MESSAGE: Record<string, string> = {
   expired: "Tu sesión expiró. Inicia sesión de nuevo para continuar.",
   password_changed:
     "Tu contraseña se actualizó. Inicia sesión de nuevo con la nueva contraseña.",
+  account_deleted:
+    "Tu cuenta se eliminó correctamente. Si alguna vez quieres volver, puedes crear una cuenta nueva con el mismo correo.",
 };
 
 function LoginForm() {

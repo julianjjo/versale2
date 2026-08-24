@@ -5,8 +5,10 @@ import { CONTACT_EMAIL, contactMailto } from "@/lib/contact";
 export const metadata: Metadata = { title: "Privacidad — Versale" };
 
 // Item 8: promising deletion without a mechanism is worse than not promising
-// it. The mechanism today is an email request — rendered only while the
-// contact address is actually configured, so the page never shows a dead link.
+// it. The mechanism is now self-service (Perfil → «Eliminar mi cuenta»,
+// confirmada con la contraseña); the email channel remains as a fallback for
+// anyone who cannot access their account, rendered only while the contact
+// address is actually configured, so the page never shows a dead link.
 function AccountDeletionSection() {
   const mailto = contactMailto("Eliminar mi cuenta de Versale");
   return (
@@ -14,24 +16,34 @@ function AccountDeletionSection() {
       <h2 className="text-lg font-semibold text-text-primary">
         Eliminación de cuenta
       </h2>
+      <p className="mt-2 text-sm leading-relaxed text-text-muted">
+        Puedes eliminar tu cuenta tú mismo, en cualquier momento: entra en{" "}
+        <a
+          href="/profile"
+          className="font-medium text-terracotta underline-offset-4 hover:underline"
+        >
+          tu perfil
+        </a>{" "}
+        y usa «Eliminar mi cuenta» (te pediremos tu contraseña para
+        confirmarla). Tu perfil pasará a mostrarse como «Usuario eliminado»,
+        retiraremos tus datos personales —correo, nombre, contraseñas,
+        direcciones de envío conservadas— y retiraremos del catálogo tus
+        publicaciones activas. Tus pedidos se conservan únicamente como
+        registro contable de la compra y las reseñas ya publicadas quedan a
+        nombre de «Usuario eliminado».
+      </p>
       {CONTACT_EMAIL ? (
         <p className="mt-2 text-sm leading-relaxed text-text-muted">
-          Puedes pedir la eliminación definitiva de tu cuenta escribiendo a{" "}
+          Si no puedes entrar a tu cuenta, escríbenos a{" "}
           <a
             href={mailto ?? undefined}
             className="font-medium text-terracotta underline-offset-4 hover:underline"
           >
             {CONTACT_EMAIL}
           </a>{" "}
-          con el asunto «Eliminar mi cuenta». Eliminamos tus datos personales y
-          te confirmamos por correo.
+          con el asunto «Eliminar mi cuenta» y la tramitamos manualmente.
         </p>
-      ) : (
-        <p className="mt-2 text-sm leading-relaxed text-text-muted">
-          El canal de eliminación de cuentas estará disponible próximamente en
-          esta página.
-        </p>
-      )}
+      ) : null}
     </section>
   );
 }

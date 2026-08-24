@@ -31,14 +31,26 @@ vi.mock("@/lib/auth", async () => {
   return { ...actual, useAuth: () => authState };
 });
 
-vi.mock("@/lib/api", () => ({
-  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
-  extractApiError: (err: unknown, fallback: string) =>
-    (err as { response?: { data?: { message?: string } } })?.response?.data
-      ?.message ?? fallback,
-}));
+vi.mock("@/lib/api", async (importOriginal) => {
+  // extractApiError REAL: los tests validan el contrato completo
+  // página+helper (p. ej. el fallback español ante un error de red sin
+  // response), no una reimplementación que puede desincronizarse.
+  const actual =
+    await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
+  return {
+    ...actual,
+    api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  };
+});
 
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
+
+// Errores con la forma real del cliente fetch nativo: ApiError con el body
+// del backend, o ApiError(0) para fallo de transporte sin respuesta HTTP.
+const apiError = (status: number | undefined, message?: string): Error =>
+  status === undefined
+    ? new ApiError(0, undefined)
+    : new ApiError(status, message ? { message } : undefined);
 
 function renderPage() {
   return render(
@@ -175,12 +187,9 @@ describe("ProfilePage", () => {
     // 403, not 401: the API deliberately uses 403 here so the web app's
     // global 401 interceptor in lib/api (which force-logs-out on any 401) doesn't
     // treat a mere password typo as an expired session.
-    vi.mocked(api.patch).mockRejectedValue({
-      response: {
-        status: 403,
-        data: { message: "La contraseña actual es incorrecta." },
-      },
-    });
+    vi.mocked(api.patch).mockRejectedValue(
+      apiError(403, "La contraseña actual es incorrecta."),
+    );
     renderPage();
 
     await user.type(screen.getByLabelText(/nueva contraseña/i), "claveNueva1");
@@ -190,5 +199,177 @@ describe("ProfilePage", () => {
     expect(
       await screen.findByText("La contraseña actual es incorrecta."),
     ).toBeInTheDocument();
+  });
+});
+
+describe("ProfilePage — zona de peligro (borrado de cuenta)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("explica las consecuencias y pide confirmación de contraseña", () => {
+    renderPage();
+
+    expect(screen.getByText(/zona de peligro/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/eliminar tu cuenta es definitivo/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/confirma tu contraseña/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /eliminar mi cuenta/i }),
+    ).toBeDisabled();
+  });
+
+  it("habilita el botón al escribir la contraseña y abre un diálogo de confirmación accesible", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const deleteButton = screen.getByRole("button", {
+      name: /eliminar mi cuenta/i,
+    });
+    expect(deleteButton).toBeDisabled();
+
+    await user.type(
+      screen.getByLabelText(/confirma tu contraseña/i),
+      "claveSegura1",
+    );
+    expect(deleteButton).toBeEnabled();
+    await user.click(deleteButton);
+
+    // Nombre accesible vía aria-labelledby del Modal (título del diálogo).
+    const dialog = await screen.findByRole("dialog", {
+      name: /¿seguro que quieres eliminar tu cuenta\?/i,
+    });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(
+      screen.getByText(/esta acción no se puede deshacer/i),
+    ).toBeInTheDocument();
+  });
+
+  it("Escape cierra el diálogo sin llamar a la API", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(
+      screen.getByLabelText(/confirma tu contraseña/i),
+      "claveSegura1",
+    );
+    await user.click(
+      screen.getByRole("button", { name: /eliminar mi cuenta/i }),
+    );
+    await screen.findByRole("dialog");
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(api.delete).not.toHaveBeenCalled();
+    expect(authState.logout).not.toHaveBeenCalled();
+  });
+
+  // Error de red sin `response` (axios "Network Error"): el fallback en
+  // español del extractApiError real debe verse, sin cerrar sesión.
+  it("muestra el mensaje de red en español cuando la API no responde", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.delete).mockRejectedValue(
+      apiError(0),
+    );
+    renderPage();
+
+    await user.type(
+      screen.getByLabelText(/confirma tu contraseña/i),
+      "claveSegura1",
+    );
+    await user.click(
+      screen.getByRole("button", { name: /eliminar mi cuenta/i }),
+    );
+    await user.click(
+      await screen.findByRole("button", {
+        name: /sí, eliminar definitivamente/i,
+      }),
+    );
+
+    expect(
+      await screen.findByText(/no pudimos eliminar tu cuenta/i),
+    ).toBeInTheDocument();
+    expect(authState.logout).not.toHaveBeenCalled();
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it("cancelar cierra el diálogo sin llamar a la API", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(
+      screen.getByLabelText(/confirma tu contraseña/i),
+      "claveSegura1",
+    );
+    await user.click(
+      screen.getByRole("button", { name: /eliminar mi cuenta/i }),
+    );
+    await user.click(await screen.findByRole("button", { name: /cancelar/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(api.delete).not.toHaveBeenCalled();
+    expect(authState.logout).not.toHaveBeenCalled();
+  });
+
+  it("elimina la cuenta, cierra sesión y redirige a login con reason=account_deleted", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.delete).mockResolvedValue({
+      data: { message: "Tu cuenta se eliminó correctamente" },
+    });
+    renderPage();
+
+    await user.type(
+      screen.getByLabelText(/confirma tu contraseña/i),
+      "claveSegura1",
+    );
+    await user.click(
+      screen.getByRole("button", { name: /eliminar mi cuenta/i }),
+    );
+    await user.click(
+      await screen.findByRole("button", {
+        name: /sí, eliminar definitivamente/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(api.delete).toHaveBeenCalledWith("/users/me", { currentPassword: "claveSegura1" });
+    });
+    expect(authState.logout).toHaveBeenCalled();
+    expect(pushMock).toHaveBeenCalledWith("/login?reason=account_deleted");
+  });
+
+  it("muestra en español el error de la API cuando la contraseña es incorrecta y no cierra sesión", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.delete).mockRejectedValue(
+      apiError(403, "La contraseña actual es incorrecta"),
+    );
+    renderPage();
+
+    await user.type(
+      screen.getByLabelText(/confirma tu contraseña/i),
+      "equivocada",
+    );
+    await user.click(
+      screen.getByRole("button", { name: /eliminar mi cuenta/i }),
+    );
+    await user.click(
+      await screen.findByRole("button", {
+        name: /sí, eliminar definitivamente/i,
+      }),
+    );
+
+    expect(
+      await screen.findByText("La contraseña actual es incorrecta"),
+    ).toBeInTheDocument();
+    expect(authState.logout).not.toHaveBeenCalled();
+    expect(pushMock).not.toHaveBeenCalled();
   });
 });

@@ -404,6 +404,35 @@ describe('AuthService', () => {
       expect(compareSpy).toHaveBeenCalledWith(password, TIMING_SAFE_DUMMY_HASH);
     });
 
+    // Cuenta eliminada: el bcrypt ya se pagó (sin oracle de timing) y el
+    // mensaje es idéntico al de credenciales inválidas — que la cuenta
+    // existió y fue borrada no es información para terceros.
+    it('rechaza el login de una cuenta eliminada con el mismo error genérico', async () => {
+      const email = 'test@example.com';
+      const password = 'password123';
+
+      mockPrismaService.client.user.findUnique.mockResolvedValue({
+        id: '1',
+        email,
+        password: 'hashed_password_123',
+        name: 'Test User',
+        role: 'USER',
+        tokenVersion: 0,
+        deletedAt: new Date(),
+      });
+      const compareSpy = (
+        jest.spyOn(bcrypt, 'compare') as unknown as jest.Mock
+      ).mockImplementation(() => Promise.resolve(true));
+
+      await expect(service.login(email, password)).rejects.toThrow(
+        new UnauthorizedException('Credenciales inválidas'),
+      );
+      // El compare se ejecutó antes del rechazo: sin atajo que filtre por
+      // latencia qué correos pertenecieron a cuentas borradas.
+      expect(compareSpy).toHaveBeenCalled();
+      expect(mockJwtService.sign).not.toHaveBeenCalled();
+    });
+
     it('should throw UnauthorizedException if password invalid', async () => {
       const email = 'test@example.com';
       const password = 'password123';
@@ -445,7 +474,9 @@ describe('AuthService', () => {
       const result = await service.forgotPassword(email);
 
       expect(mockPrismaService.client.user.updateMany).toHaveBeenCalledWith({
-        where: { email },
+        // Cuenta eliminada: excluida del updateMany — sin token que "reviva"
+        // una cuenta borrada, manteniendo el updateMany simétrico.
+        where: { email, deletedAt: null },
         data: {
           // Stored hashed, never the raw token.
           resetToken: anyString(),

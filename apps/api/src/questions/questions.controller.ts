@@ -36,7 +36,7 @@ export class QuestionsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Get('admin/all')
-  async getAllForAdmin(@Query() query: any) {
+  async getAllForAdmin(@Query() query: Record<string, unknown>) {
     return this.questionsService.getAllForAdmin(query);
   }
 
@@ -53,10 +53,6 @@ export class QuestionsController {
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   async remove(@Req() req: AuthRequest, @Param('id') id: string) {
-    return this.questionsService.remove(
-      id,
-      req.user.id,
-      req.user.role as Role,
-    );
+    return this.questionsService.remove(id, req.user.id, req.user.role as Role);
   }
 }

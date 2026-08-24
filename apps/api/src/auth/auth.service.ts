@@ -134,7 +134,11 @@ export class AuthService {
       user?.password ?? TIMING_SAFE_DUMMY_HASH,
     );
 
-    if (!user || !isPasswordValid) {
+    if (!user || !isPasswordValid || user.deletedAt) {
+      // La comparación de bcrypt ya se pagó arriba, así que descartar una
+      // cuenta eliminada aquí no abre ningún oracle de timing. Mensaje
+      // idéntico al de credenciales inválidas: que la cuenta existió y fue
+      // borrada no es información a la que un tercero tenga derecho.
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
@@ -150,7 +154,12 @@ export class AuthService {
     // two cases by response timing either — only by the identical body
     // below, which never varies.
     const { count } = await this.prisma.client.user.updateMany({
-      where: { email },
+      // deletedAt: null — una cuenta eliminada no puede recibir un token de
+      // reset que la "reviva" (su hash ya fue sustituido, pero el correo
+      // original quedó libre y el updateMany por email seguiría encontrando
+      // la fila anonimizada). La condición mantiene el updateMany simétrico:
+      // sigue tocando cero filas cuando el correo no existe, sin oracle.
+      where: { email, deletedAt: null },
       data: {
         // Stored hashed: a database leak alone (backup exposure, a stray
         // read replica, a different bug) must not hand out live,

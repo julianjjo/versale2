@@ -14,6 +14,7 @@ import {
   PageContainer,
   SectionHeader,
 } from "@/components/ui";
+import { Modal } from "@/components/ui/modal";
 import type { User } from "@/lib/types";
 
 export default function ProfilePage() {
@@ -214,6 +215,101 @@ function ProfileForm({
           </Button>
         </form>
       </Card>
+
+      <DangerZone />
     </PageContainer>
+  );
+}
+
+function DangerZone() {
+  const router = useRouter();
+  const { logout } = useAuth();
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const canSubmit = password.length > 0 && !isDeleting;
+
+  const handleDelete = async () => {
+    setError(null);
+    setIsDeleting(true);
+    try {
+      await api.delete("/users/me", { currentPassword: password });
+      // La cuenta ya no existe y el token quedó invalidado (tokenVersion):
+      // cerrar sesión en limpio y llevar el aviso de éxito a /login.
+      logout();
+      router.push("/login?reason=account_deleted");
+    } catch (err) {
+      setIsConfirmOpen(false);
+      setError(extractApiError(err, "No pudimos eliminar tu cuenta"));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <Card className="mt-4 border-danger/30">
+      <h2 className="heading-card mb-2 text-danger">Zona de peligro</h2>
+      <p className="text-sm text-text-muted">
+        Eliminar tu cuenta es definitivo. Tu perfil pasará a aparecer como
+        «Usuario eliminado», tus publicaciones activas se retirarán del
+        catálogo y borraremos tus datos personales. Tus pedidos se conservan
+        como registro de compra y las reseñas que escribiste seguirán visibles
+        a nombre de «Usuario eliminado».
+      </p>
+      <form
+        className="mt-4 space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (canSubmit) setIsConfirmOpen(true);
+        }}
+      >
+        {/* useId → htmlFor: patrón de design.md para asociar la etiqueta
+            cuando el componente Input no recibe un id explícito. */}
+        <Input
+          label="Confirma tu contraseña"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            setError(null);
+          }}
+          required
+          hint="La pedimos solo para verificar que eres tú."
+        />
+        {error && (
+          <p className="text-sm text-danger" role="alert">
+            {error}
+          </p>
+        )}
+        <Button type="submit" variant="danger" disabled={!canSubmit}>
+          Eliminar mi cuenta
+        </Button>
+      </form>
+
+      <Modal
+        open={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        title="¿Seguro que quieres eliminar tu cuenta?"
+      >
+        <div aria-live="polite">
+          <p className="text-sm text-text-muted">
+            Esta acción no se puede deshacer. Perderás el acceso a tu cuenta,
+            tus publicaciones se retirarán y tu sesión se cerrará en todos los
+            dispositivos.
+          </p>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button onClick={() => setIsConfirmOpen(false)} disabled={isDeleting}>
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? "Eliminando…" : "Sí, eliminar definitivamente"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </Card>
   );
 }
