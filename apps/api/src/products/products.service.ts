@@ -75,6 +75,13 @@ const SORT_ORDER_BY: Record<
 > = {
   [ProductSortBy.PRICE_ASC]: [{ price: 'asc' }, { id: 'asc' }],
   [ProductSortBy.PRICE_DESC]: [{ price: 'desc' }, { id: 'asc' }],
+  [ProductSortBy.MOST_VIEWED]: [{ viewCount: 'desc' }, { id: 'asc' }],
+  [ProductSortBy.MOST_FAVORITED]: [
+    { favoritedBy: { _count: 'desc' } },
+    { id: 'asc' },
+  ],
+  // TOP_RATED has no DB column — sorted in-memory after withAverageRating
+  [ProductSortBy.TOP_RATED]: [{ createdAt: 'desc' }, { id: 'asc' }],
 };
 
 // Item 9: per-seller cap on active listings (roadmap ~20). A hard number,
@@ -153,10 +160,10 @@ export class ProductsService {
   // can't silently drift apart the way two hand-copied blocks would.
   private searchTextWhere(term: string) {
     return [
-      { title: { contains: term } },
-      { description: { contains: term } },
-      { brand: { contains: term } },
-      { category: { contains: term } },
+      { title: { contains: term, mode: 'insensitive' as const } },
+      { description: { contains: term, mode: 'insensitive' as const } },
+      { brand: { contains: term, mode: 'insensitive' as const } },
+      { category: { contains: term, mode: 'insensitive' as const } },
     ];
   }
 
@@ -235,6 +242,8 @@ export class ProductsService {
       limit = 10,
     } = query;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
+    const rawSort = this.firstValue(sortBy) as string | undefined;
+    const isTopRated = rawSort === ProductSortBy.TOP_RATED;
     const orderBy = this.resolveSortOrder(sortBy);
 
     const search = this.firstValue(rawSearch);
@@ -281,10 +290,10 @@ export class ProductsService {
       where.size = size;
     }
     if (typeof brand === 'string' && brand) {
-      where.brand = { contains: brand };
+      (where as Record<string, unknown>).brand = { contains: brand, mode: 'insensitive' };
     }
     if (typeof category === 'string' && category) {
-      where.category = category;
+      (where as Record<string, unknown>).category = { equals: category, mode: 'insensitive' };
     }
     if (typeof condition === 'string' && condition) {
       where.condition = condition;
@@ -303,8 +312,18 @@ export class ProductsService {
       this.prisma.client.product.count({ where }),
     ]);
 
+    let data = await this.withAverageRating(products);
+    // ponytail: top_rated sorted in-memory per page (n=limit ≤100), materialize averageRating column + index if catalog >10k
+    if (isTopRated) {
+      data = [...data].sort(
+        (a, b) =>
+          (b.averageRating ?? -1) - (a.averageRating ?? -1) ||
+          a.id.localeCompare(b.id),
+      );
+    }
+
     return {
-      data: await this.withAverageRating(products),
+      data,
       meta: {
         total,
         page: pageNum,

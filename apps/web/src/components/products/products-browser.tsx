@@ -34,6 +34,9 @@ import { formatPublishDate } from "@/lib/format-date";
 const SORT_OPTIONS = [
   { value: "price_asc", label: "Precio: menor a mayor" },
   { value: "price_desc", label: "Precio: mayor a menor" },
+  { value: "most_viewed", label: "Más vistos" },
+  { value: "most_favorited", label: "Más favoritos" },
+  { value: "top_rated", label: "Mejor valorados" },
 ] as const;
 
 type SortByValue = (typeof SORT_OPTIONS)[number]["value"];
