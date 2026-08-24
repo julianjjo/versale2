@@ -430,7 +430,7 @@ describe('CartService', () => {
   });
 
   describe('updateItem', () => {
-    it('should update cart item quantity', async () => {
+    it('should update cart item quantity and refresh priceAtAdd', async () => {
       const cartItemId = 'item1';
       const quantity = 1;
       const userId = 'user1';
@@ -439,11 +439,25 @@ describe('CartService', () => {
       mockPrismaService.client.cartItem.findUnique.mockResolvedValue({
         id: cartItemId,
         cartId: 'cart1',
+        productId: 'product1',
         cart: { id: 'cart1' },
+      });
+      mockProductsService.findRaw.mockResolvedValue({
+        id: 'product1',
+        price: 42.5,
+        isApproved: true,
+        status: 'AVAILABLE',
+        pausedAt: null,
+      });
+      mockPrismaService.client.cartItem.update.mockResolvedValue({
+        id: cartItemId,
+        quantity,
+        priceAtAdd: 42.5,
       });
 
       await service.updateItem(cartItemId, quantity, userId);
 
+      expect(mockProductsService.findRaw).toHaveBeenCalledWith('product1');
       // Only cart.id is needed for the ownership check, not getCart's own
       // deep product+seller include.
       expect(mockPrismaService.client.cart.upsert).toHaveBeenCalledWith({
@@ -455,13 +469,106 @@ describe('CartService', () => {
       expect(mockPrismaService.client.cartItem.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: cartItemId },
-          data: { quantity },
+          data: { quantity, priceAtAdd: 42.5 },
           include: {
             product: {
               include: { seller: { select: { id: true, name: true } } },
             },
           },
         }),
+      );
+    });
+
+    it('should refresh priceAtAdd when seller changed price', async () => {
+      const cartItemId = 'item1';
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
+      mockPrismaService.client.cartItem.findUnique.mockResolvedValue({
+        id: cartItemId,
+        cartId: 'cart1',
+        productId: 'product1',
+        cart: { id: 'cart1' },
+      });
+      mockProductsService.findRaw.mockResolvedValue({
+        id: 'product1',
+        price: 99.99,
+        isApproved: true,
+        status: 'AVAILABLE',
+        pausedAt: null,
+      });
+      mockPrismaService.client.cartItem.update.mockResolvedValue({
+        id: cartItemId,
+        priceAtAdd: 99.99,
+      });
+
+      await service.updateItem(cartItemId, 1, 'user1');
+
+      expect(mockPrismaService.client.cartItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { quantity: 1, priceAtAdd: 99.99 } }),
+      );
+    });
+
+    it('should reject update when product is paused', async () => {
+      const cartItemId = 'item1';
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
+      mockPrismaService.client.cartItem.findUnique.mockResolvedValue({
+        id: cartItemId,
+        cartId: 'cart1',
+        productId: 'product1',
+        cart: { id: 'cart1' },
+      });
+      mockProductsService.findRaw.mockResolvedValue({
+        id: 'product1',
+        price: 10,
+        isApproved: true,
+        status: 'AVAILABLE',
+        pausedAt: new Date(),
+      });
+
+      await expect(service.updateItem(cartItemId, 1, 'user1')).rejects.toThrow(
+        'El vendedor pausó este producto temporalmente y no está disponible',
+      );
+      expect(mockPrismaService.client.cartItem.update).not.toHaveBeenCalled();
+    });
+
+    it('should reject update when product is not approved', async () => {
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
+      mockPrismaService.client.cartItem.findUnique.mockResolvedValue({
+        id: 'item1',
+        cartId: 'cart1',
+        productId: 'product1',
+        cart: { id: 'cart1' },
+      });
+      mockProductsService.findRaw.mockResolvedValue({
+        id: 'product1',
+        price: 10,
+        isApproved: false,
+        status: 'AVAILABLE',
+        pausedAt: null,
+      });
+
+      await expect(service.updateItem('item1', 1, 'user1')).rejects.toThrow(
+        'El producto no está aprobado para la venta',
+      );
+    });
+
+    it('should reject update when product is sold', async () => {
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
+      mockPrismaService.client.cartItem.findUnique.mockResolvedValue({
+        id: 'item1',
+        cartId: 'cart1',
+        productId: 'product1',
+        cart: { id: 'cart1' },
+      });
+      mockProductsService.findRaw.mockResolvedValue({
+        id: 'product1',
+        price: 10,
+        isApproved: true,
+        status: 'SOLD',
+        pausedAt: null,
+      });
+
+      await expect(service.updateItem('item1', 1, 'user1')).rejects.toThrow(
+        'Este producto ya fue vendido y no está disponible',
       );
     });
 

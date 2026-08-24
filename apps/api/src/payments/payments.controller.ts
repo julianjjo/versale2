@@ -1,4 +1,5 @@
 import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthRequest } from '../types/request.types';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PaymentsService } from './payments.service';
@@ -35,6 +36,7 @@ export class PaymentsController {
    * En desarrollo, exponer vía ngrok (`ngrok http 3001`) y configurar la URL
    * `https://…ngrok.app/payments/webhooks/mp` en el panel de MP (sandbox).
    */
+  @Throttle({ default: { ttl: 60000, limit: 20 } })
   @Post('webhooks/mp')
   async webhook(@Body() body: MpWebhookBody) {
     // MP envía {type: 'payment', data: {id}}; el id es lo único que usamos —
