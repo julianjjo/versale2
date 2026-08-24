@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return -- Transform value is any from class-transformer */
 import { Transform, Type } from 'class-transformer';
 import {
   IsDefined,

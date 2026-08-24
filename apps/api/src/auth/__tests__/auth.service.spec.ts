@@ -76,8 +76,8 @@ describe('AuthService', () => {
       const name = 'Test User';
       const hashedPassword = 'hashed_password_123';
 
-      (bcrypt.hash as unknown as jest.Mock).mockImplementation(
-        () => Promise.resolve(hashedPassword),
+      (bcrypt.hash as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve(hashedPassword),
       );
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
       mockPrismaService.client.user.create.mockResolvedValue({
@@ -130,8 +130,8 @@ describe('AuthService', () => {
     // reached (the DTO's @Equals(true) already refused any call otherwise).
     it('records the moment consent was given', async () => {
       const before = Date.now();
-      (bcrypt.hash as unknown as jest.Mock).mockImplementation(
-        () => Promise.resolve('hashed'),
+      (bcrypt.hash as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve('hashed'),
       );
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
       mockPrismaService.client.user.create.mockResolvedValue({
@@ -158,8 +158,8 @@ describe('AuthService', () => {
       delete process.env.AUTH_EXPOSE_VERIFICATION_TOKEN;
       const email = 'test@example.com';
 
-      (bcrypt.hash as unknown as jest.Mock).mockImplementation(
-        () => Promise.resolve('hashed'),
+      (bcrypt.hash as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve('hashed'),
       );
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
       mockPrismaService.client.user.create.mockResolvedValue({
@@ -182,8 +182,8 @@ describe('AuthService', () => {
       const email = 'test@example.com';
 
       try {
-        (bcrypt.hash as unknown as jest.Mock).mockImplementation(
-          () => Promise.resolve('hashed'),
+        (bcrypt.hash as unknown as jest.Mock).mockImplementation(() =>
+          Promise.resolve('hashed'),
         );
         mockPrismaService.client.user.findUnique.mockResolvedValue(null);
         mockPrismaService.client.user.create.mockResolvedValue({
@@ -229,8 +229,8 @@ describe('AuthService', () => {
     it('envía el correo de verificación con el enlace que contiene el token crudo', async () => {
       const email = 'nuevo@example.com';
 
-      (bcrypt.hash as unknown as jest.Mock).mockImplementation(
-        () => Promise.resolve('hashed'),
+      (bcrypt.hash as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve('hashed'),
       );
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
       mockPrismaService.client.user.create.mockResolvedValue({
@@ -264,8 +264,8 @@ describe('AuthService', () => {
     });
 
     it('no rompe el signup si Brevo falla (la cuenta ya existe; se puede reenviar)', async () => {
-      (bcrypt.hash as unknown as jest.Mock).mockImplementation(
-        () => Promise.resolve('hashed'),
+      (bcrypt.hash as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve('hashed'),
       );
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
       mockPrismaService.client.user.create.mockResolvedValue({
@@ -289,8 +289,8 @@ describe('AuthService', () => {
     });
 
     it('estampa la expiración del token de verificación a futuro', async () => {
-      (bcrypt.hash as unknown as jest.Mock).mockImplementation(
-        () => Promise.resolve('hashed'),
+      (bcrypt.hash as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve('hashed'),
       );
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
       mockPrismaService.client.user.create.mockResolvedValue({
@@ -348,9 +348,9 @@ describe('AuthService', () => {
       };
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(user);
-      (
-        bcrypt.compare as unknown as jest.Mock
-      ).mockImplementation(() => Promise.resolve(true));
+      (bcrypt.compare as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve(true),
+      );
       mockJwtService.sign.mockReturnValue('fake-jwt-token');
 
       const result = await service.login(email, password);
@@ -450,9 +450,9 @@ describe('AuthService', () => {
       };
 
       mockPrismaService.client.user.findUnique.mockResolvedValue(user);
-      (
-        bcrypt.compare as unknown as jest.Mock
-      ).mockImplementation(() => Promise.resolve(false));
+      (bcrypt.compare as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve(false),
+      );
 
       await expect(service.login(email, password)).rejects.toThrow(
         UnauthorizedException,
@@ -573,8 +573,8 @@ describe('AuthService', () => {
       const newPassword = 'newPassword123';
       const hashedPassword = 'hashed_new_password';
 
-      (bcrypt.hash as unknown as jest.Mock).mockImplementation(
-        () => Promise.resolve(hashedPassword),
+      (bcrypt.hash as unknown as jest.Mock).mockImplementation(() =>
+        Promise.resolve(hashedPassword),
       );
       mockPrismaService.client.user.updateMany.mockResolvedValue({
         count: 1,

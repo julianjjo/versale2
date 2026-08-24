@@ -101,7 +101,10 @@ export class UsersService implements OnModuleInit, OnModuleDestroy {
     name: string;
     password: string;
   }) {
-    const hashedPassword = await bcrypt.hash(createUserDto.password, BCRYPT_ROUNDS);
+    const hashedPassword = await bcrypt.hash(
+      createUserDto.password,
+      BCRYPT_ROUNDS,
+    );
     return this.prisma.client.user.create({
       data: {
         email: createUserDto.email,

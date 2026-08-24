@@ -62,7 +62,7 @@ export class ReviewsController {
     @Body() body: UpdateReviewDto,
   ) {
     const userId = req.user.id;
-    return this.reviewsService.update(id, body, userId, req.user.role as Role);
+    return this.reviewsService.update(id, body, userId, req.user.role);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -79,7 +79,7 @@ export class ReviewsController {
   @Delete(':id')
   async deleteReview(@Req() req: AuthRequest, @Param('id') id: string) {
     const userId = req.user.id;
-    return this.reviewsService.remove(id, userId, req.user.role as Role);
+    return this.reviewsService.remove(id, userId, req.user.role);
   }
 
   // Two segments (':id/helpful'), so it never collides with the bare ':id'

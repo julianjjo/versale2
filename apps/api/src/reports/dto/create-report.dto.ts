@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return -- Transform value is any from class-transformer */
 import { Transform } from 'class-transformer';
 import { IsEnum, IsString, IsNotEmpty, MaxLength } from 'class-validator';
 import { ReportCategory } from '@prisma/client';

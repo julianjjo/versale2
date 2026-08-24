@@ -18,8 +18,6 @@ jest.mock('bcryptjs', () => ({
 // bare overloaded function infers a mock whose value type collapses to
 // `never`. Spying through a narrowed, single-signature view of the module
 // picks the Promise overload unambiguously.
-type BcryptHash = (password: string, salt: number | string) => Promise<string>;
-type BcryptCompare = (password: string, hash: string) => Promise<boolean>;
 
 function spyOnBcryptHash() {
   return bcrypt.hash as unknown as jest.Mock;

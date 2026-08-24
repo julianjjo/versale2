@@ -524,7 +524,9 @@ export class ProductsService {
           // Prisma fetch and serialize the rest of the row back.
           select: { id: true },
         })
-        .catch((e) => this.logger.error('Failed to record a product view', e as Error));
+        .catch((e) =>
+          this.logger.error('Failed to record a product view', e as Error),
+        );
     }
 
     // Mirrors ReviewsService.findAllByProduct's own verifiedPurchase

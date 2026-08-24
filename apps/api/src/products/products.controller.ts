@@ -24,9 +24,15 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 
-const toLimit=(v:string|undefined,f:number)=>{const n=Number(v);return Number.isInteger(n)&&n>0&&n<=1_000_000?n:f;}
+const toLimit = (v: string | undefined, f: number) => {
+  const n = Number(v);
+  return Number.isInteger(n) && n > 0 && n <= 1_000_000 ? n : f;
+};
 export const PRODUCTS_SEARCH_THROTTLE_TTL = minutes(1);
-export const PRODUCTS_SEARCH_THROTTLE_LIMIT = toLimit(process.env.PRODUCTS_SEARCH_THROTTLE_LIMIT, 60);
+export const PRODUCTS_SEARCH_THROTTLE_LIMIT = toLimit(
+  process.env.PRODUCTS_SEARCH_THROTTLE_LIMIT,
+  60,
+);
 
 @Controller('products')
 export class ProductsController {
@@ -102,7 +108,7 @@ export class ProductsController {
     return this.productsService.bulkPause(
       bulkPauseDto.ids,
       req.user.id,
-      req.user.role as Role,
+      req.user.role,
     );
   }
 
@@ -115,7 +121,7 @@ export class ProductsController {
     return this.productsService.bulkUnpause(
       bulkUnpauseDto.ids,
       req.user.id,
-      req.user.role as Role,
+      req.user.role,
     );
   }
 
@@ -130,14 +136,14 @@ export class ProductsController {
       id,
       updateProductDto,
       req.user.id,
-      req.user.role as Role,
+      req.user.role,
     );
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   async remove(@Param('id') id: string, @Req() req: AuthRequest) {
-    return this.productsService.remove(id, req.user.id, req.user.role as Role);
+    return this.productsService.remove(id, req.user.id, req.user.role);
   }
 
   // Two segments (':id/pause', ':id/unpause'), so neither collides with the
@@ -146,21 +152,13 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard)
   @Patch(':id/pause')
   async pause(@Param('id') id: string, @Req() req: AuthRequest) {
-    return this.productsService.pauseProduct(
-      id,
-      req.user.id,
-      req.user.role as Role,
-    );
+    return this.productsService.pauseProduct(id, req.user.id, req.user.role);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id/unpause')
   async unpause(@Param('id') id: string, @Req() req: AuthRequest) {
-    return this.productsService.unpauseProduct(
-      id,
-      req.user.id,
-      req.user.role as Role,
-    );
+    return this.productsService.unpauseProduct(id, req.user.id, req.user.role);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
