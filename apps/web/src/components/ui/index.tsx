@@ -467,15 +467,7 @@ export function SectionHeader({
   );
 }
 
-// Format a numeric value as Colombian pesos (COP):
-//   $ 1.234.567
-// Whole pesos only — the marketplace doesn't list items with decimals.
-const copFormatter = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  maximumFractionDigits: 0,
-});
-
+// ponytail: Price via toLocaleString; Intl.NumberFormat singleton if render hot (>100 Prices/page)
 export function Price({
   value,
   className = "",
@@ -489,7 +481,7 @@ export function Price({
       className={`font-display font-medium tabular-nums text-text-primary ${className}`}
       {...rest}
     >
-      {copFormatter.format(value)}
+      {value.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })}
     </span>
   );
 }
