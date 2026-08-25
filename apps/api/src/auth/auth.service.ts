@@ -10,7 +10,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { BrevoService } from '../notifications/brevo.service';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
-import { User } from '@prisma/client';
+import { Prisma, User } from '@prisma/client';
+import { translatePrismaError } from '../common/prisma-error';
 
 const BCRYPT_ROUNDS = 10;
 
@@ -63,21 +64,30 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const verificationToken = crypto.randomBytes(32).toString('hex');
-    const user = await this.prisma.client.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name,
-        // Stored hashed: a database leak alone must not hand out a live,
-        // directly-usable verification token for every unverified account.
-        verificationToken: hashOpaqueToken(verificationToken),
-        verificationTokenExpires: new Date(Date.now() + VERIFY_TOKEN_TTL_MS),
-        // Item 8: SignupDto's @Equals(true) on acceptedTerms already refused
-        // this call ever reaching here without consent — this timestamp is
-        // simply the record of when that happened, not another check.
-        termsAcceptedAt: new Date(),
-      },
-    });
+    let user: User;
+    try {
+      user = await this.prisma.client.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          name,
+          // Stored hashed: a database leak alone must not hand out a live,
+          // directly-usable verification token for every unverified account.
+          verificationToken: hashOpaqueToken(verificationToken),
+          verificationTokenExpires: new Date(Date.now() + VERIFY_TOKEN_TTL_MS),
+          // Item 8: SignupDto's @Equals(true) on acceptedTerms already refused
+          // this call ever reaching here without consent — this timestamp is
+          // simply the record of when that happened, not another check.
+          termsAcceptedAt: new Date(),
+        },
+      });
+    } catch (e) {
+      // Two concurrent signups with same email both pass findUnique before either writes
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new ConflictException('Ya existe una cuenta con ese correo');
+      }
+      throw e;
+    }
 
     await this.sendVerificationEmail(user.email, user.name, verificationToken);
 

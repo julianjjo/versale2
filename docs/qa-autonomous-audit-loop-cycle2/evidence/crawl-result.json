@@ -1,0 +1,24 @@
+{
+  "visited": [
+    { "url": "http://127.0.0.1:3100/", "interactives": 12 },
+    { "url": "http://127.0.0.1:3100/products", "interactives": 14 },
+    { "url": "http://127.0.0.1:3100/products/aea0ddc6-e4f9-4ed7-ab1e-32bf17d1c8db", "interactives": 10 },
+    { "url": "http://127.0.0.1:3100/cart", "interactives": 8 },
+    { "url": "http://127.0.0.1:3100/login", "interactives": 6 },
+    { "url": "http://127.0.0.1:3100/signup", "interactives": 7 },
+    { "url": "http://127.0.0.1:3100/favoritos", "interactives": 9 },
+    { "url": "http://127.0.0.1:3100/mis-productos", "interactives": 11 },
+    { "url": "http://127.0.0.1:3100/mis-ventas", "interactives": 10 },
+    { "url": "http://127.0.0.1:3100/orders", "interactives": 9 },
+    { "url": "http://127.0.0.1:3100/profile", "interactives": 8 },
+    { "url": "http://127.0.0.1:3100/vendedores/403f7672-512f-4cb7-ae7d-f257417ce011", "interactives": 8 }
+  ],
+  "result": {
+    "consoleErrors": [],
+    "hydrationErrors": [],
+    "failedRequests": [],
+    "duplicateRequests": [],
+    "metrics": { "JSHeapUsedSize": 18874368, "TaskDuration": 0.21 },
+    "longTasks": 0
+  }
+}

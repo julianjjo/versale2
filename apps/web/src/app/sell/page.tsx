@@ -86,6 +86,17 @@ function readPrefill(searchParams: ReturnType<typeof useSearchParams>) {
 }
 
 const DRAFT_STORAGE_KEY = "versale:sell-draft:v1";
+const DRAFT_EVENT = "versale:sell-draft-change";
+const DRAFT_CHANNEL = "versale-sell-draft";
+function emitDraftChange() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(DRAFT_EVENT));
+  try {
+    const ch = new BroadcastChannel(DRAFT_CHANNEL);
+    ch.postMessage(DRAFT_STORAGE_KEY);
+    ch.close();
+  } catch {}
+}
 type SellDraft = Partial<Record<string, string>>;
 function readDraft(): SellDraft {
   const parsed = readJson<unknown>(DRAFT_STORAGE_KEY, {});
@@ -94,9 +105,11 @@ function readDraft(): SellDraft {
 }
 function writeDraft(form: Record<string, string>) {
   writeJson(DRAFT_STORAGE_KEY, form);
+  emitDraftChange();
 }
 function clearDraft() {
   removeKey(DRAFT_STORAGE_KEY);
+  emitDraftChange();
 }
 
 // "1, 2 y 4" — Spanish uses "y" before the last item, not a serial comma.
@@ -174,13 +187,25 @@ function SellForm() {
   });
 
   useEffect(() => {
-    function onStorage(event: StorageEvent) {
-      if (event.key === DRAFT_STORAGE_KEY) {
-        setDraftChangedElsewhere(true);
-      }
+    function onChange() {
+      setDraftChangedElsewhere(true);
     }
+    function onStorage(event: StorageEvent) {
+      if (event.key === DRAFT_STORAGE_KEY) onChange();
+    }
+    const customHandler = () => onChange();
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel(DRAFT_CHANNEL);
+      bc.onmessage = () => onChange();
+    } catch {}
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener(DRAFT_EVENT, customHandler);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(DRAFT_EVENT, customHandler);
+      if (bc) bc.close();
+    };
   }, []);
 
   if (isAuthLoading) {

@@ -1,0 +1,11 @@
+{
+  "largeImage": { "maxFiles": 6, "batchSize": 5, "batch5ok": true, "sizeGuard": "Supera 5MB.", "server413mapped": true, "minor": "Multer 413 vs 400" },
+  "draftCrossTab": { "key": "versale:sell-draft:v1", "storageEvent": true, "sameTab": false, "broadcastChannel": false, "minor": "no BroadcastChannel like tokenStore" },
+  "favoriteToggle": { "rapid3x": true, "upsertIdempotent": true, "deleteP2025handled": true, "pass": true },
+  "reviewDuplicate": { "secondAttempt": 400, "message": "Ya has reseñado este producto", "p2002handled": true, "pass": true },
+  "concurrentOrder": { "productSoldRace": true, "soldCountGuard": "sold.count !== productIds.length", "rollbackCartIntact": true, "pass": true },
+  "pausedRace": { "pausedAfterAdd": true, "cartBanner": "El vendedor la pausó temporalmente", "checkout400": "El vendedor pausó el producto", "updateManyPausedAtNullGuard": true, "pass": true },
+  "topRated": { "bugFound": "per-page sort, not global", "fix": "fetch all + global sort + slice", "file": "apps/api/src/products/products.service.ts:315-347" },
+  "authRace": { "bugFound": "signup P2002 500", "fix": "try/catch P2002 -> 409", "file": "apps/api/src/auth/auth.service.ts:67-83" },
+  "helpfulRace": { "bugFound": "votedByMe stale param", "fix": "re-query findUnique", "file": "apps/api/src/reviews/reviews.service.ts:268-274" }
+}

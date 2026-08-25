@@ -323,6 +323,36 @@ export class ProductsService {
       where.condition = condition;
     }
 
+    if (isTopRated) {
+      // Global rating sort cannot be pushed to DB without a materialized
+      // column; per-page in-memory sort misorders pagination (page1 top 3 vs
+      // global top 10). Fetch all matches, enrich, sort globally, then slice.
+      // ponytail: O(n) in-memory, cheap for n<10k; materialize averageRating + index if catalog >10k
+      const [allProducts, total] = await Promise.all([
+        this.prisma.client.product.findMany({
+          where,
+          include: { seller: { select: { id: true, name: true } } },
+        }),
+        this.prisma.client.product.count({ where }),
+      ]);
+      let allData = await this.withAverageRating(allProducts);
+      allData = [...allData].sort(
+        (a, b) =>
+          (b.averageRating ?? -1) - (a.averageRating ?? -1) ||
+          a.id.localeCompare(b.id),
+      );
+      const data = allData.slice(skip, skip + limitNum);
+      return {
+        data,
+        meta: {
+          total,
+          page: pageNum,
+          limit: limitNum,
+          pages: Math.ceil(total / limitNum),
+        },
+      };
+    }
+
     const [products, total] = await Promise.all([
       this.prisma.client.product.findMany({
         where,
@@ -336,15 +366,7 @@ export class ProductsService {
       this.prisma.client.product.count({ where }),
     ]);
 
-    let data = await this.withAverageRating(products);
-    // ponytail: top_rated sorted in-memory per page (n=limit ≤100), materialize averageRating column + index if catalog >10k
-    if (isTopRated) {
-      data = [...data].sort(
-        (a, b) =>
-          (b.averageRating ?? -1) - (a.averageRating ?? -1) ||
-          a.id.localeCompare(b.id),
-      );
-    }
+    const data = await this.withAverageRating(products);
 
     return {
       data,
