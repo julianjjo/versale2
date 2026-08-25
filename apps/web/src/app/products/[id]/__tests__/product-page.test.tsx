@@ -160,7 +160,7 @@ describe("ProductPage", () => {
     const json = JSON.parse(script.props.dangerouslySetInnerHTML.__html) as Record<string, unknown>;
     expect(json["@type"]).toBe("Product");
     const offers = json.offers as Record<string, unknown>;
-    expect(offers.priceCurrency).toBe("ARS");
+    expect(offers.priceCurrency).toBe("COP");
     expect(offers.availability).toBe("https://schema.org/InStock");
   });
 

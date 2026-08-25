@@ -24,11 +24,11 @@ function product(overrides: Partial<Product> = {}): Product {
 }
 
 describe("buildProductJsonLd", () => {
-  it("mapea AVAILABLE a InStock con ARS y url canonica", () => {
+  it("mapea AVAILABLE a InStock con COP y url canonica", () => {
     const json = buildProductJsonLd(product({ status: "AVAILABLE" }), "https://versale.ar");
     expect(json["@type"]).toBe("Product");
     expect(json.offers.availability).toBe("https://schema.org/InStock");
-    expect(json.offers.priceCurrency).toBe("ARS");
+    expect(json.offers.priceCurrency).toBe("COP");
     expect(json.offers.price).toBe(45000);
     expect(json.url).toBe("https://versale.ar/products/p1");
     expect(json.offers.url).toBe("https://versale.ar/products/p1");
