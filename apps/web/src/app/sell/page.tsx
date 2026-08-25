@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
@@ -157,6 +158,19 @@ function SellForm() {
   // wrote the change. This can't safely auto-merge (whose text wins?), so it
   // just surfaces the fact instead of guessing.
   const [draftChangedElsewhere, setDraftChangedElsewhere] = useState(false);
+
+  const { data: suggested } = useQuery({
+    queryKey: ["suggested-price", form.category, form.condition],
+    queryFn: () =>
+      api
+        .get<{ suggestedPrice: number | null; sampleSize?: number }>(
+          "/products/suggested-price",
+          { params: { category: form.category, condition: form.condition } },
+        )
+        .then((r) => r.data),
+    enabled: !!form.category && !!form.condition,
+    staleTime: 60_000,
+  });
 
   useEffect(() => {
     function onStorage(event: StorageEvent) {
@@ -469,6 +483,12 @@ function SellForm() {
             required
             hint="Precio en pesos colombianos, sin decimales."
           />
+          {suggested?.suggestedPrice != null && (
+            <p className="text-xs text-text-muted">
+              Precio sugerido: ${suggested.suggestedPrice.toLocaleString("es-CO")} (basado en{" "}
+              {suggested.sampleSize} publicaciones)
+            </p>
+          )}
 
           <div className="space-y-2">
             <label

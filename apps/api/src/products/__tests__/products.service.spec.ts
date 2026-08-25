@@ -45,6 +45,7 @@ describe('ProductsService', () => {
       findMany: jest.fn(),
       count: jest.fn(),
       groupBy: jest.fn(),
+      aggregate: jest.fn(),
     },
     orderItem: {
       findFirst: jest.fn(),
@@ -3315,6 +3316,35 @@ describe('ProductsService', () => {
         }),
       );
       expect(result).toEqual({ rejected: 1, requested: 1 });
+    });
+  });
+
+  describe('getSuggestedPrice', () => {
+    it('returns average for exact category+condition when enough samples', async () => {
+      mockPrismaService.client.product.aggregate.mockResolvedValueOnce({
+        _avg: { price: 50000.4 },
+        _count: 5,
+      });
+      const res = await service.getSuggestedPrice('Chaquetas', 'Good');
+      expect(res).toEqual({ suggestedPrice: 50000, sampleSize: 5 });
+      expect(mockPrismaService.client.product.aggregate).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back to category-only when condition bucket too small', async () => {
+      mockPrismaService.client.product.aggregate
+        .mockResolvedValueOnce({ _avg: { price: 40000 }, _count: 1 })
+        .mockResolvedValueOnce({ _avg: { price: 60000 }, _count: 4 });
+      const res = await service.getSuggestedPrice('Jeans', 'New');
+      expect(res).toEqual({ suggestedPrice: 60000, sampleSize: 4 });
+      expect(mockPrismaService.client.product.aggregate).toHaveBeenCalledTimes(2);
+    });
+
+    it('returns null when both buckets insufficient', async () => {
+      mockPrismaService.client.product.aggregate
+        .mockResolvedValueOnce({ _avg: { price: null }, _count: 0 })
+        .mockResolvedValueOnce({ _avg: { price: 30000 }, _count: 2 });
+      const res = await service.getSuggestedPrice('Otros', 'Fair');
+      expect(res).toEqual({ suggestedPrice: null });
     });
   });
 });
