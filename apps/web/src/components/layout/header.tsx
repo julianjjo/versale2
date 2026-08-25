@@ -76,7 +76,7 @@ export function Header() {
     <header
       className="sticky top-0 z-40 border-b border-line bg-surface/90 backdrop-blur supports-[backdrop-filter]:bg-surface/75"
     >
-      <div className="mx-auto flex h-16 w-full max-w-[1320px] items-center justify-between gap-2 px-5 sm:px-8">
+      <div className="mx-auto flex h-[var(--header-h)] w-full max-w-[1320px] items-center justify-between gap-2 px-5 sm:px-8">
         <Link
           href="/"
           className="flex items-baseline text-text-primary"
@@ -236,7 +236,7 @@ export function Header() {
             role="dialog"
             aria-modal="true"
             aria-label="Navegación móvil"
-            className="fixed inset-x-0 top-16 z-40 border-b border-border bg-surface shadow-lg md:hidden"
+            className="fixed inset-x-0 top-[var(--header-h)] z-40 border-b border-border bg-surface shadow-lg md:hidden"
           >
             <nav
               aria-label="Navegación móvil"

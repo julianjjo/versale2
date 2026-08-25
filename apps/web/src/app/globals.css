@@ -50,6 +50,11 @@
   --background: var(--color-paper);
   --foreground: var(--color-ink);
   --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* Height of the sticky <Header>. Single source of truth: the header bar,
+     the mobile menu panel that hangs off its bottom edge, and the deep-link
+     scroll offset below all read it, so the three can't drift apart. */
+  --header-h: 4rem;
 }
 
 @theme inline {
@@ -396,6 +401,14 @@ body {
 }
 
 @layer utilities {
+  /* Deep-link targets (#resenas from an order line, #main-content from the
+     skip link). Without this the browser aligns the target's top edge with
+     the viewport's and the sticky header paints straight over the heading
+     the user was sent to. The extra 1rem keeps it off the header hairline. */
+  .scroll-anchor {
+    scroll-margin-top: calc(var(--header-h) + 1rem);
+  }
+
   .line-clamp-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
