@@ -231,6 +231,7 @@ function ProductsBrowserContent({
       return response.data;
     },
     placeholderData: keepPreviousData,
+    staleTime: 30_000,
   });
 
   const { data: facets } = useQuery({
