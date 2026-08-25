@@ -141,8 +141,12 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   wrapperClassName?: string;
 }
 
+// `border-control`, not `border-border`: a card hairline (ink at 10%, 1.22:1
+// on paper) is fine as decoration but is not a boundary that *identifies* a
+// control, which WCAG 2.2 SC 1.4.11 puts at 3:1. Every labelled control below
+// shares this string, so the fix lands on Input, Textarea and Select at once.
 const controlClasses =
-  "w-full rounded-md border border-border bg-surface text-sm text-text-primary placeholder:text-text-muted transition-colors focus:border-text-primary focus:outline-none focus:ring-2 focus:ring-text-primary/20 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:opacity-60";
+  "w-full rounded-md border border-control bg-surface text-sm text-text-primary placeholder:text-text-muted transition-colors focus:border-text-primary focus:outline-none focus:ring-2 focus:ring-text-primary/20 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:opacity-60";
 
 export function Input({
   label,
@@ -253,7 +257,7 @@ export function Checkbox({
       type="checkbox"
       id={fieldId}
       style={{ accentColor: "var(--color-ink)" }}
-      className={`h-4 w-4 rounded border-border-strong text-text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`h-4 w-4 rounded border-control text-text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       {...props}
     />
   );

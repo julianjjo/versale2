@@ -5,10 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { Spinner, Card, Price } from "@/components/ui";
-import {
-  ORDER_STATUS_LABEL,
-  ORDER_STATUS_VARIANT,
-} from "@/lib/order-status";
+import { ORDER_STATUS_LABEL, ORDER_STATUS_VARIANT } from "@/lib/order-status";
 import { Badge } from "@/components/ui";
 import type { Order, Product } from "@/lib/types";
 
@@ -59,9 +56,7 @@ export default function AdminOverview() {
   const { data: usersOverview, isLoading: usersLoading } = useQuery({
     queryKey: ["admin-users"],
     queryFn: async () => {
-      const res = await api.get<{ meta: { total: number } }>(
-        "/users?limit=1",
-      );
+      const res = await api.get<{ meta: { total: number } }>("/users?limit=1");
       return res.data;
     },
   });
@@ -87,9 +82,7 @@ export default function AdminOverview() {
   const pendingRevenue = orderStats?.pendingRevenue ?? 0;
   // Distinto de "0 reseñas": si la consulta falló no sabemos el total real,
   // así que la tarjeta lo dice en vez de mostrar un cero engañoso.
-  const totalReviews = reviewsError
-    ? "—"
-    : (reviewsOverview?.meta.total ?? 0);
+  const totalReviews = reviewsError ? "—" : (reviewsOverview?.meta.total ?? 0);
 
   const loading =
     productsLoading ||
@@ -98,72 +91,86 @@ export default function AdminOverview() {
     usersLoading ||
     reviewsLoading;
 
+  // El h1 se pinta en todos los estados, carga incluida: es el único
+  // encabezado de nivel 1 de la página y el punto donde aterriza un lector de
+  // pantalla al cambiar de pestaña, así que no puede depender de que las cinco
+  // consultas hayan respondido.
+  const heading = (
+    <h1 className="heading-section mb-4 text-text-primary">Resumen general</h1>
+  );
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
-        <Spinner className="h-5 w-5" /> Cargando…
+      <div>
+        {heading}
+        <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
+          <Spinner className="h-5 w-5" /> Cargando…
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Productos pendientes"
-          value={pendingProducts}
-          href="/admin/products"
-        />
-        <StatCard
-          label="Pedidos totales"
-          value={totalOrders}
-          href="/admin/orders"
-        />
-        <StatCard
-          label="Usuarios totales"
-          value={totalUsers}
-          href="/admin/users"
-        />
-        <StatCard
-          label="Ingresos confirmados (COP)"
-          value={<Price value={confirmedRevenue} className="font-semibold" />}
-          hint={
-            pendingRevenue > 0 ? (
-              <>
-                <Price value={pendingRevenue} className="text-text-muted" />{" "}
-                pendientes de pago
-              </>
-            ) : undefined
-          }
-        />
-        <StatCard
-          label="Reseñas totales"
-          value={totalReviews}
-          href="/admin/reviews"
-        />
-      </div>
+    <div>
+      {heading}
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="Productos pendientes"
+            value={pendingProducts}
+            href="/admin/products"
+          />
+          <StatCard
+            label="Pedidos totales"
+            value={totalOrders}
+            href="/admin/orders"
+          />
+          <StatCard
+            label="Usuarios totales"
+            value={totalUsers}
+            href="/admin/users"
+          />
+          <StatCard
+            label="Ingresos confirmados (COP)"
+            value={<Price value={confirmedRevenue} className="font-semibold" />}
+            hint={
+              pendingRevenue > 0 ? (
+                <>
+                  <Price value={pendingRevenue} className="text-text-muted" />{" "}
+                  pendientes de pago
+                </>
+              ) : undefined
+            }
+          />
+          <StatCard
+            label="Reseñas totales"
+            value={totalReviews}
+            href="/admin/reviews"
+          />
+        </div>
 
-      {recentOrders && recentOrders.data.length > 0 && (
-        <Card>
-          <h2 className="heading-card mb-3">Pedidos recientes</h2>
-          <div className="divide-y divide-border">
-            {recentOrders.data.map((order) => (
-              <div
-                key={order.id}
-                className="flex items-center justify-between py-2 text-sm first:pt-0 last:pb-0"
-              >
-                <span className="font-mono text-text-muted">
-                  #{order.id.slice(0, 8)}
-                </span>
-                <Badge variant={ORDER_STATUS_VARIANT[order.status]}>
-                  {ORDER_STATUS_LABEL[order.status]}
-                </Badge>
-                <Price value={order.totalAmount} />
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
+        {recentOrders && recentOrders.data.length > 0 && (
+          <Card>
+            <h2 className="heading-card mb-3">Pedidos recientes</h2>
+            <div className="divide-y divide-border">
+              {recentOrders.data.map((order) => (
+                <div
+                  key={order.id}
+                  className="flex items-center justify-between py-2 text-sm first:pt-0 last:pb-0"
+                >
+                  <span className="font-mono text-text-muted">
+                    #{order.id.slice(0, 8)}
+                  </span>
+                  <Badge variant={ORDER_STATUS_VARIANT[order.status]}>
+                    {ORDER_STATUS_LABEL[order.status]}
+                  </Badge>
+                  <Price value={order.totalAmount} />
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
@@ -184,9 +191,7 @@ function StatCard({
   const inner = (
     <Card className="h-full transition-shadow hover:shadow-md">
       <p className="text-eyebrow">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-text-primary">
-        {value}
-      </p>
+      <p className="mt-2 text-2xl font-semibold text-text-primary">{value}</p>
       {hint && <p className="mt-1 text-xs text-text-muted">{hint}</p>}
     </Card>
   );

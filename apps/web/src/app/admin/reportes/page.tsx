@@ -84,9 +84,9 @@ export default function AdminReportsPage() {
 
   return (
     <div>
-      <h2 className="heading-section mb-4 text-text-primary">
+      <h1 className="heading-section mb-4 text-text-primary">
         Publicaciones reportadas
-      </h2>
+      </h1>
 
       <div
         className="mb-4 flex flex-wrap gap-2"

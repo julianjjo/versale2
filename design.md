@@ -49,7 +49,8 @@ content breathable.
 | `--color-success`  | `#166534`  | "Live" pulse, positive status (darkened from `#4a8a4a` for 4.5:1). |
 | `--color-danger`   | `#b91c1c`  | Destructive actions, form errors (darkened from `#DC2626` for 4.5:1). |
 | `--color-warning`  | `#9a3412`  | "Pending" status (darkened from `#D97706` for 4.5:1).       |
-| `--color-info`     | `#2563EB`  | Neutral informational states.                               |
+| `--color-info`     | `#1d4ed8`  | Neutral informational states (darkened from `#2563EB`: badges paint each status token on its own 10% tint, where the old value read 4.10:1 against its peers' 4.98–5.66:1). |
+| `--color-control`  | `#82796c`  | Form-control boundary — inputs, selects, textareas, checkboxes, file-picker buttons. Not for structural hairlines. |
 
 Aliases (kept stable from the previous system so existing Tailwind classes
 keep working):
@@ -65,6 +66,16 @@ keep working):
 | `--color-border-strong`| `--color-line-2`       |
 | `--color-primary`      | `--color-terracotta`   |
 | `--color-primary-foreground` | `--color-ink`  |
+
+### Color scheme
+
+This is a single, committed light world: no token above has a dark
+counterpart and there is no dark theme to switch to. `:root` therefore
+declares `color-scheme: light`, which stops a device set to dark from
+force-darkening the canvas, the scrollbars, autofill, and the native chrome
+of `<select>` and date popups into colours that resolve to no token here.
+Adding a dark theme is a new decision, not a default — it would mean a second
+value for every token, not flipping this line.
 
 ### Typography
 
@@ -305,8 +316,16 @@ italic at 12% ink opacity), title (Fraunces 28px), body, and tag pill
 ### Form fields
 
 Inputs follow the existing `Input`, `Textarea`, `Select` (height 40, radius
-`rounded-md`, border `--color-border`). The `sell` form price field uses
+`rounded-md`, border `--color-control`). The `sell` form price field uses
 `step="1"` to match the backend DTO; do not tighten it.
+
+The boundary is `--color-control`, never `--color-border`. A card hairline
+(`--color-line`, ink at 10%) reads 1.22:1 on paper: fine as decoration, but it
+is the only thing that says "this is a field", and WCAG 2.2 SC 1.4.11 puts
+that at 3:1. `--color-control` clears it on every paper surface (3.87 on
+`--color-paper`, 3.54 on `--color-paper-2`, 3.27 on `--color-paper-3`). This
+applies to raw `<input>`s outside the shared components too, including the
+`file:` pseudo-element of the two file pickers (`sell`, order dispute).
 
 ### Focus states
 
@@ -329,6 +348,11 @@ Targets WCAG 2.2 AA, keyboard-first, full keyboard reachability.
   the 4.5:1 normal-text one. For body text and for 11–13px labels, use
   `--color-terracotta-deep` (`#a04d2c`, ~5.3:1 on paper) instead, or back
   plain terracotta with a paper block.
+- Non-text contrast (SC 1.4.11): the boundary that identifies a form control,
+  and any graphic carrying meaning on its own, must reach 3:1 against its
+  adjacent surface. Form controls use `--color-control`; a structural hairline
+  (`--color-border`) is decoration and is exempt, so the two are not
+  interchangeable.
 - Every interactive element must be reachable by Tab; order matches the
   visual order. Focus ring must be visible on all variants.
 - The mobile menu trigger must toggle `aria-expanded` and trap/close focus
@@ -345,6 +369,15 @@ Targets WCAG 2.2 AA, keyboard-first, full keyboard reachability.
 ## Content and tone standards
 
 - All visible copy is in Spanish. Keep Spanish labels in tests in sync.
+- Every route carries its own `<title>`, written as `Página — Versale` and
+  matching the page's own `h1` wherever one exists. Routes whose `page.tsx`
+  is `"use client"` cannot export `metadata`, so each mounts a minimal
+  `layout.tsx` that renders nothing but its children and supplies the title;
+  `/admin` supplies the `%s · Admin — Versale` template for its sections.
+  Inheriting the root title is a bug: it leaves tabs, history and bookmarks
+  all reading "Versale".
+- Every page has exactly one `h1`, and it renders in every state — loading
+  included — not only once the data resolves.
 - Voice: concise, confident, helpful. Prefer the active voice and second
   person.
 - Headlines may use one italicized word in terracotta for emphasis. Never
