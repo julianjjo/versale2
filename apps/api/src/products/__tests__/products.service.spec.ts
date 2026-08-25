@@ -1837,14 +1837,14 @@ describe('ProductsService', () => {
           status: 'AVAILABLE' as const,
           pausedAt: null,
           OR: [
-            { title: { contains: 'test' } },
-            { description: { contains: 'test' } },
-            { brand: { contains: 'test' } },
-            { category: { contains: 'test' } },
+            { title: { contains: 'test', mode: 'insensitive' } },
+            { description: { contains: 'test', mode: 'insensitive' } },
+            { brand: { contains: 'test', mode: 'insensitive' } },
+            { category: { contains: 'test', mode: 'insensitive' } },
           ],
           price: { gte: 10, lte: 100 },
           size: 'M',
-          brand: { contains: 'TestBrand' },
+          brand: { contains: 'TestBrand', mode: 'insensitive' },
           condition: 'New',
         },
         skip: 0,
@@ -1860,14 +1860,14 @@ describe('ProductsService', () => {
           status: 'AVAILABLE' as const,
           pausedAt: null,
           OR: [
-            { title: { contains: 'test' } },
-            { description: { contains: 'test' } },
-            { brand: { contains: 'test' } },
-            { category: { contains: 'test' } },
+            { title: { contains: 'test', mode: 'insensitive' } },
+            { description: { contains: 'test', mode: 'insensitive' } },
+            { brand: { contains: 'test', mode: 'insensitive' } },
+            { category: { contains: 'test', mode: 'insensitive' } },
           ],
           price: { gte: 10, lte: 100 },
           size: 'M',
-          brand: { contains: 'TestBrand' },
+          brand: { contains: 'TestBrand', mode: 'insensitive' },
           condition: 'New',
         },
       });
@@ -1946,7 +1946,7 @@ describe('ProductsService', () => {
             isApproved: true,
             status: 'AVAILABLE' as const,
             pausedAt: null,
-            category: { equals: 'Jackets' },
+            category: { equals: 'Jackets', mode: 'insensitive' },
           },
         }),
       );
@@ -1955,7 +1955,7 @@ describe('ProductsService', () => {
           isApproved: true,
           status: 'AVAILABLE' as const,
           pausedAt: null,
-          category: { equals: 'Jackets' },
+          category: { equals: 'Jackets', mode: 'insensitive' },
         },
       });
     });
@@ -2036,9 +2036,9 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            category: { equals: 'Jeans' },
+            category: { equals: 'Jeans', mode: 'insensitive' },
             size: 'M',
-            brand: { contains: 'Levi' },
+            brand: { contains: 'Levi', mode: 'insensitive' },
             condition: 'Good',
             sellerId: 'seller1',
           }) as Record<string, unknown>,
@@ -2126,12 +2126,12 @@ describe('ProductsService', () => {
         }
       ).where;
       expect(where.OR).toEqual([
-        { title: { contains: 'Chaqueta' } },
-        { description: { contains: 'Chaqueta' } },
-        { brand: { contains: 'Chaqueta' } },
-        { category: { contains: 'Chaqueta' } },
+        { title: { contains: 'Chaqueta', mode: 'insensitive' } },
+        { description: { contains: 'Chaqueta', mode: 'insensitive' } },
+        { brand: { contains: 'Chaqueta', mode: 'insensitive' } },
+        { category: { contains: 'Chaqueta', mode: 'insensitive' } },
       ]);
-      expect(where.brand).toEqual({ contains: 'Zara' });
+      expect(where.brand).toEqual({ contains: 'Zara', mode: 'insensitive' });
     });
 
     it('should use case-insensitive equals for category', async () => {
@@ -2139,8 +2139,37 @@ describe('ProductsService', () => {
       expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            category: { equals: 'Jeans' },
+            category: { equals: 'Jeans', mode: 'insensitive' },
           }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('search "jeans" is case-insensitive (finds "Jeans")', async () => {
+      await service.findAll({ search: 'jeans' });
+      const where = (mockPrismaService.client.product.findMany.mock.calls[0][0] as { where: { OR: unknown } }).where;
+      expect(where.OR).toEqual([
+        { title: { contains: 'jeans', mode: 'insensitive' } },
+        { description: { contains: 'jeans', mode: 'insensitive' } },
+        { brand: { contains: 'jeans', mode: 'insensitive' } },
+        { category: { contains: 'jeans', mode: 'insensitive' } },
+      ]);
+    });
+
+    it('brand "nike" is case-insensitive (finds "Nike")', async () => {
+      await service.findAll({ brand: 'nike' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ brand: { contains: 'nike', mode: 'insensitive' } }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('category "chaquetas" is case-insensitive (finds "Chaquetas")', async () => {
+      await service.findAll({ category: 'chaquetas' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ category: { equals: 'chaquetas', mode: 'insensitive' } }) as Record<string, unknown>,
         }),
       );
     });
@@ -2199,10 +2228,10 @@ describe('ProductsService', () => {
             pausedAt: null,
             sellerId: 'seller1',
             OR: [
-              { title: { contains: 'jacket' } },
-              { description: { contains: 'jacket' } },
-              { brand: { contains: 'jacket' } },
-              { category: { contains: 'jacket' } },
+              { title: { contains: 'jacket', mode: 'insensitive' } },
+              { description: { contains: 'jacket', mode: 'insensitive' } },
+              { brand: { contains: 'jacket', mode: 'insensitive' } },
+              { category: { contains: 'jacket', mode: 'insensitive' } },
             ],
           },
         }),
@@ -2737,10 +2766,10 @@ describe('ProductsService', () => {
           where: {
             sellerId: 'seller1',
             OR: [
-              { title: { contains: 'chaqueta' } },
-              { description: { contains: 'chaqueta' } },
-              { brand: { contains: 'chaqueta' } },
-              { category: { contains: 'chaqueta' } },
+              { title: { contains: 'chaqueta', mode: 'insensitive' } },
+              { description: { contains: 'chaqueta', mode: 'insensitive' } },
+              { brand: { contains: 'chaqueta', mode: 'insensitive' } },
+              { category: { contains: 'chaqueta', mode: 'insensitive' } },
             ],
           },
         }),
@@ -2764,10 +2793,10 @@ describe('ProductsService', () => {
             status: 'AVAILABLE' as const,
             pausedAt: null,
             OR: [
-              { title: { contains: 'lino' } },
-              { description: { contains: 'lino' } },
-              { brand: { contains: 'lino' } },
-              { category: { contains: 'lino' } },
+              { title: { contains: 'lino', mode: 'insensitive' } },
+              { description: { contains: 'lino', mode: 'insensitive' } },
+              { brand: { contains: 'lino', mode: 'insensitive' } },
+              { category: { contains: 'lino', mode: 'insensitive' } },
             ],
           },
         }),

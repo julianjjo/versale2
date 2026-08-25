@@ -159,11 +159,12 @@ export class ProductsService {
   // listings): the same four text columns, so the two search experiences
   // can't silently drift apart the way two hand-copied blocks would.
   private searchTextWhere(term: string) {
+    // ponytail: mode: insensitive maps to COLLATE NOCASE on SQLite via Prisma; cast as any because generated SQLite types omit `mode`
     return [
-      { title: { contains: term } },
-      { description: { contains: term } },
-      { brand: { contains: term } },
-      { category: { contains: term } },
+      { title: { contains: term, mode: 'insensitive' } as unknown as Prisma.StringFilter<'Product'> },
+      { description: { contains: term, mode: 'insensitive' } as unknown as Prisma.StringFilter<'Product'> },
+      { brand: { contains: term, mode: 'insensitive' } as unknown as Prisma.StringFilter<'Product'> },
+      { category: { contains: term, mode: 'insensitive' } as unknown as Prisma.StringFilter<'Product'> },
     ];
   }
 
@@ -290,10 +291,10 @@ export class ProductsService {
       where.size = size;
     }
     if (typeof brand === 'string' && brand) {
-      where.brand = { contains: brand };
+      (where as Record<string, unknown>).brand = { contains: brand, mode: 'insensitive' };
     }
     if (typeof category === 'string' && category) {
-      where.category = { equals: category };
+      (where as Record<string, unknown>).category = { equals: category, mode: 'insensitive' };
     }
     if (typeof condition === 'string' && condition) {
       where.condition = condition;
