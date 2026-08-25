@@ -3319,6 +3319,49 @@ describe('ProductsService', () => {
     });
   });
 
+  describe('findAll with condition/size normalization', () => {
+    beforeEach(() => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+    });
+
+    it('folds lowercase condition to canonical Good', async () => {
+      await service.findAll({ condition: 'good' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ condition: 'Good' }) as Record<
+            string,
+            unknown
+          >,
+        }),
+      );
+    });
+
+    it('folds size m to canonical M', async () => {
+      await service.findAll({ size: 'm' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ size: 'M' }) as Record<
+            string,
+            unknown
+          >,
+        }),
+      );
+    });
+
+    it('trims whitespace for condition and size', async () => {
+      await service.findAll({ condition: ' Good ', size: ' m ' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            condition: 'Good',
+            size: 'M',
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+  });
+
   describe('getSuggestedPrice', () => {
     it('returns average for exact category+condition when enough samples', async () => {
       mockPrismaService.client.product.aggregate.mockResolvedValueOnce({

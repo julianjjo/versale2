@@ -130,7 +130,7 @@ function filtersFromQuery(
   if (maxPrice !== undefined) filters.maxPrice = maxPrice;
   for (const key of ["size", "brand", "category", "condition"] as const) {
     const value = params.get(key)?.trim();
-    if (value) filters[key] = value;
+    if (value) filters[key] = key === "size" ? value.toUpperCase() : value;
   }
   const sortBy = params.get("sortBy")?.trim() ?? "";
   if (isSortByValue(sortBy)) filters.sortBy = sortBy;
