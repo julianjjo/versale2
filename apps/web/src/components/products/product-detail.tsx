@@ -631,7 +631,8 @@ export function ProductDetail({
                       idPrefix={`edit-review-${review.id}`}
                     />
                     <Textarea
-                      label="Comentario (opcional)"
+                      label="Comentario"
+                      optional
                       value={editComment}
                       onChange={(e) => setEditComment(e.target.value)}
                       rows={3}
@@ -791,7 +792,8 @@ export function ProductDetail({
               idPrefix="review"
             />
             <Textarea
-              label="Comentario (opcional)"
+              label="Comentario"
+              optional
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               rows={3}

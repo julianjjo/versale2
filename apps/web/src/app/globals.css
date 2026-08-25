@@ -173,6 +173,19 @@ body {
     letter-spacing: -0.03em;
   }
 
+  /* Display headings that compose their own line breaks. Each authored line
+     is a direct <span> child, so it becomes its own block and balances within
+     its own phrase. A hard <br> used to do this, but the break was authored
+     for the widest layout and stayed forced everywhere else: at
+     clamp(56px, 9vw, 148px) the hero line already wraps on a phone, so the
+     <br> added a second break and stranded an orphan ("Dale una / segunda /
+     vida / a tu / moda."). Blocks keep the composition at every width and let
+     the wrap fall where the measure actually needs it. */
+  .heading-lines > span {
+    display: block;
+    text-wrap: balance;
+  }
+
   .heading-card {
     font-family: var(--font-display);
     font-size: 1rem;

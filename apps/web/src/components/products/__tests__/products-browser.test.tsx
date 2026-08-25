@@ -160,9 +160,14 @@ describe("ProductsBrowser", () => {
         <ProductsBrowser showPagination={false} />
       </TestProviders>,
     );
-    expect(screen.getByPlaceholderText(/buscar/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/precio mín/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/precio máx/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^buscar$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^precio mínimo$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^precio máximo$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^talla$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^condición$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^marca$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^categoría$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^ordenar por$/i)).toBeInTheDocument();
   });
 
   it("renderiza la lista de productos cuando hay datos", async () => {
@@ -403,7 +408,7 @@ describe("ProductsBrowser", () => {
       </TestProviders>,
     );
 
-    await user.type(screen.getByPlaceholderText(/buscar/i), "chaqueta");
+    await user.type(screen.getByLabelText(/^buscar$/i), "chaqueta");
     await user.click(screen.getByRole("button", { name: /aplicar/i }));
 
     await waitFor(() => {
@@ -466,8 +471,8 @@ describe("ProductsBrowser", () => {
       </TestProviders>,
     );
 
-    const brandSelect = screen.getByLabelText(/filtrar por marca/i);
-    const categorySelect = screen.getByLabelText(/filtrar por categoría/i);
+    const brandSelect = screen.getByLabelText(/^marca$/i);
+    const categorySelect = screen.getByLabelText(/^categoría$/i);
 
     await waitFor(() => {
       expect(screen.getByRole("option", { name: "Levi's" })).toBeInTheDocument();
@@ -495,9 +500,9 @@ describe("ProductsBrowser", () => {
       expect(screen.getByRole("option", { name: "Zara" })).toBeInTheDocument();
     });
 
-    await user.selectOptions(screen.getByLabelText(/filtrar por marca/i), "Zara");
+    await user.selectOptions(screen.getByLabelText(/^marca$/i), "Zara");
     await user.selectOptions(
-      screen.getByLabelText(/filtrar por categoría/i),
+      screen.getByLabelText(/^categoría$/i),
       "Chaquetas",
     );
     await user.click(screen.getByRole("button", { name: /aplicar/i }));
@@ -530,7 +535,7 @@ describe("ProductsBrowser", () => {
     });
 
     await user.selectOptions(
-      screen.getByLabelText(/ordenar por/i),
+      screen.getByLabelText(/^ordenar por$/i),
       "price_asc",
     );
     await user.click(screen.getByRole("button", { name: /aplicar/i }));
@@ -559,15 +564,15 @@ describe("ProductsBrowser", () => {
     });
 
     await user.selectOptions(
-      screen.getByLabelText(/ordenar por/i),
+      screen.getByLabelText(/^ordenar por$/i),
       "price_desc",
     );
     await user.click(screen.getByRole("button", { name: /aplicar/i }));
-    expect(screen.getByLabelText(/ordenar por/i)).toHaveValue("price_desc");
+    expect(screen.getByLabelText(/^ordenar por$/i)).toHaveValue("price_desc");
 
     await user.click(screen.getByRole("button", { name: /limpiar filtros/i }));
 
-    expect(screen.getByLabelText(/ordenar por/i)).toHaveValue("");
+    expect(screen.getByLabelText(/^ordenar por$/i)).toHaveValue("");
     await waitFor(() => {
       expect(api.get).toHaveBeenLastCalledWith(
         "/products",
@@ -591,20 +596,20 @@ describe("ProductsBrowser", () => {
       expect(screen.getByRole("option", { name: "Zara" })).toBeInTheDocument();
     });
 
-    const searchInput = screen.getByPlaceholderText(/buscar/i);
+    const searchInput = screen.getByLabelText(/^buscar$/i);
     await user.type(searchInput, "chaqueta");
-    await user.selectOptions(screen.getByLabelText(/filtrar por marca/i), "Zara");
+    await user.selectOptions(screen.getByLabelText(/^marca$/i), "Zara");
     await user.click(screen.getByRole("button", { name: /aplicar/i }));
 
     expect(searchInput).toHaveValue("chaqueta");
-    expect(screen.getByLabelText(/filtrar por marca/i)).toHaveValue("Zara");
+    expect(screen.getByLabelText(/^marca$/i)).toHaveValue("Zara");
 
     await user.click(screen.getByRole("button", { name: /limpiar filtros/i }));
 
     // Regression: the form used to be uncontrolled (defaultValue), so
     // clearing the applied filters left stale text visible in the inputs.
     expect(searchInput).toHaveValue("");
-    expect(screen.getByLabelText(/filtrar por marca/i)).toHaveValue("");
+    expect(screen.getByLabelText(/^marca$/i)).toHaveValue("");
 
     await waitFor(() => {
       expect(api.get).toHaveBeenLastCalledWith(
@@ -627,9 +632,9 @@ describe("ProductsBrowser", () => {
       </TestProviders>,
     );
 
-    expect(screen.getByPlaceholderText(/buscar/i)).toHaveValue("jacket");
-    expect(screen.getByLabelText(/filtrar por talla/i)).toHaveValue("M");
-    expect(screen.getByLabelText(/filtrar por condición/i)).toHaveValue("Good");
+    expect(screen.getByLabelText(/^buscar$/i)).toHaveValue("jacket");
+    expect(screen.getByLabelText(/^talla$/i)).toHaveValue("M");
+    expect(screen.getByLabelText(/^condición$/i)).toHaveValue("Good");
 
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(
@@ -655,8 +660,8 @@ describe("ProductsBrowser", () => {
       </TestProviders>,
     );
 
-    await user.type(screen.getByPlaceholderText(/buscar/i), "chaqueta");
-    await user.selectOptions(screen.getByLabelText(/filtrar por talla/i), "L");
+    await user.type(screen.getByLabelText(/^buscar$/i), "chaqueta");
+    await user.selectOptions(screen.getByLabelText(/^talla$/i), "L");
     await user.click(screen.getByRole("button", { name: /aplicar/i }));
 
     expect(nav.url).toBe("/products?search=chaqueta&size=L");
