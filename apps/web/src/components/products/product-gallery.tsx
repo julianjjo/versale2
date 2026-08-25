@@ -78,7 +78,7 @@ export function ProductGallery({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={activeImage.url}
-            alt=""
+            alt={activeAlt}
             className="max-h-[80vh] w-full rounded-md object-contain"
           />
         </Modal>

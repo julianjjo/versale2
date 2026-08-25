@@ -20,7 +20,7 @@ export function buildProductJsonLd(product: Product, siteUrl: string) {
     offers: {
       "@type": "Offer",
       price: product.price,
-      priceCurrency: "ARS",
+      priceCurrency: "COP",
       availability,
       url,
       seller: product.seller?.name
