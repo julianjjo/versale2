@@ -7,7 +7,7 @@ import {
 import { E2E_USERS } from "../utils/seed";
 import { PrismaClient } from "@prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-// ponytail: path not needed — URL is fixed relative to repo root for e2e webServer env
+import path from "node:path";
 
 test.describe.configure({ mode: "serial" });
 
@@ -81,11 +81,8 @@ async function createOrder(
 
 function prismaForE2e() {
   // ponytail: cron not exposed via HTTP — direct DB backdate is the minimal e2e bridge
-  // DATABASE_URL is set to file:apps/api/e2e.db by playwright webServer env
   const url =
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ((globalThis as any).process?.env?.DATABASE_URL as string | undefined) ??
-    "file:./apps/api/e2e.db";
+    process.env.DATABASE_URL ?? `file:${path.join(__dirname, "../../apps/api/e2e.db")}`;
   const adapter = new PrismaBetterSqlite3({ url });
   return new PrismaClient({ adapter });
 }
@@ -336,11 +333,14 @@ test.describe("Ciclo de vida P1: pedidos, envíos, disputas y crons", () => {
     // simular ventana vencida: backdate deliveredAt 3 días atrás vía Prisma
     // ponytail: cron no expuesto por HTTP — backdate directo a DB y verifica estado vía GET
     const prisma = prismaForE2e();
-    await prisma.order.update({
-      where: { id: order.id },
-      data: { deliveredAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) },
-    });
-    await prisma.$disconnect();
+    try {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { deliveredAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) },
+      });
+    } finally {
+      await prisma.$disconnect();
+    }
     const late = await req.post(`${API_URL}/orders/${order.id}/dispute`, {
       headers: hdr(buyer.token),
       data: { reason: DISPUTE_REASON, photos: [DISPUTE_PHOTO] },
@@ -384,27 +384,32 @@ test.describe("Ciclo de vida P1: pedidos, envíos, disputas y crons", () => {
     // con sweep se movería a REFUNDED y relistaría (ver test feliz).
     // ponytail: si hace falta testear autoRefund/autoResolve por HTTP, exponer POST /orders/admin/debug/run-sweeps solo en NODE_ENV=test.
     const prisma = prismaForE2e();
-    await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        disputeExpiresAt: new Date(Date.now() - 60 * 1000),
-      },
-    });
-    // otro pedido PAID hace 8 días para futuro autoRefundUnshippedPaidOrders
-    const seller2 = await createBuyer(req);
-    const prod2 = await createSellerProduct(req, seller2.token, `P1 Cron PAID ${suffix}`);
-    const buyer2 = await createBuyer(req);
-    await addToCart(req, buyer2.token, prod2.id);
-    const orderPaid = await createOrder(req, buyer2.token);
-    await req.patch(`${API_URL}/orders/admin/${orderPaid.id}/status`, {
-      headers: hdr(adminToken),
-      data: { status: "PAID" },
-    });
-    await prisma.order.update({
-      where: { id: orderPaid.id },
-      data: { paidAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000) },
-    });
-    await prisma.$disconnect();
+    let orderPaid: { id: string } | undefined;
+    let buyer2: { token: string } | undefined;
+    try {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          disputeExpiresAt: new Date(Date.now() - 60 * 1000),
+        },
+      });
+      // otro pedido PAID hace 8 días para futuro autoRefundUnshippedPaidOrders
+      const seller2 = await createBuyer(req);
+      const prod2 = await createSellerProduct(req, seller2.token, `P1 Cron PAID ${suffix}`);
+      buyer2 = await createBuyer(req);
+      await addToCart(req, buyer2.token, prod2.id);
+      orderPaid = await createOrder(req, buyer2.token);
+      await req.patch(`${API_URL}/orders/admin/${orderPaid.id}/status`, {
+        headers: hdr(adminToken),
+        data: { status: "PAID" },
+      });
+      await prisma.order.update({
+        where: { id: orderPaid.id },
+        data: { paidAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000) },
+      });
+    } finally {
+      await prisma.$disconnect();
+    }
 
     // verificar que sin sweep siguen en su estado
     const stillDisputed = await req.get(`${API_URL}/orders/${order.id}`, {
@@ -413,8 +418,8 @@ test.describe("Ciclo de vida P1: pedidos, envíos, disputas y crons", () => {
     expect(stillDisputed.status()).toBe(200);
     expect((await stillDisputed.json()).status).toBe("DISPUTED");
 
-    const stillPaid = await req.get(`${API_URL}/orders/${orderPaid.id}`, {
-      headers: hdr(buyer2.token),
+    const stillPaid = await req.get(`${API_URL}/orders/${orderPaid!.id}`, {
+      headers: hdr(buyer2!.token),
     });
     expect(stillPaid.status()).toBe(200);
     expect((await stillPaid.json()).status).toBe("PAID");
