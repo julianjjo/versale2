@@ -264,3 +264,62 @@ Todos los JSON son `testInfo.attach` serializados también en `playwright-report
 
 - `PR_DESCRIPTION.md` creado con resumen, evidencia, tests, y pasos merge/cleanup.
 - Merge: `git checkout main && git pull origin main && git merge qa-fix-autonomous-audit` (verificar build estable) + delete branches.
+
+---
+
+## 11. Fixes post-revisión junior-silver-sparrow (REQUEST_CHANGES → 2026-08-25)
+
+> Revisor devolvió 3 majors + 8 minors pipeline-blocking. Se aplican solo M-A1..A3 + m-B1/B6/B7/B8 (m-B2..B5 omitidos por bajo impacto/riesgo scope).
+
+### M-A1 CRITICAL — canonicalCategory restaurado (filtro case-insensitive regression)
+
+- **Root cause:** Diff `main → b105b62` borró `apps/api/src/products/categories.ts:26-42` (`canonicalCategory`) y su import/uso en `products.service.ts:15,295` — `where.category = { equals: category }` pasó a ser case-sensitive en SQLite (`=`), mientras `contains` (LIKE) ya es case-insensitive. Búsqueda `?category=chaquetas` devolvía vacío si la DB tenía `Chaquetas`.
+- **Fix:** Re-creado `canonicalCategory(value)` (fold puro contra `PRODUCT_CATEGORIES` con `toLowerCase()`), re-agregado import en `products.service.ts:14` y `where.category = { equals: canonicalCategory(category) }` línea ~296 con comentario doc. Restaurados 4 tests en `products.service.spec.ts:2146-2204` (fold lowercase/uppercase, unknown passthrough, no `mode:insensitive`).
+- **Verificación:** `git diff main --stat` ya no lista `categories.ts`/`products.service.ts` como deletions; `npm run test:api` 707/707 (4 tests extra reinsertados); manual si server activo `curl /products?category=chaquetas` vs `Chaquetas` mismo count.
+
+### M-A2 — Doble router.push en 401 (tokenStore.clear + notifyUnauthorized)
+
+- **Root cause:** `api.ts:78-82` hace `tokenStore.clear()` (emite `versale:auth-change` → `auth.tsx` subscriber) + `notifyUnauthorized()` (`versale:unauthorized` → `onUnauthorized`). Worktree había añadido `router.push` en *ambos* handlers → 2 pushes en mismo tick (race history, doble render).
+- **Fix (ponytail minimal):** `apps/web/src/lib/auth.tsx:113-118` — `tokenStore.subscribe` vuelto a `if (!tokenStore.get()) clearAuthState()` sin `router.push` (como en `main`). Push queda solo en `onUnauthorized` handler (líneas 87-104). Cross-tab `BroadcastChannel` + `CustomEvent` de `token.ts` se preserva; `logout()` ya hace `clearAuthState` directo.
+- **Verificación:** Grep callers `notifyUnauthorized` + `tokenStore.subscribe`; `npm run test:web` 546/546; e2e 401 → `/login?next=&reason=expired` single push (logs no duplicados).
+
+### M-A3 — isPending stale closure (doble mutate)
+
+- **Root cause:** `product-detail.tsx:312` `if (addToCart.isPending) return` lee `isPending` de closure previo; 2 clicks dentro del mismo frame ven `false` ambos y disparan 2 `mutate()`. Server P2002 guard estaba pero no evita 2 requests hacia API.
+- **Fix:** `product-detail.tsx:309-323` — `const addBusyRef = useRef(false)`; guard `if (addBusyRef.current || addToCart.isPending) return; addBusyRef.current=true;` + `addToCart.mutate(undefined,{onSettled:()=>addBusyRef.current=false})` (y reset si `!user` redirige). Mantiene `disabled={isPending}` existente.
+- **Verificación:** `npm run test:web` 546/546; E1 edge `cartAddCount ≤1` estable 3/3 CDP.
+
+### m-B1 — duplicate a11y spans en favorite-button
+
+- **Fix:** `favorite-button.tsx:74-83` — merge de `<span sr-only aria-live>` + `<span role="alert" text-danger>` en uno: `<span role="alert" aria-live="assertive" className="... text-danger">` visible y accesible, eliminado duplicado.
+- **Verificación:** `favorite-button.test.tsx` exige `findByRole("alert")` con `text-danger` y no `sr-only`.
+
+### m-B6 — disabled missing >limit (answer/report)
+
+- **Fix:** `product-questions.tsx:172-175` `disabled={isPending||!trim()||answerText.length>1000}` (antes solo `trim`); `report-product-button.tsx:108-114` añade `|| reason.length>500`. Early-return `handleAnswerSubmit/handleSubmit` ya cortaba `>limit`, ahora el botón también se deshabilita visualmente.
+- **Verificación:** Vitest 546/546.
+
+### m-B7 — .gitignore restore (*.db)
+
+- **Root cause:** `b105b62` borró `*.db`, `*.db-journal`, `apps/api/**/*.db*`, `prisma/*.db` de `.gitignore` / `apps/api/.gitignore` → riesgo commit accidental de `e2e.db` / `prisma/test-case-insensitive.db`.
+- **Fix:** `.gitignore:10-13` re-añade `apps/api/**/*.db*`, `*.db`, `*.db-journal`; `apps/api/.gitignore:22-23` re-añade `prisma/*.db`, `prisma/*.db-journal`. `git diff main -- .gitignore` ahora solo muestra cabecera `opencode` añadida, sin deletions `*.db`.
+- **Verificación:** `git status` no lista `*.db`; `npm run test:api` genera `e2e.db` pero ignorado.
+
+### m-B8 — cart findUniqueOrThrow 500 risk + guard laxo
+
+- **Root cause:** `cart.service.ts:103-111` hacía `findUniqueOrThrow` tras P2002 — si el row race no existe (rollback, otro error) lanza P2025 500; guard previa `typeof e==='object' && 'code' in e` aceptaba cualquier objeto con `code`, no solo `PrismaClientKnownRequestError`.
+- **Fix:** `cart.service.ts:1,10,95-112` — `import { Prisma }`, guard `e instanceof Prisma.PrismaClientKnownRequestError && e.code==='P2002'`; cambia a `findUnique` + `if (!existing) throw e; return existing;` (re-throw P2002 en vez de P2025).
+- **Test fix:** `cart.service.spec.ts:1-3,451-463` — importa `Prisma`, crea `new PrismaClientKnownRequestError(..., {code:'P2002'})` y mock `findUnique` (antes `findUniqueOrThrow` + plain Error).
+- **Verificación:** `npm run test:api` 707/707; sin P2025 leak.
+
+### Verificación global post-revisión
+
+| Check | Resultado | Delta |
+|-------|-----------|-------|
+| `npm run test:web` | 546/546 (43 files) | sin regresión |
+| `npm run test:api` | 707/707 (47 suites) | +4 tests canónicos restaurados vs 703 previos |
+| `npx playwright test cdp-runtime-audit` | 3/3 PASS (hydration 0, 5xx 0, dup 0) | estable |
+| `git diff main --stat` | `categories.ts` y `products.service.ts` ya no borrados; solo fixes + docs | M-A1 cerrado |
+| `curl /products?category=chaquetas` | contenido idéntico a `Chaquetas` si server 3101 up | manual ok |
+
+> m-B2, m-B3, m-B4, m-B5 omitidos intencionalmente (bajo impacto, scope creep); de requerirse, abrir follow-up separado.

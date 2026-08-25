@@ -72,14 +72,13 @@ export function FavoriteButton({
         <HeartIcon filled={isFavorite} />
       </button>
       {error && (
-        <>
-          <span className="sr-only" aria-live="assertive">
-            {error}
-          </span>
-          <span role="alert" className="mt-1 max-w-[12rem] whitespace-normal text-center text-xs text-danger">
-            {error}
-          </span>
-        </>
+        <span
+          role="alert"
+          aria-live="assertive"
+          className="mt-1 max-w-[12rem] whitespace-normal text-center text-xs text-danger"
+        >
+          {error}
+        </span>
       )}
     </span>
   );

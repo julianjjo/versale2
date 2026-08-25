@@ -170,7 +170,9 @@ export function ProductQuestions({
                           type="submit"
                           size="sm"
                           disabled={
-                            answerQuestion.isPending || !answerText.trim()
+                            answerQuestion.isPending ||
+                            !answerText.trim() ||
+                            answerText.length > 1000
                           }
                         >
                           {answerQuestion.isPending
