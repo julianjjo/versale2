@@ -5,10 +5,6 @@ import { ProductDetail } from "@/components/products/product-detail";
 import type { Product } from "@/lib/types";
 import { API_URL } from "@/lib/site";
 
-type ProductLookup =
-  | { status: "ok"; product: Product }
-  | { status: "missing" }
-  | { status: "unavailable" };
 
 // The listing is resolved on the server first so a product that no longer
 // exists (deleted, rejected, never approved) answers with a real HTTP 404
@@ -20,7 +16,7 @@ type ProductLookup =
 // without this, generateMetadata below and the page body each fired their
 // own real request to the API for the same render, despite the comment that
 // used to live on generateMetadata claiming otherwise.
-const lookupProduct = cache(async (id: string): Promise<ProductLookup> => {
+const lookupProduct = cache(async (id: string): Promise<Product | null | undefined> => {
   try {
     const response = await fetch(
       `${API_URL}/products/${encodeURIComponent(id)}`,
@@ -33,13 +29,13 @@ const lookupProduct = cache(async (id: string): Promise<ProductLookup> => {
         signal: AbortSignal.timeout(5000),
       },
     );
-    if (response.status === 404) return { status: "missing" };
-    if (!response.ok) return { status: "unavailable" };
-    return { status: "ok", product: (await response.json()) as Product };
+    if (response.status === 404) return null;
+    if (!response.ok) return undefined;
+    return (await response.json()) as Product;
   } catch {
     // API unreachable: not a reason to claim the product is gone. Fall through
     // to the client query so the visitor gets the retryable error state.
-    return { status: "unavailable" };
+    return undefined;
   }
 });
 
@@ -52,13 +48,13 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const result = await lookupProduct(id);
+  const product = await lookupProduct(id);
 
-  if (result.status !== "ok") {
+
+  if (!product) {
     return { title: "Producto no encontrado — Versale" };
   }
 
-  const product = result.product;
   // The first image's alt doubles as og:image alt; the title is the fallback.
   // ponytail: truncate inline slice; restore helper with Intl.Segmenter if emoji at boundary
   const description = product.description.length <= 160 ? product.description : product.description.slice(0, 157) + "...";
@@ -93,12 +89,8 @@ export default async function ProductPage({
   // — which does carry the token — decide what to render.
   if (preview === "1") return <ProductDetail />;
 
-  const result = await lookupProduct(id);
-  if (result.status === "missing") notFound();
+  const product = await lookupProduct(id);
+  if (product === null) notFound();
 
-  return (
-    <ProductDetail
-      initialProduct={result.status === "ok" ? result.product : undefined}
-    />
-  );
+  return <ProductDetail initialProduct={product ?? undefined} />;
 }
