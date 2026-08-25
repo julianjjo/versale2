@@ -5,15 +5,6 @@ import Image from "next/image";
 import { Modal } from "../ui/modal";
 import type { ProductImage } from "@/lib/types";
 
-// Selection lives here, not in ProductDetail: the caller remounts this
-// component (via a `key` covering both the product id and the images
-// themselves — see the doc comment at the call site) whenever the picture
-// set changes, so `selectedIndex` never needs to be reconciled against a
-// content change under a stable id. That would otherwise be a real bug: an
-// index-based selection surviving a same-id refetch (e.g. after posting a
-// review invalidates the product query) has no way to tell "still the same
-// photo at this position" from "a different photo now happens to be here" —
-// remounting sidesteps the question entirely by always starting fresh.
 export function ProductGallery({
   images,
   title,
@@ -24,8 +15,6 @@ export function ProductGallery({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [zoomOpen, setZoomOpen] = useState(false);
   const activeImage = images[selectedIndex];
-  // The listing title is the fallback alt when a photo somehow lacks one; the
-  // API requires alt now, so this only shields legacy rows mid-migration.
   const activeAlt = activeImage?.alt || title;
 
   return (
@@ -44,10 +33,6 @@ export function ProductGallery({
           <span className="text-sm text-text-muted">Sin imagen</span>
         )}
       </div>
-      {/* Thumbnail highlighting is visual only (border + aria-current, not
-          announced on its own) — this gives screen-reader users the same
-          "you're now looking at photo N" confirmation a sighted user gets
-          from watching the main image swap. */}
       <div aria-live="polite" role="status" className="sr-only">
         {images.length > 0
           ? `Foto ${selectedIndex + 1} de ${images.length}`
@@ -90,12 +75,6 @@ export function ProductGallery({
       )}
       {activeImage && (
         <Modal open={zoomOpen} onClose={() => setZoomOpen(false)} title={activeAlt}>
-          {/* Decorative inside the dialog: the modal's aria-labelledby already
-              names the content with the photo's alt text. Plain img, not
-              next/image: it sizes itself to the photo's own aspect ratio via
-              max-h-[80vh]/object-contain, and next/image's `fill` needs a
-              parent with a predetermined size, which would force every photo
-              into the same box regardless of its actual proportions. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={activeImage.url}
