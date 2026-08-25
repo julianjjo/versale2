@@ -39,3 +39,18 @@ vi.mock("next/navigation", () => ({
   redirect: vi.fn(),
   notFound: vi.fn(),
 }));
+
+// next/font/google is compiled away by the Next.js bundler, which self-hosts
+// the font files at build time and replaces each loader call with the
+// generated class names. Vitest runs the modules untouched, so the imports
+// arrive as plain objects and calling them throws. Return the shape next/font
+// produces; `variable` carries the CSS custom-property name that pages spread
+// onto their root element to scope a font to that route.
+vi.mock("next/font/google", () => {
+  const loader = (options: { variable?: string } = {}) => ({
+    className: "mock-font",
+    variable: options.variable ?? "",
+    style: { fontFamily: "mock-font" },
+  });
+  return { Inter: loader, Fraunces: loader, IBM_Plex_Mono: loader };
+});

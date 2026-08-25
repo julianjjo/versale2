@@ -8,6 +8,7 @@ import { Spinner, Card, Price } from "@/components/ui";
 import { ORDER_STATUS_LABEL, ORDER_STATUS_VARIANT } from "@/lib/order-status";
 import { Badge } from "@/components/ui";
 import type { Order, Product } from "@/lib/types";
+import { plexMono } from "@/app/fonts-mono";
 
 // Cuántos pedidos pide la tarjeta "Pedidos recientes". Es lo único que necesita
 // la lista: los totales de la grilla vienen agregados de `/orders/admin/stats`.
@@ -111,7 +112,7 @@ export default function AdminOverview() {
   }
 
   return (
-    <div>
+    <div className={plexMono.variable}>
       {heading}
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

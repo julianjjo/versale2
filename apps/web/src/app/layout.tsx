@@ -1,31 +1,9 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter, IBM_Plex_Mono } from "next/font/google";
+import { fraunces, inter } from "./fonts";
 import "./globals.css";
 import { Providers } from "./providers";
 import { SiteChrome } from "@/components/layout/site-chrome";
 import { SkipLink } from "@/components/layout/skip-link";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  display: "swap",
-});
-
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-  display: "swap",
-  axes: ["opsz"],
-});
-
-const plexMono = IBM_Plex_Mono({
-  variable: "--font-plex-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  display: "swap",
-});
 
 // Título de respaldo: solo se ve en la portada. Cada ruta pone el suyo con
 // `export const metadata`, y las que tienen `page.tsx` marcado "use client"
@@ -45,10 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="es-CO"
-      className={`${inter.variable} ${fraunces.variable} ${plexMono.variable}`}
-    >
+    <html lang="es-CO" className={`${inter.variable} ${fraunces.variable}`}>
       <body className="min-h-screen flex flex-col bg-surface text-text-primary antialiased">
         <SkipLink />
         <Providers>

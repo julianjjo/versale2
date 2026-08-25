@@ -29,6 +29,7 @@ import { useDebouncedSearch } from "@/lib/use-debounced-search";
 import type { Order, OrderStatus } from "@/lib/types";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { plexMono } from "@/app/fonts-mono";
 
 // CANCELLED/REFUNDED are terminal (nextStatusesFor returns []) same as
 // DELIVERED, but unlike DELIVERED they undo a sale that already happened —
@@ -226,7 +227,10 @@ export default function AdminOrdersPage() {
   }, [selected.size, bulkUpdateStatus.isPending]);
 
   return (
-    <div style={{ paddingBottom: bulkBarHeight }}>
+    <div
+      className={plexMono.variable}
+      style={{ paddingBottom: bulkBarHeight }}
+    >
       <h1 className="heading-section mb-4 text-text-primary">
         Todos los pedidos
       </h1>
