@@ -1,9 +1,5 @@
 import Link from "next/link";
 
-// Every link resolves to a distinct destination that exists. The catalog has
-// no gender field, so the old Mujer/Hombre/Unisex entries all pointed at the
-// same unfiltered /products; condition is a real filter the browser reads
-// from the query string.
 const BUY_LINKS = [
   { label: "Explorar", href: "/products" },
   { label: "Nuevo", href: "/products?condition=New" },
@@ -11,8 +7,6 @@ const BUY_LINKS = [
   { label: "Buen estado", href: "/products?condition=Good" },
 ];
 
-// "Pedir bolsa" and "Calculadora de ganancias" were removed: neither feature
-// exists, and both pointed back at /sell.
 const ACCOUNT_LINKS = [
   { label: "Vender", href: "/sell" },
   { label: "Mis pedidos", href: "/orders" },
@@ -42,9 +36,6 @@ export function Footer() {
             <div className="mb-4 font-display text-[36px] font-medium tracking-[-0.03em]">
               versal<em className="text-terracotta">e</em>
             </div>
-            {/* The social icons were all href="#": there are no Versale
-                accounts to link to yet, so the row was removed rather than
-                left inert. */}
             <p className="max-w-[280px] text-sm leading-relaxed text-paper/70">
               Moda circular curada por personas, para personas. Hecho con
               cariño en Colombia.
@@ -56,10 +47,6 @@ export function Footer() {
           <FooterColumn title="Ayuda" links={HELP_LINKS} />
         </div>
 
-        {/* The dimming lives on each child, not on this row: `opacity` below 1
-            composites the whole subtree at once, so the links' own
-            hover:opacity-100 could never brighten them past the row's 60% —
-            and the focus ring was being painted at 60% too. */}
         <div className="flex flex-col items-start justify-between gap-4 border-t border-line-3 pt-8 text-xs sm:flex-row sm:items-center">
           <div className="text-paper/60">
             © {new Date().getFullYear()} Versale · Moda circular con ❤️
