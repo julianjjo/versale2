@@ -154,7 +154,8 @@ Rules:
 - Pills (CTAs, nav, filters): `9999px`.
 - Cards and inputs: `14px` (compact) or `18px` (large), or `20–24px` for
   editorial cards.
-- Product image: `14px`; category tile: `18px`.
+- Product image: `14px`. Category tiles and every other drop form use
+  `0 0 18px 18px` — squared shoulder, soft hem (see **Rail and drop**).
 
 ### Elevation
 
@@ -166,7 +167,8 @@ Rules:
 
 - Default easing: `cubic-bezier(0.25, 1, 0.5, 1)`; token name: `--ease-out`.
 - Durations: `200ms` (micro), `300ms` (controls), `600–800ms` (image zoom).
-- Hover translate: `-2px` for buttons, `-4px` for product cards.
+- Hover translate: `-2px` for buttons, `-4px` for product cards, `-6px` for a
+  drop form lifting off its rail (350ms) — the home page's authored moment.
 - Marquee: 30s linear infinite.
 - Pulse on the "Live" badge: 2s ease-out infinite `ping`.
 
@@ -275,33 +277,84 @@ the default border, replacing it with the soft shadow.
   color `--color-muted`), price in Fraunces 18px, optional strike-through
   in `--color-muted-3` 13px.
 
+### Rail and drop
+
+The home page's structural law, and the answer to a permanent constraint:
+Versale will never own art-directed photography. The only images that can
+exist are garments photographed by the people who own them, and the catalog
+is empty before launch — so the hero, the story and the category tiles are
+built to be complete with no image at all. A rounded rectangle is a picture
+frame, and an empty picture frame reads as a failed image load forever, so
+those blocks hang their content from a rail instead of framing it.
+
+Four primitives, defined in `globals.css`:
+
+- **Rail** — a 1px `--color-line` segment carried by each drop's own
+  `border-top` (`--color-line-4` via `.drop-ink` on ink surfaces). Per-drop
+  rather than per-container on purpose: a wrapping grid cannot draw a
+  container border above its second row, and a sectioned rail is truer to the
+  object anyway.
+- **Stem** — a 1px vertical line of length `--stem` from the rail to the
+  form's shoulder. **Every sibling sets a different `--stem`.** Equal stems
+  turn the row back into cards under a rule; the unequal lengths are what
+  read as garments of different cuts.
+- **Suspension mark** — a 6px `--color-terracotta-deep` dot centred across
+  the rail and stem (`--color-terracotta-light` on ink).
+- **Drop form** — `border-radius: 0 0 18px 18px`. Squared shoulder, soft hem.
+  This one radius pair carries the whole silhouette.
+
+Prohibited inside this system: hanger glyphs, garment silhouettes, clip-art,
+and any empty-hanger illustration — an empty hanger means *out of stock*,
+the opposite of the message. The rail is a compositional law, never a picture
+of a rail.
+
 ### Category tile
 
-- `aspect-ratio: 1/1.2`, radius 18, gradient overlay bottom→top
-  (transparent 30% → `rgba(0,0,0,.7)` 100%).
-- Title (Fraunces 30px) and count (13px / 85% opacity) sit bottom-left.
-- Image hover: scale 1.06 over 800ms.
-- Grid uses 12-col span. Desktop: spans 5/4/3 then 3/5/4. Tablet: all span 3.
-  Mobile: 2-col grid, all span 1.
+- Hangs from the rail: `.drop` + `.drop-form`, squared top, `18px` bottom
+  radius. No aspect ratio and **no scrim** — the gradient overlay existed
+  only to rescue bottom-anchored text laid over a photograph, and there is
+  no photograph.
+- Title (Fraunces 20 → 30px) sits at the **top**, under the suspension mark,
+  where a tag sits on a hanger. The real listing count (13px) sits at the
+  bottom edge. The open field between them is the garment.
+- Tones alternate `--color-ink` / `--color-paper-2` by index. A flat ink or
+  paper-2 field is a material; a flat `--color-paper-3` field inside a paper
+  page is a hole. Never ground a tile in `--color-paper-3`.
+- Width, length and stem all vary per tile (see `TILE_SHAPES`). Flex row:
+  2-up mobile, 3-up tablet, single no-wrap row at `lg`.
+- Hover/focus: the form lifts 6px while the stem stays put. The gap that
+  opens between them is the gesture, and it is the page's one authored
+  motion moment.
+- A tile may later carry a real listing photo in its open field without
+  changing the structure. The hero and the story never do — an owner's phone
+  photo at 640px undercuts the curation promise that the copy makes.
 
 ### Hero
 
-- Two-column grid `1.15fr 1fr`, gap 48, align end.
-- Display `h1` clamps 56–148px. The phrase "lo que compras" uses the strike
-  class to be visually crossed out.
-- Subhead: 16px `--color-muted-2`, line-height 1.65, max 420px.
-- Meta row: 1px top border, 32px gap, three stats (Fraunces 30px number +
-  13px caption).
-- Visual: 640px tall. Two overlapping images, radii 18, soft shadow. Top-left
-  "Live" badge with pulsing dot. Bottom-right discount card (`-65%`) on ink.
+- Single column. There is no image column; the display `h1` gets the full
+  `clamp(56px, 9vw, 148px)` at `max-width: 980px`.
+- Subhead: 16px `--color-muted-2`, line-height 1.65, max 440px.
+- CTA pair: `primary` + `ghost` pills.
+- Meta row: three drops on the rail (`--stem` 24 / 56 / 36px), each a
+  Fraunces 22–26px label over a 14px body. Unfilled — the hero's rail is the
+  light, airy base of the composition, not a card grid.
+- The former floating "Live" badge and the ink discount/`Segunda mano` card
+  are gone. Both existed to give the empty image area something to hold, and
+  both restated a claim the subhead and the first drop already make.
 
 ### Story / Sustainability
 
 - Full-bleed `--color-ink` background, `--color-paper` text.
 - Decorative `♻` glyph (520px) in top-right at 8% terracotta opacity.
-- Two-column grid (1fr 1fr), gap 80.
-- Stats: 2-col grid, terracotta number (Fraunces 64px), muted caption.
-- Image pill at bottom: 95% paper bg, terracotta icon disc, title + caption.
+- Two-column grid (1fr 1fr), gap 80, align center.
+- Left: eyebrow, `clamp(40px, 5.5vw, 80px)` display `h2`, two paragraphs.
+- Right: two drops on a `.drop-ink` rail (`--stem` 24 / 68px, flex 1.15 /
+  0.85, min-height 380 / 280px), both `--color-paper-2` forms with ink text.
+  They carry the two claims that used to be crammed into a stat row under the
+  body copy.
+- The approval mark — an authored SVG check in a `--color-terracotta-deep`
+  disc — sits at the foot of the first drop, on the claim it belongs to. It
+  replaced a `♻` unicode glyph standing in for an icon.
 
 ### How-it-works step
 
@@ -531,6 +584,9 @@ migrate:
 
 ## Reference
 
-The canonical static reference for this system is `index.html` at the repo
-root. When in doubt, resolve visual questions against the HTML/CSS in that
-file before introducing new tokens.
+`index.html` was this system's original static reference; it no longer exists
+in the repo, and the home page has since moved past it — the hero, story and
+category tiles it described were built around photography Versale will never
+own (see **Rail and drop**). The canonical reference is now the token layer
+and component classes in `apps/web/src/app/globals.css`. Resolve visual
+questions there before introducing new tokens.

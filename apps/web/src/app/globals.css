@@ -220,22 +220,85 @@ body {
     color: inherit;
   }
 
-  /* Category tiles. The label reads against the tile's flat placeholder
-     ground, so the scrim has to be painted *between* the ground and the text
-     — painted underneath it (the previous stacking) left the label at
-     1.18:1. At full strength paper-on-scrim is 9.7:1; the band stays solid
-     across the whole area the label can occupy and only fades near the top. */
-  .category-tile-scrim {
+  /* The rail.
+     Versale never gets art-directed photography — the only images that will
+     ever exist are garments photographed by the people who own them — so the
+     home page's three visual blocks can't be built out of picture frames. A
+     rounded rectangle with nothing in it reads as a failed image load forever.
+     These blocks hang their content from a shared datum instead: a hairline
+     rail, a stem of deliberately unequal length, a suspension mark, and a form
+     whose top is squared to the stem and whose bottom is soft. Emptiness is
+     the structure's material (a rail is mostly air), not a gap where a photo
+     should be.
+
+     The datum isn't new — the hero's trust row and the story's stat row were
+     already `border-t` dividers. This promotes that hairline from decoration
+     to the law all three blocks obey. */
+  .drop {
+    position: relative;
+    /* Each drop carries its own segment of the rail rather than inheriting one
+       continuous rule from the container. A real rail is sectioned at its
+       brackets, and more practically: a wrapping grid can't draw a container
+       border above rows two and up, so a per-drop segment is the only version
+       that survives every breakpoint without a scroll container. */
+    border-top: 1px solid var(--color-line);
+    /* Every drop sets its own --stem. Equal stems would make this a row of
+       cards with a line above it; the unequal lengths are what read as
+       garments of different cuts sharing one rail. */
+    padding-top: var(--stem, 32px);
+  }
+  /* The stem, hanging from the rail down to the form's squared shoulder. */
+  .drop::before {
+    content: "";
     position: absolute;
-    inset: 0;
-    z-index: 1;
-    background: linear-gradient(
-      to top,
-      rgba(26, 26, 26, 0.82) 0%,
-      rgba(26, 26, 26, 0.82) 65%,
-      rgba(26, 26, 26, 0.3) 86%,
-      rgba(26, 26, 26, 0) 100%
-    );
+    left: 0;
+    top: 0;
+    width: 1px;
+    height: var(--stem, 32px);
+    background: var(--color-line-2);
+  }
+  /* The suspension mark, centred across the 1px rail and the 1px stem. */
+  .drop::after {
+    content: "";
+    position: absolute;
+    left: -2.5px;
+    top: -3.5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--color-terracotta-deep);
+  }
+  /* Same hardware, hung on an ink surface. */
+  .drop-ink {
+    border-top-color: var(--color-line-4);
+  }
+  .drop-ink::before {
+    background: var(--color-line-4);
+  }
+  .drop-ink::after {
+    background: var(--color-terracotta-light);
+  }
+
+  /* Squared shoulder, soft hem. One radius pair carries the whole silhouette:
+     it reads as something hanging without ever drawing a hanger, which is the
+     line between this and clip-art. */
+  .drop-form {
+    border-radius: 0 0 18px 18px;
+  }
+  /* Lifting a garment off the rail: the form rises, the stem stays put (it
+     lives on the .drop, which never moves), and the gap that opens between
+     them is the whole gesture. This is the page's one authored motion moment —
+     the tiles, and nothing else, do it.
+
+     It sits on the interactive element rather than on the form inside it so
+     the focus ring travels with the content; ringing the link while its child
+     moved left the ring 6px adrift on keyboard focus. */
+  .drop-lift {
+    transition: transform 0.35s var(--ease-out);
+  }
+  .drop-lift:hover,
+  .drop-lift:focus-visible {
+    transform: translateY(-6px);
   }
 
   .text-eyebrow-terracotta {
@@ -451,6 +514,13 @@ body {
     .marquee-track,
     .pulse-dot {
       animation: none;
+    }
+    .drop-lift {
+      transition: none;
+    }
+    .drop-lift:hover,
+    .drop-lift:focus-visible {
+      transform: none;
     }
   }
 }
