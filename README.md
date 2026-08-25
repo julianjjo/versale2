@@ -176,6 +176,21 @@ All commands are run from the repository root unless noted.
 
 > Scripts reales en `package.json` (root): `dev`, `dev:api`, `dev:web`, `build`, `start`, `start:api`, `start:web`, `test:api`, `test:web`, `e2e`, `e2e:ui`, `e2e:report`.
 
+#### Coverage & Test Analytics (Codecov)
+
+CI sends Codecov two different reports per suite: **lcov** for coverage, and **JUnit XML** for [Test Analytics](https://app.codecov.io/gh/julianjjo/versale2/tests) — the view that tracks flaky tests, failure rates and slowest tests. The JUnit report is what the `test:ci` scripts add on top of the plain coverage run:
+
+| Command                                | Coverage report               | JUnit report                      | Codecov flag |
+| -------------------------------------- | ----------------------------- | --------------------------------- | ------------ |
+| `npm run test:ci --workspace=apps/api` | `apps/api/coverage/lcov.info` | `apps/api/test-results/junit.xml` | `api`        |
+| `npm run test:ci --workspace=apps/web` | `apps/web/coverage/lcov.info` | `apps/web/test-results/junit.xml` | `web`        |
+| `CI=true npm run e2e`                  | —                             | `test-results/junit.xml`          | `e2e`        |
+
+Two details worth keeping if this is ever edited:
+
+- The JUnit upload steps run under `if: ${{ !cancelled() }}`, unlike the coverage ones. A failing suite fails its test step and would skip every step after it — and failures are exactly the data Test Analytics exists to collect, so skipping that upload would hide every regression and every flake.
+- Playwright only emits JUnit when `CI` is set, and writes it to `test-results/` instead of its `outputDir`, which it wipes at the start of each run. All three `test-results/` directories are gitignored.
+
 #### e2e specifics
 
 The Playwright harness is self-contained: it boots its **own** API and Web instances on ports **3101** (API) and **3100** (Web), backed by a dedicated SQLite file at `apps/api/e2e.db`. The API `webServer` command in `playwright.config.ts` runs `node e2e/utils/reset-db.js && npx prisma migrate deploy --schema=./prisma/schema.prisma` against that file before starting Nest, and `e2e/utils/global-setup.ts` only seeds users and products.

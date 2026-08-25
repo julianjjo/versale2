@@ -18,7 +18,13 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? "github" : "list",
+  // On CI the run also emits JUnit XML so Codecov Test Analytics can ingest
+  // it (see the upload step in .github/workflows/ci.yml). It is written to
+  // test-results/ rather than into `outputDir` below, because Playwright
+  // clears `outputDir` at the start of every run. test-results/ is gitignored.
+  reporter: process.env.CI
+    ? [["github"], ["junit", { outputFile: "test-results/junit.xml" }]]
+    : "list",
   timeout: 30_000,
   use: {
     baseURL: WEB_URL,
