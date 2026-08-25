@@ -114,9 +114,26 @@ export class CartService {
       );
     }
 
+    const product = await this.productsService.findRaw(cartItem.productId);
+    if (!product.isApproved) {
+      throw new BadRequestException(
+        'El producto no está aprobado para la venta',
+      );
+    }
+    if (product.status !== ProductStatus.AVAILABLE) {
+      throw new BadRequestException(
+        'Este producto ya fue vendido y no está disponible',
+      );
+    }
+    if (product.pausedAt) {
+      throw new BadRequestException(
+        'El vendedor pausó este producto temporalmente y no está disponible',
+      );
+    }
+
     return this.prisma.client.cartItem.update({
       where: { id: cartItemId },
-      data: { quantity },
+      data: { quantity, priceAtAdd: product.price },
       include: {
         product: {
           include: { seller: { select: { id: true, name: true } } },

@@ -159,6 +159,28 @@ describe('JwtAuthGuard (resolveBearerUser)', () => {
     });
   });
 
+  it('rejects a token for a soft-deleted user (deletedAt set)', async () => {
+    mockJwtService.verifyAsync.mockResolvedValue({
+      sub: 'user1',
+      tokenVersion: 0,
+    });
+    mockPrismaService.client.user.findUnique.mockResolvedValue({
+      id: 'user1',
+      email: 'test@example.com',
+      role: 'USER',
+      tokenVersion: 0,
+      deletedAt: new Date(),
+    });
+
+    const result = await resolveBearerUser(
+      jwtService,
+      prismaService,
+      requestWith('Bearer valid-token'),
+    );
+
+    expect(result).toBeNull();
+  });
+
   describe('guard behavior', () => {
     const makeContext = () => {
       const request = { headers: {} } as unknown as AuthRequest;
