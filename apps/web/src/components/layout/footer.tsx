@@ -37,8 +37,8 @@ export function Footer() {
   return (
     <footer className="mt-auto bg-ink text-paper">
       <div className="mx-auto w-full max-w-[1320px] px-5 py-20 sm:px-8">
-        <div className="footer-grid mb-16 grid grid-cols-1 gap-12 md:grid-cols-2 xl:grid-cols-4 xl:gap-12">
-          <div className="lg:col-span-1">
+        <div className="mb-16 grid grid-cols-1 gap-12 md:grid-cols-2 xl:grid-cols-4">
+          <div>
             <div className="mb-4 font-display text-[36px] font-medium tracking-[-0.03em]">
               versal<em className="text-terracotta">e</em>
             </div>

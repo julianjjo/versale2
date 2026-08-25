@@ -91,7 +91,7 @@ export default function FavoritosPage() {
           }
         />
       ) : (
-        <div className="products-grid grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
           {products.map((product) => (
             // Every product on this page is a favorite by definition — no
             // need for each card's heart to independently re-fetch the
