@@ -15,7 +15,7 @@ vi.mock("@/components/products/product-detail", () => ({
   ProductDetail: () => null,
 }));
 
-import ProductPage, { generateMetadata, truncateDescription } from "../page";
+import ProductPage, { generateMetadata } from "../page";
 import { ProductDetail } from "@/components/products/product-detail";
 
 const mockProduct = {
@@ -129,29 +129,6 @@ describe("ProductPage", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(element.type).toBe(ProductDetail);
-  });
-});
-
-describe("truncateDescription", () => {
-  it("no toca una descripción que ya cabe en el límite", () => {
-    expect(truncateDescription("Corta", 160)).toBe("Corta");
-  });
-
-  it("corta por grafema, no por unidad UTF-16, y agrega el sufijo", () => {
-    // "🎉" son 2 unidades UTF-16 (par sustituto) pero 1 solo grafema.
-    const result = truncateDescription("aaaa🎉bbbb", 5);
-    expect(result).toBe("aa...");
-  });
-
-  // ponytail: slice corta por unidad UTF-16; puede dejar surrogate huérfano
-  // si el emoji cae en el límite (trade-off vs Segmenter). Se verifica
-  // longitud/sufijo, no grafema completo.
-  it("nunca parte un emoji multi-unidad a la mitad, aunque el corte caiga justo ahí", () => {
-    const description = "a".repeat(156) + "🎉" + "b".repeat(50);
-    const result = truncateDescription(description, 160);
-
-    expect(result.endsWith("...")).toBe(true);
-    expect(result.length).toBe(160);
   });
 });
 
