@@ -21,11 +21,12 @@ Refactor puro de `apps/api/src/orders/orders.service.ts:1004-1140`. Los 3 sweeps
 ## No-objetivos
 - No toca `precio-sugerido`, no añade Reputación/Métricas, UI sigue en español, no nuevas deps ni interfaces.
 
-## Verificación
-- `npm ci` + `npx prisma generate` en worktree (jest faltaba).
-- `npm run test:api`: **47 suites, 710 tests PASSED**, 0 fail.
-- `npm run test:web`: **43 suites, 548 tests PASSED**, 0 fail.
-- `npx tsc --noEmit` (implícito en jest) sin errores; comportamiento idéntico validado por tests existentes de cron (7d refund, 30d disputa, 24h pending, `runOrderDeadlineSweeps` 3× findMany).
+## Verificación (final, validado en main @ 16c6ad5 tras repair 2026-08-25)
+- `Remove-Item -Recurse -Force apps/web/node_modules` + `apps/api/node_modules` + `npm install` (re-hoist workspaces, elimina `.vite` stale).
+- `npm run test:api`: **47 suites, 714 tests PASSED**, 0 fail (47 passed, 714 total).
+- `npm run test:web`: **43 suites, 548 tests PASSED**, 0 fail (43 passed, 548 total) — corrige diagnóstico `ridiculous-cyan-krill` (7 entries incompletas + `configLoader: 'native'` fallando antes de `vi.mock`).
+- `npx prisma generate` no requerido (client hoisted en `node_modules/.prisma` sigue vigente); `npx tsc --noEmit` sin errores implícito en jest.
+- Reviewer PASS + diff neto -22L + no new deps re-confirmados.
 
 ## Riesgo / Reversión
 - Riesgo bajo: refactor sin lógica nueva. Si drift futuro (ej. disputa necesita más pasos), separar helper en 2 según comentario ponytail.
