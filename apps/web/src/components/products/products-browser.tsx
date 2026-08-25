@@ -27,10 +27,6 @@ import { useAuth } from "@/lib/auth";
 import { PRODUCT_CATEGORIES } from "@/lib/categories";
 import { formatPublishDate } from "@/lib/format-date";
 
-// One source of truth for the valid `sortBy` values and their labels, so the
-// URL parser, the submit handler, and the <Select>'s options can't drift out
-// of sync with each other the way three independently hand-written literals
-// would — the same reason CONDITION_OPTIONS exists below for `condition`.
 const SORT_OPTIONS = [
   { value: "price_asc", label: "Precio: menor a mayor" },
   { value: "price_desc", label: "Precio: mayor a menor" },
@@ -53,9 +49,6 @@ export interface ProductFilters {
   brand?: string;
   condition?: string;
   category?: string;
-  // Not URL-driven like the fields above — always supplied as a fixed
-  // `initialFilters.sellerId` by a seller's public profile page, never
-  // parsed from or written to the query string (see `queryFromFilters`).
   sellerId?: string;
   sortBy?: SortByValue;
   page?: number;
@@ -106,9 +99,6 @@ function toFormState(f?: ProductFilters): FilterFormState {
   };
 }
 
-// Always includes the currently-selected value even if it hasn't loaded from
-// the facets endpoint yet, so the <select> never silently drops the user's
-// current choice while `facets` is loading or stale.
 function mergeFacetOptions(fetched: string[] | undefined, current: string): string[] {
   const options = fetched ?? [];
   return current && !options.includes(current) ? [current, ...options] : options;
@@ -126,10 +116,6 @@ function parsePage(raw: string | null): number | undefined {
   return Number.isFinite(n) && n >= 1 ? Math.floor(n) : undefined;
 }
 
-// The query string is the source of truth for the applied filters, so a
-// catalog view can be shared, bookmarked and restored with Back/Forward.
-// `limit` never travels in the URL — it's a layout decision of the host page,
-// not something the visitor picks.
 function filtersFromQuery(
   params: URLSearchParams,
   limit: number,
@@ -174,9 +160,6 @@ function ProductsLoading() {
   );
 }
 
-// `useSearchParams` needs a Suspense boundary in the App Router. Keeping it
-// here (instead of in every page that renders the browser) means the home page
-// and the marketplace both get one without changing their own layout.
 export function ProductsBrowser(props: ProductsBrowserProps) {
   return (
     <Suspense fallback={<ProductsLoading />}>
@@ -196,9 +179,6 @@ function ProductsBrowserContent({
   const searchParams = useSearchParams();
   const gridRef = useRef<HTMLDivElement>(null);
 
-  // Embedded uses (the home page grid) show a fixed slice of the catalog and
-  // must not rewrite the URL of the page hosting them; only the browsable
-  // marketplace view owns the query string.
   const ownsUrl = showFilters || showPagination;
   const query = searchParams?.toString() ?? "";
 
@@ -217,9 +197,6 @@ function ProductsBrowserContent({
   const appliedSignature = JSON.stringify(appliedForm);
   const [form, setForm] = useState<FilterFormState>(appliedForm);
   const [syncedSignature, setSyncedSignature] = useState(appliedSignature);
-  // The applied filters can change from outside the form — a shared link, the
-  // Back/Forward buttons, "Limpiar filtros". Re-seed the visible fields when
-  // that happens (a page change alone never touches the draft).
   if (syncedSignature !== appliedSignature) {
     setSyncedSignature(appliedSignature);
     setForm(appliedForm);
@@ -228,21 +205,14 @@ function ProductsBrowserContent({
   const applyFilters = (next: ProductFilters) => {
     if (!ownsUrl) {
       setLocalFilters(next);
-      // keepPreviousData deja la grilla anterior visible; mover foco al listado
       requestAnimationFrame(() => gridRef.current?.focus());
       return;
     }
     const nextQuery = queryFromFilters(next);
-    // Re-applying the same filters would only pile up history entries and turn
-    // Back into a trap.
     if (nextQuery === query) return;
-    // Nothing here fires per keystroke — filters land only when the form is
-    // submitted or the page changes, so each entry in the history is a
-    // deliberate step the visitor expects Back to undo.
     router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
       scroll: false,
     });
-    // foco al listado para lectores + usuario teclado tras paginar
     requestAnimationFrame(() => gridRef.current?.focus());
   };
 
@@ -266,9 +236,6 @@ function ProductsBrowserContent({
   const { data: facets } = useQuery({
     queryKey: ["products-facets"],
     queryFn: async () => {
-      // Only `brands` is read here: the category filter switched to the
-      // closed list (item 5), and `categories` now carries per-category
-      // listing counts for the home page's rail of tiles.
       const response = await api.get<{
         brands: string[];
         categories: { name: string; count: number }[];
@@ -281,21 +248,12 @@ function ProductsBrowserContent({
 
   const clearFilters = () => {
     setForm(EMPTY_FORM);
-    // Keeps any fixed filter a host page supplies (e.g. a seller profile
-    // page's `sellerId`) — this resets what the visitor searched for, not
-    // which catalog they're even looking at.
     applyFilters({ page: 1, limit, ...initialFilters });
   };
 
   return (
     <div>
       {showFilters && (
-        // Every control below carries a visible <label> instead of leaning on
-        // its placeholder or an aria-label. A placeholder disappears the moment
-        // a value is entered — "Precio mín."/"Precio máx." vanished exactly when
-        // the two identical number boxes needed telling apart — and an
-        // aria-label overrides any visible text, so the two can't both be the
-        // name. The form's own name is what keeps a terse "Talla" unambiguous.
         <form
           aria-label="Filtrar el catálogo"
           className="mb-6 grid grid-cols-1 gap-3 rounded-2xl border border-border bg-surface-muted p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4"
@@ -325,9 +283,6 @@ function ProductsBrowserContent({
             }
             wrapperClassName="sm:col-span-2 lg:col-span-2"
           />
-          {/* No placeholder: a number field can't show a formatted "20.000"
-              example without suggesting a value that can't be typed, and the
-              label is now permanent. */}
           <Input
             name="minPrice"
             label="Precio mínimo"
@@ -400,10 +355,6 @@ function ProductsBrowserContent({
             }
           >
             <option value="">Cualquiera</option>
-            {/* Item 5 closed list: same options the API's DTO accepts, so the
-                filter can never produce a query that returns nothing by
-                construction. Facets are no longer needed here — the list is
-                fixed, not data-driven. */}
             {PRODUCT_CATEGORIES.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -417,11 +368,6 @@ function ProductsBrowserContent({
             onChange={(e) =>
               setForm((f) => ({ ...f, sortBy: e.target.value }))
             }
-            // Matches the search input's span: the 7 filter fields before it
-            // fill exactly 8 one-unit grid cells (2 breakpoints' worth of full
-            // rows), so a single-unit 9th field would leave the row before the
-            // button bar mostly empty. Spanning 2 keeps sm's rows full and
-            // narrows (rather than widens) the gap on lg.
             wrapperClassName="sm:col-span-2 lg:col-span-2"
           >
             <option value="">Más recientes</option>
@@ -454,11 +400,6 @@ function ProductsBrowserContent({
       )}
       {isError && (
         <div className="rounded-md border border-danger/30 bg-danger/5 p-4 text-sm text-danger">
-          {/* A 429 from this endpoint's own throttle carries a specific,
-              friendly message from the backend (see PRODUCTS_SEARCH_THROTTLE_*
-              in products.controller.ts) — surfacing it instead of the generic
-              fallback also stops the copy from inviting the immediate retry
-              that would just trip the same limit again. */}
           {extractApiError(
             error,
             "No pudimos cargar los productos. Intenta de nuevo.",
@@ -520,22 +461,12 @@ export function ProductCard({
   priority = false,
 }: {
   product: Product;
-  // Forwarded to `FavoriteButton` — see its own doc comment. Lets a caller
-  // that already knows every card it renders is a favorite (the Favoritos
-  // page) skip that button's membership lookup.
   isFavoriteOverride?: boolean;
-  // Set by the caller for cards it knows render above the fold (e.g. the
-  // first row of the main catalog grid), so next/image preloads them instead
-  // of lazy-loading — those are the images actually competing for LCP.
   priority?: boolean;
 }) {
   const { user } = useAuth();
   const isOwn = user?.id === product.sellerId;
 
-  // Item 14: el botón de favorito es HERMANO posicionado del <Link>, no un
-  // descendiente — un botón dentro de un enlace es HTML inválido (los
-  // lectores de pantalla lo anuncian mal) y una fuente clásica de errores
-  // de hidratación.
   return (
     <div className="relative h-full rounded-[14px] focus-within:outline-none focus-within:ring-2 focus-within:ring-text-primary focus-within:ring-offset-2 focus-within:ring-offset-surface [&:has(:focus-visible)]:ring-2 [&:has(:focus-visible)]:ring-text-primary [&:has(:focus-visible)]:ring-offset-2 [&:has(:focus-visible)]:ring-offset-surface">
       <Link
@@ -558,13 +489,6 @@ export function ProductCard({
                 Sin imagen
               </div>
             )}
-            {/* Only reachable via the Favoritos page: the public catalog's own
-                findAll already excludes anything not approved/unpaused/sold,
-                but a Favorite row survives its product later being rejected,
-                paused, or sold (see favorites.service.ts), so this card still
-                has to tell those states apart there. Sold takes priority —
-                mirrors mis-productos/page.tsx's own isSold-first badge order
-                — since it's the one state that can never revert. */}
             {product.status === "SOLD" ? (
               <Badge
                 variant="warning"
