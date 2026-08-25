@@ -62,6 +62,7 @@ const PUBLICLY_VISIBLE = {
 // caps (MAX_FAVORITE_IDS, MAX_ITEM_QUANTITY) rather than a default parameter
 // nothing actually overrides.
 const RELATED_PRODUCTS_LIMIT = 4;
+const MAX_TOP_RATED_SCAN = 1000; // ponytail: cap, materialize averageRating+index if >1k sustained
 
 export const SUGGESTED_PRICE_MIN_SAMPLE = 3;
 
@@ -276,8 +277,8 @@ export class ProductsService {
     // Sold items are one-of-a-kind: once bought they leave the public catalog.
     const where: Prisma.ProductWhereInput = { ...PUBLICLY_VISIBLE };
 
-    if (typeof search === 'string' && search) {
-      where.OR = this.searchTextWhere(search);
+    if (typeof search === 'string' && search.trim()) {
+      where.OR = this.searchTextWhere(search.trim());
     }
 
     // Powers a seller's public profile page (their other listings), reusing
@@ -301,9 +302,11 @@ export class ProductsService {
     }
 
     const priceFilter: Prisma.FloatFilter = {};
-    if (minPrice !== undefined) priceFilter.gte = Number(minPrice);
-    if (maxPrice !== undefined) priceFilter.lte = Number(maxPrice);
-    if (Object.keys(priceFilter).length > 0) where.price = priceFilter;
+    const gte = Number(minPrice);
+    if (Number.isFinite(gte)) priceFilter.gte = gte;
+    const lte = Number(maxPrice);
+    if (Number.isFinite(lte)) priceFilter.lte = lte;
+    if (Object.keys(priceFilter).length) where.price = priceFilter;
 
     if (typeof size === 'string' && size) {
       const normalizedSize = size.trim().toUpperCase();
@@ -336,6 +339,7 @@ export class ProductsService {
       const [allProducts, total] = await Promise.all([
         this.prisma.client.product.findMany({
           where,
+          take: MAX_TOP_RATED_SCAN,
           include: { seller: { select: { id: true, name: true } } },
         }),
         this.prisma.client.product.count({ where }),
