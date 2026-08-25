@@ -23,10 +23,6 @@ import { conditionLabel } from "@/lib/product-condition";
 import { getHttpStatus } from "@/lib/http-error";
 import type { Cart, CartItem, Order, PaginatedResponse } from "@/lib/types";
 
-// How fresh a recovered order has to be to trust it as "the one this
-// checkout attempt just created" (see the checkout mutation's onError).
-// 120s idempotency window: covers slow network retries and MP webhook race
-// without trusting a stale order from another tab/device.
 export const RECENT_ORDER_WINDOW_MS = 120_000;
 
 function isSold(item: CartItem): boolean {
@@ -38,20 +34,9 @@ function isPaused(item: CartItem): boolean {
 }
 
 function isUnavailable(item: CartItem): boolean {
-  // Vendida (status SOLD), devuelta a moderación por el vendedor (isApproved en
-  // false sin haberse vendido), o pausada temporalmente por el vendedor: en
-  // los tres casos esa línea ya no se puede pagar, y el API aborta toda la
-  // transacción del checkout si se intenta.
   return isSold(item) || item.product?.isApproved === false || isPaused(item);
 }
 
-// La API oculta un producto no aprobado a cualquiera que no sea su vendedor o
-// un admin (ver el comentario sobre `canView` en products.service#findOne),
-// así que un comprador que lo tiene en el carrito no puede abrirlo aunque
-// siga ahí — la página del producto le devolvería un 404. Uno vendido sí
-// sigue siendo visible (esa es la excepción que existe justamente para que el
-// comprador pueda dejar una reseña), así que solo se enlaza cuando no está en
-// moderación.
 function isProductPageViewable(item: CartItem): boolean {
   return item.product?.isApproved !== false;
 }
@@ -109,13 +94,6 @@ export default function CartPage() {
       enabled: Boolean(user),
     });
 
-  // `/orders` is paginated now (search/filter/sort on the orders list page
-  // needed it), so this asks for only the handful of most recent orders it
-  // actually needs instead of the buyer's entire history — a distinct query
-  // key from the orders list page's own `["orders", search, status, page]`,
-  // since that key now varies with filters this lookup doesn't use.
-  // Purely a convenience: a failure here just means the "usar la anterior"
-  // shortcut doesn't appear, so it isn't allowed to affect cart loading state.
   const { data: previousOrdersPage } = useQuery<PaginatedResponse<Order>>({
     queryKey: ["orders", "recent-for-checkout"],
     queryFn: async () => {
@@ -128,25 +106,10 @@ export default function CartPage() {
   });
   const previousOrders = previousOrdersPage?.data;
 
-  // Only a `string`, never `undefined`/`null`/some other JSON type — the
-  // column backing `shippingAddress` is a raw, untyped `Json` field, so a
-  // write path other than checkout's own DTO (an admin tool, a migration)
-  // could in principle store a non-string value in it.
   function addressFieldValue(value: unknown): string {
     return typeof value === "string" ? value : "";
   }
 
-  // `getUserOrders` sorts newest first, so the first order whose required
-  // fields (street/city/country — the same ones `REQUIRED_ADDRESS_FIELDS`
-  // enforces on submit) are non-blank strings is the most recent one the
-  // buyer actually shipped something to. Checking those specific fields
-  // (not just "the object has *some* key") matters because the API only
-  // validates that `shippingAddress` is a non-empty object, never that its
-  // fields are the right type or that the required ones are present — so a
-  // half-populated or wrong-typed address could otherwise pass this check
-  // and silently blank out fields the buyer had already filled in.
-  // `Array.isArray` guards the same untyped-response-shape risk: a failure
-  // here degrades to "no shortcut", not a crashed cart page.
   const lastShippingAddress = (
     Array.isArray(previousOrders) ? previousOrders : []
   ).find((order) => {
@@ -172,11 +135,6 @@ export default function CartPage() {
       country: addressFieldValue(lastShippingAddress.country),
     });
     setAddressErrors({});
-    // Only clears the stale "complete the address" banner this shortcut just
-    // made untrue — `error` is a single shared banner for the whole page, so
-    // blindly nulling it here would also dismiss an unrelated failure (e.g.
-    // "No pudimos eliminar el producto") that happens to be showing at the
-    // same time.
     setError((prev) => (prev === INCOMPLETE_ADDRESS_ERROR ? null : prev));
     setAnnouncement("Se completó la dirección con la de tu pedido anterior.");
   };
@@ -229,9 +187,6 @@ export default function CartPage() {
       setError(
         extractApiError(err, "No pudimos quitar las prendas no disponibles"),
       ),
-    // A partial failure still removed some items, so the cached cart has to be
-    // refreshed either way — otherwise it keeps showing garments that were
-    // already deleted and blocks the user from retrying checkout.
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["cart"] }),
   });
 
@@ -245,27 +200,9 @@ export default function CartPage() {
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ['cart'] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
-      // Item 7: straight to the order's own confirmation page (number +
-      // status), not the history list — the buyer just paid and wants to see
-      // THAT order, not hunt for it in a list.
       router.push(`/orders/${created.id}`);
     },
     onError: async (err) => {
-      // createOrder() commits the order and empties the cart in the same
-      // transaction. If that commit reaches the server but the response
-      // never reaches this tab (connection dropped mid-flight), this handler
-      // fires with no way to tell that apart from a real failure — yet the
-      // buyer's items are already sold and their cart is already gone.
-      //
-      // An empty cart alone isn't proof of that, though: a real, well-formed
-      // failure ("Tu carrito está vacío") fires this same handler whenever
-      // *this* request's own transaction never had items to roll back in the
-      // first place — e.g. a second tab/device already checked out (or a
-      // double-submit already went through) and genuinely emptied the shared
-      // cart before this request's own read of it. `getHttpStatus` is
-      // `undefined` only when no HTTP response ever arrived at all (timeout,
-      // dropped connection) — a real 400 like that one has a status, so
-      // gating recovery on "no response at all" is what tells the two apart.
       if (getHttpStatus(err) !== undefined) {
         setError(extractApiError(err, "No pudimos procesar el pago"));
         return;
@@ -277,10 +214,6 @@ export default function CartPage() {
             PaginatedResponse<Order>
           >('/orders?limit=1');
           const justPlaced = recentOrders.data[0];
-          // Belt-and-suspenders even after the network-only gate above: only
-          // trust this as "the order this request just placed" if it's
-          // fresh enough that nothing but this checkout could plausibly have
-          // just created it.
           const isFreshEnoughToBeOurs =
             justPlaced &&
             Date.now() - new Date(justPlaced.createdAt).getTime() <
@@ -293,8 +226,6 @@ export default function CartPage() {
           }
         }
       } catch {
-        // The recovery check itself failing is not evidence either way —
-        // fall through to the generic failure message below.
       }
       setError(extractApiError(err, "No pudimos procesar el pago"));
     },
@@ -366,11 +297,6 @@ export default function CartPage() {
   }
 
   const items = data?.items ?? [];
-  // A garment someone else bought, or that its seller edited back into
-  // moderation, is unbuyable while it sits in this cart, and the API aborts
-  // the *whole* checkout transaction over a single such line. So it must not
-  // be counted in the total or silently block "Pagar": it is called out,
-  // excluded from the sum, and removable in one click.
   const unavailableItems = items.filter(isUnavailable);
   const total = items.reduce(
     (sum, it) => (isUnavailable(it) ? sum : sum + it.priceAtAdd * it.quantity),
@@ -475,14 +401,6 @@ export default function CartPage() {
                   <button
                     type="button"
                     onClick={applyLastShippingAddress}
-                    // design.md: plain terracotta on paper is ~3.6:1, under
-                    // the 4.5:1 normal-text threshold at 11-13px — use
-                    // terracotta-deep (~5.3:1) at this size instead. The
-                    // focus ring matches the shared Button component's
-                    // tokens: a bare underlined-text button gets no visible
-                    // default focus indicator otherwise, and its styling is
-                    // otherwise identical to a plain navigational link even
-                    // though clicking it overwrites form fields in place.
                     className="rounded-sm text-xs font-medium text-terracotta-deep underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                   >
                     Usar la de tu pedido anterior
@@ -548,9 +466,6 @@ export default function CartPage() {
                 </span>
                 <Price value={total} className="text-lg text-text-primary" />
               </div>
-              {/* The API's order total is the sum of the items only: there is
-                  no shipping calculation anywhere in the product, so the
-                  summary says so instead of implying one will appear later. */}
               <p className="mb-4 text-xs leading-[1.5] text-text-muted">
                 El costo del envío no está incluido en este total: se acuerda
                 con el vendedor al momento de la entrega.
@@ -588,8 +503,6 @@ function CartItemRow({
   isRemoving: boolean;
 }) {
   const sold = isSold(item);
-  // No `&& !sold` needed: its one use below is already inside the `sold ?`
-  // branch of the same ternary, which short-circuits before this is read.
   const paused = isPaused(item);
   const unavailable = isUnavailable(item);
   const viewable = isProductPageViewable(item);
@@ -645,10 +558,6 @@ function CartItemRow({
           )}
         </div>
         <div className="flex flex-col items-end gap-2">
-          {/* Sin selector de cantidad: cada publicación es una prenda única,
-              así que la única cantidad posible es 1. Un control editable aquí
-              aceptaba cualquier número y lo revertía en silencio al perder el
-              foco, la misma regresión que se retiró de product-detail.tsx. */}
           <span className="text-xs text-text-muted">
             Cantidad: {item.quantity}
           </span>
