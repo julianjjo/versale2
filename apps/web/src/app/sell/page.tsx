@@ -112,12 +112,6 @@ function clearDraft() {
   emitDraftChange();
 }
 
-// "1, 2 y 4" — Spanish uses "y" before the last item, not a serial comma.
-const PHOTO_LIST_FORMAT = new Intl.ListFormat("es", {
-  style: "long",
-  type: "conjunction",
-});
-
 const FORM_FIELDS = [
   "title",
   "description",
@@ -370,9 +364,8 @@ function SellForm() {
       setError(
         missingAltPositions.length === 1
           ? `Falta la descripción de la foto ${missingAltPositions[0]}.`
-          : `Faltan las descripciones de las fotos ${PHOTO_LIST_FORMAT.format(
-              missingAltPositions.map(String),
-            )}.`,
+          : // ponytail: manual "y" for es conjunction; Intl.ListFormat if locale rules grow
+            `Faltan las descripciones de las fotos ${missingAltPositions.join(", ").replace(/, ([^,]*)$/, " y $1")}.`,
       );
       return;
     }
