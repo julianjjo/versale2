@@ -72,7 +72,7 @@ export function RecentlyViewed({ excludeId }: { excludeId?: string }) {
       <h2 className="heading-section text-text-primary">
         Vistos recientemente
       </h2>
-      <div className="products-grid mt-4 grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
         {products.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}

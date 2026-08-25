@@ -466,7 +466,10 @@ function ProductsBrowserContent({
         />
       )}
 
-      <div className="products-grid grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+      <div
+        data-testid="products-grid"
+        className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4"
+      >
         {data?.data.map((product, index) => (
           <ProductCard key={product.id} product={product} priority={index < 4} />
         ))}
