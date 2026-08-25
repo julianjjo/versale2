@@ -108,8 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // rendering account-only UI and will only discover the session is gone
   // when its next request 401s — by then whatever the visitor was doing here
   // (e.g. filling out /cart's shipping address) is lost with no warning.
-  // tokenStore now emits same-tab CustomEvent + BroadcastChannel, so this
-  // also covers a clear() done in this tab without a 401 cycle.
+  // tokenStore emits same-tab CustomEvent (cross-tab via StorageEvent) — BroadcastChannel removed (see token.ts ponytail ceiling)
   useEffect(() => {
     return tokenStore.subscribe(() => {
       if (!tokenStore.get()) clearAuthState();
