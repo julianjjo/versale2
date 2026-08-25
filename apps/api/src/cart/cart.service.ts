@@ -73,24 +73,42 @@ export class CartService {
       );
     }
 
-    return this.prisma.client.cartItem.upsert({
-      where: { cartId_productId: { cartId, productId } },
-      // Each listing is a single garment, so re-adding it keeps the line at the
-      // same quantity instead of incrementing, and refreshes the price snapshot
-      // so a later checkout can never be charged an outdated price.
-      update: { quantity, priceAtAdd: product.price },
-      create: {
-        cartId,
-        productId,
-        quantity,
-        priceAtAdd: product.price,
-      },
-      include: {
-        product: {
-          include: { seller: { select: { id: true, name: true } } },
+    try {
+      return await this.prisma.client.cartItem.upsert({
+        where: { cartId_productId: { cartId, productId } },
+        // Each listing is a single garment, so re-adding it keeps the line at the
+        // same quantity instead of incrementing, and refreshes the price snapshot
+        // so a later checkout can never be charged an outdated price.
+        update: { quantity, priceAtAdd: product.price },
+        create: {
+          cartId,
+          productId,
+          quantity,
+          priceAtAdd: product.price,
         },
-      },
-    });
+        include: {
+          product: {
+            include: { seller: { select: { id: true, name: true } } },
+          },
+        },
+      });
+    } catch (e: unknown) {
+      // ponytail: naive P2002-only idempotency; no per-key lock, safe because CartItem @@unique[cartId,productId] enforces it
+      const isUniqueViolation =
+        typeof e === 'object' &&
+        e !== null &&
+        'code' in e &&
+        (e as { code: string }).code === 'P2002';
+      if (!isUniqueViolation) throw e;
+      return this.prisma.client.cartItem.findUniqueOrThrow({
+        where: { cartId_productId: { cartId, productId } },
+        include: {
+          product: {
+            include: { seller: { select: { id: true, name: true } } },
+          },
+        },
+      });
+    }
   }
 
   async updateItem(cartItemId: string, quantity: number, userId: string) {

@@ -1,0 +1,9 @@
+{
+  "cartAddCount": 0,
+  "note": "Visitante anónimo redirige a login, 0 POST /cart; con auth y throttling count debe ser <=1 (idempotencia)",
+  "offline": { "bodyVisible": true, "emptyState": "No pudimos cargar la prenda", "unhandledException": false },
+  "throttling": { "network": "cellular3g latency 400ms", "cpu": "4x", "bodyVisible": true, "skipped": false },
+  "xss": { "payload": "<script>alert(1)</script>", "escaped": true, "dangerouslySetInnerHTML_hits": 0 },
+  "auth": { "unauthCart": "EmptyState Inicia sesión", "safeRedirect": "PASS //, \\\\ , javascript: bloqueados", "tokenStoreSameTab": "STALE — ver M3" },
+  "payloads": { "hugeComment": "API 400, cliente no crashea" }
+}

@@ -29,4 +29,27 @@ describe("tokenStore", () => {
     tokenStore.set("second");
     expect(tokenStore.get()).toBe("second");
   });
+
+  it("notifies same-tab subscribers via CustomEvent on clear", () => {
+    let notified = 0;
+    const off = tokenStore.subscribe(() => notified++);
+    tokenStore.set("tok");
+    expect(notified).toBe(1);
+    tokenStore.clear();
+    expect(notified).toBe(2);
+    off();
+    tokenStore.set("tok2");
+    expect(notified).toBe(2);
+  });
+
+  it("notifies via storage event cross-tab fallback", () => {
+    let notified = 0;
+    tokenStore.subscribe(() => notified++);
+    window.dispatchEvent(
+      new StorageEvent("storage", { key: "versale_token" }),
+    );
+    expect(notified).toBe(1);
+    window.dispatchEvent(new StorageEvent("storage", { key: "other_key" }));
+    expect(notified).toBe(1);
+  });
 });

@@ -108,11 +108,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // rendering account-only UI and will only discover the session is gone
   // when its next request 401s — by then whatever the visitor was doing here
   // (e.g. filling out /cart's shipping address) is lost with no warning.
+  // tokenStore now emits same-tab CustomEvent + BroadcastChannel, so this
+  // also covers a clear() done in this tab without a 401 cycle.
   useEffect(() => {
     return tokenStore.subscribe(() => {
-      if (!tokenStore.get()) clearAuthState();
+      if (!tokenStore.get()) {
+        clearAuthState();
+        const path =
+          typeof window !== "undefined" ? window.location.pathname : "/";
+        const isPublic = PUBLIC_AUTH_PATHS.some(
+          (p) => path === p || path.startsWith(`${p}/`),
+        );
+        if (!isPublic) {
+          router.push(
+            `/login?next=${encodeURIComponent(path)}&reason=expired`,
+          );
+        }
+      }
     });
-  }, [clearAuthState]);
+  }, [router, clearAuthState]);
 
   // Shared by login() and signup(): drops any queries cached under the
   // previous (possibly anonymous or different-user) session before adopting
