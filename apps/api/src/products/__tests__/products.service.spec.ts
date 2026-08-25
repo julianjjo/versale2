@@ -44,6 +44,7 @@ describe('ProductsService', () => {
       delete: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
+      groupBy: jest.fn(),
     },
     orderItem: {
       findFirst: jest.fn(),
@@ -2527,13 +2528,15 @@ describe('ProductsService', () => {
   });
 
   describe('getFacets', () => {
-    it('should return distinct approved brands and categories', async () => {
-      mockPrismaService.client.product.findMany
-        .mockResolvedValueOnce([{ brand: "Levi's" }, { brand: 'Zara' }])
-        .mockResolvedValueOnce([
-          { category: 'Jackets' },
-          { category: 'Sweaters' },
-        ]);
+    it('should return distinct approved brands and categories counted by listing', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValueOnce([
+        { brand: "Levi's" },
+        { brand: 'Zara' },
+      ]);
+      mockPrismaService.client.product.groupBy.mockResolvedValueOnce([
+        { category: 'Chaquetas', _count: { category: 7 } },
+        { category: 'Suéteres', _count: { category: 2 } },
+      ]);
 
       const result = await service.getFacets();
 
@@ -2551,33 +2554,39 @@ describe('ProductsService', () => {
           orderBy: { brand: 'asc' },
         },
       );
-      expect(mockPrismaService.client.product.findMany).toHaveBeenNthCalledWith(
-        2,
-        {
-          where: {
-            isApproved: true,
-            status: 'AVAILABLE' as const,
-            pausedAt: null,
-          },
-          select: { category: true },
-          distinct: ['category'],
-          orderBy: { category: 'asc' },
+      expect(mockPrismaService.client.product.groupBy).toHaveBeenCalledWith({
+        by: ['category'],
+        where: {
+          isApproved: true,
+          status: 'AVAILABLE' as const,
+          pausedAt: null,
         },
-      );
+        _count: { category: true },
+        orderBy: [{ _count: { category: 'desc' } }, { category: 'asc' }],
+      });
       expect(result).toEqual({
         brands: ["Levi's", 'Zara'],
-        categories: ['Jackets', 'Sweaters'],
+        categories: [
+          { name: 'Chaquetas', count: 7 },
+          { name: 'Suéteres', count: 2 },
+        ],
       });
     });
 
     it('should drop null brands from the result', async () => {
-      mockPrismaService.client.product.findMany
-        .mockResolvedValueOnce([{ brand: null }])
-        .mockResolvedValueOnce([{ category: 'Sweaters' }]);
+      mockPrismaService.client.product.findMany.mockResolvedValueOnce([
+        { brand: null },
+      ]);
+      mockPrismaService.client.product.groupBy.mockResolvedValueOnce([
+        { category: 'Suéteres', _count: { category: 1 } },
+      ]);
 
       const result = await service.getFacets();
 
-      expect(result).toEqual({ brands: [], categories: ['Sweaters'] });
+      expect(result).toEqual({
+        brands: [],
+        categories: [{ name: 'Suéteres', count: 1 }],
+      });
     });
   });
 

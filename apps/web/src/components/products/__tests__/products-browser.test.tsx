@@ -118,7 +118,15 @@ const emptyProducts = {
   meta: { total: 0, page: 1, limit: 12, pages: 0 },
 };
 
-const mockFacets = { brands: ["Levi's", "Zara"], categories: ["Jackets", "Sweaters"] };
+// `categories` carries per-category listing counts (the home page's rail of
+// tiles reads them); this component only ever uses `brands`.
+const mockFacets = {
+  brands: ["Levi's", "Zara"],
+  categories: [
+    { name: "Chaquetas", count: 3 },
+    { name: "Suéteres", count: 1 },
+  ],
+};
 
 vi.mock("@/lib/api", () => ({
   api: {

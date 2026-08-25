@@ -424,17 +424,28 @@ export class ProductsService {
         distinct: ['brand'],
         orderBy: { brand: 'asc' },
       }),
-      this.prisma.client.product.findMany({
+      // A grouped count, not a `distinct` list of names: the home page's
+      // category tiles show how many garments actually sit behind each
+      // category, and ordering by that count is what decides which six of
+      // the closed list get a tile. Alphabetical order (the previous
+      // `distinct` + `orderBy: category`) made that an accident of the
+      // alphabet — 'Jeans', 'Pantalones' and 'Vestidos' could never place.
+      // `category` is a secondary sort key so ties stay stable between
+      // requests the way SORT_ORDER_BY's `id` tiebreak does for the catalog.
+      this.prisma.client.product.groupBy({
+        by: ['category'],
         where: { ...PUBLICLY_VISIBLE },
-        select: { category: true },
-        distinct: ['category'],
-        orderBy: { category: 'asc' },
+        _count: { category: true },
+        orderBy: [{ _count: { category: 'desc' } }, { category: 'asc' }],
       }),
     ]);
 
     return {
       brands: brands.map((p) => p.brand).filter((b): b is string => !!b),
-      categories: categories.map((p) => p.category),
+      categories: categories.map((c) => ({
+        name: c.category,
+        count: c._count.category,
+      })),
     };
   }
 

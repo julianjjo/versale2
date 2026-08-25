@@ -266,9 +266,13 @@ function ProductsBrowserContent({
   const { data: facets } = useQuery({
     queryKey: ["products-facets"],
     queryFn: async () => {
-      const response = await api.get<{ brands: string[]; categories: string[] }>(
-        "/products/facets",
-      );
+      // Only `brands` is read here: the category filter switched to the
+      // closed list (item 5), and `categories` now carries per-category
+      // listing counts for the home page's rail of tiles.
+      const response = await api.get<{
+        brands: string[];
+        categories: { name: string; count: number }[];
+      }>("/products/facets");
       return response.data;
     },
     enabled: showFilters,
