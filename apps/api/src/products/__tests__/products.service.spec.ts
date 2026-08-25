@@ -2120,8 +2120,10 @@ describe('ProductsService', () => {
 
     it('should use case-insensitive contains for search OR and brand', async () => {
       await service.findAll({ search: 'Chaqueta', brand: 'Zara' });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, prettier/prettier
-      const where = (mockPrismaService.client.product.findMany.mock.calls[0][0] as {
+      const calls = mockPrismaService.client.product.findMany.mock
+        .calls as unknown[][];
+      const where = (
+        calls[0][0] as {
           where: { OR: Array<Record<string, unknown>>; brand: unknown };
         }
       ).where;
@@ -2143,6 +2145,59 @@ describe('ProductsService', () => {
           }) as Record<string, unknown>,
         }),
       );
+    });
+
+    // `equals` is SQL `=`, which is case-sensitive on SQLite, so a lowercase
+    // filter from the URL has to be folded to the canonical spelling before it
+    // reaches Prisma — otherwise "chaquetas" silently returns an empty catalog.
+    it('folds a lowercase category filter to its canonical spelling', async () => {
+      await service.findAll({ category: 'chaquetas' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            category: { equals: 'Chaquetas' },
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('folds an uppercase category filter to its canonical spelling', async () => {
+      await service.findAll({ category: 'JEANS' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            category: { equals: 'Jeans' },
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    // Legacy rows predating the closed category list must keep matching their
+    // own spelling rather than being folded into nothing.
+    it('passes an unknown category through untouched', async () => {
+      await service.findAll({ category: 'Jackets' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            category: { equals: 'Jackets' },
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    // Regression guard: Prisma's `mode` operator is PostgreSQL/MongoDB-only.
+    // On this SQLite datasource the query engine rejects it outright, so if it
+    // ever reappears in these filters every search 500s in production while
+    // these mocked suites stay green.
+    it('never sends the SQLite-unsupported `mode` operator', async () => {
+      await service.findAll({
+        search: 'Chaqueta',
+        brand: 'Zara',
+        category: 'jeans',
+      });
+      const calls = mockPrismaService.client.product.findMany.mock
+        .calls as unknown[][];
+      expect(JSON.stringify(calls[0][0])).not.toContain('insensitive');
     });
   });
 
