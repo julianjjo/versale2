@@ -107,18 +107,6 @@ function clearDraft() {
   emitDraftChange();
 }
 
-const FORM_FIELDS = [
-  "title",
-  "description",
-  "category",
-  "brand",
-  "size",
-  "condition",
-  "price",
-  "measurements",
-  "defects",
-] as const;
-
 function SellForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
