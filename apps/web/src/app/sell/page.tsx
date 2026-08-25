@@ -25,29 +25,20 @@ const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
 const ACCEPTED_EXTENSIONS = ".jpg,.jpeg,.png,.webp";
 const MAX_FILE_SIZE_MB = 5;
-// Item 4 closed decision: max exactly 6 images per listing. The uploads
-// endpoint only accepts 5 per request, so the picker uploads in batches.
 const MAX_FILES = 6;
 const UPLOAD_BATCH_SIZE = 5;
 
 type LocalImage = {
   id: string;
   name: string;
-  /** Kept so a failed upload can be retried without re-picking the file. */
   file: File;
   previewUrl: string;
-  /** Remote URL, only set once the upload actually succeeded. */
   url?: string;
   uploading: boolean;
   error?: string;
-  /** Item 4: required before the listing can be published. */
   alt: string;
 };
 
-// The uploads endpoint answers in English (and 500s outright when R2 isn't
-// configured), so its message must never reach this Spanish UI. We map the
-// status ourselves instead of going through `extractApiError`, which would
-// surface `response.data.message` verbatim.
 function uploadErrorMessage(err: unknown): string {
   const status =
     typeof err === "object" && err !== null && "response" in err
@@ -64,14 +55,6 @@ function uploadErrorMessage(err: unknown): string {
   return "No pudimos subir la imagen.";
 }
 
-// "Publicar otro igual" (/mis-productos) lands here with
-// ?title=&category=&size=. Read ONCE via the state initializer below — a mount
-// happens exactly once per visit, so edits are never overwritten by params.
-// Size and category are both whitelisted against their fixed option lists:
-// a stale or hand-typed value outside them would otherwise leave React
-// holding a value the <select> can't render (blank field until submit).
-// Category falls back to "Otros" — the same closed-list default the API's
-// backfill uses — instead of blanking the field.
 function readPrefill(searchParams: ReturnType<typeof useSearchParams>) {
   const rawSize = searchParams.get("size") ?? "";
   const rawCategory = searchParams.get("category") ?? "".trim();
@@ -111,12 +94,7 @@ function SellForm() {
   const searchParams = useSearchParams();
   const { user, isLoading: isAuthLoading } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // State initializer = the one-time prefill application point.
   const prefill = readPrefill(searchParams);
-  // Item 10: el prefill explícito ("Publicar otro igual") gana sobre el
-  // borrador guardado; sin él, el borrador restaura lo que el vendedor ya
-  // escribió antes de un refresh. Se mira el query string crudo — readPrefill
-  // normaliza category a "Otros", así que su salida no sirve para detectar.
   const hasPrefill =
     (searchParams.get("title") ?? "").trim() !== "" ||
     (searchParams.get("category") ?? "").trim() !== "" ||
@@ -133,19 +111,12 @@ function SellForm() {
       "",
     condition: draft.condition || "Good",
     price: draft.price || "",
-    // Item 4: seller-curated transparency fields, both optional.
     measurements: draft.measurements || "",
     defects: draft.defects || "",
   });
   const [images, setImages] = useState<LocalImage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Item 10 follow-up: the draft lives in one shared localStorage key with no
-  // per-tab coordination, so two tabs open on /sell silently overwrite each
-  // other's draft — the `storage` event is the only signal a tab gets that
-  // this happened, since it only ever fires in tabs OTHER than the one that
-  // wrote the change. This can't safely auto-merge (whose text wins?), so it
-  // just surfaces the fact instead of guessing.
   const [draftChangedElsewhere, setDraftChangedElsewhere] = useState(false);
 
   const { data: suggested } = useQuery({
@@ -203,7 +174,6 @@ function SellForm() {
   const update = (key: keyof typeof form, value: string) => {
     setForm((f) => {
       const next = { ...f, [key]: value };
-      // Persistencia inmediata: el refresh puede llegar en cualquier tecla.
       writeDraft(next);
       return next;
     });
@@ -222,8 +192,6 @@ function SellForm() {
     const data = new FormData();
     data.append("files", file);
     try {
-      // FormData: the client sends it raw and lets fetch set the
-      // multipart boundary; a manual content-type would break the upload.
       const res = await api.post<{ images: { url: string; key: string }[] }>(
         "/uploads/images",
         data,
@@ -271,12 +239,8 @@ function SellForm() {
     }));
     setImages((prev) => [...prev, ...placeholders]);
 
-    // Clear the picker so choosing the same file again still fires `change`
-    // — otherwise a seller can't re-pick a photo that failed.
     if (fileInputRef.current) fileInputRef.current.value = "";
 
-    // The endpoint caps each request at UPLOAD_BATCH_SIZE files
-    // (FilesInterceptor('files', 5)), so >5 selections go up in batches.
     for (let i = 0; i < placeholders.length; i += UPLOAD_BATCH_SIZE) {
       const batch = placeholders.slice(i, i + UPLOAD_BATCH_SIZE);
       await Promise.all(batch.map((p) => uploadOne(p.id, p.file)));
@@ -304,8 +268,6 @@ function SellForm() {
       setError("Espera a que terminen de subirse las fotos.");
       return;
     }
-    // A failed upload used to be silently dropped: the listing went out with
-    // no photos and the seller got a success banner and a redirect.
     if (failedImages.length > 0) {
       setError(
         failedImages.length === 1
@@ -314,11 +276,6 @@ function SellForm() {
       );
       return;
     }
-    // Item 4: every photo needs its alt text — it's what screen readers (and
-    // the marketplace grid) describe the photo with, and the API rejects the
-    // listing without it anyway. The error names the photo by the same number
-    // the field is labeled with: the fields sit above the submit button, so
-    // "una foto" alone left the seller hunting for which one.
     const missingAltPositions = uploadedImages
       .map((img, index) => (img.alt.trim() ? null : index + 1))
       .filter((position): position is number => position !== null);
@@ -348,8 +305,6 @@ function SellForm() {
         measurements: form.measurements.trim() || undefined,
         defects: form.defects.trim() || undefined,
       });
-      // Publicación exitosa: el borrador cumplió su ciclo, no debe
-      // resucitar en el siguiente /sell.
       clearDraft();
       router.push("/products?published=1");
     } catch (err) {
@@ -379,10 +334,6 @@ function SellForm() {
 
       <Card>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* The form marks its exceptions, not its rule — six of the nine
-              fields are required, so tagging those would mark two thirds of
-              the page. Stating the convention once is what was missing: until
-              now a seller only learned a field was required by submitting. */}
           <p className="text-xs text-text-muted">
             Todos los campos son obligatorios, salvo los marcados como
             opcionales.
@@ -637,8 +588,6 @@ function SellForm() {
   );
 }
 
-// useSearchParams() requires a Suspense boundary on prerendered client pages
-// (Next build fails otherwise) — the form lives in SellForm above.
 export default function SellPage() {
   return (
     <Suspense
