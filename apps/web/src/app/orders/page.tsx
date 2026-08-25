@@ -27,6 +27,7 @@ import {
   ORDER_STATUS_VARIANT,
 } from "@/lib/order-status";
 import type { Order, OrderStatus, PaginatedResponse } from "@/lib/types";
+import { plexMono } from "@/app/fonts-mono";
 
 type StatusFilter = OrderStatus | "all";
 
@@ -118,7 +119,7 @@ export default function OrdersPage() {
     : "Aún no tienes pedidos";
 
   return (
-    <PageContainer size="default">
+    <PageContainer size="default" className={plexMono.variable}>
       {isRefetchError && (
         <p
           role="alert"

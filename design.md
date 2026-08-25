@@ -87,6 +87,21 @@ Two families carry the brand:
 - **Body** (Inter, sans) — paragraphs, labels, buttons, navigation. Weights
   300–700. Standard letter-spacing.
 
+Both are loaded as variable fonts in `src/app/fonts.ts` and applied on `<html>`
+by the root layout. Neither declares a `weight` array: next/font serves one
+variable file per family and aliases each listed weight to it, so listing
+weights only multiplies `@font-face` blocks without adding any type.
+
+A third family, IBM Plex Mono, is deliberately **not** part of the brand set.
+It exists only to set truncated order IDs (`Pedido #a1b2c3d4`) on `/orders`,
+`/mis-ventas`, `/admin`, and `/admin/orders`. It lives in its own module
+(`src/app/fonts-mono.ts`); those four pages import it and spread
+`plexMono.variable` on their root element. Do not move it to the root layout —
+next/font preloads a font on every route whose module graph references it, so
+declaring it globally forces an eager ~20 KB download on all ~32 routes to
+serve four. Any other route that uses `font-mono` gets the system monospace
+stack via the `--font-mono` token's fallback.
+
 | Token              | Family  | Size (mobile → desktop)        | Use                       |
 | ------------------ | ------- | ------------------------------ | ------------------------- |
 | `text-display-xl`  | Fraunces| `clamp(56px, 9vw, 148px)`      | Hero `h1`.                |
