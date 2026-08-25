@@ -996,17 +996,16 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     return updated;
   }
 
-  /**
-   * Cron sweep (hourly): PAID orders unshipped for UNSHIPPED_REFUND_DAYS are
-   * auto-refunded — the seller vanished. Public for direct testability.
-   * Returns how many orders were refunded.
-   */
-  async autoRefundUnshippedPaidOrders(): Promise<number> {
-    const cutoff = new Date(
-      Date.now() - UNSHIPPED_REFUND_DAYS * 24 * 60 * 60 * 1000,
-    );
+  // ponytail: 3× loop dedup into helper, split into per-status sweepers if drift needs isolation
+  private async sweepOrders(opts: {
+    where: Prisma.OrderWhereInput;
+    toStatus: OrderStatus;
+    notification: { type: NotificationType; message: string };
+    warnPrefix: string;
+    afterTransition?: (order: { id: string }) => Promise<void>;
+  }): Promise<number> {
     const stale = await this.prisma.client.order.findMany({
-      where: { status: OrderStatus.PAID, paidAt: { lte: cutoff } },
+      where: opts.where,
       select: { id: true, userId: true, status: true },
     });
 
@@ -1028,25 +1027,43 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     // to a database with real multi-connection write concurrency.
     for (const order of stale) {
       try {
-        await this.transitionStatus(order, OrderStatus.REFUNDED);
+        await this.transitionStatus(order, opts.toStatus);
+        if (opts.afterTransition) await opts.afterTransition(order);
         await this.notifySafely(() =>
           this.notifications.create(
             order.userId,
-            NotificationType.ORDER_STATUS_CHANGED,
-            'Tu pago fue reembolsado automáticamente: el vendedor no envió el pedido en 7 días.',
+            opts.notification.type,
+            opts.notification.message,
             order.id,
           ),
         );
       } catch (error) {
-        // One stale order failing (e.g. raced by an admin shipping it) must
-        // not abort the sweep over the rest.
-        this.logger.warn(
-          `No se pudo reembolsar automáticamente el pedido ${order.id}:`,
-          error,
-        );
+        // One stale order failing (e.g. raced by an admin) must not abort the sweep over the rest.
+        this.logger.warn(`${opts.warnPrefix} ${order.id}:`, error as Error);
       }
     }
     return stale.length;
+  }
+
+  /**
+   * Cron sweep (hourly): PAID orders unshipped for UNSHIPPED_REFUND_DAYS are
+   * auto-refunded — the seller vanished. Public for direct testability.
+   * Returns how many orders were refunded.
+   */
+  async autoRefundUnshippedPaidOrders(): Promise<number> {
+    const cutoff = new Date(
+      Date.now() - UNSHIPPED_REFUND_DAYS * 24 * 60 * 60 * 1000,
+    );
+    return this.sweepOrders({
+      where: { status: OrderStatus.PAID, paidAt: { lte: cutoff } },
+      toStatus: OrderStatus.REFUNDED,
+      notification: {
+        type: NotificationType.ORDER_STATUS_CHANGED,
+        message:
+          'Tu pago fue reembolsado automáticamente: el vendedor no envió el pedido en 7 días.',
+      },
+      warnPrefix: 'No se pudo reembolsar automáticamente el pedido',
+    });
   }
 
   /**
@@ -1055,43 +1072,26 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
    * didn't act in time. Returns how many disputes were expired.
    */
   async autoResolveExpiredDisputes(): Promise<number> {
-    const expired = await this.prisma.client.order.findMany({
+    return this.sweepOrders({
       where: {
         status: OrderStatus.DISPUTED,
         disputeExpiresAt: { lte: new Date() },
       },
-      select: { id: true, userId: true, status: true },
+      toStatus: OrderStatus.REFUNDED,
+      notification: {
+        type: NotificationType.ORDER_STATUS_CHANGED,
+        message:
+          'Tu disputa expiró sin resolución y se reembolsó tu pago automáticamente.',
+      },
+      warnPrefix: 'No se pudo expirar la disputa del pedido',
+      afterTransition: (order) =>
+        this.prisma.client.order
+          .update({
+            where: { id: order.id },
+            data: { disputeResolvedAt: new Date() },
+          })
+          .then(() => undefined),
     });
-
-    // Deliberately sequential — see autoRefundUnshippedPaidOrders' own
-    // comment: every transitionStatus call here opens a real $transaction,
-    // and this repo's SQLite adapter serializes all of them behind one
-    // process-wide mutex regardless, so parallelizing this loop wouldn't
-    // buy real concurrency and risks Prisma's transaction-acquisition
-    // timeout on a large backlog instead.
-    for (const order of expired) {
-      try {
-        await this.transitionStatus(order, OrderStatus.REFUNDED);
-        await this.prisma.client.order.update({
-          where: { id: order.id },
-          data: { disputeResolvedAt: new Date() },
-        });
-        await this.notifySafely(() =>
-          this.notifications.create(
-            order.userId,
-            NotificationType.ORDER_STATUS_CHANGED,
-            'Tu disputa expiró sin resolución y se reembolsó tu pago automáticamente.',
-            order.id,
-          ),
-        );
-      } catch (error) {
-        this.logger.warn(
-          `No se pudo expirar la disputa del pedido ${order.id}:`,
-          error,
-        );
-      }
-    }
-    return expired.length;
   }
 
   /**
@@ -1105,38 +1105,16 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     const cutoff = new Date(
       Date.now() - PENDING_ORDER_TIMEOUT_MINUTES * 60 * 1000,
     );
-    const stale = await this.prisma.client.order.findMany({
+    return this.sweepOrders({
       where: { status: OrderStatus.PENDING, createdAt: { lte: cutoff } },
-      select: { id: true, userId: true, status: true },
+      toStatus: OrderStatus.CANCELLED,
+      notification: {
+        type: NotificationType.ORDER_CANCELLED,
+        message:
+          'Tu pedido se canceló automáticamente por falta de confirmación de pago. El producto volvió a estar disponible.',
+      },
+      warnPrefix: 'No se pudo cancelar automáticamente el pedido pendiente',
     });
-
-    // Deliberately sequential — see autoRefundUnshippedPaidOrders' own
-    // comment: every transitionStatus call here opens a real $transaction,
-    // and this repo's SQLite adapter serializes all of them behind one
-    // process-wide mutex regardless, so parallelizing this loop wouldn't
-    // buy real concurrency and risks Prisma's transaction-acquisition
-    // timeout on a large backlog instead.
-    for (const order of stale) {
-      try {
-        await this.transitionStatus(order, OrderStatus.CANCELLED);
-        await this.notifySafely(() =>
-          this.notifications.create(
-            order.userId,
-            NotificationType.ORDER_CANCELLED,
-            'Tu pedido se canceló automáticamente por falta de confirmación de pago. El producto volvió a estar disponible.',
-            order.id,
-          ),
-        );
-      } catch (error) {
-        // One stale order failing (e.g. raced by the buyer paying it) must
-        // not abort the sweep over the rest.
-        this.logger.warn(
-          `No se pudo cancelar automáticamente el pedido pendiente ${order.id}:`,
-          error,
-        );
-      }
-    }
-    return stale.length;
   }
 
   async runOrderDeadlineSweeps() {
