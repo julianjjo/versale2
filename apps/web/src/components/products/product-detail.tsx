@@ -35,10 +35,6 @@ import {
   useRecordProductView,
 } from "@/components/products/recently-viewed";
 
-// Shared by the "write a review" form and the inline "edit my review" form so
-// the accessible radiogroup (roving tabindex, arrow-key navigation) isn't
-// hand-duplicated across both — each needs its own ref array, since a button
-// ref from one can't be reused to focus the other.
 function StarRatingInput({
   value,
   onChange,
@@ -107,10 +103,6 @@ function StarRatingInput({
 }
 
 export function ProductDetail({
-  /** Product already resolved on the server (see `app/products/[id]/page.tsx`).
-   *  Seeds the query so the page paints without a spinner; the client still
-   *  refetches with the visitor's token, which can see more than the anonymous
-   *  server probe (own pending listing, admin). */
   initialProduct,
 }: {
   initialProduct?: Product;
@@ -130,11 +122,6 @@ export function ProductDetail({
   const [editRating, setEditRating] = useState(5);
   const [editComment, setEditComment] = useState("");
 
-  // The server probe that produced `initialProduct` is anonymous, so for a
-  // visitor without a token it already IS the answer — treating it as fresh
-  // skips a second identical round-trip on every product view. A visitor WITH
-  // a token can see more than the probe did (their own pending listing, admin),
-  // so their copy is seeded as stale and refetched immediately.
   const [seededAt] = useState(() =>
     initialProduct && !tokenStore.get() ? Date.now() : 0,
   );
@@ -154,14 +141,9 @@ export function ProductDetail({
     enabled: Boolean(id),
     initialData: initialProduct,
     initialDataUpdatedAt: seededAt,
-    // Only governs the seeded copy; `invalidateQueries` after a review still
-    // refetches straight away.
     staleTime: 60_000,
   });
 
-  // Fetched independently of the main product query above — it only needs
-  // the id from the URL, so it doesn't wait on that request to resolve
-  // before firing its own.
   const { data: related } = useQuery<{ data: Product[] }>({
     queryKey: ["product-related", id],
     queryFn: async () => {
@@ -171,27 +153,10 @@ export function ProductDetail({
       return response.data;
     },
     enabled: Boolean(id),
-    // Matches the main product query's staleTime above — without it this
-    // sibling query refetches on every remount while the product next to it
-    // stays cached.
     staleTime: 60_000,
   });
-  // Guards against a missing/malformed response shape so this
-  // nice-to-have section can never crash the rest of the page.
   const relatedProducts = related?.data ?? [];
 
-  // Skips the seller's own listing — visiting your own product page while
-  // managing it isn't the kind of "browsing interest" this history is for,
-  // and would otherwise clutter the visitor's own recently-viewed rail with
-  // their own inventory. Waits on `isAuthLoading` too: `user` starts out
-  // `null` before the profile fetch resolves, indistinguishable from a
-  // genuinely anonymous visitor — recording while that's still unsettled
-  // could record a seller's own product (seeded via `initialData`, so
-  // `data` is often ready before auth is) with no way to undo it once auth
-  // resolves and reveals they were the owner all along. Called
-  // unconditionally (before the loading/error early returns below) since
-  // hooks can't be called conditionally; `data` is simply undefined until
-  // the product loads.
   useRecordProductView(
     data && !isAuthLoading && user?.id !== data.sellerId
       ? data.id
@@ -250,11 +215,6 @@ export function ProductDetail({
 
   const updateReview = useMutation({
     mutationFn: async (reviewId: string) => {
-      // Unlike creating a review, editing one has an existing comment that
-      // has to be overwritable *to blank* — `|| undefined` here (like the
-      // create form uses) would drop an emptied field from the request body
-      // entirely, which the API reads as "leave the current comment alone"
-      // rather than "clear it", so the old text would silently survive.
       await api.patch(`/reviews/${reviewId}`, {
         rating: editRating,
         comment: editComment,
@@ -291,8 +251,6 @@ export function ProductDetail({
       reviewId: string;
       voted: boolean;
     }) => {
-      // `voted` is the state *before* this click — true means "un-mark it",
-      // matching FavoriteButton's own isFavorite-before-toggle convention.
       if (voted) {
         await api.delete(`/reviews/${reviewId}/helpful`);
       } else {
@@ -373,10 +331,6 @@ export function ProductDetail({
       </PageContainer>
     );
   }
-  // Un 404 sí significa que la prenda no existe; cualquier otro fallo (red,
-  // timeout, 500) es temporal. Antes ambos caían en "Producto no encontrado",
-  // que le decía al visitante que la prenda se había eliminado cuando en
-  // realidad solo había que reintentar.
   const requestFailed = !isTerminalError(loadError, [404]);
 
   if (isError && !data && requestFailed) {
@@ -390,9 +344,6 @@ export function ProductDetail({
       </PageContainer>
     );
   }
-  // Only the absence of data is a dead end: a failed refetch on top of the
-  // server-rendered product keeps showing the product rather than replacing it
-  // with an empty state.
   if (!data) {
     return (
       <PageContainer>
@@ -418,13 +369,7 @@ export function ProductDetail({
       ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
       : null;
   const isOwn = user?.id === data.sellerId;
-  // A sold listing stays readable — its buyer reaches it from order history and
-  // writes the review here — so the page has to say it is gone rather than
-  // offering an add-to-cart the API would reject.
   const isSold = data.status === "SOLD";
-  // The seller's own temporary-hide toggle: still a normal, approved listing
-  // (unlike isSold/isApproved), just not currently buyable — so this only
-  // needs to swap out the buy button, not gate the rest of the page.
   const isPaused = Boolean(data.pausedAt);
   const ownReview = user
     ? reviews.find((review) => review.userId === user.id)
@@ -433,12 +378,6 @@ export function ProductDetail({
   return (
     <PageContainer size="wide">
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-        {/* Keyed on id + the images themselves (not just id): a same-id
-            refetch that changes the picture set (e.g. a moderated-field edit,
-            once re-approved) remounts the gallery instead of trying to
-            reconcile a stale index against a changed array — see
-            ProductGallery's own doc comment for why that reconciliation
-            problem doesn't have a good answer. */}
         <ProductGallery
           key={`${id}:${(data.images ?? []).map((img) => img.url).join("|")}`}
           images={data.images ?? []}
@@ -447,11 +386,6 @@ export function ProductDetail({
         <div className="space-y-4">
           <div>
             <div className="flex items-start justify-between gap-3">
-              {/* min-w-0 overrides a flex item's default min-width: auto,
-                  which otherwise refuses to shrink below its content's
-                  natural width — without it, a long unbroken title (no
-                  spaces to wrap on) pushes past this row and collides with
-                  the Share/Favorite buttons instead of wrapping. */}
               <div className="min-w-0">
                 <p className="text-eyebrow">
                   {data.brand ? data.brand : "Versale"}
@@ -498,8 +432,6 @@ export function ProductDetail({
             {data.description}
           </p>
 
-          {/* Item 4: seller-curated measurements/defects. Hidden entirely when
-              absent — an empty section reads as a bug, not as transparency. */}
           {data.measurements && (
             <div className="rounded-lg border border-border bg-surface-muted p-4">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
@@ -545,8 +477,6 @@ export function ProductDetail({
                 "—"
               )}
             </dd>
-            {/* Item 14: la fecha de publicación genera dudas honestas — y con
-                formato UTC determinista no cuesta un mismatch de hidratación. */}
             <dt className="text-text-muted">Publicado</dt>
             <dd className="font-medium text-text-primary">
               {formatPublishDate(data.createdAt)}
@@ -558,11 +488,6 @@ export function ProductDetail({
             <Badge variant="warning">Ya se vendió</Badge>
           ) : isOwn ? (
             <Badge variant="info">
-              {/* A moderated-field edit sent back to review while paused
-                  (isApproved:false, pausedAt still set) is a materially
-                  different, more actionable state than "just paused" — the
-                  seller still needs re-approval regardless of unpausing, and
-                  the plain paused message alone would hide that. */}
               {isPaused && !data.isApproved
                 ? "Pausaste esta publicación y además está pendiente de revisión"
                 : isPaused
@@ -599,12 +524,6 @@ export function ProductDetail({
             </p>
           )}
 
-          {/* Keyed on the product id: this component instance can be reused
-              across two different products in a row (e.g. via the related-
-              products grid below), and without a remount its own "already
-              sent"/open-form/error state would silently survive the
-              navigation — see ProductGallery's doc comment for the same
-              underlying issue and fix shape. */}
           {!isOwn && <ReportProductButton key={data.id} productId={data.id} />}
         </div>
       </div>
@@ -677,19 +596,11 @@ export function ProductDetail({
                   </>
                 )}
 
-                {/* A reviewer can't vote on their own review — the API
-                    rejects it, and offering the control here would just be a
-                    button that always errors. */}
                 {review.userId !== user?.id && (
                   <Button
                     size="sm"
                     variant={review.votedByMe ? "accent" : "secondary"}
                     className="mt-3"
-                    // `toggleHelpful` is one mutation shared by every review
-                    // card, so disabling on `isPending` alone would lock every
-                    // OTHER review's button too while this one's request is in
-                    // flight — checking `variables` scopes the disabled state
-                    // to the review that was actually clicked.
                     disabled={
                       toggleHelpful.isPending &&
                       toggleHelpful.variables?.reviewId === review.id
@@ -783,11 +694,6 @@ export function ProductDetail({
           </div>
         )}
 
-        {/* Once the buyer already has a review on this product, editing it
-            happens inline on their own review card above — and a second POST
-            for the same listing is rejected outright (one review per buyer,
-            enforced by the API and the DB's @@unique([userId, productId])),
-            so hiding the form is the only correct UI here. */}
         {user && !isOwn && data.isApproved && !ownReview && (
           <form
             onSubmit={handleReviewSubmit}
