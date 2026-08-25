@@ -3327,7 +3327,9 @@ describe('ProductsService', () => {
       });
       const res = await service.getSuggestedPrice('Chaquetas', 'Good');
       expect(res).toEqual({ suggestedPrice: 50000, sampleSize: 5 });
-      expect(mockPrismaService.client.product.aggregate).toHaveBeenCalledTimes(1);
+      expect(mockPrismaService.client.product.aggregate).toHaveBeenCalledTimes(
+        1,
+      );
     });
 
     it('falls back to category-only when condition bucket too small', async () => {
@@ -3336,7 +3338,9 @@ describe('ProductsService', () => {
         .mockResolvedValueOnce({ _avg: { price: 60000 }, _count: 4 });
       const res = await service.getSuggestedPrice('Jeans', 'New');
       expect(res).toEqual({ suggestedPrice: 60000, sampleSize: 4 });
-      expect(mockPrismaService.client.product.aggregate).toHaveBeenCalledTimes(2);
+      expect(mockPrismaService.client.product.aggregate).toHaveBeenCalledTimes(
+        2,
+      );
     });
 
     it('returns null when both buckets insufficient', async () => {

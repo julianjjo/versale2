@@ -664,11 +664,11 @@ export class ProductsService {
       typeof exact._count === 'number'
         ? exact._count
         : ((exact._count as unknown as { _all: number })._all ?? 0);
-    if (
-      exactCount >= SUGGESTED_PRICE_MIN_SAMPLE &&
-      exact._avg.price != null
-    ) {
-      return { suggestedPrice: Math.round(exact._avg.price), sampleSize: exactCount };
+    if (exactCount >= SUGGESTED_PRICE_MIN_SAMPLE && exact._avg.price != null) {
+      return {
+        suggestedPrice: Math.round(exact._avg.price),
+        sampleSize: exactCount,
+      };
     }
     const fallback = await this.prisma.client.product.aggregate({
       where: { ...PUBLICLY_VISIBLE, category: cat },
@@ -683,7 +683,10 @@ export class ProductsService {
       fallbackCount >= SUGGESTED_PRICE_MIN_SAMPLE &&
       fallback._avg.price != null
     ) {
-      return { suggestedPrice: Math.round(fallback._avg.price), sampleSize: fallbackCount };
+      return {
+        suggestedPrice: Math.round(fallback._avg.price),
+        sampleSize: fallbackCount,
+      };
     }
     return { suggestedPrice: null };
   }
