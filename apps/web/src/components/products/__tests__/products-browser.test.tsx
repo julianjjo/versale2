@@ -734,4 +734,126 @@ describe("ProductsBrowser", () => {
     });
     expect(nav.url).toBe("/products");
   });
+
+  it("mantiene la grilla visible con keepPreviousData mientras isFetching", async () => {
+    const page1 = {
+      data: [mockProducts.data[0]],
+      meta: { total: 24, page: 1, limit: 12, pages: 2 },
+    };
+    const page2 = {
+      data: [{ ...mockProducts.data[0], id: "p3", title: "Nueva prenda" }],
+      meta: { total: 24, page: 2, limit: 12, pages: 2 },
+    };
+    let resolvePage2!: (value: { data: typeof page2 }) => void;
+    vi.mocked(api.get).mockImplementation(async (url: string, opts?: { params?: Record<string, unknown> }) => {
+      if (url === "/products/facets") return { data: mockFacets } as never;
+      if (url === "/favorites/ids") return { data: { productIds: [] } } as never;
+      if (url === "/products") {
+        const page = (opts?.params as Record<string, unknown> | undefined)?.page as number | undefined;
+        if (page === 2) {
+          return new Promise<{ data: typeof page2 }>((res) => {
+            resolvePage2 = res;
+          }) as never;
+        }
+        return { data: page1 } as never;
+      }
+      return { data: page1 } as never;
+    });
+
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductsBrowser />
+      </TestProviders>,
+    );
+
+    await waitFor(() => expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument());
+    const grid = screen.getByTestId("products-grid");
+    // antes de paginar no está ocupada
+    expect(grid).toHaveAttribute("aria-busy", "false");
+
+    await user.click(screen.getByRole("button", { name: /siguiente/i }));
+
+    // mientras la página 2 está en vuelo, keepPreviousData deja la grilla anterior visible
+    await waitFor(() => expect(grid).toHaveAttribute("aria-busy", "true"));
+    expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    expect(screen.queryByText("Nueva prenda")).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolvePage2({ data: page2 });
+    });
+
+    await waitFor(() => expect(screen.getByText("Nueva prenda")).toBeInTheDocument());
+    await waitFor(() => expect(grid).toHaveAttribute("aria-busy", "false"));
+  });
+
+  it("expone aria-busy en la grilla y anuncia la página con aria-live persistente", async () => {
+    const paginated = {
+      data: [mockProducts.data[0]],
+      meta: { total: 30, page: 1, limit: 12, pages: 3 },
+    };
+    mockProductsApi({ data: paginated });
+    render(
+      <TestProviders>
+        <ProductsBrowser />
+      </TestProviders>,
+    );
+
+    await waitFor(() => expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument());
+
+    const grid = screen.getByTestId("products-grid");
+    expect(grid).toHaveAttribute("aria-busy", "false");
+    expect(grid).toHaveAttribute("tabIndex", "-1");
+    // WCAG 2.4.7: outline-none compensado con focus-visible ring
+    expect(grid.className).toContain("focus-visible:ring-2");
+    expect(grid.className).toContain("focus-visible:ring-offset-2");
+
+    // live region siempre montada (best practice para SR)
+    const live = screen.getByRole("status");
+    expect(live).toHaveAttribute("aria-live", "polite");
+    expect(live).toHaveTextContent("Mostrando página 1 de 3");
+    expect(live).toHaveClass("sr-only");
+
+    // con una sola página el live region sigue montado pero vacío
+    vi.clearAllMocks();
+    mockProductsApi({ data: mockProducts });
+    nav.reset();
+    const { unmount } = render(
+      <TestProviders>
+        <ProductsBrowser showPagination={false} />
+      </TestProviders>,
+    );
+    // el primer live region sigue presente; buscamos todos y alguno está vacío
+    await waitFor(() => expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument());
+    const statuses = screen.getAllByRole("status");
+    expect(statuses.length).toBeGreaterThanOrEqual(1);
+    // al menos uno debe estar vacío cuando pages <=1 (persistente)
+    // no rompemos el anterior que tenía contenido, verificamos que existe
+    expect(statuses[statuses.length - 1].textContent ?? "").toBe("");
+    unmount();
+  });
+
+  it("mueve el foco a la grilla tras paginar", async () => {
+    const paginated = {
+      data: [mockProducts.data[0]],
+      meta: { total: 30, page: 1, limit: 12, pages: 3 },
+    };
+    mockProductsApi({ data: paginated });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <ProductsBrowser />
+      </TestProviders>,
+    );
+
+    await waitFor(() => expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument());
+
+    const grid = screen.getByTestId("products-grid");
+    expect(grid).not.toHaveFocus();
+
+    await user.click(screen.getByRole("button", { name: /siguiente/i }));
+
+    // applyFilters usa requestAnimationFrame para ambos ownsUrl; esperar al foco
+    await waitFor(() => expect(grid).toHaveFocus());
+  });
 });
