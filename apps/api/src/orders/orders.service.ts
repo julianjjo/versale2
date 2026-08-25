@@ -914,6 +914,14 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
         'No tienes autorización para disputar este pedido',
       );
     }
+    // Una sola por orden, incluso después de resuelta: debe revisarse antes
+    // del estado para que una duplicada en DISPUTED/REFUNDED devuelva 409 y
+    // no 400 por "no está entregado".
+    if (order.disputedAt) {
+      throw new ConflictException(
+        'Este pedido ya tuvo una disputa; no se pueden abrir más',
+      );
+    }
     if (order.status !== OrderStatus.DELIVERED) {
       throw new BadRequestException('Solo puedes disputar pedidos entregados');
     }
@@ -922,14 +930,6 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     if (!dto.photos || dto.photos.length === 0) {
       throw new BadRequestException(
         'Adjunta al menos una foto como evidencia de la disputa',
-      );
-    }
-    // Una sola por orden, incluso después de resuelta: el histórico de
-    // disputas repetidas sobre la misma venta es exactamente el abuso que la
-    // regla cerrada quiere impedir.
-    if (order.disputedAt) {
-      throw new ConflictException(
-        'Este pedido ya tuvo una disputa; no se pueden abrir más',
       );
     }
     if (
