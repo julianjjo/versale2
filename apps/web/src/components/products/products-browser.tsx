@@ -1,13 +1,13 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
 import {
   CONDITION_OPTIONS,
   conditionLabel,
 } from "@/lib/product-condition";
 import type { PaginatedResponse, Product } from "@/lib/types";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -194,6 +194,7 @@ function ProductsBrowserContent({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const gridRef = useRef<HTMLDivElement>(null);
 
   // Embedded uses (the home page grid) show a fixed slice of the catalog and
   // must not rewrite the URL of the page hosting them; only the browsable
@@ -227,6 +228,8 @@ function ProductsBrowserContent({
   const applyFilters = (next: ProductFilters) => {
     if (!ownsUrl) {
       setLocalFilters(next);
+      // keepPreviousData deja la grilla anterior visible; mover foco al listado
+      requestAnimationFrame(() => gridRef.current?.focus());
       return;
     }
     const nextQuery = queryFromFilters(next);
@@ -239,9 +242,11 @@ function ProductsBrowserContent({
     router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
       scroll: false,
     });
+    // foco al listado para lectores + usuario teclado tras paginar
+    requestAnimationFrame(() => gridRef.current?.focus());
   };
 
-  const { data, isLoading, isError, error } = useQuery({
+  const { data, isLoading, isFetching, isError, error } = useQuery({
     queryKey: ["products", filters],
     queryFn: async () => {
       const cleaned: Record<string, string | number> = {};
@@ -255,6 +260,7 @@ function ProductsBrowserContent({
       });
       return response.data;
     },
+    placeholderData: keepPreviousData,
   });
 
   const { data: facets } = useQuery({
@@ -437,7 +443,7 @@ function ProductsBrowserContent({
         </form>
       )}
 
-      {isLoading && (
+      {isLoading && !data && (
         <div className="flex items-center justify-center gap-2 py-12 text-text-muted">
           <Spinner className="h-5 w-5" /> Cargando productos…
         </div>
@@ -475,19 +481,26 @@ function ProductsBrowserContent({
       )}
 
       <div
+        ref={gridRef}
+        tabIndex={-1}
+        aria-busy={isFetching ? "true" : "false"}
         data-testid="products-grid"
-        className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4"
+        className="products-grid grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4 outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
       >
         {data?.data.map((product, index) => (
           <ProductCard key={product.id} product={product} priority={index < 4} />
         ))}
       </div>
+      <p aria-live="polite" role="status" className="sr-only">
+        {data?.meta.pages && data.meta.pages > 1 ? `Mostrando página ${filters.page ?? 1} de ${data.meta.pages}` : ""}
+      </p>
 
       {showPagination && data && data.meta.pages > 1 && (
         <nav aria-label="Paginación">
           <Pager
             page={filters.page ?? 1}
             pages={data.meta.pages}
+            isFetching={isFetching}
             onPageChange={(p) => applyFilters({ ...filters, page: p })}
           />
         </nav>

@@ -178,9 +178,33 @@ and color token usage.
 ### Topbar (`<div class="topbar">`)
 
 - Background `--color-ink`, text `--color-paper`.
-- Centered single line, `12px`, letter-spacing `.12em`, uppercase.
+- Centered single line, `12px`, letter-spacing `.12em`, uppercase. The single
+  line is enforced in CSS (`white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis`), not left to the copy — wrapping is what once
+  turned this 38px band into a 92px block above the sticky header.
 - Optional separator dot or pipe between phrases.
-- Hidden on `sm` and below if it would crowd the header; otherwise always shown.
+- Phrases are revealed by content-driven breakpoints, each measured from the
+  phrase's natural single-line width including the 32px horizontal padding:
+
+  | Width | Phrases shown | Line needs | Slack |
+  | ----- | ------------- | ---------- | ----- |
+  | `< sm` (<640px) | none — bar hidden | — | — |
+  | `sm` (≥640px) | 1 | 377px | 246px |
+  | ≥800px | 1–2 | 738px | 45px |
+  | ≥1080px | all 3 | 1000px | 63px |
+
+  Slack is measured against a 17px classic scrollbar. The two upper tiers are
+  deliberately *not* `md` (768px) and `lg` (1024px): those leave 13px and 9px,
+  thin enough to clip on a machine whose scrollbar or Inter fallback renders a
+  hair wider. Content-driven numbers beat tier names here.
+
+  The `sm`-and-below hide is not optional here: even one phrase overruns a
+  375px phone line, and the 92px result stacked on the 65px header consumed
+  19% of the viewport before any content. Nothing is lost — curation
+  headlines the home hero, "Envío no incluido" is disclosed in full at the
+  cart total, and every price already renders COP.
+- A new phrase goes behind a breakpoint wide enough to seat it. Measure the
+  natural single-line width first; do not append to an existing tier.
 
 ### Nav (`<nav>`)
 
