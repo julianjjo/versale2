@@ -38,7 +38,12 @@ vi.mock("@/lib/auth", async () => {
 });
 
 vi.mock("@/lib/api", () => ({
-  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  api: {
+    get: vi.fn().mockResolvedValue({ data: { suggestedPrice: null } }),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  },
   extractApiError: (_err: unknown, fallback: string) => fallback,
 }));
 
@@ -356,5 +361,32 @@ describe("SellPage — borrador automático (item 10)", () => {
     );
 
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+});
+
+describe("SellPage — precio sugerido", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockQuery = {};
+    window.localStorage.clear();
+  });
+
+  it("muestra el precio sugerido basado en la categoría y condición actuales", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: { suggestedPrice: 75000, sampleSize: 5 },
+    } as never);
+    renderPage();
+    expect(
+      await screen.findByText(/precio sugerido: \$75\.000 \(basado en 5 publicaciones\)/i),
+    ).toBeInTheDocument();
+  });
+
+  it("no muestra hint cuando no hay muestra suficiente", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      data: { suggestedPrice: null },
+    } as never);
+    renderPage();
+    await waitFor(() => expect(vi.mocked(api.get)).toHaveBeenCalled());
+    expect(screen.queryByText(/precio sugerido/i)).not.toBeInTheDocument();
   });
 });

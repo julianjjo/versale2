@@ -70,6 +70,21 @@ export class ProductsController {
     return this.productsService.findAllMine(req.user.id, query);
   }
 
+  @Throttle({
+    default: {
+      ttl: PRODUCTS_SEARCH_THROTTLE_TTL,
+      limit: PRODUCTS_SEARCH_THROTTLE_LIMIT,
+    },
+  })
+  @Get('suggested-price')
+  async getSuggestedPrice(
+    @Query('category') category: string,
+    @Query('condition') condition: string,
+  ) {
+    if (!category || !condition) return { suggestedPrice: null };
+    return this.productsService.getSuggestedPrice(category, condition);
+  }
+
   @UseGuards(OptionalJwtAuthGuard)
   @Get(':id')
   async findOne(@Param('id') id: string, @Req() req: Request) {

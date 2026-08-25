@@ -63,6 +63,17 @@ const PUBLICLY_VISIBLE = {
 // nothing actually overrides.
 const RELATED_PRODUCTS_LIMIT = 4;
 
+export const SUGGESTED_PRICE_MIN_SAMPLE = 3;
+
+const PRODUCT_CONDITIONS = ['New', 'Like New', 'Good', 'Fair'] as const;
+function canonicalCondition(value: string): string | null {
+  const trimmed = value.trim();
+  const match = PRODUCT_CONDITIONS.find(
+    (c) => c.toLowerCase() === trimmed.toLowerCase(),
+  );
+  return match ?? null;
+}
+
 // `id` as a secondary key gives ties on the primary sort column a stable
 // order across separate paginated (skip/take) queries. Without it, rows
 // sharing a value on a low-cardinality column like `price` — or even on
@@ -637,6 +648,47 @@ export class ProductsService {
     });
 
     return { data: await this.withAverageRating(related) };
+  }
+
+  // ponytail: simple average, median/IQR if outliers matter
+  async getSuggestedPrice(category: string, condition: string) {
+    const cat = canonicalCategory(category.trim());
+    const cond = canonicalCondition(condition);
+    if (!cond) return { suggestedPrice: null };
+    const exact = await this.prisma.client.product.aggregate({
+      where: { ...PUBLICLY_VISIBLE, category: cat, condition: cond },
+      _avg: { price: true },
+      _count: true,
+    });
+    const exactCount =
+      typeof exact._count === 'number'
+        ? exact._count
+        : ((exact._count as unknown as { _all: number })._all ?? 0);
+    if (exactCount >= SUGGESTED_PRICE_MIN_SAMPLE && exact._avg.price != null) {
+      return {
+        suggestedPrice: Math.round(exact._avg.price),
+        sampleSize: exactCount,
+      };
+    }
+    const fallback = await this.prisma.client.product.aggregate({
+      where: { ...PUBLICLY_VISIBLE, category: cat },
+      _avg: { price: true },
+      _count: true,
+    });
+    const fallbackCount =
+      typeof fallback._count === 'number'
+        ? fallback._count
+        : ((fallback._count as unknown as { _all: number })._all ?? 0);
+    if (
+      fallbackCount >= SUGGESTED_PRICE_MIN_SAMPLE &&
+      fallback._avg.price != null
+    ) {
+      return {
+        suggestedPrice: Math.round(fallback._avg.price),
+        sampleSize: fallbackCount,
+      };
+    }
+    return { suggestedPrice: null };
   }
 
   async findRaw(id: string) {
