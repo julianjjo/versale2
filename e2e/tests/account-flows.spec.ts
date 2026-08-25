@@ -3,21 +3,13 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import path from "node:path";
 import crypto from "node:crypto";
+import { API_URL } from "../utils/purchasable";
 
+// ponytail: serial — backdate mutates shared e2e.db
 test.describe.configure({ mode: "serial" });
-
-const API_URL = process.env.API_URL ?? "http://127.0.0.1:3101";
 
 function hdr(token?: string) {
   return token ? { Authorization: `Bearer ${token}` } : undefined;
-}
-async function login(
-  req: import("@playwright/test").APIRequestContext,
-  c: { email: string; password: string },
-) {
-  const r = await req.post(`${API_URL}/auth/login`, { data: c });
-  if (!r.ok()) throw new Error(`login ${c.email}: ${r.status()} ${await r.text()}`);
-  return (await r.json()).access_token as string;
 }
 function uniqueEmail() {
   return `acct-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@e2e.test`;
@@ -107,7 +99,6 @@ test.describe("Flujos de cuenta: verificación y recuperación", () => {
     const oldTry = await req.post(`${API_URL}/auth/verify-email`, { data: { token: oldTok } });
     expect(oldTry.status()).toBe(400);
 
-    // generar un token nuevo conocido y verificar que el endpoint sigue funcionando tras resend
     const known = crypto.randomBytes(32).toString("hex");
     const prisma = prismaForE2e();
     try {
@@ -196,10 +187,10 @@ test.describe("Flujos de cuenta: verificación y recuperación", () => {
     expect(b.resetToken).toBeUndefined();
   });
 
+  // ponytail: bundled 3 UI flows in 1 serial test to avoid 2 extra signups — split if flaky
   test("UI: verify-email, forgot-password y reset-password", async ({ page }) => {
     const req = page.request;
 
-    // verify-email UI
     const email = uniqueEmail();
     const s = await req.post(`${API_URL}/auth/signup`, {
       data: { email, name: "UI Verify", password: "segura12345", acceptedTerms: true },
@@ -209,7 +200,6 @@ test.describe("Flujos de cuenta: verificación y recuperación", () => {
     await page.getByRole("button", { name: /Verificar mi correo/i }).click();
     await expect(page.getByText(/¡Correo verificado!/i)).toBeVisible({ timeout: 10_000 });
 
-    // forgot-password UI
     const email2 = uniqueEmail();
     await req.post(`${API_URL}/auth/signup`, {
       data: { email: email2, name: "UI Forgot", password: "segura12345", acceptedTerms: true },
@@ -219,7 +209,6 @@ test.describe("Flujos de cuenta: verificación y recuperación", () => {
     await page.getByRole("button", { name: /Enviar instrucciones/i }).click();
     await expect(page.getByText(/Si el correo existe/i)).toBeVisible({ timeout: 10_000 });
 
-    // reset-password UI
     const fg = await req.post(`${API_URL}/auth/forgot-password`, { data: { email: email2 } });
     const { resetToken } = (await fg.json()) as { resetToken: string };
     await page.goto(`/reset-password?token=${encodeURIComponent(resetToken)}`);
@@ -228,7 +217,6 @@ test.describe("Flujos de cuenta: verificación y recuperación", () => {
     await page.getByRole("button", { name: /Actualizar contraseña/i }).click();
     await expect(page.getByText(/se actualiz/i)).toBeVisible({ timeout: 10_000 });
 
-    // login con nueva pwd confirma cambio vía UI flow
     const l = await req.post(`${API_URL}/auth/login`, { data: { email: email2, password: "uiNueva123!" } });
     expect(l.status()).toBe(200);
   });
