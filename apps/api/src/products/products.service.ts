@@ -306,7 +306,8 @@ export class ProductsService {
     if (Object.keys(priceFilter).length > 0) where.price = priceFilter;
 
     if (typeof size === 'string' && size) {
-      where.size = size;
+      const normalizedSize = size.trim().toUpperCase();
+      if (normalizedSize) where.size = normalizedSize;
     }
     if (typeof brand === 'string' && brand) {
       where.brand = { contains: brand };
@@ -320,7 +321,10 @@ export class ProductsService {
       where.category = { equals: canonicalCategory(category) };
     }
     if (typeof condition === 'string' && condition) {
-      where.condition = condition;
+      const trimmedCondition = condition.trim();
+      if (trimmedCondition)
+        where.condition =
+          canonicalCondition(trimmedCondition) ?? trimmedCondition;
     }
 
     if (isTopRated) {
