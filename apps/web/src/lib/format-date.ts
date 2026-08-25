@@ -2,13 +2,7 @@
 // es-CO) para que servidor y cliente rendericen el mismo string — una fecha
 // formateada con la zona local del visitante produciría mismatch de
 // hidratación, que es justo lo que este ítem no puede introducir.
-const formatter = new Intl.DateTimeFormat("es-CO", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-  timeZone: "UTC",
-});
-
+// ponytail: deterministic via toLocaleDateString UTC; Intl.DateTimeFormat singleton if pin needed
 export function formatPublishDate(createdAt: string): string {
-  return `Publicado el ${formatter.format(new Date(createdAt))}`;
+  return `Publicado el ${new Date(createdAt).toLocaleDateString("es-CO", {day:"numeric", month:"long", year:"numeric", timeZone:"UTC"})}`;
 }
