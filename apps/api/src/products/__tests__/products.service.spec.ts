@@ -2581,6 +2581,42 @@ describe('ProductsService', () => {
 
       expect(result).toEqual({ data: [] });
     });
+
+    it('folds uppercase category to canonical spelling for related rail', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        category: 'CHAQUETAS',
+        isApproved: true,
+      });
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+
+      await service.getRelatedProducts('p1');
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            category: 'Chaquetas',
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('folds lowercase category to canonical spelling for related rail', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        category: 'chaquetas',
+        isApproved: true,
+      });
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+
+      await service.getRelatedProducts('p1');
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            category: 'Chaquetas',
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
   });
 
   describe('getFacets', () => {
@@ -3359,6 +3395,24 @@ describe('ProductsService', () => {
           }) as Record<string, unknown>,
         }),
       );
+    });
+
+    it('trims whitespace for brand filter', async () => {
+      await service.findAll({ brand: ' Nike ' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            brand: { contains: 'Nike' },
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('ignores whitespace-only brand filter', async () => {
+      await service.findAll({ brand: '   ' });
+      const [[{ where }]] = mockPrismaService.client.product.findMany.mock
+        .calls as [[{ where: Record<string, unknown> }]];
+      expect(where.brand).toBeUndefined();
     });
   });
 
