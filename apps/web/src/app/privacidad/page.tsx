@@ -13,7 +13,7 @@ function AccountDeletionSection() {
       <h2 className="text-lg font-semibold text-text-primary">Eliminación de cuenta</h2>
       <p className="mt-2 text-sm leading-relaxed text-text-muted">
         Puedes eliminar tu cuenta tú mismo, en cualquier momento: entra en{" "}
-        <a href="/profile" className="font-medium text-terracotta underline-offset-4 hover:underline">
+        <a href="/profile" className="font-medium text-terracotta-deep underline-offset-4 hover:underline">
           tu perfil
         </a>{" "}
         y usa «Eliminar mi cuenta» (te pediremos tu contraseña para confirmarla). Tu perfil
@@ -25,7 +25,7 @@ function AccountDeletionSection() {
       {CONTACT_EMAIL ? (
         <p className="mt-2 text-sm leading-relaxed text-text-muted">
           Si no puedes entrar a tu cuenta, escríbenos a{" "}
-          <a href={mailto ?? undefined} className="font-medium text-terracotta underline-offset-4 hover:underline">
+          <a href={mailto ?? undefined} className="font-medium text-terracotta-deep underline-offset-4 hover:underline">
             {CONTACT_EMAIL}
           </a>{" "}
           con el asunto «Eliminar mi cuenta» y la tramitamos manualmente.

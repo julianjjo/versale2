@@ -17,14 +17,14 @@ export default function ContactoPage() {
       <div className="space-y-3">
         <Link
           href="/ayuda"
-          className="block font-medium text-terracotta underline-offset-4 hover:underline"
+          className="block font-medium text-terracotta-deep underline-offset-4 hover:underline"
         >
           Ir al Centro de ayuda
         </Link>
         {CONTACT_EMAIL && mailto ? (
           <a
             href={mailto}
-            className="block font-medium text-terracotta underline-offset-4 hover:underline"
+            className="block font-medium text-terracotta-deep underline-offset-4 hover:underline"
           >
             Escríbenos a {CONTACT_EMAIL}
           </a>

@@ -360,9 +360,9 @@ export default function AdminProductsPage() {
 
   return (
     <div>
-      <h2 className="heading-section mb-4 text-text-primary">
+      <h1 className="heading-section mb-4 text-text-primary">
         Todas las publicaciones
-      </h2>
+      </h1>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         {/* Filtros, no pestañas: son botones que filtran una sola lista, sin

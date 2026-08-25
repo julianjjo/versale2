@@ -84,7 +84,7 @@ export default function AdminUsersPage() {
 
   return (
     <div>
-      <h2 className="heading-section mb-4 text-text-primary">Todos los usuarios</h2>
+      <h1 className="heading-section mb-4 text-text-primary">Todos los usuarios</h1>
 
       <div className="mb-4 flex flex-wrap gap-3">
         <Input

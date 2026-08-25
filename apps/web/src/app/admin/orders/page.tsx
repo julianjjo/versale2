@@ -227,9 +227,9 @@ export default function AdminOrdersPage() {
 
   return (
     <div style={{ paddingBottom: bulkBarHeight }}>
-      <h2 className="heading-section mb-4 text-text-primary">
+      <h1 className="heading-section mb-4 text-text-primary">
         Todos los pedidos
-      </h2>
+      </h1>
 
       <div className="mb-4 flex items-center gap-3">
         <Input

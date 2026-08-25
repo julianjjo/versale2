@@ -27,6 +27,12 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
+// Título de respaldo: solo se ve en la portada. Cada ruta pone el suyo con
+// `export const metadata`, y las que tienen `page.tsx` marcado "use client"
+// —donde Next no puede leer metadata— montan un `layout.tsx` mínimo que no
+// envuelve nada y solo aporta el título. Al agregar una ruta nueva, dale
+// título por una de esas dos vías: heredar este deja la pestaña, el historial
+// y los marcadores diciendo "Versale" en todas partes.
 export const metadata: Metadata = {
   title: "Versale — Marketplace de moda de segunda",
   description:
