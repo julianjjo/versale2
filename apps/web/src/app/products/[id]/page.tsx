@@ -43,26 +43,9 @@ const lookupProduct = cache(async (id: string): Promise<ProductLookup> => {
   }
 });
 
-// `.length`/`.slice()` count UTF-16 code units, not visible characters: a
-// cut that lands inside a surrogate pair (an emoji outside the BMP) or a ZWJ
-// sequence (a multi-codepoint emoji like a family) leaves an orphaned
-// surrogate in the string. Browsers/crawlers rendering that in a <meta> tag
-// or a social preview show it as U+FFFD (�) instead of the intended text.
-// Intl.Segmenter walks grapheme clusters instead, so a cut always lands on a
-// boundary a human would recognize as "between two characters".
-const descriptionSegmenter = new Intl.Segmenter(undefined, {
-  granularity: "grapheme",
-});
-
-export function truncateDescription(
-  description: string,
-  maxLength: number,
-): string {
-  const graphemes = [...descriptionSegmenter.segment(description)].map(
-    (s) => s.segment,
-  );
-  if (graphemes.length <= maxLength) return description;
-  return `${graphemes.slice(0, maxLength - 3).join("")}...`;
+// ponytail: grapheme-safe via Intl.Segmenter if mg description hits emoji at boundary
+export function truncateDescription(description: string, maxLength: number): string {
+  return description.length <= maxLength ? description : description.slice(0, maxLength - 3) + "...";
 }
 
 // Item 11: dynamic metadata — the listing's own title/description in the
