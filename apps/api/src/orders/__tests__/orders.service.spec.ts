@@ -2138,7 +2138,11 @@ describe('OrdersService', () => {
 
       it('sigue aunque un disputed falle (uno raced, otro ok)', async () => {
         mockPrismaService.client.order.findMany.mockResolvedValue([
-          { id: 'disputed-raced', userId: 'buyer1', status: OrderStatus.DISPUTED },
+          {
+            id: 'disputed-raced',
+            userId: 'buyer1',
+            status: OrderStatus.DISPUTED,
+          },
           { id: 'disputed2', userId: 'buyer2', status: OrderStatus.DISPUTED },
         ]);
         mockTx.order.update
