@@ -150,6 +150,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
       },
       60 * 60 * 1000,
     );
+    void this.runOrderDeadlineSweeps();
     // Allow process to exit even if interval is still scheduled (tests, e2e)
     if (this.sweepInterval.unref) this.sweepInterval.unref();
   }

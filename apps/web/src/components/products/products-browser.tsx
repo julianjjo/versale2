@@ -7,7 +7,7 @@ import {
   conditionLabel,
 } from "@/lib/product-condition";
 import type { PaginatedResponse, Product } from "@/lib/types";
-import { Suspense, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -26,6 +26,7 @@ import { FavoriteButton } from "@/components/products/favorite-button";
 import { useAuth } from "@/lib/auth";
 import { PRODUCT_CATEGORIES } from "@/lib/categories";
 import { formatPublishDate } from "@/lib/format-date";
+import { useDebouncedSearch } from "@/lib/use-debounced-search";
 
 const SORT_OPTIONS = [
   { value: "price_asc", label: "Precio: menor a mayor" },
@@ -216,6 +217,26 @@ function ProductsBrowserContent({
     requestAnimationFrame(() => gridRef.current?.focus());
   };
 
+  // ponytail: 300ms live search, submit fallback
+  const { searchInput, setSearchInput, search: debouncedSearch } =
+    useDebouncedSearch();
+  const isFirstSearch = useRef(true);
+  useEffect(() => {
+    setSearchInput(filters.search ?? "");
+  }, [filters.search, setSearchInput]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (isFirstSearch.current) {
+      isFirstSearch.current = false;
+      return;
+    }
+    const v = debouncedSearch.trim() || undefined;
+    if ((filters.search || undefined) !== v) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      applyFilters({ ...filters, search: v, page: 1 });
+    }
+  }, [debouncedSearch]);
+
   const { data, isLoading, isFetching, isError, error } = useQuery({
     queryKey: ["products", filters],
     queryFn: async () => {
@@ -249,6 +270,7 @@ function ProductsBrowserContent({
 
   const clearFilters = () => {
     setForm(EMPTY_FORM);
+    setSearchInput("");
     applyFilters({ page: 1, limit, ...initialFilters });
   };
 
@@ -262,7 +284,7 @@ function ProductsBrowserContent({
             e.preventDefault();
             applyFilters({
               ...filters,
-              search: form.search || undefined,
+              search: searchInput.trim() || undefined,
               minPrice: form.minPrice ? Number(form.minPrice) : undefined,
               maxPrice: form.maxPrice ? Number(form.maxPrice) : undefined,
               size: form.size || undefined,
@@ -278,10 +300,8 @@ function ProductsBrowserContent({
             name="search"
             label="Buscar"
             placeholder="Chaqueta de jean, Levi's…"
-            value={form.search}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, search: e.target.value }))
-            }
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             wrapperClassName="sm:col-span-2 lg:col-span-2"
           />
           <Input

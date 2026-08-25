@@ -197,6 +197,7 @@ export function NotificationBell() {
                         <span className="mt-1 block text-xs text-text-muted">
                           {new Date(notification.createdAt).toLocaleDateString(
                             "es-CO",
+                            { timeZone: "UTC" },
                           )}
                         </span>
                       </span>
