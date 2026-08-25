@@ -49,7 +49,7 @@ export function OrderStatusTimeline({ status }: { status: OrderStatus }) {
                       : "border-border bg-surface text-text-muted"
                 }`}
               >
-                {isDone ? <CheckIcon /> : index + 1}
+                {isDone ? <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> : index + 1}
               </span>
               {index < TIMELINE_STEPS.length - 1 && (
                 <span
@@ -72,23 +72,5 @@ export function OrderStatusTimeline({ status }: { status: OrderStatus }) {
         );
       })}
     </ol>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      width={14}
-      height={14}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
   );
 }
