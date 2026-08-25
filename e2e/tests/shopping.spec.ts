@@ -31,7 +31,10 @@ test.describe("Flujo de compra", () => {
       page.getByRole("heading", { name: "Wool Sweater" }),
     ).toBeVisible();
 
-    await page.getByPlaceholder(/buscar/i).fill("denim");
+    // Por el label, no por el placeholder: el placeholder del buscador es un
+    // ejemplo de consulta ("Chaqueta de jean, Levi's…") y desaparece al
+    // escribir; el label es el nombre permanente del campo.
+    await page.getByLabel("Buscar", { exact: true }).fill("denim");
     await page.getByRole("button", { name: /aplicar/i }).click();
     await expect(
       page.getByRole("heading", { name: "Vintage Denim Jacket" }),
