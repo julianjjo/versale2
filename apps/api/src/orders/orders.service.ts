@@ -997,17 +997,28 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ponytail: 3× loop dedup into helper, split into per-status sweepers if drift needs isolation
+  // ponytail: unbounded scan, paginate with cursor if rows >1k
+  /**
+   * Sweeps stale orders matching `where` into `toStatus`.
+   * Returns number of orders attempted (findMany count), not just successes.
+   */
   private async sweepOrders(opts: {
     where: Prisma.OrderWhereInput;
     toStatus: OrderStatus;
     notification: { type: NotificationType; message: string };
     warnPrefix: string;
-    afterTransition?: (order: { id: string }) => Promise<void>;
   }): Promise<number> {
-    const stale = await this.prisma.client.order.findMany({
-      where: opts.where,
-      select: { id: true, userId: true, status: true },
-    });
+    let stale: { id: string; userId: string; status: OrderStatus }[] = [];
+    try {
+      const rows = await this.prisma.client.order.findMany({
+        where: opts.where,
+        select: { id: true, userId: true, status: true },
+      });
+      stale = rows as unknown as typeof stale;
+    } catch (e) {
+      this.logger.error(`${opts.warnPrefix} findMany failed`, e as Error);
+      return 0;
+    }
 
     // Deliberately sequential, not Promise.allSettled: transitionStatus's
     // releasesGarments branch opens a real $transaction, and this repo's
@@ -1028,7 +1039,6 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     for (const order of stale) {
       try {
         await this.transitionStatus(order, opts.toStatus);
-        if (opts.afterTransition) await opts.afterTransition(order);
         await this.notifySafely(() =>
           this.notifications.create(
             order.userId,
@@ -1084,13 +1094,6 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
           'Tu disputa expiró sin resolución y se reembolsó tu pago automáticamente.',
       },
       warnPrefix: 'No se pudo expirar la disputa del pedido',
-      afterTransition: (order) =>
-        this.prisma.client.order
-          .update({
-            where: { id: order.id },
-            data: { disputeResolvedAt: new Date() },
-          })
-          .then(() => undefined),
     });
   }
 

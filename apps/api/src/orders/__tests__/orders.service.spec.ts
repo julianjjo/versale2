@@ -2048,6 +2048,41 @@ describe('OrdersService', () => {
         expect(refunded).toBe(0);
         expect(mockTx.order.update).not.toHaveBeenCalled();
       });
+
+      it('sigue aunque un refund falle (uno raced, otro ok)', async () => {
+        mockPrismaService.client.order.findMany.mockResolvedValue([
+          { id: 'paid-raced', userId: 'buyer1', status: OrderStatus.PAID },
+          { id: 'paid2', userId: 'buyer2', status: OrderStatus.PAID },
+        ]);
+        mockTx.order.update
+          .mockRejectedValueOnce(staleStatusError())
+          .mockResolvedValueOnce({ id: 'paid2' });
+        mockTx.orderItem.findMany.mockResolvedValue([]);
+        mockTx.product.updateMany.mockResolvedValue({ count: 1 });
+
+        const refunded = await service.autoRefundUnshippedPaidOrders();
+
+        expect(refunded).toBe(2);
+        expect(mockNotificationsService.create).toHaveBeenCalledTimes(1);
+        expect(mockNotificationsService.create).toHaveBeenCalledWith(
+          'buyer2',
+          NotificationType.ORDER_STATUS_CHANGED,
+          expect.any(String),
+          'paid2',
+        );
+      });
+
+      it('retorna 0 y no lanza si findMany falla (refund aislado)', async () => {
+        mockPrismaService.client.order.findMany.mockRejectedValue(
+          new Error('db down'),
+        );
+
+        const refunded = await service.autoRefundUnshippedPaidOrders();
+
+        expect(refunded).toBe(0);
+        expect(mockTx.order.update).not.toHaveBeenCalled();
+        expect(mockNotificationsService.create).not.toHaveBeenCalled();
+      });
     });
 
     describe('cron — expiración de disputa a 30 días', () => {
@@ -2075,14 +2110,15 @@ describe('OrdersService', () => {
         });
         expect(mockTx.order.update).toHaveBeenCalledWith(
           objContaining({
-            data: objContaining({ status: OrderStatus.REFUNDED }),
+            data: objContaining({
+              status: OrderStatus.REFUNDED,
+              disputeResolvedAt: anyDate(),
+            }),
           }),
         );
-        // Marca la resolución para que el histórico quede cerrado.
-        expect(mockPrismaService.client.order.update).toHaveBeenCalledWith({
-          where: { id: 'disputed1' },
-          data: { disputeResolvedAt: anyDate() },
-        });
+        // M-1 fix: transitionStatus ya sella disputeResolvedAt; no hay segundo
+        // prisma.order.update. El histórico queda cerrado en la misma escritura.
+        expect(mockPrismaService.client.order.update).not.toHaveBeenCalled();
         expect(mockNotificationsService.create).toHaveBeenCalledWith(
           'buyer1',
           NotificationType.ORDER_STATUS_CHANGED,
@@ -2098,6 +2134,40 @@ describe('OrdersService', () => {
 
         expect(expired).toBe(0);
         expect(mockTx.order.update).not.toHaveBeenCalled();
+      });
+
+      it('sigue aunque un disputed falle (uno raced, otro ok)', async () => {
+        mockPrismaService.client.order.findMany.mockResolvedValue([
+          { id: 'disputed-raced', userId: 'buyer1', status: OrderStatus.DISPUTED },
+          { id: 'disputed2', userId: 'buyer2', status: OrderStatus.DISPUTED },
+        ]);
+        mockTx.order.update
+          .mockRejectedValueOnce(staleStatusError())
+          .mockResolvedValueOnce({ id: 'disputed2' });
+        mockTx.orderItem.findMany.mockResolvedValue([]);
+
+        const expired = await service.autoResolveExpiredDisputes();
+
+        expect(expired).toBe(2);
+        expect(mockNotificationsService.create).toHaveBeenCalledTimes(1);
+        expect(mockNotificationsService.create).toHaveBeenCalledWith(
+          'buyer2',
+          NotificationType.ORDER_STATUS_CHANGED,
+          expect.any(String),
+          'disputed2',
+        );
+      });
+
+      it('retorna 0 y no lanza si findMany falla (disputas aislado)', async () => {
+        mockPrismaService.client.order.findMany.mockRejectedValue(
+          new Error('db down'),
+        );
+
+        const expired = await service.autoResolveExpiredDisputes();
+
+        expect(expired).toBe(0);
+        expect(mockTx.order.update).not.toHaveBeenCalled();
+        expect(mockNotificationsService.create).not.toHaveBeenCalled();
       });
     });
 
