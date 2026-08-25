@@ -60,7 +60,7 @@ export function FavoriteButton({
   };
 
   return (
-    <span className="relative inline-flex">
+    <span className="relative inline-flex flex-col items-center">
       <button
         type="button"
         onClick={handleClick}
@@ -72,9 +72,14 @@ export function FavoriteButton({
         <HeartIcon filled={isFavorite} />
       </button>
       {error && (
-        <span role="alert" className="sr-only">
-          {error}
-        </span>
+        <>
+          <span className="sr-only" aria-live="assertive">
+            {error}
+          </span>
+          <span role="alert" className="mt-1 max-w-[12rem] whitespace-normal text-center text-xs text-danger">
+            {error}
+          </span>
+        </>
       )}
     </span>
   );

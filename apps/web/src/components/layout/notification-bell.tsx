@@ -30,6 +30,7 @@ export function NotificationBell() {
     queryFn: async () =>
       (await api.get("/notifications/unread-count")).data,
     refetchInterval: UNREAD_COUNT_REFETCH_MS,
+    staleTime: 60_000,
   });
 
   // Only fetched once the dropdown is actually opened — the badge count

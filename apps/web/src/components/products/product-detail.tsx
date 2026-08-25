@@ -310,6 +310,7 @@ export function ProductDetail({
     loginRedirectUrl(id, reason);
 
   const handleAddToCart = () => {
+    if (addToCart.isPending) return;
     setError(null);
     if (!user) {
       router.push(loginRedirect("cart"));

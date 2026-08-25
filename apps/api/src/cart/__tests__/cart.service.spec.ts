@@ -14,6 +14,7 @@ describe('CartService', () => {
       },
       cartItem: {
         findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
         update: jest.fn(),
         create: jest.fn(),
         upsert: jest.fn(),
@@ -426,6 +427,49 @@ describe('CartService', () => {
       expect(first.id).toBe('item1');
       expect(second.id).toBe('item1');
       expect(second.quantity).toBe(1);
+    });
+
+    it('should return existing item idempotently when upsert races with P2002', async () => {
+      const userId = 'user1';
+      const productId = 'product1';
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
+      mockProductsService.findRaw.mockResolvedValue({
+        id: productId,
+        price: 10,
+        isApproved: true,
+        status: 'AVAILABLE',
+        pausedAt: null,
+      });
+      const existing = {
+        id: 'item1',
+        cartId: 'cart1',
+        productId,
+        quantity: 1,
+        priceAtAdd: 10,
+        product: { id: productId, seller: { id: 's1', name: 'Alice' } },
+      };
+      const p2002 = Object.assign(new Error('Unique constraint'), {
+        code: 'P2002',
+      });
+      mockPrismaService.client.cartItem.upsert.mockRejectedValue(p2002);
+      mockPrismaService.client.cartItem.findUniqueOrThrow = jest
+        .fn()
+        .mockResolvedValue(existing);
+
+      const result = await service.addItem(userId, productId, 1);
+
+      expect(mockPrismaService.client.cartItem.upsert).toHaveBeenCalledTimes(1);
+      expect(
+        mockPrismaService.client.cartItem.findUniqueOrThrow,
+      ).toHaveBeenCalledWith({
+        where: { cartId_productId: { cartId: 'cart1', productId } },
+        include: {
+          product: {
+            include: { seller: { select: { id: true, name: true } } },
+          },
+        },
+      });
+      expect(result).toEqual(existing);
     });
   });
 

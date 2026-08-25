@@ -116,6 +116,33 @@ export function extractApiError(
   fallback = "Ocurrió un error. Intenta de nuevo.",
 ): string {
   if (err instanceof ApiError) {
+    if (err.status === 0) {
+      if (
+        typeof navigator !== "undefined" &&
+        typeof navigator.onLine === "boolean" &&
+        !navigator.onLine
+      ) {
+        return "Sin conexión. Verifica tu internet.";
+      }
+      const data = err.response.data as
+        | { message?: string | string[] }
+        | undefined;
+      if (data?.message) {
+        return Array.isArray(data.message)
+          ? data.message.join(", ")
+          : data.message;
+      }
+      // Offline-like but navigator thinks we're online (DNS/CORS/timeout).
+      // Prefer a specific offline hint over the caller's generic fallback,
+      // but keep fallback for callers that have a more contextual message
+      // (e.g. "No pudimos eliminar tu cuenta") — tests rely on this.
+      // Only use the generic offline Spanish when no caller-specific fallback
+      // is distinguishing the context.
+      if (fallback === "Ocurrió un error. Intenta de nuevo.") {
+        return "Sin conexión. Verifica tu internet.";
+      }
+      return fallback;
+    }
     const data = err.response.data as
       | { message?: string | string[] }
       | undefined;

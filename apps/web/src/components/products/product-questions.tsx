@@ -83,6 +83,7 @@ export function ProductQuestions({
 
   const handleAsk = (e: React.FormEvent) => {
     e.preventDefault();
+    if (questionText.trim().length === 0 || questionText.length > 500) return;
     setError(null);
     askQuestion.mutate();
   };
@@ -109,6 +110,7 @@ export function ProductQuestions({
 
   const handleAnswerSubmit = (e: React.FormEvent, id: string) => {
     e.preventDefault();
+    if (!answerText.trim() || answerText.length > 1000) return;
     setError(null);
     answerQuestion.mutate({ id, answer: answerText });
   };
@@ -162,6 +164,7 @@ export function ProductQuestions({
                         rows={2}
                         maxLength={1000}
                       />
+                      <span className="text-xs text-text-muted">{answerText.length}/1000</span>
                       <div className="flex gap-2">
                         <Button
                           type="submit"
@@ -232,9 +235,10 @@ export function ProductQuestions({
             maxLength={500}
             placeholder="Ej. ¿esta prenda tiene alguna mancha o defecto?"
           />
+          <span className="text-xs text-text-muted">{questionText.length}/500</span>
           <Button
             type="submit"
-            disabled={askQuestion.isPending || !questionText.trim()}
+            disabled={askQuestion.isPending || !questionText.trim() || questionText.length > 500}
           >
             {askQuestion.isPending ? "Enviando…" : "Enviar pregunta"}
           </Button>

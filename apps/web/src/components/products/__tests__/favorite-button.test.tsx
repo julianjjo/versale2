@@ -193,8 +193,9 @@ describe("FavoriteButton", () => {
     });
     await user.click(button);
 
-    expect(
-      await screen.findByRole("alert"),
-    ).toHaveTextContent(/no pudimos agregar/i);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/no pudimos agregar/i);
+    expect(alert).toHaveClass("text-danger");
+    expect(alert).not.toHaveClass("sr-only");
   });
 });

@@ -47,6 +47,7 @@ export function ReportProductButton({ productId }: { productId: string }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!category || !reason.trim() || reason.length > 500) return;
     setError(null);
     reportProduct.mutate();
   };
@@ -98,6 +99,7 @@ export function ReportProductButton({ productId }: { productId: string }) {
             maxLength={500}
             placeholder="Ej. sospecho que es una estafa, las fotos no coinciden con la descripción…"
           />
+          <span className="text-xs text-text-muted">{reason.length}/500</span>
           <div className="flex gap-2">
             <Button
               type="submit"
