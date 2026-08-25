@@ -224,7 +224,7 @@ export class ReviewsService {
       });
     }
 
-    return this.getHelpfulSummary(reviewId, true);
+    return this.getHelpfulSummary(reviewId, userId);
   }
 
   async unmarkHelpful(reviewId: string, userId: string) {
@@ -258,19 +258,20 @@ export class ReviewsService {
       });
     }
 
-    return this.getHelpfulSummary(reviewId, false);
+    return this.getHelpfulSummary(reviewId, userId);
   }
 
-  // `votedByMe` is passed in rather than re-queried: by the time either
-  // caller reaches here, its own upsert/delete already settled that fact
-  // for this exact (reviewId, userId) pair — only the aggregate count can
-  // still change from other users' concurrent votes.
-  private async getHelpfulSummary(reviewId: string, votedByMe: boolean) {
-    const helpfulCount = await this.prisma.client.reviewHelpfulVote.count({
-      where: { reviewId },
-    });
-
-    return { helpfulCount, votedByMe };
+  // votedByMe is re-queried rather than trusted from caller: rapid toggle 3x
+  // interleaves mark/unmark and the last caller's boolean would be stale
+  private async getHelpfulSummary(reviewId: string, userId: string) {
+    const [helpfulCount, mine] = await Promise.all([
+      this.prisma.client.reviewHelpfulVote.count({ where: { reviewId } }),
+      this.prisma.client.reviewHelpfulVote.findUnique({
+        where: { reviewId_userId: { reviewId, userId } },
+        select: { id: true },
+      }),
+    ]);
+    return { helpfulCount, votedByMe: !!mine };
   }
 
   async remove(id: string, userId: string, role: Role) {
