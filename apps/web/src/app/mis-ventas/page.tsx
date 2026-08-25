@@ -30,6 +30,7 @@ import {
   ORDER_STATUS_VARIANT,
 } from "@/lib/order-status";
 import type { Order, OrderStatus } from "@/lib/types";
+import { plexMono } from "@/app/fonts-mono";
 
 type StatusFilter = OrderStatus | "all";
 
@@ -162,7 +163,7 @@ export default function MisVentasPage() {
     : "Aún no tienes ventas";
 
   return (
-    <PageContainer>
+    <PageContainer className={plexMono.variable}>
       <SectionHeader
         title="Mis ventas"
         description="Gestiona el envío de los productos que has vendido."
