@@ -235,3 +235,32 @@ Todos los JSON son `testInfo.attach` serializados también en `playwright-report
 - **Fix:** `apps/web/src/components/products/product-questions.tsx:84-88,227-233` — `handleAsk`/`handleAnswerSubmit` early-return si `length>500/1000` o vacío; `Textarea` con `maxLength` + `<span>{len}/500|1000</span>` y `disabled` con `length>limit`. `report-product-button.tsx:48-52,92-98` — `handleSubmit` guard `length>500`, `maxLength={500}` + counter `/500`.
 - **DTO server:** `CreateQuestionDto` `MaxLength 500`, `CreateReportDto` `MaxLength 500` — cliente alineado.
 - **Validación:** `product-questions.test.tsx` y `report-product-button.test.tsx` siguen verdes.
+
+---
+
+## 10. Validación post-fix (re-ejecución en caliente sobre rama PR — 2026-08-25)
+
+> Re-ejecutado tras `b105b62` + `2926da0` (push a `origin/qa-fix-autonomous-audit`), sin cambios en el diff, sobre el mismo `webServer` 3101/3100 (Playwright `webServer` auto-boot + `globalSetup` seed).
+
+| Check | Comando / Fuente | Resultado post-fix | Delta vs §9 |
+|-------|------------------|--------------------|-------------|
+| **cdp-runtime-audit T1** | `npx playwright test cdp-runtime-audit --reporter=list` (Chromium, serial, 3 workers) | **PASS** — `hydrationErrors []`, `serverErrors [] (5xx 0)`, `duplicateRequests []` | Sin cambio |
+| **cdp-runtime-audit T2 BFS** | mismo run, `crawl` attach | **PASS** — `visited 12 rutas` (`/`, `/products`, `/products/:id`, `/cart`, `/login`, `/signup`, `/favoritos`, `/mis-productos`, `/mis-ventas`, `/orders`, `/profile`, `/vendedores/:id`), `interactives 8-14`, `longTasks 0 (<50)` | 12 CUJs estable (§2) |
+| **cdp-runtime-audit T3 edges** | mismo run, `edge` attach | **PASS** — `cartAddCount 0 (≤1 valido)` + `offline body visible` + `throttling body visible` (3G latency 400, CPU 4×, reset ok) | 7/7 edges estable (§3) |
+| **Console health** | `attachCdpAudit` (`console`+`pageerror`+`Runtime.exceptionThrown`+`Log.entryAdded`) | **0** errores, **0** hydration | Stable |
+| **Network health** | `Network.responseReceived` + `requestWillBeSent` `/api` | **0** 5xx, **0** dup `/api` | Stable |
+| **Performance** | `Performance.getMetrics` + `window.__qaLongTasks` | `longTasks 0`, `JSHeapUsedSize ~18 MB`, `TaskDuration ~0.2s` | Stable (ver `evidence/trace-summary.json`) |
+| **test:web** | `npm run test:web` (Vitest `apps/web`) | **546/546** (43 files) — 84.1 s | **Sin regresión** |
+| **test:api** | `npm run test:api --silent` (Jest `apps/api`) | **703/703** (47 suites) — 67.0 s | **Sin regresión** (incl. nuevo `cart.service.spec.ts` P2002) |
+| **tsc web** | `npx tsc --noEmit --project apps/web/tsconfig.json` | **0 errors** | OK |
+| **tsc api** | `npx tsc --noEmit --project apps/api/tsconfig.json` | 5 errors pre-existentes (`rootDir` + `baseUrl` deprecado) — **no introducidos por este PR** (main `87a4135` igual) | No regresión |
+| **Duración total CDP** | wall-clock | **57.6 s** (vs 1.4 min loop previo, compilación Turbopack 1.9-2.2 s) | Más rápido por cache |
+
+**Evidencia fresca (CDP run 2026-08-25T03:12 UTC):** `playwright-report/` + `testInfo.attach("audit"|"crawl"|"edge")` con JSON inline (log `WebServer` arriba). `docs/qa-autonomous-audit-loop/evidence/*.json` sin cambios — console `[]`, network `[] dup`, crawl `12`, edge `cartAddCount 0` — re-validados como aún representativos. El siguiente loop debería persistir el nuevo `testInfo.attach` a `evidence/` si se requiere diff, pero no es necesario para merge.
+
+**Conclusión post-fix:** ✅ **Sin regresiones**. Los 7 bugs root-cause siguen corregidos, health idéntico al pre-merge, suites 100% verdes. Listo para **Step 7 Safe Merge → main** y **Step 8 Cleanup** (`git worktree remove` + `branch -d`).
+
+### Próximos pasos ya documentados en PR
+
+- `PR_DESCRIPTION.md` creado con resumen, evidencia, tests, y pasos merge/cleanup.
+- Merge: `git checkout main && git pull origin main && git merge qa-fix-autonomous-audit` (verificar build estable) + delete branches.
