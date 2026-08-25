@@ -1,18 +1,10 @@
 import { ORDER_STATUS_LABEL } from "@/lib/order-status";
 import type { OrderStatus } from "@/lib/types";
 
-// Cancellation can only happen from PENDING or PAID (see
-// ALLOWED_STATUS_TRANSITIONS in lib/order-status.ts) — it's a branch off the
-// happy path, not a fifth step on it, so it gets its own terminal state
-// instead of a slot in the linear stepper below.
 const TIMELINE_STEPS: OrderStatus[] = ["PENDING", "PAID", "SHIPPED", "DELIVERED"];
 
 export function OrderStatusTimeline({ status }: { status: OrderStatus }) {
   if (status === "CANCELLED") {
-    // No `role="status"` here: this renders on every load of an already-
-    // cancelled order, not just the moment it happens. The live-region
-    // announcement for an in-session cancel is owned by the confirmation
-    // message next to the (now-gone) Cancelar button, not this summary.
     return (
       <p className="rounded-md border border-danger/20 bg-danger/10 px-4 py-3 text-sm font-medium text-danger">
         Pedido cancelado.
@@ -27,9 +19,6 @@ export function OrderStatusTimeline({ status }: { status: OrderStatus }) {
     <ol aria-label="Progreso del pedido" className="flex items-start">
       {TIMELINE_STEPS.map((step, index) => {
         const isReached = index <= reachedIndex;
-        // The final step has nothing after it to be "in progress" toward —
-        // once reached, it's done, not merely current, unlike every earlier
-        // step (e.g. SHIPPED means "in transit", not finished).
         const isDone = index < reachedIndex || (isReached && index === lastIndex);
         const isCurrent = isReached && !isDone;
         return (
