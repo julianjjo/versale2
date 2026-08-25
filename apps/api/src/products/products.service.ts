@@ -310,7 +310,8 @@ export class ProductsService {
       if (normalizedSize) where.size = normalizedSize;
     }
     if (typeof brand === 'string' && brand) {
-      where.brand = { contains: brand };
+      const trimmedBrand = brand.trim();
+      if (trimmedBrand) where.brand = { contains: trimmedBrand };
     }
     // `equals` compiles to `=`, which — unlike LIKE — *is* case-sensitive on
     // SQLite, so this is the one filter that genuinely needed fixing. Rather
@@ -655,14 +656,9 @@ export class ProductsService {
       throw new NotFoundException(`Producto con ID ${id} no encontrado`);
     }
 
-    // Exact match on the free-text `category` column: two listings entered
-    // as "Chaquetas" and "chaquetas" won't match each other. A known,
-    // pre-existing gap in how categories are stored app-wide (findAll's own
-    // catalog filter has the same exact-match limitation) — fixing it means
-    // normalizing category values at write time, out of scope here.
     const related = await this.prisma.client.product.findMany({
       where: {
-        category: product.category,
+        category: canonicalCategory(product.category),
         ...PUBLICLY_VISIBLE,
         id: { not: id },
       },
