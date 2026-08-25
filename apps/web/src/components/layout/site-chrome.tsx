@@ -20,7 +20,11 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
     <>
       <Topbar />
       <Header />
-      <main id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="scroll-anchor flex-1 focus:outline-none"
+      >
         {children}
       </main>
       <Footer />

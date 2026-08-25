@@ -128,6 +128,11 @@ Rules:
 - Section vertical padding: `120px` desktop, `80px` mobile.
 - Container max width: `1320px` for marketing, `max-w-5xl` / `max-w-6xl` for
   in-app pages.
+- `--header-h` (`4rem`) is the height of the sticky `<Header>`. It is the
+  single source of truth for anything that has to line up with the header:
+  the header bar itself, the mobile menu panel that hangs off its bottom
+  edge, and the `.scroll-anchor` deep-link offset. Do not re-type `h-16` /
+  `top-16` next to it — read the token, so the three cannot drift apart.
 
 ### Radius
 
@@ -270,6 +275,12 @@ italic at 12% ink opacity), title (Fraunces 28px), body, and tag pill
 - Step 3: bg `--color-ink`, text `--color-paper`. Number in 15% paper
   opacity, body in 70% paper opacity.
 
+The three cards are an `<ol role="list">` of `<li>`, not a grid of divs. The
+step number is decoration and carries `aria-hidden` — unhidden it makes a
+screen reader announce "cero uno" before every title — so the ordering has to
+survive in the markup instead. `role="list"` is required: the list-style is
+none, and Safari drops list semantics without it.
+
 ### Editorial card
 
 - Single card with 60px padding, radius 24, bg `--color-paper-2`.
@@ -302,8 +313,14 @@ italic at 12% ink opacity), title (Fraunces 28px), body, and tag pill
   round outlined buttons. Hover: terracotta bg.
 - Column headers: Inter 12px / 600 / letter-spacing `.15em` / uppercase /
   50% paper opacity.
-- Column links: 14px / 85% opacity, hover: 100% opacity and terracotta.
-- Bottom row: 1px top border, 12px / 60% opacity, flex between, gap 16.
+- Column links: 14px / 85% paper. Hover is `--color-terracotta-light`, not
+  plain terracotta: on ink the base accent reads 4.36:1, under the 4.5:1
+  floor for 14px text; the light step reads 5.31:1.
+- Bottom row: 1px top border, 12px, flex between, gap 16. The 60% dimming
+  sits on each child (`text-paper/60`), never on the row. `opacity` below 1
+  composites the whole subtree at once, so a container-level 60% makes every
+  descendant hover and focus ring unreachable — the links then brighten to
+  full `--color-paper` on hover (6.36:1 → 15.72:1).
 
 ### Badge
 
@@ -365,6 +382,15 @@ Targets WCAG 2.2 AA, keyboard-first, full keyboard reachability.
 - Color must not be the only signal for order status: keep the text label
   alongside the badge color.
 - All decorative SVG use `aria-hidden`; all informative SVG have a label.
+  The same applies to decorative text: oversized numerals and glyphs that
+  only restate structure are hidden, and whatever they encoded moves into
+  the markup (see How-it-works step).
+- Deep-link targets carry `.scroll-anchor`. The header is sticky, so the
+  browser aligns an anchor's top edge with the viewport's and paints the
+  header straight over the heading the user was sent to. Current targets:
+  `#main-content` (skip link), `#shop`, `#resenas`, `#preguntas`. The admin
+  `<main>` is exempt — its header is not sticky, so an offset there would
+  only drop the skip link short.
 
 ## Content and tone standards
 
@@ -415,6 +441,11 @@ Targets WCAG 2.2 AA, keyboard-first, full keyboard reachability.
 - **Do not** break the existing `data-testid` attributes on
   `mobile-menu-trigger` and `mobile-menu-backdrop` — the e2e suite
   depends on them.
+- **Do not** dim a container with `opacity` when anything inside it has a
+  hover, focus or active state. Opacity below 1 composites the subtree as
+  one layer, so the descendant's own `hover:opacity-100` can never undo it
+  and the focus ring is dimmed with everything else. Tint the individual
+  children (`text-paper/60`) instead.
 
 ## QA checklist
 
