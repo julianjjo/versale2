@@ -43,11 +43,6 @@ const lookupProduct = cache(async (id: string): Promise<ProductLookup> => {
   }
 });
 
-// ponytail: grapheme-safe via Intl.Segmenter if mg description hits emoji at boundary
-export function truncateDescription(description: string, maxLength: number): string {
-  return description.length <= maxLength ? description : description.slice(0, maxLength - 3) + "...";
-}
-
 // Item 11: dynamic metadata — the listing's own title/description in the
 // tags crawlers and link previews read. Shares the server-side lookup with
 // the page render via the cache() wrapper above.
@@ -65,7 +60,8 @@ export async function generateMetadata({
 
   const product = result.product;
   // The first image's alt doubles as og:image alt; the title is the fallback.
-  const description = truncateDescription(product.description, 160);
+  // ponytail: truncate inline slice; restore helper with Intl.Segmenter if emoji at boundary
+  const description = product.description.length <= 160 ? product.description : product.description.slice(0, 157) + "...";
 
   return {
     title: `${product.title} — Versale`,
