@@ -309,14 +309,21 @@ export function ProductDetail({
   const loginRedirect = (reason: "cart" | "review" | "helpful") =>
     loginRedirectUrl(id, reason);
 
+  const addBusyRef = useRef(false);
   const handleAddToCart = () => {
-    if (addToCart.isPending) return;
+    if (addBusyRef.current || addToCart.isPending) return;
+    addBusyRef.current = true;
     setError(null);
     if (!user) {
+      addBusyRef.current = false;
       router.push(loginRedirect("cart"));
       return;
     }
-    addToCart.mutate();
+    addToCart.mutate(undefined, {
+      onSettled: () => {
+        addBusyRef.current = false;
+      },
+    });
   };
 
   const handleReviewSubmit = (e: React.FormEvent) => {

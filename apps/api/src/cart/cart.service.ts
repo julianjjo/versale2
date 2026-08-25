@@ -7,7 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { ProductsService } from '../products/products.service';
 import { MAX_ITEM_QUANTITY } from './dto/cart.dto';
-import { ProductStatus } from '@prisma/client';
+import { Prisma, ProductStatus } from '@prisma/client';
 
 @Injectable()
 export class CartService {
@@ -94,13 +94,12 @@ export class CartService {
       });
     } catch (e: unknown) {
       // ponytail: naive P2002-only idempotency; no per-key lock, safe because CartItem @@unique[cartId,productId] enforces it
-      const isUniqueViolation =
-        typeof e === 'object' &&
-        e !== null &&
-        'code' in e &&
-        (e as { code: string }).code === 'P2002';
-      if (!isUniqueViolation) throw e;
-      return this.prisma.client.cartItem.findUniqueOrThrow({
+      if (
+        !(e instanceof Prisma.PrismaClientKnownRequestError) ||
+        e.code !== 'P2002'
+      )
+        throw e;
+      const existing = await this.prisma.client.cartItem.findUnique({
         where: { cartId_productId: { cartId, productId } },
         include: {
           product: {
@@ -108,6 +107,8 @@ export class CartService {
           },
         },
       });
+      if (!existing) throw e;
+      return existing;
     }
   }
 

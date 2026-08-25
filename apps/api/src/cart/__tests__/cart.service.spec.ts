@@ -1,5 +1,6 @@
 ﻿import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { CartService } from '../cart.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProductsService } from '../../products/products.service';
@@ -448,20 +449,19 @@ describe('CartService', () => {
         priceAtAdd: 10,
         product: { id: productId, seller: { id: 's1', name: 'Alice' } },
       };
-      const p2002 = Object.assign(new Error('Unique constraint'), {
-        code: 'P2002',
-      });
+      const p2002 = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint',
+        { code: 'P2002', clientVersion: 'test' },
+      );
       mockPrismaService.client.cartItem.upsert.mockRejectedValue(p2002);
-      mockPrismaService.client.cartItem.findUniqueOrThrow = jest
+      mockPrismaService.client.cartItem.findUnique = jest
         .fn()
         .mockResolvedValue(existing);
 
       const result = await service.addItem(userId, productId, 1);
 
       expect(mockPrismaService.client.cartItem.upsert).toHaveBeenCalledTimes(1);
-      expect(
-        mockPrismaService.client.cartItem.findUniqueOrThrow,
-      ).toHaveBeenCalledWith({
+      expect(mockPrismaService.client.cartItem.findUnique).toHaveBeenCalledWith({
         where: { cartId_productId: { cartId: 'cart1', productId } },
         include: {
           product: {

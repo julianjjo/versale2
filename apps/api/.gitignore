@@ -20,3 +20,5 @@ node_modules
 /prisma/seed.js
 /prisma/seed.js.map
 /prisma/seed.d.ts
+/prisma/*.db
+/prisma/*.db-journal

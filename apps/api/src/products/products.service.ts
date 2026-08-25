@@ -12,6 +12,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Role } from '@prisma/client';
 import { ProductSortBy } from './product-sort.enum';
+import { canonicalCategory } from './categories';
 import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
 import { VERIFIED_PURCHASE_STATUSES } from '../orders/order-status.enum';
@@ -158,6 +159,13 @@ export class ProductsService {
   // Shared by findAll (public catalog) and findAllMine (a seller's own
   // listings): the same four text columns, so the two search experiences
   // can't silently drift apart the way two hand-copied blocks would.
+  //
+  // These stay bare `contains`: Prisma compiles it to SQL LIKE, and SQLite's
+  // LIKE is already case-insensitive for ASCII, so "jeans" matches "Jeans"
+  // with no extra operator. Prisma's `mode: 'insensitive'` is a
+  // PostgreSQL/MongoDB-only feature — on SQLite the query engine rejects it
+  // outright with an "Unknown argument mode" error, so adding it would 500
+  // every search instead of making one case-insensitive.
   private searchTextWhere(term: string) {
     return [
       { title: { contains: term } },
@@ -292,8 +300,13 @@ export class ProductsService {
     if (typeof brand === 'string' && brand) {
       where.brand = { contains: brand };
     }
+    // `equals` compiles to `=`, which — unlike LIKE — *is* case-sensitive on
+    // SQLite, so this is the one filter that genuinely needed fixing. Rather
+    // than reach for an unsupported operator, fold the incoming value back to
+    // the canonical spelling from the closed category list the DTO validates
+    // writes against, so "chaquetas" queries as "Chaquetas".
     if (typeof category === 'string' && category) {
-      where.category = { equals: category };
+      where.category = { equals: canonicalCategory(category) };
     }
     if (typeof condition === 'string' && condition) {
       where.condition = condition;

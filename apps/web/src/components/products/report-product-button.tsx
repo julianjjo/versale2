@@ -106,7 +106,10 @@ export function ReportProductButton({ productId }: { productId: string }) {
               variant="danger"
               size="sm"
               disabled={
-                reportProduct.isPending || !category || !reason.trim()
+                reportProduct.isPending ||
+                !category ||
+                !reason.trim() ||
+                reason.length > 500
               }
             >
               {reportProduct.isPending ? "Enviando…" : "Enviar reporte"}
