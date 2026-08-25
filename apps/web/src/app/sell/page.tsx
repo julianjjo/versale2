@@ -462,7 +462,7 @@ function SellForm() {
               accept={ACCEPTED_EXTENSIONS}
               multiple
               onChange={(e) => handleFiles(e.target.files)}
-              className="block w-full text-sm text-text-primary file:mr-3 file:rounded-md file:border file:border-border file:bg-surface file:px-3 file:py-2 file:text-sm file:font-medium file:text-text-primary hover:file:bg-surface-muted"
+              className="block w-full text-sm text-text-primary file:mr-3 file:rounded-md file:border file:border-control file:bg-surface file:px-3 file:py-2 file:text-sm file:font-medium file:text-text-primary hover:file:bg-surface-muted"
             />
             <p className="text-xs text-text-muted">
               Hasta {MAX_FILES} imágenes, máximo {MAX_FILE_SIZE_MB}MB cada una.
@@ -534,7 +534,7 @@ function SellForm() {
                       }
                       aria-label={`Descripción de la foto ${index + 1}`}
                       placeholder={`Ej: vista frontal de la prenda`}
-                      className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary"
+                      className="w-full rounded-md border border-control bg-surface px-3 py-2 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary"
                     />
                   </div>
                 ))}

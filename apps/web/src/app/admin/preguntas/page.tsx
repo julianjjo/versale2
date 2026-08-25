@@ -49,9 +49,9 @@ export default function AdminQuestionsPage() {
 
   return (
     <div>
-      <h2 className="heading-section mb-4 text-text-primary">
+      <h1 className="heading-section mb-4 text-text-primary">
         Preguntas y respuestas
-      </h2>
+      </h1>
 
       {error && (
         <p className="mb-3 text-sm text-danger" role="alert">

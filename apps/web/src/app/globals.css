@@ -1,6 +1,13 @@
 @import "tailwindcss";
 
 :root {
+  /* This is a committed light world: there is no dark theme, and no token
+     below has a dark counterpart. Declaring the scheme keeps the UA from
+     force-darkening the canvas, scrollbars, autofill and the native chrome
+     of <select>/<input> popups on a device set to dark — which would repaint
+     controls in colours that never resolve to a token here. */
+  color-scheme: light;
+
   /* Editorial palette inspired by the static design reference.
      Ink is the primary surface, terracotta is the single brand accent. */
   --color-ink: #1a1a1a;
@@ -18,12 +25,26 @@
   --color-line-2: rgba(26, 26, 26, 0.15);
   --color-line-3: rgba(246, 243, 238, 0.1);
   --color-line-4: rgba(246, 243, 238, 0.15);
-  /* Darkened from the reference palette (#4a8a4a/#dc2626/#d97706) so status
-     text clears 4.5:1 on --color-paper; backgrounds keep the same hue. */
+  /* Darkened from the reference palette (#4a8a4a/#dc2626/#d97706/#2563eb) so
+     status text clears 4.5:1 on --color-paper; backgrounds keep the same hue.
+     The badges paint each token on its own 10% tint, which is the tighter
+     ground: info at #2563eb read 4.10:1 there (and only 4.67:1 on bare paper)
+     while its three peers sat at 4.98–5.66:1. #1d4ed8 puts it back in family
+     at 5.22:1 on the tint and 6.05:1 on paper. */
   --color-success: #166534;
   --color-danger: #b91c1c;
   --color-warning: #9a3412;
-  --color-info: #2563eb;
+  --color-info: #1d4ed8;
+
+  /* Form-control boundary. WCAG 2.2 SC 1.4.11 wants 3:1 for the visual
+     boundary that identifies a control, and --color-line (ink at 10%) only
+     manages 1.22:1 on paper — the hairline that separates a card from the
+     page cannot also be the thing that says "this is an input". This warm
+     gray clears 3:1 on every paper surface (3.87 / 3.54 / 3.27) and stays in
+     the muted family rather than introducing a neutral. Structural borders
+     keep --color-line; this token is for inputs, selects, textareas,
+     checkboxes and file-picker buttons only. */
+  --color-control: #82796c;
 
 
   --background: var(--color-paper);
@@ -63,6 +84,7 @@
   --color-info: var(--color-info);
   --color-border: var(--color-line);
   --color-border-strong: var(--color-line-2);
+  --color-control: var(--color-control);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);

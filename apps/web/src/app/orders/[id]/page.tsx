@@ -423,7 +423,7 @@ export default function OrderDetailPage() {
                   accept=".jpg,.jpeg,.png,.webp"
                   multiple
                   onChange={(e) => void handleDisputeFiles(e.target.files)}
-                  className="block w-full text-sm text-text-primary file:mr-3 file:rounded-md file:border file:border-border file:bg-surface file:px-3 file:py-2 file:text-sm file:font-medium file:text-text-primary hover:file:bg-surface-muted"
+                  className="block w-full text-sm text-text-primary file:mr-3 file:rounded-md file:border file:border-control file:bg-surface file:px-3 file:py-2 file:text-sm file:font-medium file:text-text-primary hover:file:bg-surface-muted"
                 />
                 <p className="text-xs text-text-muted">
                   JPG, PNG o WEBP. Máximo {MAX_DISPUTE_PHOTOS} fotos.

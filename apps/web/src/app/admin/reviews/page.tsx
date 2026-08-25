@@ -54,9 +54,9 @@ export default function AdminReviewsPage() {
 
   return (
     <div>
-      <h2 className="heading-section mb-4 text-text-primary">
+      <h1 className="heading-section mb-4 text-text-primary">
         Todas las reseñas
-      </h2>
+      </h1>
 
       {error && (
         <p className="mb-3 text-sm text-danger" role="alert">
