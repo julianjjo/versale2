@@ -269,10 +269,46 @@ body {
     letter-spacing: 0.12em;
     padding: 10px 16px;
     text-transform: uppercase;
+    /* DESIGN.md specifies a single line. Enforce it structurally rather than
+       trusting the copy to stay short: wrapping is what turned this 38px band
+       into a 92px block above the sticky header. Clipping (with an ellipsis)
+       means an over-long future phrase degrades inside the band instead of
+       re-inflating the chrome or forcing horizontal scroll. The tiers below
+       keep the shipped copy well clear of that backstop. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .topbar span + span::before {
     content: " · ";
     opacity: 0.6;
+  }
+
+  /* Content-driven tiers. Because the bar cannot wrap, a phrase may only
+     appear at a width that seats its whole line; the widths come from each
+     phrase's measured natural width plus headroom for a 17px classic
+     scrollbar and font-render variance. See topbar.tsx for the measurements
+     and for why nothing is lost on a phone. Kept here, beside the geometry
+     it constrains, so the bar's responsive behaviour reads in one place. */
+  .topbar,
+  .topbar [data-phrase="2"],
+  .topbar [data-phrase="3"] {
+    display: none;
+  }
+  @media (width >= 640px) {
+    .topbar {
+      display: block;
+    }
+  }
+  @media (width >= 800px) {
+    .topbar [data-phrase="2"] {
+      display: inline;
+    }
+  }
+  @media (width >= 1080px) {
+    .topbar [data-phrase="3"] {
+      display: inline;
+    }
   }
 
   .btn-pill {
