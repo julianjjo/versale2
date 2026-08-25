@@ -75,6 +75,13 @@ const SORT_ORDER_BY: Record<
 > = {
   [ProductSortBy.PRICE_ASC]: [{ price: 'asc' }, { id: 'asc' }],
   [ProductSortBy.PRICE_DESC]: [{ price: 'desc' }, { id: 'asc' }],
+  [ProductSortBy.MOST_VIEWED]: [{ viewCount: 'desc' }, { id: 'asc' }],
+  [ProductSortBy.MOST_FAVORITED]: [
+    { favoritedBy: { _count: 'desc' } },
+    { id: 'asc' },
+  ],
+  // TOP_RATED has no DB column — sorted in-memory after withAverageRating
+  [ProductSortBy.TOP_RATED]: [{ createdAt: 'desc' }, { id: 'asc' }],
 };
 
 // Item 9: per-seller cap on active listings (roadmap ~20). A hard number,
@@ -235,7 +242,9 @@ export class ProductsService {
       limit = 10,
     } = query;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
-    const orderBy = this.resolveSortOrder(sortBy);
+    const raw = (this.firstValue(sortBy) as string | undefined)?.trim();
+    const isTopRated = raw === ProductSortBy.TOP_RATED;
+    const orderBy = this.resolveSortOrder(raw);
 
     const search = this.firstValue(rawSearch);
     const size = this.firstValue(rawSize);
@@ -284,7 +293,7 @@ export class ProductsService {
       where.brand = { contains: brand };
     }
     if (typeof category === 'string' && category) {
-      where.category = category;
+      where.category = { equals: category };
     }
     if (typeof condition === 'string' && condition) {
       where.condition = condition;
@@ -303,8 +312,18 @@ export class ProductsService {
       this.prisma.client.product.count({ where }),
     ]);
 
+    let data = await this.withAverageRating(products);
+    // ponytail: top_rated sorted in-memory per page (n=limit ≤100), materialize averageRating column + index if catalog >10k
+    if (isTopRated) {
+      data = [...data].sort(
+        (a, b) =>
+          (b.averageRating ?? -1) - (a.averageRating ?? -1) ||
+          a.id.localeCompare(b.id),
+      );
+    }
+
     return {
-      data: await this.withAverageRating(products),
+      data,
       meta: {
         total,
         page: pageNum,
