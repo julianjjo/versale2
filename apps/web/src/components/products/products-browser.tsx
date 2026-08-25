@@ -286,7 +286,14 @@ function ProductsBrowserContent({
   return (
     <div>
       {showFilters && (
+        // Every control below carries a visible <label> instead of leaning on
+        // its placeholder or an aria-label. A placeholder disappears the moment
+        // a value is entered — "Precio mín."/"Precio máx." vanished exactly when
+        // the two identical number boxes needed telling apart — and an
+        // aria-label overrides any visible text, so the two can't both be the
+        // name. The form's own name is what keeps a terse "Talla" unambiguous.
         <form
+          aria-label="Filtrar el catálogo"
           className="mb-6 grid grid-cols-1 gap-3 rounded-2xl border border-border bg-surface-muted p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4"
           onSubmit={(e) => {
             e.preventDefault();
@@ -306,45 +313,46 @@ function ProductsBrowserContent({
         >
           <Input
             name="search"
-            placeholder="Buscar prendas, marcas…"
+            label="Buscar"
+            placeholder="Chaqueta de jean, Levi's…"
             value={form.search}
             onChange={(e) =>
               setForm((f) => ({ ...f, search: e.target.value }))
             }
             wrapperClassName="sm:col-span-2 lg:col-span-2"
-            aria-label="Buscar productos"
           />
+          {/* No placeholder: a number field can't show a formatted "20.000"
+              example without suggesting a value that can't be typed, and the
+              label is now permanent. */}
           <Input
             name="minPrice"
+            label="Precio mínimo"
             type="number"
             min={0}
             step="1000"
-            placeholder="Precio mín."
             value={form.minPrice}
             onChange={(e) =>
               setForm((f) => ({ ...f, minPrice: e.target.value }))
             }
-            aria-label="Precio mínimo"
           />
           <Input
             name="maxPrice"
+            label="Precio máximo"
             type="number"
             min={0}
             step="1000"
-            placeholder="Precio máx."
             value={form.maxPrice}
             onChange={(e) =>
               setForm((f) => ({ ...f, maxPrice: e.target.value }))
             }
-            aria-label="Precio máximo"
           />
           <Select
             name="size"
+            label="Talla"
             value={form.size}
             onChange={(e) => setForm((f) => ({ ...f, size: e.target.value }))}
-            aria-label="Filtrar por talla"
           >
-            <option value="">Cualquier talla</option>
+            <option value="">Cualquiera</option>
             {SIZES.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -353,13 +361,13 @@ function ProductsBrowserContent({
           </Select>
           <Select
             name="condition"
+            label="Condición"
             value={form.condition}
             onChange={(e) =>
               setForm((f) => ({ ...f, condition: e.target.value }))
             }
-            aria-label="Filtrar por condición"
           >
-            <option value="">Cualquier condición</option>
+            <option value="">Cualquiera</option>
             {CONDITION_OPTIONS.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -368,11 +376,11 @@ function ProductsBrowserContent({
           </Select>
           <Select
             name="brand"
+            label="Marca"
             value={form.brand}
             onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))}
-            aria-label="Filtrar por marca"
           >
-            <option value="">Cualquier marca</option>
+            <option value="">Cualquiera</option>
             {mergeFacetOptions(facets?.brands, form.brand).map((b) => (
               <option key={b} value={b}>
                 {b}
@@ -381,13 +389,13 @@ function ProductsBrowserContent({
           </Select>
           <Select
             name="category"
+            label="Categoría"
             value={form.category}
             onChange={(e) =>
               setForm((f) => ({ ...f, category: e.target.value }))
             }
-            aria-label="Filtrar por categoría"
           >
-            <option value="">Cualquier categoría</option>
+            <option value="">Cualquiera</option>
             {/* Item 5 closed list: same options the API's DTO accepts, so the
                 filter can never produce a query that returns nothing by
                 construction. Facets are no longer needed here — the list is
@@ -400,11 +408,11 @@ function ProductsBrowserContent({
           </Select>
           <Select
             name="sortBy"
+            label="Ordenar por"
             value={form.sortBy}
             onChange={(e) =>
               setForm((f) => ({ ...f, sortBy: e.target.value }))
             }
-            aria-label="Ordenar por"
             // Matches the search input's span: the 7 filter fields before it
             // fill exactly 8 one-unit grid cells (2 breakpoints' worth of full
             // rows), so a single-unit 9th field would leave the row before the

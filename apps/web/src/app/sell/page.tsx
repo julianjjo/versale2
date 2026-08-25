@@ -14,6 +14,7 @@ import {
   EmptyState,
   PageContainer,
   SectionHeader,
+  OptionalTag,
 } from "@/components/ui";
 import { CONDITION_OPTIONS } from "@/lib/product-condition";
 import { PRODUCT_CATEGORIES, DEFAULT_PRODUCT_CATEGORY } from "@/lib/categories";
@@ -96,6 +97,12 @@ function writeDraft(form: Record<string, string>) {
 function clearDraft() {
   removeKey(DRAFT_STORAGE_KEY);
 }
+
+// "1, 2 y 4" — Spanish uses "y" before the last item, not a serial comma.
+const PHOTO_LIST_FORMAT = new Intl.ListFormat("es", {
+  style: "long",
+  type: "conjunction",
+});
 
 const FORM_FIELDS = [
   "title",
@@ -313,13 +320,19 @@ function SellForm() {
     }
     // Item 4: every photo needs its alt text — it's what screen readers (and
     // the marketplace grid) describe the photo with, and the API rejects the
-    // listing without it anyway.
-    const missingAlt = uploadedImages.filter((img) => !img.alt.trim());
-    if (missingAlt.length > 0) {
+    // listing without it anyway. The error names the photo by the same number
+    // the field is labeled with: the fields sit above the submit button, so
+    // "una foto" alone left the seller hunting for which one.
+    const missingAltPositions = uploadedImages
+      .map((img, index) => (img.alt.trim() ? null : index + 1))
+      .filter((position): position is number => position !== null);
+    if (missingAltPositions.length > 0) {
       setError(
-        missingAlt.length === 1
-          ? "Describe la foto que falta en su campo de descripción."
-          : `Falta la descripción de ${missingAlt.length} fotos.`,
+        missingAltPositions.length === 1
+          ? `Falta la descripción de la foto ${missingAltPositions[0]}.`
+          : `Faltan las descripciones de las fotos ${PHOTO_LIST_FORMAT.format(
+              missingAltPositions.map(String),
+            )}.`,
       );
       return;
     }
@@ -371,6 +384,14 @@ function SellForm() {
 
       <Card>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* The form marks its exceptions, not its rule — six of the nine
+              fields are required, so tagging those would mark two thirds of
+              the page. Stating the convention once is what was missing: until
+              now a seller only learned a field was required by submitting. */}
+          <p className="text-xs text-text-muted">
+            Todos los campos son obligatorios, salvo los marcados como
+            opcionales.
+          </p>
           <Input
             label="Título"
             value={form.title}
@@ -402,7 +423,8 @@ function SellForm() {
               ))}
             </Select>
             <Input
-              label="Marca (opcional)"
+              label="Marca"
+              optional
               value={form.brand}
               onChange={(e) => update("brand", e.target.value)}
               placeholder="Ej. Levi's"
@@ -451,9 +473,10 @@ function SellForm() {
           <div className="space-y-2">
             <label
               htmlFor="sell-images"
-              className="block text-sm font-medium text-text-primary"
+              className="flex items-baseline gap-1.5 text-sm font-medium text-text-primary"
             >
-              Imágenes (opcional)
+              <span>Imágenes</span>
+              <OptionalTag />
             </label>
             <input
               id="sell-images"
@@ -465,8 +488,9 @@ function SellForm() {
               className="block w-full text-sm text-text-primary file:mr-3 file:rounded-md file:border file:border-control file:bg-surface file:px-3 file:py-2 file:text-sm file:font-medium file:text-text-primary hover:file:bg-surface-muted"
             />
             <p className="text-xs text-text-muted">
-              Hasta {MAX_FILES} imágenes, máximo {MAX_FILE_SIZE_MB}MB cada una.
-              Formatos: JPG, PNG o WEBP.
+              Sin fotos, tu prenda se muestra en el catálogo con un recuadro
+              que dice «Sin imagen». Hasta {MAX_FILES} imágenes, máximo{" "}
+              {MAX_FILE_SIZE_MB}MB cada una. Formatos: JPG, PNG o WEBP.
             </p>
             {images.length > 0 && (
               <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -514,7 +538,7 @@ function SellForm() {
             {uploadedImages.length > 0 && (
               <fieldset className="space-y-2">
                 <legend className="text-sm font-medium text-text-primary">
-                  Describe cada foto (obligatorio)
+                  Describe cada foto
                 </legend>
                 <p className="text-xs text-text-muted">
                   Es el texto que leen los lectores de pantalla y el que
@@ -529,6 +553,7 @@ function SellForm() {
                       type="text"
                       value={img.alt}
                       maxLength={150}
+                      aria-required="true"
                       onChange={(e) =>
                         patchImage(img.id, { alt: e.target.value })
                       }
@@ -561,7 +586,8 @@ function SellForm() {
 
           <div className="space-y-2">
             <Textarea
-              label="Medidas (opcional)"
+              label="Medidas"
+              optional
               value={form.measurements}
               onChange={(e) => update("measurements", e.target.value)}
               placeholder="Ej: pecho 52 cm, largo 65 cm, manga 60 cm"
@@ -569,7 +595,8 @@ function SellForm() {
               maxLength={1000}
             />
             <Textarea
-              label="Defectos (opcional)"
+              label="Defectos"
+              optional
               value={form.defects}
               onChange={(e) => update("defects", e.target.value)}
               placeholder="Ej: pequeño desgaste en el puño derecho"

@@ -620,7 +620,8 @@ export default function AdminProductsPage() {
         </p>
         <Textarea
           className="mt-3"
-          label="Motivo (opcional)"
+          label="Motivo"
+          optional
           placeholder="Ej: las fotos no muestran bien el producto"
           value={rejectReason}
           onChange={(e) => setRejectReason(e.target.value)}
@@ -666,7 +667,8 @@ export default function AdminProductsPage() {
         </p>
         <Textarea
           className="mt-3"
-          label="Motivo (opcional)"
+          label="Motivo"
+          optional
           placeholder="Ej: las fotos no muestran bien el producto"
           value={bulkRejectReason}
           onChange={(e) => setBulkRejectReason(e.target.value)}

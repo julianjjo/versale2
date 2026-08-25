@@ -216,7 +216,7 @@ describe("SellPage — subida de imágenes", () => {
     await user.click(screen.getByRole("button", { name: /publicar producto/i }));
 
     expect(
-      await screen.findByText(/describe la foto que falta/i),
+      await screen.findByText(/falta la descripción de la foto 1/i),
     ).toBeInTheDocument();
     expect(vi.mocked(api.post).mock.calls.some(([url]) => url === "/products")).toBe(
       false,

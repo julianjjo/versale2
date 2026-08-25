@@ -173,6 +173,21 @@ body {
     letter-spacing: -0.03em;
   }
 
+  /* Display headings that compose their own line breaks. Each authored line
+     is a direct <span> child, so it becomes its own block and balances within
+     its own phrase. A hard <br> used to do this, but the break was authored
+     for the widest layout and stayed forced everywhere else, on top of the
+     wrap the clamped size already causes — so each authored line got a greedy
+     rag it never asked for. Measured against the <br> version in the same box:
+     the closing CTA lost a real 73px orphan at 375px ("vida" alone on a line),
+     and the story h2 went from 431/270 to 355/345 at 1440px. The hero and the
+     how-it-works h2 come out identical — at their size there is no better cut
+     available — so this is not expected to change every heading it touches. */
+  .heading-lines > span {
+    display: block;
+    text-wrap: balance;
+  }
+
   .heading-card {
     font-family: var(--font-display);
     font-size: 1rem;

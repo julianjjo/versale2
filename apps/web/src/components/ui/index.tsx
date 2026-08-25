@@ -71,11 +71,26 @@ export function Button({
   );
 }
 
+// Every form in the app marks the exceptions, not the rule: a field with no
+// marker is required. Exported so the handful of controls that can't use
+// `Field` (the file picker on /sell) render the identical marker instead of
+// spelling "(opcional)" into their label string — a marker baked into the
+// label text drifts per form and can't be styled apart from the label.
+// Renders inside the <label>, so it reaches the accessible name too.
+export function OptionalTag() {
+  return (
+    <span className="text-[11px] font-normal uppercase tracking-[0.08em] text-text-muted">
+      Opcional
+    </span>
+  );
+}
+
 // Shared by every labeled control: wrapper layout, label, and the mutually
 // exclusive hint/error line (an error replaces the hint).
 function Field({
   fieldId,
   label,
+  optional,
   hint,
   error,
   className = "",
@@ -83,6 +98,7 @@ function Field({
 }: {
   fieldId: string;
   label?: string;
+  optional?: boolean;
   hint?: string;
   error?: string;
   className?: string;
@@ -93,9 +109,10 @@ function Field({
       {label && (
         <label
           htmlFor={fieldId}
-          className="text-sm font-medium text-text-primary"
+          className="flex items-baseline gap-1.5 text-sm font-medium text-text-primary"
         >
-          {label}
+          <span>{label}</span>
+          {optional && <OptionalTag />}
         </label>
       )}
       {children}
@@ -134,6 +151,8 @@ function useFieldAria(
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
+  /** Renders the shared "Opcional" tag; unmarked fields read as required. */
+  optional?: boolean;
   error?: string;
   hint?: string;
   /** Classes for the outer wrapper (e.g. grid/flex placement like col-span-2).
@@ -150,6 +169,7 @@ const controlClasses =
 
 export function Input({
   label,
+  optional,
   error,
   hint,
   id,
@@ -160,7 +180,14 @@ export function Input({
 }: InputProps) {
   const { fieldId, describedBy } = useFieldAria(id, hint, error, ariaDescribedBy);
   return (
-    <Field fieldId={fieldId} label={label} hint={hint} error={error} className={wrapperClassName}>
+    <Field
+      fieldId={fieldId}
+      label={label}
+      optional={optional}
+      hint={hint}
+      error={error}
+      className={wrapperClassName}
+    >
       <input
         id={fieldId}
         aria-describedby={describedBy}
@@ -174,6 +201,8 @@ export function Input({
 
 interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
+  /** Renders the shared "Opcional" tag; unmarked fields read as required. */
+  optional?: boolean;
   error?: string;
   hint?: string;
   wrapperClassName?: string;
@@ -181,6 +210,7 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 
 export function Textarea({
   label,
+  optional,
   error,
   hint,
   id,
@@ -191,7 +221,14 @@ export function Textarea({
 }: TextareaProps) {
   const { fieldId, describedBy } = useFieldAria(id, hint, error, ariaDescribedBy);
   return (
-    <Field fieldId={fieldId} label={label} hint={hint} error={error} className={wrapperClassName}>
+    <Field
+      fieldId={fieldId}
+      label={label}
+      optional={optional}
+      hint={hint}
+      error={error}
+      className={wrapperClassName}
+    >
       <textarea
         id={fieldId}
         aria-describedby={describedBy}
@@ -205,6 +242,8 @@ export function Textarea({
 
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
+  /** Renders the shared "Opcional" tag; unmarked fields read as required. */
+  optional?: boolean;
   error?: string;
   hint?: string;
   wrapperClassName?: string;
@@ -213,6 +252,7 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 
 export function Select({
   label,
+  optional,
   error,
   hint,
   id,
@@ -224,7 +264,14 @@ export function Select({
 }: SelectProps) {
   const { fieldId, describedBy } = useFieldAria(id, hint, error, ariaDescribedBy);
   return (
-    <Field fieldId={fieldId} label={label} hint={hint} error={error} className={wrapperClassName}>
+    <Field
+      fieldId={fieldId}
+      label={label}
+      optional={optional}
+      hint={hint}
+      error={error}
+      className={wrapperClassName}
+    >
       <select
         id={fieldId}
         aria-describedby={describedBy}

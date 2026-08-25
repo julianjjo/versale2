@@ -277,7 +277,8 @@ export default function MisVentasPage() {
                   className="mt-3 flex flex-wrap items-end gap-2"
                 >
                   <Input
-                    label="Número de guía (opcional)"
+                    label="Número de guía"
+                    optional
                     value={trackingDrafts[order.id] ?? ""}
                     onChange={(e) =>
                       setTrackingDrafts((drafts) => ({

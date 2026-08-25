@@ -18,9 +18,11 @@ export function ClosingCTA() {
       />
       <div className="relative z-10 mx-auto max-w-[680px] px-5 sm:px-8">
         <span className="text-eyebrow text-eyebrow-paper">Moda circular</span>
-        <h2 className="heading-on-accent mt-3 mb-5 font-display font-normal leading-[1.05] tracking-[-0.03em] text-paper text-[clamp(40px,5vw,68px)]">
-          Dale una <em>segunda</em> vida
-          <br />a lo que ya no usas.
+        <h2 className="heading-on-accent heading-lines mt-3 mb-5 font-display font-normal leading-[1.05] tracking-[-0.03em] text-paper text-[clamp(40px,5vw,68px)]">
+          <span>
+            Dale una <em>segunda</em> vida
+          </span>
+          <span>a lo que ya no usas.</span>
         </h2>
         <p className="mx-auto mb-9 max-w-[520px] text-base leading-[1.6] text-paper">
           Cada publicación pasa por revisión antes de aparecer en el catálogo.

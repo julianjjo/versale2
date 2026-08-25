@@ -94,9 +94,13 @@ function Hero() {
           <span className="text-eyebrow">
             Ropa de segunda mano · curada con cariño
           </span>
-          <h1 className="mt-6 heading-hero text-ink">
-            Dale una <em>segunda</em> vida
-            <br />a tu <span className="strike">moda</span>.
+          <h1 className="mt-6 heading-hero heading-lines text-ink">
+            <span>
+              Dale una <em>segunda</em> vida
+            </span>
+            <span>
+              a tu <span className="strike">moda</span>.
+            </span>
           </h1>
           <p className="mt-8 max-w-[420px] text-base leading-[1.65] text-muted-2">
             Cada prenda en versale es revisada una a una. Moda circular,
@@ -215,10 +219,13 @@ function StorySection() {
           <span className="text-eyebrow text-eyebrow-terracotta">
             Nuestra historia
           </span>
-          <h2 className="mt-4 font-display font-normal leading-[1.05] tracking-[-0.03em] text-paper text-[clamp(40px,5.5vw,80px)]">
-            La moda no se <em>consume</em>.
-            <br />
-            Se <em>comparte</em>.
+          <h2 className="heading-lines mt-4 font-display font-normal leading-[1.05] tracking-[-0.03em] text-paper text-[clamp(40px,5.5vw,80px)]">
+            <span>
+              La moda no se <em>consume</em>.
+            </span>
+            <span>
+              Se <em>comparte</em>.
+            </span>
           </h2>
           <p className="mt-8 max-w-[480px] text-base leading-[1.7] text-paper/75">
             Versale nació con una idea simple: el armario de alguien más ya
@@ -282,10 +289,11 @@ function HowSection() {
     <section className="bg-surface py-24 lg:py-32">
       <div className="mx-auto w-full max-w-[1320px] px-5 sm:px-8">
         <div className="mb-14 flex flex-wrap items-end justify-between gap-8">
-          <h2 className="max-w-[780px] heading-section text-ink">
-            Vender en versale es
-            <br />
-            <em>muy fácil</em>.
+          <h2 className="max-w-[780px] heading-section heading-lines text-ink">
+            <span>Vender en versale es</span>
+            <span>
+              <em>muy fácil</em>.
+            </span>
           </h2>
           <p className="max-w-[340px] text-sm text-muted-2">
             Tú publicas, nosotros revisamos. Sin rol de vendedor, sin
