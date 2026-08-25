@@ -170,6 +170,7 @@ function SellForm() {
         .then((r) => r.data),
     enabled: !!form.category && !!form.condition,
     staleTime: 60_000,
+    retry: false,
   });
 
   useEffect(() => {

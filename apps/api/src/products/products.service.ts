@@ -65,6 +65,15 @@ const RELATED_PRODUCTS_LIMIT = 4;
 
 export const SUGGESTED_PRICE_MIN_SAMPLE = 3;
 
+const PRODUCT_CONDITIONS = ['New', 'Like New', 'Good', 'Fair'] as const;
+function canonicalCondition(value: string): string | null {
+  const trimmed = value.trim();
+  const match = PRODUCT_CONDITIONS.find(
+    (c) => c.toLowerCase() === trimmed.toLowerCase(),
+  );
+  return match ?? null;
+}
+
 // `id` as a secondary key gives ties on the primary sort column a stable
 // order across separate paginated (skip/take) queries. Without it, rows
 // sharing a value on a low-cardinality column like `price` — or even on
@@ -643,9 +652,11 @@ export class ProductsService {
 
   // ponytail: simple average, median/IQR if outliers matter
   async getSuggestedPrice(category: string, condition: string) {
-    const cat = canonicalCategory(category);
+    const cat = canonicalCategory(category.trim());
+    const cond = canonicalCondition(condition);
+    if (!cond) return { suggestedPrice: null };
     const exact = await this.prisma.client.product.aggregate({
-      where: { ...PUBLICLY_VISIBLE, category: cat, condition },
+      where: { ...PUBLICLY_VISIBLE, category: cat, condition: cond },
       _avg: { price: true },
       _count: true,
     });

@@ -70,6 +70,12 @@ export class ProductsController {
     return this.productsService.findAllMine(req.user.id, query);
   }
 
+  @Throttle({
+    default: {
+      ttl: PRODUCTS_SEARCH_THROTTLE_TTL,
+      limit: PRODUCTS_SEARCH_THROTTLE_LIMIT,
+    },
+  })
   @Get('suggested-price')
   async getSuggestedPrice(
     @Query('category') category: string,
