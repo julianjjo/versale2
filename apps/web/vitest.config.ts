@@ -9,6 +9,12 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // Codecov Test Analytics ingests JUnit XML, not the default reporter's
+    // output. `npm run test:ci` turns the junit reporter on; this is the one
+    // place its destination is defined. test-results/ is gitignored.
+    outputFile: {
+      junit: "test-results/junit.xml",
+    },
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],

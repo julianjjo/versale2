@@ -58,14 +58,28 @@ jobs:
           fi
       - name: Build API
         run: npm run build --workspace=apps/api
+      # test:ci, not test:cov: same coverage run, plus the JUnit XML that
+      # Codecov Test Analytics ingests (jest-junit -> apps/api/test-results).
       - name: Run API tests
-        run: npm run test:cov --workspace=apps/api
+        run: npm run test:ci --workspace=apps/api
       - name: Upload API coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: api
           files: apps/api/coverage/lcov.info
+      # `!cancelled()` and not the default: a failing test suite fails the step
+      # above, and failures are precisely what Test Analytics exists to track —
+      # skipping the upload then would hide every flake and every regression.
+      - name: Upload API test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          flags: api
+          files: apps/api/test-results/junit.xml
+          disable_search: true
 
   web-tests:
     name: Web unit tests
@@ -82,14 +96,25 @@ jobs:
         run: npm run lint --workspace=apps/web
       - name: Build Web
         run: npm run build --workspace=apps/web
+      # test:ci, not test:coverage: same coverage run, plus the JUnit XML that
+      # Codecov Test Analytics ingests (vitest -> apps/web/test-results).
       - name: Run Web tests
-        run: npm run test:coverage --workspace=apps/web
+        run: npm run test:ci --workspace=apps/web
       - name: Upload Web coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: web
           files: apps/web/coverage/lcov.info
+      - name: Upload Web test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          flags: web
+          files: apps/web/test-results/junit.xml
+          disable_search: true
 
   e2e:
     name: End-to-end (Playwright)
@@ -112,6 +137,15 @@ jobs:
         run: npm run e2e
         env:
           CI: "true"
+      - name: Upload E2E test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          flags: e2e
+          files: test-results/junit.xml
+          disable_search: true
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4
