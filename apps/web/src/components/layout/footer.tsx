@@ -27,6 +27,12 @@ const HELP_LINKS = [
   { label: "Envíos", href: "/envios" },
 ];
 
+const LEGAL_LINKS = [
+  { label: "Privacidad", href: "/privacidad" },
+  { label: "Cookies", href: "/cookies" },
+  { label: "Términos", href: "/terminos" },
+];
+
 export function Footer() {
   return (
     <footer className="mt-auto bg-ink text-paper">
@@ -50,27 +56,24 @@ export function Footer() {
           <FooterColumn title="Ayuda" links={HELP_LINKS} />
         </div>
 
-        <div className="flex flex-col items-start justify-between gap-4 border-t border-line-3 pt-8 text-xs opacity-60 sm:flex-row sm:items-center">
-          <div>© {new Date().getFullYear()} Versale · Moda circular con ❤️</div>
+        {/* The dimming lives on each child, not on this row: `opacity` below 1
+            composites the whole subtree at once, so the links' own
+            hover:opacity-100 could never brighten them past the row's 60% —
+            and the focus ring was being painted at 60% too. */}
+        <div className="flex flex-col items-start justify-between gap-4 border-t border-line-3 pt-8 text-xs sm:flex-row sm:items-center">
+          <div className="text-paper/60">
+            © {new Date().getFullYear()} Versale · Moda circular con ❤️
+          </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1">
-            <Link
-              href="/privacidad"
-              className="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
-            >
-              Privacidad
-            </Link>
-            <Link
-              href="/cookies"
-              className="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
-            >
-              Cookies
-            </Link>
-            <Link
-              href="/terminos"
-              className="rounded-sm transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
-            >
-              Términos
-            </Link>
+            {LEGAL_LINKS.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="rounded-sm text-paper/60 transition-colors duration-200 ease-out hover:text-paper focus-visible:text-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta-light focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
+              >
+                {l.label}
+              </Link>
+            ))}
           </div>
         </div>
       </div>
@@ -95,7 +98,7 @@ function FooterColumn({
           <li key={l.label}>
             <Link
               href={l.href}
-              className="rounded-sm text-sm text-paper/85 transition-colors hover:text-terracotta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
+              className="rounded-sm text-sm text-paper/85 transition-colors duration-200 ease-out hover:text-terracotta-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta-light focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
             >
               {l.label}
             </Link>

@@ -121,7 +121,7 @@ export function ProductQuestions({
   };
 
   return (
-    <section id="preguntas" className="mt-12">
+    <section id="preguntas" className="scroll-anchor mt-12">
       <h2 className="heading-section mb-4 text-text-primary">
         Preguntas y respuestas
       </h2>

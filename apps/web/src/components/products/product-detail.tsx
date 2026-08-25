@@ -601,7 +601,7 @@ export function ProductDetail({
         </div>
       </div>
 
-      <section id="resenas" className="mt-12">
+      <section id="resenas" className="scroll-anchor mt-12">
         <h2 className="heading-section mb-4 text-text-primary">Reseñas</h2>
         {reviews.length === 0 ? (
           <p className="text-sm text-text-muted">Aún no hay reseñas.</p>

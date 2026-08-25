@@ -178,7 +178,7 @@ function Marquee() {
 
 function ProductsSection() {
   return (
-    <section id="shop" className="bg-surface py-20 lg:py-32">
+    <section id="shop" className="scroll-anchor bg-surface py-20 lg:py-32">
       <div className="mx-auto w-full max-w-[1320px] px-5 sm:px-8">
         <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
           <div>
@@ -293,11 +293,15 @@ function HowSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* An <ol>, not a <div>: the numerals are the visual form of a real
+            sequence, and they're aria-hidden below, so the order has to live
+            in the markup. role="list" restores the semantics Safari drops
+            once the list-style is none. */}
+        <ol role="list" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {STEPS.map((s) => (
             <StepCard key={s.n} {...s} />
           ))}
-        </div>
+        </ol>
       </div>
     </section>
   );
@@ -324,8 +328,9 @@ function StepCard({
         ? "bg-paper-3 text-ink"
         : "bg-ink text-paper";
   return (
-    <div className={`relative overflow-hidden rounded-[20px] p-10 ${bg}`}>
+    <li className={`relative overflow-hidden rounded-[20px] p-10 ${bg}`}>
       <div
+        aria-hidden="true"
         className={`mb-6 font-display text-[80px] italic leading-none ${
           ink ? "text-paper/15" : "text-ink/10"
         }`}
@@ -359,6 +364,6 @@ function StepCard({
       >
         {tag}
       </span>
-    </div>
+    </li>
   );
 }
