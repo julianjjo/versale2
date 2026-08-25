@@ -1,8 +1,5 @@
 import type { ReportCategory } from "./report-category";
 
-// Item 4: every product photo carries its own alternative text. The API only
-// accepts bucket URLs (R2) and requires a non-empty alt, so consumers can
-// always read `.url` / `.alt` without guarding.
 export interface ProductImage {
   url: string;
   alt: string;
@@ -28,39 +25,19 @@ export interface Product {
   sellerId: string;
   isApproved: boolean;
   rejectedAt?: string | null;
-  // Stock lifecycle of a one-of-a-kind garment: SOLD means it was bought and
-  // is gone from the catalog; WITHDRAWN is the seller's definitive takedown
-  // (reserved — nothing writes it yet); AVAILABLE is buyable. Mirrors the
-  // ProductStatus Prisma enum.
   status: "AVAILABLE" | "SOLD" | "WITHDRAWN";
-  // Seller-controlled, independent of status/isApproved: temporarily hides an
-  // otherwise-live listing from the catalog without deleting it.
   pausedAt?: string | null;
   rejectionReason?: string | null;
   createdAt: string;
   updatedAt: string;
   images?: ProductImage[] | null;
-  // Seller-curated free text (item 4). Optional: a listing without them is
-  // valid, the detail page just hides the sections.
   measurements?: string | null;
   defects?: string | null;
   seller?: { id: string; name: string };
-  // Detail-page views from anyone other than this listing's own seller (see
-  // ProductsService#findOne). A plain scalar column, so it's present
-  // anywhere the API embeds the full product (cart items, order items,
-  // catalog, detail, /products/mine) — optional here only because
-  // FavoritesService's narrower FAVORITE_PRODUCT_SELECT doesn't list it.
   viewCount?: number;
-  // favoritedBy/questions are only populated on the seller's own listings
-  // (GET /products/mine) alongside viewCount, as the per-listing
-  // performance stats mis-productos renders.
   _count?: { reviews: number; favoritedBy?: number; questions?: number };
   reviews?: Review[];
   questions?: ProductQuestion[];
-  // Populated by the public catalog listing (GET /products) and the
-  // favorites list (GET /favorites) — null means no reviews yet, undefined
-  // means this response never computes it (e.g. a seller's own listings or
-  // the admin queue).
   averageRating?: number | null;
 }
 
@@ -108,8 +85,6 @@ export type OrderStatus =
   | "DISPUTED"
   | "REFUNDED";
 
-// Item 12: evidencia de la disputa, misma forma que las imágenes de
-// producto ({ url, alt }).
 export interface OrderDisputePhoto {
   url: string;
   alt: string;
@@ -122,7 +97,6 @@ export interface Order {
   totalAmount: number;
   shippingAddress: Record<string, unknown>;
   trackingNumber?: string | null;
-  // Item 12: plazos de la mecánica de disputas/reembolsos.
   paidAt?: string | null;
   deliveredAt?: string | null;
   disputedAt?: string | null;
@@ -146,9 +120,6 @@ export interface Review {
   sellerReply?: string | null;
   sellerRepliedAt?: string | null;
   verifiedPurchase?: boolean;
-  // Only populated by GET /products/:id (the page that renders the "¿Te
-  // fue útil?" button) — the admin review queue and the legacy
-  // /reviews/product/:id list have no reader for either field.
   helpfulCount?: number;
   votedByMe?: boolean;
   user?: { id: string; name: string };
@@ -164,9 +135,6 @@ export interface ProductQuestion {
   answeredAt: string | null;
   createdAt: string;
   asker?: { id: string; name: string };
-  // Only populated by the admin listing (GET /questions/admin/all) — the
-  // embedded copy on GET /products/:id has no need for it, since the buyer
-  // is already looking at that exact product's page.
   product?: { id: string; title: string };
 }
 
@@ -179,9 +147,6 @@ export interface ProductReport {
   reason: string;
   category: ReportCategory;
   status: ReportStatus;
-  // Who/when reviewed it is surfaced entirely through `reviewer` below — the
-  // raw id isn't read anywhere, so it isn't modeled here even though the API
-  // response also includes it.
   reviewedAt: string | null;
   createdAt: string;
   updatedAt: string;
