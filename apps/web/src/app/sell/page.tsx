@@ -23,7 +23,6 @@ import { readJson, writeJson, removeKey } from "@/lib/storage";
 
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
-const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const ACCEPTED_EXTENSIONS = ".jpg,.jpeg,.png,.webp";
 const MAX_FILE_SIZE_MB = 5;
 // Item 4 closed decision: max exactly 6 images per listing. The uploads
@@ -219,20 +218,6 @@ function SellForm() {
   const uploadOne = async (id: string, file: File) => {
     patchImage(id, { uploading: true, error: undefined });
 
-    if (!ACCEPTED_TYPES.includes(file.type)) {
-      patchImage(id, {
-        uploading: false,
-        error: "Formato no permitido (JPG, PNG o WEBP).",
-      });
-      return;
-    }
-    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-      patchImage(id, {
-        uploading: false,
-        error: `Supera ${MAX_FILE_SIZE_MB}MB.`,
-      });
-      return;
-    }
 
     const data = new FormData();
     data.append("files", file);
