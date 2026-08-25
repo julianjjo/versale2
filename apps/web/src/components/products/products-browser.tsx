@@ -194,7 +194,7 @@ function ProductsBrowserContent({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const headingRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   // Embedded uses (the home page grid) show a fixed slice of the catalog and
   // must not rewrite the URL of the page hosting them; only the browsable
@@ -229,7 +229,7 @@ function ProductsBrowserContent({
     if (!ownsUrl) {
       setLocalFilters(next);
       // keepPreviousData deja la grilla anterior visible; mover foco al listado
-      headingRef.current?.focus();
+      requestAnimationFrame(() => gridRef.current?.focus());
       return;
     }
     const nextQuery = queryFromFilters(next);
@@ -243,7 +243,7 @@ function ProductsBrowserContent({
       scroll: false,
     });
     // foco al listado para lectores + usuario teclado tras paginar
-    requestAnimationFrame(() => headingRef.current?.focus());
+    requestAnimationFrame(() => gridRef.current?.focus());
   };
 
   const { data, isLoading, isFetching, isError, error } = useQuery({
@@ -473,21 +473,19 @@ function ProductsBrowserContent({
       )}
 
       <div
-        ref={headingRef}
+        ref={gridRef}
         tabIndex={-1}
-        aria-busy={isFetching}
+        aria-busy={isFetching ? "true" : "false"}
         data-testid="products-grid"
-        className="products-grid grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4 outline-none"
+        className="products-grid grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4 outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
       >
         {data?.data.map((product, index) => (
           <ProductCard key={product.id} product={product} priority={index < 4} />
         ))}
       </div>
-      {data && data.meta.pages > 1 && (
-        <p aria-live="polite" role="status" className="sr-only">
-          Mostrando página {filters.page ?? 1} de {data.meta.pages}
-        </p>
-      )}
+      <p aria-live="polite" role="status" className="sr-only">
+        {data?.meta.pages && data.meta.pages > 1 ? `Mostrando página ${filters.page ?? 1} de ${data.meta.pages}` : ""}
+      </p>
 
       {showPagination && data && data.meta.pages > 1 && (
         <nav aria-label="Paginación">
