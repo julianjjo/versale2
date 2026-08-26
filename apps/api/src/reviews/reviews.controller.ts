@@ -100,7 +100,7 @@ export class ReviewsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Get('admin/all')
-  async getAllReviews(@Query() query: any) {
+  async getAllReviews(@Query() query: unknown) {
     return this.reviewsService.getAllReviews(query);
   }
 }
