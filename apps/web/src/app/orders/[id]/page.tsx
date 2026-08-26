@@ -494,7 +494,7 @@ export default function OrderDetailPage() {
             ? data.status === "REFUNDED"
               ? "Resuelta con reembolso al comprador."
               : "Revisada: no procede reembolso."
-            : `Un administrador la resolverá antes de ${data.disputeExpiresAt ? new Date(data.disputeExpiresAt).toLocaleDateString("es-CO") : "30 días desde su apertura"}.`}
+            : `Un administrador la resolverá antes de ${data.disputeExpiresAt ? new Date(data.disputeExpiresAt).toLocaleDateString("es-CO", { timeZone: "UTC" }) : "30 días desde su apertura"}.`}
           {data.disputeReason && (
             <p className="mt-1 text-xs text-text-muted">
               Motivo declarado: {data.disputeReason}
@@ -602,13 +602,13 @@ export default function OrderDetailPage() {
           <div className="flex justify-between">
             <dt className="text-text-muted">Realizado el</dt>
             <dd className="text-text-primary">
-              {new Date(data.createdAt).toLocaleString("es-CO")}
+              {new Date(data.createdAt).toLocaleString("es-CO", { timeZone: "UTC" })}
             </dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-text-muted">Última actualización</dt>
             <dd className="text-text-primary">
-              {new Date(data.updatedAt).toLocaleString("es-CO")}
+              {new Date(data.updatedAt).toLocaleString("es-CO", { timeZone: "UTC" })}
             </dd>
           </div>
           <div className="flex justify-between">
