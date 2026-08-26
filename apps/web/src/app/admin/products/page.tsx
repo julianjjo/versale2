@@ -102,11 +102,11 @@ export default function AdminProductsPage() {
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ["admin-products", status, page],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await api.get<{
         data: Product[];
         meta: { total: number; page: number; pages: number };
-      }>(`/products/admin/all?status=${status}&page=${page}&limit=20`);
+      }>(`/products/admin/all?status=${status}&page=${page}&limit=20`, { signal });
       return res.data;
     },
     // Cada pestaña y página es una queryKey nueva: mantenemos la lista anterior
@@ -116,10 +116,8 @@ export default function AdminProductsPage() {
 
   const { data: pendingCount } = useQuery({
     queryKey: ["admin-products-pending-count"],
-    queryFn: async () => {
-      const res = await api.get<{ meta: { total: number } }>(
-        "/products/admin/all?status=pending&page=1&limit=1",
-      );
+    queryFn: async ({ signal }) => {
+      const res = await api.get<{ meta: { total: number } }>("/products/admin/all?status=pending&page=1&limit=1", { signal });
       return res.data.meta.total;
     },
   });
