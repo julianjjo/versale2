@@ -1,0 +1,3 @@
+-- Q&A notifications: QUESTION_ASKED / QUESTION_ANSWERED added to
+-- NotificationType. SQLite stores enums as TEXT, so new values need no DDL —
+-- this migration only records the schema change in history.

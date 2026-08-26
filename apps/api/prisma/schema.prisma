@@ -397,6 +397,8 @@ enum NotificationType {
   ORDER_SHIPPED
   ORDER_CANCELLED
   ORDER_STATUS_CHANGED
+  QUESTION_ASKED
+  QUESTION_ANSWERED
 }
 
 model Notification {

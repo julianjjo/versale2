@@ -11,7 +11,8 @@ import {
 } from '../questions.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProductsService } from '../../products/products.service';
-import { Role } from '@prisma/client';
+import { NotificationsService } from '../../notifications/notifications.service';
+import { NotificationType, Role } from '@prisma/client';
 
 // Simulates the error Prisma throws when `update`/`delete`'s where clause
 // matches no row — the shape a concurrent delete (a double-click, two tabs,
@@ -57,12 +58,15 @@ describe('QuestionsService', () => {
     findRaw: jest.fn(),
   };
 
+  const mockNotificationsService = { create: jest.fn() };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         QuestionsService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: ProductsService, useValue: mockProductsService },
+        { provide: NotificationsService, useValue: mockNotificationsService },
       ],
     }).compile();
 
@@ -223,6 +227,68 @@ describe('QuestionsService', () => {
 
       expect(mockTransaction).toHaveBeenCalledTimes(1);
     });
+
+    // Q&A notifications: the seller learns about the question from their
+    // bell — not from refreshing their own listing.
+    it('notifies the product seller after the question commits', async () => {
+      mockProductsService.findRaw.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        title: 'Camisa de lino',
+        isApproved: true,
+      });
+      mockPrismaClient.productQuestion.create.mockResolvedValue({
+        id: 'question1',
+      });
+
+      const result = await service.create(
+        'buyer1',
+        'product1',
+        '¿Es talla M o L?',
+      );
+
+      expect(mockNotificationsService.create).toHaveBeenCalledWith(
+        'seller1',
+        NotificationType.QUESTION_ASKED,
+        'Tienes una nueva pregunta sobre «Camisa de lino»',
+      );
+      expect(result).toHaveProperty('id', 'question1');
+    });
+
+    it('refuses questions without notifying anyone', async () => {
+      mockProductsService.findRaw.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        title: 'Camisa de lino',
+        isApproved: false,
+      });
+
+      await expect(
+        service.create('buyer1', 'product1', '¿Pregunta?'),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockNotificationsService.create).not.toHaveBeenCalled();
+    });
+
+    // A notification is a post-commit side effect — a failed insert must
+    // never turn the 201 that already happened into a 500.
+    it('still returns the created question when the notification insert fails', async () => {
+      mockProductsService.findRaw.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        title: 'Camisa de lino',
+        isApproved: true,
+      });
+      mockPrismaClient.productQuestion.create.mockResolvedValue({
+        id: 'question1',
+      });
+      mockNotificationsService.create.mockRejectedValue(
+        new Error('transient insert failure'),
+      );
+
+      await expect(
+        service.create('buyer1', 'product1', '¿Pregunta?'),
+      ).resolves.toHaveProperty('id', 'question1');
+    });
   });
 
   describe('answer', () => {
@@ -318,6 +384,77 @@ describe('QuestionsService', () => {
       await expect(
         service.answer('question1', 'seller1', 'Es talla M'),
       ).rejects.toThrow('No se encontró la pregunta con ID question1');
+    });
+
+    // Q&A notifications: the asker learns about the answer from their bell.
+    it('notifies the asker when the seller answers for the first time', async () => {
+      mockPrismaService.client.productQuestion.findUnique.mockResolvedValue({
+        id: 'question1',
+        askerId: 'buyer1',
+        answeredAt: null,
+        product: { sellerId: 'seller1', title: 'Camisa de lino' },
+      });
+      mockPrismaService.client.productQuestion.update.mockResolvedValue({
+        id: 'question1',
+        answer: 'Es talla M',
+        answeredAt: anyDate(),
+      });
+
+      await service.answer('question1', 'seller1', 'Es talla M');
+
+      expect(mockNotificationsService.create).toHaveBeenCalledWith(
+        'buyer1',
+        NotificationType.QUESTION_ANSWERED,
+        'Respondieron tu pregunta sobre «Camisa de lino»',
+      );
+    });
+
+    // PATCH /questions/:id/answer also EDITS existing answers (same route);
+    // re-notifying every edit of an old answer would be spam.
+    it('does not re-notify when editing an already-answered question', async () => {
+      mockPrismaService.client.productQuestion.findUnique.mockResolvedValue({
+        id: 'question1',
+        askerId: 'buyer1',
+        answeredAt: anyDate(),
+        product: { sellerId: 'seller1', title: 'Camisa de lino' },
+      });
+      mockPrismaService.client.productQuestion.update.mockResolvedValue({
+        id: 'question1',
+        answer: 'Es talla M, corre un poco grande',
+        answeredAt: anyDate(),
+      });
+
+      await service.answer(
+        'question1',
+        'seller1',
+        'Es talla M, corre un poco grande',
+      );
+
+      expect(mockNotificationsService.create).not.toHaveBeenCalled();
+    });
+
+    it('still returns the updated answer when the notification insert fails', async () => {
+      mockPrismaService.client.productQuestion.findUnique.mockResolvedValue({
+        id: 'question1',
+        askerId: 'buyer1',
+        answeredAt: null,
+        product: { sellerId: 'seller1', title: 'Camisa de lino' },
+      });
+      const answered = {
+        id: 'question1',
+        answer: 'Es talla M',
+        answeredAt: new Date(),
+      };
+      mockPrismaService.client.productQuestion.update.mockResolvedValue(
+        answered,
+      );
+      mockNotificationsService.create.mockRejectedValue(
+        new Error('transient insert failure'),
+      );
+
+      const result = await service.answer('question1', 'seller1', 'Es talla M');
+
+      expect(result).toEqual(answered);
     });
   });
 
