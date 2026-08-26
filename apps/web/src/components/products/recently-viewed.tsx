@@ -46,10 +46,11 @@ export function RecentlyViewed({ excludeId }: { excludeId?: string }) {
   // plain catalog listing endpoint instead, which never touches that count.
   const { data } = useQuery<{ data: Product[] }>({
     queryKey: ["products-by-ids", ids],
-    queryFn: async () => {
-      const res = await api.get<{ data: Product[] }>(
-        `/products?ids=${ids.join(",")}&limit=${ids.length}`,
-      );
+    queryFn: async ({ signal }) => {
+      const res = await api.get<{ data: Product[] }>("/products", {
+        params: { ids: ids.join(","), limit: ids.length },
+        signal,
+      });
       return res.data;
     },
     enabled: ids.length > 0,

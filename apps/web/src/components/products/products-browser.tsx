@@ -258,11 +258,11 @@ function ProductsBrowserContent({
 
   const { data: facets } = useQuery({
     queryKey: ["products-facets"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const response = await api.get<{
         brands: string[];
         categories: { name: string; count: number }[];
-      }>("/products/facets");
+      }>("/products/facets", { signal });
       return response.data;
     },
     enabled: showFilters,
