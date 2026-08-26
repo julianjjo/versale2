@@ -198,10 +198,12 @@ function ProductsBrowserContent({
   const appliedSignature = JSON.stringify(appliedForm);
   const [form, setForm] = useState<FilterFormState>(appliedForm);
   const [syncedSignature, setSyncedSignature] = useState(appliedSignature);
-  if (syncedSignature !== appliedSignature) {
-    setSyncedSignature(appliedSignature);
-    setForm(appliedForm);
-  }
+  useEffect(() => {
+    if (syncedSignature !== appliedSignature) {
+      setSyncedSignature(appliedSignature);
+      setForm(appliedForm);
+    }
+  }, [syncedSignature, appliedSignature, appliedForm]);
 
   const applyFilters = (next: ProductFilters) => {
     if (!ownsUrl) {
