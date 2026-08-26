@@ -234,6 +234,7 @@ function ProductsBrowserContent({
     }
     const v = debouncedSearch.trim() || undefined;
     if ((filters.search || undefined) !== v) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- debounced live search is the intended external sync trigger
       applyFilters({ ...filters, search: v, page: 1 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- debouncedSearch is the driver; adding applyFilters/filters would cause extra syncs on every filter change
