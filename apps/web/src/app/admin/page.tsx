@@ -26,38 +26,38 @@ type OrderStats = {
 export default function AdminOverview() {
   const { data: products, isLoading: productsLoading } = useQuery({
     queryKey: ["admin-products-pending"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await api.get<{
         data: Product[];
         meta: { total: number };
-      }>("/products/admin/all?status=pending&limit=1");
+      }>("/products/admin/all?status=pending&limit=1", { signal });
       return res.data;
     },
   });
 
   const { data: orderStats, isLoading: statsLoading } = useQuery({
     queryKey: ["admin-order-stats"],
-    queryFn: async () => {
-      const res = await api.get<OrderStats>("/orders/admin/stats");
+    queryFn: async ({ signal }) => {
+      const res = await api.get<OrderStats>("/orders/admin/stats", { signal });
       return res.data;
     },
   });
 
   const { data: recentOrders, isLoading: ordersLoading } = useQuery({
     queryKey: ["admin-orders-recent", RECENT_ORDERS_LIMIT],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await api.get<{
         data: Order[];
         meta: { total: number };
-      }>(`/orders/admin/all?limit=${RECENT_ORDERS_LIMIT}`);
+      }>(`/orders/admin/all?limit=${RECENT_ORDERS_LIMIT}`, { signal });
       return res.data;
     },
   });
 
   const { data: usersOverview, isLoading: usersLoading } = useQuery({
     queryKey: ["admin-users"],
-    queryFn: async () => {
-      const res = await api.get<{ meta: { total: number } }>("/users?limit=1");
+    queryFn: async ({ signal }) => {
+      const res = await api.get<{ meta: { total: number } }>("/users?limit=1", { signal });
       return res.data;
     },
   });
@@ -68,10 +68,8 @@ export default function AdminOverview() {
     isError: reviewsError,
   } = useQuery({
     queryKey: ["admin-reviews-count"],
-    queryFn: async () => {
-      const res = await api.get<{ meta: { total: number } }>(
-        "/reviews/admin/all?limit=1",
-      );
+    queryFn: async ({ signal }) => {
+      const res = await api.get<{ meta: { total: number } }>("/reviews/admin/all?limit=1", { signal });
       return res.data;
     },
   });
