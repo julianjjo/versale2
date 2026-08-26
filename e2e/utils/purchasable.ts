@@ -5,6 +5,14 @@ export const API_URL = "http://127.0.0.1:3101";
 export const E2E_SHIPPING_ADDRESS = { street: "Calle 100 #20-30", city: "Bogotá", state: "Cundinamarca", zip: "110111", country: "Colombia" };
 export const E2E_BUYER_PASSWORD = "segura12345";
 
+// The catalog is 12 listings per page, newest first, and this suite creates
+// dozens of them as it runs — so by the time a later spec file opens
+// `/products`, the two seeded listings sit pages deep and a bare
+// `goto("/products")` no longer shows them. Filtering by title puts the wanted
+// one back on the first page no matter what ran before.
+export const catalogSearchUrl = (title: string) =>
+  `/products?search=${encodeURIComponent(title)}`;
+
 const hdr = (t?: string) => (t ? { Authorization: `Bearer ${t}` } : undefined);
 async function mustOk(r: { ok(): boolean; status(): number; text(): Promise<string> }, msg: string) {
   if (!r.ok()) throw new Error(`${msg}: ${r.status()} ${await r.text()}`);
