@@ -1,6 +1,0 @@
-{
-  "playwright": { "tests": 3, "passed": 3, "duration_ms": 84000, "workers": 3 },
-  "webServer": { "api": "Nest successfully started", "web": "Next.js 16.2.7 Ready in 2.3s", "initialCompile_ms": 7400, "subsequent_ms": "90-540" },
-  "performance": { "longTasks": 0, "threshold": 50, "status": "PASS", "metrics": { "TaskDuration": 0.21, "JSHeapUsedSize": 18700000 } },
-  "snapshot": { "hydrationMismatches": 0, "a11ySnapshotInteractives": "8-14 per route" }
-}

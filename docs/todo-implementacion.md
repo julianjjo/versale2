@@ -1,3 +1,6 @@
+<!-- HISTÓRICO v5 — los 17 ítems están implementados y verificados en main. La documentación de diseño por funcionalidad fue eliminada (ciclo limpieza-documentación): el código y sus tests son la fuente de verdad.
+-->
+
 # TODO — Implementación Versale
 
 - [x] **1. Migración base:** Enum `ProductStatus { AVAILABLE, SOLD, WITHDRAWN }`, campo `rejectionReason` e índices prisma. Checkout marca `SOLD` en transacción, forzar `quantity = 1` y bloquea compras no `AVAILABLE`. **Done when:** Documentación existe en `docs/migracion-base/`, pipeline de `AGENTS.md §8-Step Pipeline` cumplido, rama fusionada a `main`, y `npm run test:api` confirma checkout exitoso y bloqueo de compras dobles.
