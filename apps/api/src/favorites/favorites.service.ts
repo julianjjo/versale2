@@ -46,8 +46,12 @@ export class FavoritesService {
     private productsService: ProductsService,
   ) {}
 
-  async findAll(userId: string, query: Record<string, unknown>) {
-    const { page = 1, limit = 10 } = query;
+  async findAll(userId: string, query: unknown) {
+    const q =
+      query !== null && typeof query === 'object' && !Array.isArray(query)
+        ? (query as Record<string, unknown>)
+        : {};
+    const { page = 1, limit = 10 } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const [favorites, total] = await Promise.all([
