@@ -2,6 +2,7 @@ import { test, expect } from "../fixtures/auth";
 import {
   API_URL,
   E2E_SHIPPING_ADDRESS,
+  catalogSearchUrl,
   createBuyer,
   createPendingProduct,
   createPurchasableProduct,
@@ -87,7 +88,7 @@ test.describe("Publicación de productos y administración", () => {
   test("el usuario puede dejar una reseña en un producto", async ({
     userPage,
   }) => {
-    await userPage.goto("/products");
+    await userPage.goto(catalogSearchUrl("Vintage Denim Jacket"));
     await userPage
       .getByRole("heading", { name: "Vintage Denim Jacket" })
       .click();
@@ -112,7 +113,7 @@ test.describe("Publicación de productos y administración", () => {
   }) => {
     // Continúa el escenario de la prueba anterior: mismo producto, misma
     // reseña ya publicada por este mismo usuario sembrado.
-    await userPage.goto("/products");
+    await userPage.goto(catalogSearchUrl("Vintage Denim Jacket"));
     await userPage
       .getByRole("heading", { name: "Vintage Denim Jacket" })
       .click();

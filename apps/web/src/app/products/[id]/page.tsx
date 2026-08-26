@@ -68,7 +68,12 @@ export async function generateMetadata({
       title: product.title,
       description,
       url: `${SITE_URL}/products/${product.id}`,
-      type: "product" as unknown as "website",
+      // Not "product": Next validates og.type against its own union and
+      // throws "Invalid OpenGraph type" at render time on anything outside it,
+      // which made generateMetadata reject and turned every listing page into
+      // the client error boundary. The Product/Offer semantics a crawler
+      // actually reads live in the JSON-LD emitted by the page below.
+      type: "website",
       locale: "es_CO",
       images: product.images?.[0]
         ? [{ url: product.images[0].url, alt: product.images[0].alt }]

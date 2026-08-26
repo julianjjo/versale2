@@ -1,6 +1,10 @@
 import { test, expect } from "@playwright/test";
 import { VIEWPORTS, type ViewportName } from "../utils/viewport";
-import { createBuyer, createPurchasableProduct } from "../utils/purchasable";
+import {
+  catalogSearchUrl,
+  createBuyer,
+  createPurchasableProduct,
+} from "../utils/purchasable";
 
 test.describe.configure({ mode: "serial" });
 
@@ -65,7 +69,12 @@ test.describe("Responsive — Home (anonymous)", () => {
     for (const [vp, expectedCols] of expectations) {
       await setViewport(page, vp);
       await page.goto("/products");
-      const grid = page.getByTestId("products-grid");
+      // Acotada a `#main-content`: mientras React termina de transmitir la
+      // página hay una segunda copia de la cuadrícula — vacía y con
+      // `aria-busy` — dentro del contenedor oculto `div#S:0` que React usa
+      // para el contenido suspendido, y un `getByTestId` sin acotar resuelve
+      // a las dos y viola el modo estricto de forma intermitente.
+      const grid = page.locator("#main-content").getByTestId("products-grid");
       await expect(grid).toBeVisible();
 
       const computedCols = await grid.evaluate((el) => {
@@ -221,7 +230,7 @@ test.describe("Responsive — Product detail", () => {
       .getByRole("button", { name: /iniciar sesión/i })
       .click();
     await page.waitForURL(/\/products/, { timeout: 10_000 });
-    await page.goto("/products");
+    await page.goto(catalogSearchUrl("Vintage Denim Jacket"));
     // Cards are wrapped in a Link; click the heading text inside the card.
     const firstCard = page.getByRole("heading", { name: /vintage denim jacket/i });
     await expect(firstCard).toBeVisible();
