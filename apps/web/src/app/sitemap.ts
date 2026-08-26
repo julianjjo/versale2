@@ -45,7 +45,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       products.push(...body.data);
       if (!body.meta?.pages || page >= body.meta.pages) break;
     }
-    if (products.length >= SITEMAP_MAX_URLS) console.warn(`[sitemap] truncated at ${SITEMAP_MAX_URLS} URLs — catalog exceeds cap`);
+    // cap hit silently — sitemap is a crawler contract, not an operator alert;
+    // truncation is expected at scale (see ponytail note above) and must not
+    // pollute server Console (CDP audit: no console.* in production routes).
 
     return [
       ...staticRoutes,
