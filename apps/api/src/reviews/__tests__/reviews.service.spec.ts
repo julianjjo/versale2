@@ -404,7 +404,7 @@ describe('ReviewsService', () => {
           comment: 'ok',
           userId: 'someoneElse',
           productId: 'anotherProduct',
-        } as any,
+        } as unknown as import('../dto/update-review.dto').UpdateReviewDto,
         userId,
         Role.USER,
       );

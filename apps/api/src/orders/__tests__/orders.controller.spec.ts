@@ -357,7 +357,9 @@ describe('OrdersController', () => {
       };
       mockOrdersService.getOrderStats.mockResolvedValue(stats);
 
-      const res = await request(app.getHttpServer())
+      const res = await request(
+        app.getHttpServer() as unknown as Parameters<typeof request>[0],
+      )
         .get('/orders/admin/stats')
         .expect(200);
 
@@ -373,7 +375,9 @@ describe('OrdersController', () => {
       };
       mockOrdersService.getAllOrders.mockResolvedValue(page);
 
-      const res = await request(app.getHttpServer())
+      const res = await request(
+        app.getHttpServer() as unknown as Parameters<typeof request>[0],
+      )
         .get('/orders/admin/all?limit=5')
         .expect(200);
 
@@ -388,7 +392,9 @@ describe('OrdersController', () => {
       };
       mockOrdersService.getMySales.mockResolvedValue(page);
 
-      const res = await request(app.getHttpServer())
+      const res = await request(
+        app.getHttpServer() as unknown as Parameters<typeof request>[0],
+      )
         .get('/orders/mine/sales')
         .expect(200);
 
@@ -400,7 +406,9 @@ describe('OrdersController', () => {
       const result = { id: 'order1', status: 'SHIPPED' };
       mockOrdersService.shipOwnSale.mockResolvedValue(result);
 
-      const res = await request(app.getHttpServer())
+      const res = await request(
+        app.getHttpServer() as unknown as Parameters<typeof request>[0],
+      )
         .patch('/orders/mine/sales/order1/ship')
         .send({ trackingNumber: 'ABC123' })
         .expect(200);
