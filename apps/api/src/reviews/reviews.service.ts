@@ -292,8 +292,12 @@ export class ReviewsService {
     return this.prisma.client.review.delete({ where: { id } });
   }
 
-  async getAllReviews(query: Record<string, unknown>) {
-    const { page, limit } = query ?? {};
+  async getAllReviews(query: unknown) {
+    const q =
+      query !== null && typeof query === 'object' && !Array.isArray(query)
+        ? (query as Record<string, unknown>)
+        : {};
+    const { page, limit } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const [reviews, total] = await Promise.all([
