@@ -66,7 +66,7 @@ describe("AdminReviewsPage", () => {
     expect(
       screen.getByText("Muy buen estado, tal cual la foto."),
     ).toBeInTheDocument();
-    expect(api.get).toHaveBeenCalledWith("/reviews/admin/all?page=1&limit=20");
+    expect(api.get).toHaveBeenCalledWith("/reviews/admin/all?page=1&limit=20", expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
   it("muestra un estado vacío cuando no hay reseñas", async () => {
@@ -119,9 +119,7 @@ describe("AdminReviewsPage", () => {
     await user.click(screen.getByRole("button", { name: /siguiente/i }));
 
     await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith(
-        "/reviews/admin/all?page=2&limit=20",
-      );
+      expect(api.get).toHaveBeenCalledWith("/reviews/admin/all?page=2&limit=20", expect.objectContaining({ signal: expect.any(AbortSignal) }));
     });
   });
 

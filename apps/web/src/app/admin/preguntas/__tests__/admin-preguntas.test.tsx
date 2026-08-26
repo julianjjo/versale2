@@ -69,9 +69,7 @@ describe("AdminQuestionsPage", () => {
     expect(
       screen.getByText("¿Esta chaqueta tiene manchas?"),
     ).toBeInTheDocument();
-    expect(api.get).toHaveBeenCalledWith(
-      "/questions/admin/all?page=1&limit=20",
-    );
+    expect(api.get).toHaveBeenCalledWith("/questions/admin/all?page=1&limit=20", expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
   it("muestra la respuesta del vendedor cuando la pregunta ya fue contestada", async () => {
@@ -164,9 +162,7 @@ describe("AdminQuestionsPage", () => {
     await user.click(screen.getByRole("button", { name: /siguiente/i }));
 
     await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith(
-        "/questions/admin/all?page=2&limit=20",
-      );
+      expect(api.get).toHaveBeenCalledWith("/questions/admin/all?page=2&limit=20", expect.objectContaining({ signal: expect.any(AbortSignal) }));
     });
   });
 
