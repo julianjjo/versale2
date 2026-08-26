@@ -118,7 +118,10 @@ describe("FavoritosPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
-    expect(api.get).toHaveBeenCalledWith("/favorites?limit=100");
+    expect(api.get).toHaveBeenCalledWith(
+      "/favorites?limit=100",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
   });
 
   // Regression: every card here is a favorite by definition, but its heart
