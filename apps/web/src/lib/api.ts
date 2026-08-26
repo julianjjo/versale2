@@ -82,7 +82,12 @@ async function request<T>(
   }
   if (response.status === 204) return { data: undefined as T };
   const text = await response.text();
-  return { data: (text ? JSON.parse(text) : undefined) as T };
+  if (!text) return { data: undefined as T };
+  try {
+    return { data: JSON.parse(text) as T };
+  } catch {
+    throw new ApiError(response.status, { message: "Respuesta no válida del servidor" });
+  }
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
