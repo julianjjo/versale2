@@ -171,7 +171,9 @@ export interface AuthResponse {
 export type NotificationType =
   | "ORDER_SHIPPED"
   | "ORDER_CANCELLED"
-  | "ORDER_STATUS_CHANGED";
+  | "ORDER_STATUS_CHANGED"
+  | "QUESTION_ASKED"
+  | "QUESTION_ANSWERED";
 
 export interface Notification {
   id: string;

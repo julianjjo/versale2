@@ -8,10 +8,11 @@ import { translatePrismaError } from '../common/prisma-error';
 export class NotificationsService {
   constructor(private prisma: PrismaService) {}
 
-  // Not exposed as its own endpoint — called by other services (OrdersService,
-  // so far) at the moment something worth telling a user about happens to
-  // their order. `orderId` is optional so future notification types that
-  // aren't order-related don't have to invent a fake one.
+  // Not exposed as its own endpoint — called by other services (OrdersService
+  // for order lifecycle events, QuestionsService for Q&A) at the moment
+  // something worth telling a user about happens. `orderId` is optional so
+  // notification types that aren't order-related (e.g. questions) don't have
+  // to invent a fake one.
   async create(
     userId: string,
     type: NotificationType,

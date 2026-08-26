@@ -2,13 +2,15 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { NotificationType, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProductsService } from '../products/products.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { translatePrismaError } from '../common/prisma-error';
 import { resolvePagination } from '../common/pagination';
-import { Role } from '@prisma/client';
 
 // Unlike Favorite/Report/Review, a question thread genuinely allows more than
 // one row per user+product (asking about size, then later about color, is
@@ -24,9 +26,12 @@ export const MAX_QUESTIONS_PER_ASKER_PER_PRODUCT = 5;
 
 @Injectable()
 export class QuestionsService {
+  private readonly logger = new Logger(QuestionsService.name);
+
   constructor(
     private prisma: PrismaService,
     private productsService: ProductsService,
+    private notifications: NotificationsService,
   ) {}
 
   async create(userId: string, productId: string, question: string) {
@@ -51,7 +56,7 @@ export class QuestionsService {
     // elsewhere in this codebase: without it, two concurrent POSTs from the
     // same asker sitting one under the cap could each pass the check before
     // either commits.
-    return this.prisma.client.$transaction(async (tx) => {
+    const created = await this.prisma.client.$transaction(async (tx) => {
       const askedByThisUser = await tx.productQuestion.count({
         where: { productId, askerId: userId },
       });
@@ -69,12 +74,25 @@ export class QuestionsService {
         data: { productId, askerId: userId, question },
       });
     });
+
+    // The seller learns about the question from their bell, not from
+    // refreshing their own listing. Post-commit side effect — never fails
+    // the 201 that already happened.
+    await this.notifySafely(() =>
+      this.notifications.create(
+        product.sellerId,
+        NotificationType.QUESTION_ASKED,
+        `Tienes una nueva pregunta sobre «${product.title}»`,
+      ),
+    );
+
+    return created;
   }
 
   async answer(id: string, sellerId: string, answer: string) {
     const question = await this.prisma.client.productQuestion.findUnique({
       where: { id },
-      include: { product: { select: { sellerId: true } } },
+      include: { product: { select: { sellerId: true, title: true } } },
     });
 
     if (!question) {
@@ -91,10 +109,26 @@ export class QuestionsService {
     }
 
     try {
-      return await this.prisma.client.productQuestion.update({
+      const updated = await this.prisma.client.productQuestion.update({
         where: { id },
         data: { answer, answeredAt: new Date() },
       });
+
+      // PATCH /questions/:id/answer also edits existing answers (same route),
+      // so only the FIRST answer rings the asker's bell — re-notifying every
+      // edit of an old answer would be spam. Same post-commit side-effect
+      // contract as create() above.
+      if (!question.answeredAt) {
+        await this.notifySafely(() =>
+          this.notifications.create(
+            question.askerId,
+            NotificationType.QUESTION_ANSWERED,
+            `Respondieron tu pregunta sobre «${question.product.title}»`,
+          ),
+        );
+      }
+
+      return updated;
     } catch (error) {
       translatePrismaError(error, {
         // Unlike Review (ON DELETE RESTRICT on its product relation),
@@ -173,5 +207,20 @@ export class QuestionsService {
         pages: Math.ceil(total / limitNum),
       },
     };
+  }
+
+  // Same contract as OrdersService#notifySafely: a notification is a side
+  // effect of a question mutation that already committed — it must never
+  // turn an otherwise-successful ask/answer into a failed response just
+  // because the notification insert hit a transient error.
+  private async notifySafely(fn: () => Promise<unknown>): Promise<void> {
+    try {
+      await fn();
+    } catch (error) {
+      this.logger.error(
+        'Failed to send a question notification',
+        error as Error,
+      );
+    }
   }
 }
