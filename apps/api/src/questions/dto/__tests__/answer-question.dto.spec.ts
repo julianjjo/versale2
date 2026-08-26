@@ -9,7 +9,10 @@ describe('AnswerQuestionDto with the global ValidationPipe', () => {
   };
 
   it('accepts a valid answer', async () => {
-    const result = await pipe.transform({ answer: 'Es talla M' }, metadata);
+    const result = (await pipe.transform(
+      { answer: 'Es talla M' },
+      metadata,
+    )) as AnswerQuestionDto;
 
     expect(result).toEqual({ answer: 'Es talla M' });
   });
@@ -27,7 +30,10 @@ describe('AnswerQuestionDto with the global ValidationPipe', () => {
   });
 
   it('trims the answer before validating and storing it', async () => {
-    const result = await pipe.transform({ answer: '  Es talla M  ' }, metadata);
+    const result = (await pipe.transform(
+      { answer: '  Es talla M  ' },
+      metadata,
+    )) as AnswerQuestionDto;
 
     expect(result.answer).toBe('Es talla M');
   });
@@ -39,12 +45,12 @@ describe('AnswerQuestionDto with the global ValidationPipe', () => {
   });
 
   it('strips unexpected fields', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       { answer: 'Es talla M', answeredAt: '2026-01-01' },
       metadata,
-    );
+    )) as AnswerQuestionDto;
 
     expect(result).toEqual({ answer: 'Es talla M' });
-    expect((result as Record<string, unknown>).answeredAt).toBeUndefined();
+    expect('answeredAt' in result).toBe(false);
   });
 });
