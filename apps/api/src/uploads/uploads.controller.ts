@@ -17,8 +17,9 @@ import { UploadsService, UploadedFileResult } from './uploads.service';
 
 @Catch(multer.MulterError)
 export class MulterLimitFilter implements ExceptionFilter {
-  catch(exception: multer.MulterError, _host: ArgumentsHost) {
-    if ((exception as multer.MulterError).code === 'LIMIT_FILE_SIZE')
+  catch(exception: multer.MulterError, host: ArgumentsHost) {
+    void host;
+    if (exception.code === 'LIMIT_FILE_SIZE')
       throw new PayloadTooLargeException('La imagen supera 5MB.');
     throw exception;
   }

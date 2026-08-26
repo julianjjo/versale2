@@ -569,7 +569,9 @@ describe('ReviewsService', () => {
       });
       mockPrismaService.client.reviewHelpfulVote.upsert.mockResolvedValue({});
       mockPrismaService.client.reviewHelpfulVote.count.mockResolvedValue(3);
-      mockPrismaService.client.reviewHelpfulVote.findUnique.mockResolvedValue({ id: 'v1' });
+      mockPrismaService.client.reviewHelpfulVote.findUnique.mockResolvedValue({
+        id: 'v1',
+      });
 
       const result = await service.markHelpful(reviewId, userId);
 
@@ -598,7 +600,9 @@ describe('ReviewsService', () => {
       });
       mockPrismaService.client.reviewHelpfulVote.upsert.mockResolvedValue({});
       mockPrismaService.client.reviewHelpfulVote.count.mockResolvedValue(1);
-      mockPrismaService.client.reviewHelpfulVote.findUnique.mockResolvedValue({ id: 'v1' });
+      mockPrismaService.client.reviewHelpfulVote.findUnique.mockResolvedValue({
+        id: 'v1',
+      });
 
       await expect(service.markHelpful('review1', 'buyer1')).resolves.toEqual({
         helpfulCount: 1,
@@ -665,7 +669,9 @@ describe('ReviewsService', () => {
       });
       mockPrismaService.client.reviewHelpfulVote.delete.mockResolvedValue({});
       mockPrismaService.client.reviewHelpfulVote.count.mockResolvedValue(0);
-      mockPrismaService.client.reviewHelpfulVote.findUnique.mockResolvedValue(null);
+      mockPrismaService.client.reviewHelpfulVote.findUnique.mockResolvedValue(
+        null,
+      );
 
       const result = await service.unmarkHelpful(reviewId, userId);
 
