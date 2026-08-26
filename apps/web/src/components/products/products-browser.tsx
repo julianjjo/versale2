@@ -224,6 +224,14 @@ function ProductsBrowserContent({
   const { searchInput, setSearchInput, search: debouncedSearch } =
     useDebouncedSearch();
   const isFirstSearch = useRef(true);
+  const filtersRef = useRef(filters);
+  const applyFiltersRef = useRef(applyFilters);
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
+  useEffect(() => {
+    applyFiltersRef.current = applyFilters;
+  }, [applyFilters]);
   useEffect(() => {
     setSearchInput(filters.search ?? "");
   }, [filters.search, setSearchInput]);
@@ -233,11 +241,10 @@ function ProductsBrowserContent({
       return;
     }
     const v = debouncedSearch.trim() || undefined;
-    if ((filters.search || undefined) !== v) {
+    if ((filtersRef.current.search || undefined) !== v) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- debounced live search is the intended external sync trigger
-      applyFilters({ ...filters, search: v, page: 1 });
+      applyFiltersRef.current({ ...filtersRef.current, search: v, page: 1 });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- debouncedSearch is the driver; adding applyFilters/filters would cause extra syncs on every filter change
   }, [debouncedSearch]);
 
   const { data, isLoading, isFetching, isError, error } = useQuery({
