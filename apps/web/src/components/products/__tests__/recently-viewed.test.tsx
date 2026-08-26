@@ -95,7 +95,13 @@ describe("RecentlyViewed", () => {
     expect(screen.getByText("Vistos recientemente")).toBeInTheDocument();
     // p2 was viewed after p1, so it's requested first — one call, not two.
     expect(api.get).toHaveBeenCalledTimes(1);
-    expect(api.get).toHaveBeenCalledWith("/products?ids=p2,p1&limit=2");
+    expect(api.get).toHaveBeenCalledWith(
+      "/products",
+      expect.objectContaining({
+        params: { ids: "p2,p1", limit: 2 },
+        signal: expect.any(AbortSignal),
+      }),
+    );
   });
 
   // The API has no reason to return rows in `id IN (...)` order — this
@@ -145,7 +151,13 @@ describe("RecentlyViewed", () => {
     await waitFor(() => {
       expect(screen.getByText("Chaqueta vintage")).toBeInTheDocument();
     });
-    expect(api.get).toHaveBeenCalledWith("/products?ids=p1&limit=1");
+    expect(api.get).toHaveBeenCalledWith(
+      "/products",
+      expect.objectContaining({
+        params: { ids: "p1", limit: 1 },
+        signal: expect.any(AbortSignal),
+      }),
+    );
   });
 
   // A listing viewed in the past can be deleted, unapproved, or sold since —
