@@ -96,7 +96,7 @@ describe("VerifyEmailPage", () => {
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith("/auth/verify-email", {
         token: "abc123",
-      });
+      }, expect.objectContaining({ signal: expect.any(AbortSignal) }));
     });
     expect(
       await screen.findByRole("heading", { name: /correo verificado/i }),

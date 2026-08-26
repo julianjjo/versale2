@@ -121,6 +121,7 @@ describe("MisProductosPage", () => {
     expect(within(card).getByText("En revisión")).toBeInTheDocument();
     expect(api.get).toHaveBeenCalledWith(
       "/products/mine?status=all&page=1&limit=20",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
 
@@ -440,6 +441,7 @@ describe("MisProductosPage", () => {
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(
         "/products/mine?status=sold&page=1&limit=20",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
   });
@@ -460,6 +462,7 @@ describe("MisProductosPage", () => {
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(
         "/products/mine?status=paused&page=1&limit=20",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
   });
@@ -644,6 +647,7 @@ describe("MisProductosPage", () => {
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(
         expect.stringContaining("search=jean"),
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
   });
@@ -667,6 +671,7 @@ describe("MisProductosPage", () => {
     await waitFor(() => {
       expect(api.get).toHaveBeenLastCalledWith(
         expect.stringContaining("page=2"),
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
 
@@ -675,9 +680,10 @@ describe("MisProductosPage", () => {
     await waitFor(() => {
       expect(api.get).toHaveBeenLastCalledWith(
         expect.stringContaining("search=vestido"),
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
-    expect(api.get).toHaveBeenLastCalledWith(expect.stringContaining("page=1"));
+    expect(api.get).toHaveBeenLastCalledWith(expect.stringContaining("page=1"), expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
   it("mantiene la búsqueda al cambiar de pestaña de estado, combinando ambos filtros en la misma solicitud", async () => {
@@ -697,6 +703,7 @@ describe("MisProductosPage", () => {
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(
         expect.stringContaining("search=bolso"),
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
 
@@ -705,10 +712,12 @@ describe("MisProductosPage", () => {
     await waitFor(() => {
       expect(api.get).toHaveBeenLastCalledWith(
         expect.stringContaining("status=sold"),
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
     expect(api.get).toHaveBeenLastCalledWith(
       expect.stringContaining("search=bolso"),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     // El campo de búsqueda en pantalla no se vació al cambiar de pestaña.
     expect(screen.getByLabelText(/buscar publicaciones/i)).toHaveValue("bolso");
