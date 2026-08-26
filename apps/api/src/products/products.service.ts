@@ -246,7 +246,11 @@ export class ProductsService {
     });
   }
 
-  async findAll(query: Record<string, unknown> = {}) {
+  async findAll(query: unknown = {}) {
+    const q =
+      query !== null && typeof query === 'object' && !Array.isArray(query)
+        ? (query as Record<string, unknown>)
+        : {};
     const {
       search: rawSearch,
       minPrice,
@@ -260,7 +264,7 @@ export class ProductsService {
       sortBy,
       page = 1,
       limit = 10,
-    } = query;
+    } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
     const raw = (this.firstValue(sortBy) as string | undefined)?.trim();
     const isTopRated = raw === ProductSortBy.TOP_RATED;
@@ -1045,8 +1049,12 @@ export class ProductsService {
   // Searchable across the same fields as the public catalog's findAll
   // (title, description, brand, category) so a seller with many listings
   // can find one without paging through every status tab by hand.
-  async findAllMine(sellerId: string, query: Record<string, unknown> = {}) {
-    const { search: rawSearch, status, page = 1, limit = 10 } = query;
+  async findAllMine(sellerId: string, query: unknown = {}) {
+    const q =
+      query !== null && typeof query === 'object' && !Array.isArray(query)
+        ? (query as Record<string, unknown>)
+        : {};
+    const { search: rawSearch, status, page = 1, limit = 10 } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
     const search = this.firstValue(rawSearch);
 
@@ -1116,8 +1124,12 @@ export class ProductsService {
     };
   }
 
-  async findAllForAdmin(query: Record<string, unknown> = {}) {
-    const { status, page = 1, limit = 10 } = query;
+  async findAllForAdmin(query: unknown = {}) {
+    const q =
+      query !== null && typeof query === 'object' && !Array.isArray(query)
+        ? (query as Record<string, unknown>)
+        : {};
+    const { status, page = 1, limit = 10 } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     // Admins see everything, sold items included: an approved product that has
