@@ -72,6 +72,7 @@ describe("AdminReportsPage", () => {
     expect(screen.getByText("Estafa o fraude")).toBeInTheDocument();
     expect(api.get).toHaveBeenCalledWith(
       "/reports/admin/all?status=open&page=1&limit=20",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
 
@@ -145,6 +146,7 @@ describe("AdminReportsPage", () => {
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(
         "/reports/admin/all?status=open&page=2&limit=20",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
   });
@@ -182,6 +184,7 @@ describe("AdminReportsPage", () => {
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(
         "/reports/admin/all?status=dismissed&page=1&limit=20",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
     expect(await screen.findByText("Vestido floral")).toBeInTheDocument();
