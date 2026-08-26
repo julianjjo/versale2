@@ -20,11 +20,11 @@ export default function AdminReviewsPage() {
 
   const { data, isLoading, isFetching, isError } = useQuery({
     queryKey: ["admin-reviews", page],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await api.get<{
         data: Review[];
         meta: { total: number; page: number; pages: number };
-      }>(`/reviews/admin/all?page=${page}&limit=20`);
+      }>(`/reviews/admin/all?page=${page}&limit=20`, { signal });
       return res.data;
     },
     // Igual que en las otras listas del panel: se conserva la página anterior

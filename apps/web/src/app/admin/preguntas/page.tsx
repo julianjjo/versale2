@@ -20,11 +20,11 @@ export default function AdminQuestionsPage() {
 
   const { data, isLoading, isFetching, isError } = useQuery({
     queryKey: ["admin-questions", page],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await api.get<{
         data: ProductQuestion[];
         meta: { total: number; page: number; pages: number };
-      }>(`/questions/admin/all?page=${page}&limit=20`);
+      }>(`/questions/admin/all?page=${page}&limit=20`, { signal });
       return res.data;
     },
     // Igual que en las otras listas del panel: se conserva la página anterior
