@@ -33,7 +33,7 @@ export class OrdersController {
   }
 
   @Get()
-  async getUserOrders(@Req() req: AuthRequest, @Query() query: any) {
+  async getUserOrders(@Req() req: AuthRequest, @Query() query: unknown) {
     const userId = req.user.id;
     return this.ordersService.getUserOrders(userId, query);
   }
@@ -58,7 +58,7 @@ export class OrdersController {
   // mixed-seller-order guard). Two/three-segment paths, same reasoning as
   // `admin/*` below, so they never collide with the single-segment `:id`.
   @Get('mine/sales')
-  async getMySales(@Req() req: AuthRequest, @Query() query: any) {
+  async getMySales(@Req() req: AuthRequest, @Query() query: unknown) {
     return this.ordersService.getMySales(req.user.id, query);
   }
 
@@ -85,7 +85,7 @@ export class OrdersController {
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Get('admin/all')
-  async getAllOrders(@Query() query: any) {
+  async getAllOrders(@Query() query: unknown) {
     return this.ordersService.getAllOrders(query);
   }
 
@@ -98,7 +98,7 @@ export class OrdersController {
   @Get('admin/export')
   @Header('Content-Type', 'text/csv; charset=utf-8')
   @Header('Content-Disposition', 'attachment; filename="pedidos.csv"')
-  async exportOrders(@Query() query: any) {
+  async exportOrders(@Query() query: unknown) {
     return this.ordersService.exportOrdersCsv(query);
   }
 
