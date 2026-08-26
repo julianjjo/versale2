@@ -157,6 +157,7 @@ export default function AdminReportsPage() {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
+                      timeZone: "UTC",
                     })}
                   </p>
                   <p className="mt-2 whitespace-pre-line text-sm text-text-primary">
@@ -171,6 +172,7 @@ export default function AdminReportsPage() {
                         year: "numeric",
                         month: "long",
                         day: "numeric",
+                        timeZone: "UTC",
                       })}
                     </p>
                   )}
