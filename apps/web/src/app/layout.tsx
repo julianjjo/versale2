@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { SiteChrome } from "@/components/layout/site-chrome";
 import { SkipLink } from "@/components/layout/skip-link";
+import { SITE_URL } from "@/lib/site";
 
 // Título de respaldo: solo se ve en la portada. Cada ruta pone el suyo con
 // `export const metadata`, y las que tienen `page.tsx` marcado "use client"
@@ -12,6 +13,7 @@ import { SkipLink } from "@/components/layout/skip-link";
 // título por una de esas dos vías: heredar este deja la pestaña, el historial
 // y los marcadores diciendo "Versale" en todas partes.
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "Versale — Marketplace de moda de segunda",
   description:
     "Compra y vende ropa de segunda en Versale. Marketplace sostenible y confiable de moda usada en Colombia.",

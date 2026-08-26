@@ -313,7 +313,7 @@ export default function AdminOrdersPage() {
                         {order.items.length} producto
                         {order.items.length === 1 ? "" : "s"} ·{" "}
                         <Price value={order.totalAmount} /> ·{" "}
-                        {new Date(order.createdAt).toLocaleDateString("es-CO")}
+                        {new Date(order.createdAt).toLocaleDateString("es-CO", { timeZone: "UTC" })}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 sm:flex-shrink-0">

@@ -145,7 +145,7 @@ export function ProductQuestions({
               </p>
               <p className="mt-1 text-sm text-text-primary">{q.question}</p>
               <p className="mt-1 text-xs text-text-muted">
-                {new Date(q.createdAt).toLocaleDateString("es-CO")}
+                {new Date(q.createdAt).toLocaleDateString("es-CO", { timeZone: "UTC" })}
               </p>
 
               {q.answer && <SellerReplyBlock text={q.answer} />}

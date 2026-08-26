@@ -69,6 +69,9 @@ export default defineConfig({
         // so the production rate limits would throttle the run itself.
         THROTTLE_LIMIT: "100000",
         AUTH_THROTTLE_LIMIT: "100000",
+        AUTH_EXPOSE_VERIFICATION_TOKEN: "true",
+        AUTH_EXPOSE_RESET_TOKEN: "true",
+        WEB_APP_URL: WEB_URL,
         // GET /products (shopping.spec.ts, responsive.spec.ts, author-admin
         // .spec.ts, ...) is hit far more than PRODUCTS_SEARCH_THROTTLE_LIMIT's
         // production default (60/min) across the whole suite from this one IP.

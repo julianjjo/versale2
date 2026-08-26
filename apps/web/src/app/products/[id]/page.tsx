@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ProductDetail } from "@/components/products/product-detail";
 import type { Product } from "@/lib/types";
-import { API_URL } from "@/lib/site";
+import { API_URL, SITE_URL } from "@/lib/site";
+import { buildProductJsonLd } from "@/lib/seo";
 
 
 // The listing is resolved on the server first so a product that no longer
@@ -62,9 +63,13 @@ export async function generateMetadata({
   return {
     title: `${product.title} — Versale`,
     description,
+    alternates: { canonical: `/products/${id}` },
     openGraph: {
       title: product.title,
       description,
+      url: `${SITE_URL}/products/${product.id}`,
+      type: "product" as unknown as "website",
+      locale: "es_CO",
       images: product.images?.[0]
         ? [{ url: product.images[0].url, alt: product.images[0].alt }]
         : undefined,
@@ -91,6 +96,19 @@ export default async function ProductPage({
 
   const product = await lookupProduct(id);
   if (product === null) notFound();
+
+  if (product) {
+    const jsonLd = buildProductJsonLd(product, SITE_URL);
+    return (
+      <>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
+        />
+        <ProductDetail initialProduct={product} />
+      </>
+    );
+  }
 
   return <ProductDetail initialProduct={product ?? undefined} />;
 }

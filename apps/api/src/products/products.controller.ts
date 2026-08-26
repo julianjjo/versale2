@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   Req,
+  Header,
 } from '@nestjs/common';
 import { Throttle, minutes } from '@nestjs/throttler';
 import { Request } from 'express';
@@ -45,11 +46,13 @@ export class ProductsController {
     },
   })
   @Get()
+  @Header('Cache-Control', 'public, max-age=30, stale-while-revalidate=60')
   async findAll(@Query() query: any) {
     return this.productsService.findAll(query);
   }
 
   @Get('facets')
+  @Header('Cache-Control', 'public, max-age=30, stale-while-revalidate=60')
   async getFacets() {
     return this.productsService.getFacets();
   }
@@ -77,6 +80,7 @@ export class ProductsController {
     },
   })
   @Get('suggested-price')
+  @Header('Cache-Control', 'public, max-age=30, stale-while-revalidate=60')
   async getSuggestedPrice(
     @Query('category') category: string,
     @Query('condition') condition: string,

@@ -74,7 +74,7 @@ export function SellerProfileContent({
         // ponytail: memberSince per es-CO month/year via toLocaleDateString; Intl.DateTimeFormat with timeZone UTC if pinning needed
         <SectionHeader
           title={data.name}
-          description={`Miembro desde ${new Date(data.memberSince).toLocaleDateString("es-CO", { year: "numeric", month: "long" })} · ${data.activeListings} ${data.activeListings === 1 ? "publicación activa" : "publicaciones activas"}`}
+          description={`Miembro desde ${new Date(data.memberSince).toLocaleDateString("es-CO", { year: "numeric", month: "long", timeZone: "UTC" })} · ${data.activeListings} ${data.activeListings === 1 ? "publicación activa" : "publicaciones activas"}`}
         />
       )}
       {params.id && (

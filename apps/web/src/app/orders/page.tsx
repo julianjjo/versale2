@@ -233,7 +233,7 @@ export default function OrdersPage() {
                       </p>
                       <p className="mt-1 text-xs text-text-muted">
                         Realizado el{" "}
-                        {new Date(order.createdAt).toLocaleDateString("es-CO")}
+                        {new Date(order.createdAt).toLocaleDateString("es-CO", { timeZone: "UTC" })}
                       </p>
                       <p className="mt-1 text-xs font-medium text-text-primary">
                         {ORDER_STATUS_REASSURANCE[order.status]}

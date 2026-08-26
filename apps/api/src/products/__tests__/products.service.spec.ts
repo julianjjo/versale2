@@ -2581,6 +2581,42 @@ describe('ProductsService', () => {
 
       expect(result).toEqual({ data: [] });
     });
+
+    it('folds uppercase category to canonical spelling for related rail', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        category: 'CHAQUETAS',
+        isApproved: true,
+      });
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+
+      await service.getRelatedProducts('p1');
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            category: 'Chaquetas',
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('folds lowercase category to canonical spelling for related rail', async () => {
+      mockPrismaService.client.product.findUnique.mockResolvedValue({
+        category: 'chaquetas',
+        isApproved: true,
+      });
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+
+      await service.getRelatedProducts('p1');
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            category: 'Chaquetas',
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
   });
 
   describe('getFacets', () => {
@@ -3316,6 +3352,67 @@ describe('ProductsService', () => {
         }),
       );
       expect(result).toEqual({ rejected: 1, requested: 1 });
+    });
+  });
+
+  describe('findAll with condition/size normalization', () => {
+    beforeEach(() => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+    });
+
+    it('folds lowercase condition to canonical Good', async () => {
+      await service.findAll({ condition: 'good' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ condition: 'Good' }) as Record<
+            string,
+            unknown
+          >,
+        }),
+      );
+    });
+
+    it('folds size m to canonical M', async () => {
+      await service.findAll({ size: 'm' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ size: 'M' }) as Record<
+            string,
+            unknown
+          >,
+        }),
+      );
+    });
+
+    it('trims whitespace for condition and size', async () => {
+      await service.findAll({ condition: ' Good ', size: ' m ' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            condition: 'Good',
+            size: 'M',
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('trims whitespace for brand filter', async () => {
+      await service.findAll({ brand: ' Nike ' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            brand: { contains: 'Nike' },
+          }) as Record<string, unknown>,
+        }),
+      );
+    });
+
+    it('ignores whitespace-only brand filter', async () => {
+      await service.findAll({ brand: '   ' });
+      const [[{ where }]] = mockPrismaService.client.product.findMany.mock
+        .calls as [[{ where: Record<string, unknown> }]];
+      expect(where.brand).toBeUndefined();
     });
   });
 

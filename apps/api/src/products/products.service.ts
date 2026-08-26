@@ -62,6 +62,7 @@ const PUBLICLY_VISIBLE = {
 // caps (MAX_FAVORITE_IDS, MAX_ITEM_QUANTITY) rather than a default parameter
 // nothing actually overrides.
 const RELATED_PRODUCTS_LIMIT = 4;
+const MAX_TOP_RATED_SCAN = 1000; // ponytail: cap, materialize averageRating+index if >1k sustained
 
 export const SUGGESTED_PRICE_MIN_SAMPLE = 3;
 
@@ -276,8 +277,8 @@ export class ProductsService {
     // Sold items are one-of-a-kind: once bought they leave the public catalog.
     const where: Prisma.ProductWhereInput = { ...PUBLICLY_VISIBLE };
 
-    if (typeof search === 'string' && search) {
-      where.OR = this.searchTextWhere(search);
+    if (typeof search === 'string' && search.trim()) {
+      where.OR = this.searchTextWhere(search.trim());
     }
 
     // Powers a seller's public profile page (their other listings), reusing
@@ -301,15 +302,19 @@ export class ProductsService {
     }
 
     const priceFilter: Prisma.FloatFilter = {};
-    if (minPrice !== undefined) priceFilter.gte = Number(minPrice);
-    if (maxPrice !== undefined) priceFilter.lte = Number(maxPrice);
-    if (Object.keys(priceFilter).length > 0) where.price = priceFilter;
+    const gte = Number(minPrice);
+    if (Number.isFinite(gte)) priceFilter.gte = gte;
+    const lte = Number(maxPrice);
+    if (Number.isFinite(lte)) priceFilter.lte = lte;
+    if (Object.keys(priceFilter).length) where.price = priceFilter;
 
     if (typeof size === 'string' && size) {
-      where.size = size;
+      const normalizedSize = size.trim().toUpperCase();
+      if (normalizedSize) where.size = normalizedSize;
     }
     if (typeof brand === 'string' && brand) {
-      where.brand = { contains: brand };
+      const trimmedBrand = brand.trim();
+      if (trimmedBrand) where.brand = { contains: trimmedBrand };
     }
     // `equals` compiles to `=`, which — unlike LIKE — *is* case-sensitive on
     // SQLite, so this is the one filter that genuinely needed fixing. Rather
@@ -320,7 +325,10 @@ export class ProductsService {
       where.category = { equals: canonicalCategory(category) };
     }
     if (typeof condition === 'string' && condition) {
-      where.condition = condition;
+      const trimmedCondition = condition.trim();
+      if (trimmedCondition)
+        where.condition =
+          canonicalCondition(trimmedCondition) ?? trimmedCondition;
     }
 
     if (isTopRated) {
@@ -331,6 +339,7 @@ export class ProductsService {
       const [allProducts, total] = await Promise.all([
         this.prisma.client.product.findMany({
           where,
+          take: MAX_TOP_RATED_SCAN,
           include: { seller: { select: { id: true, name: true } } },
         }),
         this.prisma.client.product.count({ where }),
@@ -651,14 +660,9 @@ export class ProductsService {
       throw new NotFoundException(`Producto con ID ${id} no encontrado`);
     }
 
-    // Exact match on the free-text `category` column: two listings entered
-    // as "Chaquetas" and "chaquetas" won't match each other. A known,
-    // pre-existing gap in how categories are stored app-wide (findAll's own
-    // catalog filter has the same exact-match limitation) — fixing it means
-    // normalizing category values at write time, out of scope here.
     const related = await this.prisma.client.product.findMany({
       where: {
-        category: product.category,
+        category: canonicalCategory(product.category),
         ...PUBLICLY_VISIBLE,
         id: { not: id },
       },

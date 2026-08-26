@@ -75,8 +75,18 @@ describe("ProductPage", () => {
       expect.stringContaining("/products/p1"),
       expect.objectContaining({ cache: "no-store" }),
     );
-    expect(element.type).toBe(ProductDetail);
-    expect(element.props).toEqual({ initialProduct: mockProduct });
+    const kids = (element.props as { children?: unknown }).children as
+      | unknown[]
+      | undefined;
+    if (Array.isArray(kids)) {
+      const detail = kids.find(
+        (c) => (c as ReactElement).type === ProductDetail,
+      ) as ReactElement<{ initialProduct: unknown }>;
+      expect(detail.props).toEqual({ initialProduct: mockProduct });
+    } else {
+      expect(element.type).toBe(ProductDetail);
+      expect(element.props).toEqual({ initialProduct: mockProduct });
+    }
   });
 
   it("no responde 404 cuando la API está caída", async () => {
@@ -129,6 +139,45 @@ describe("ProductPage", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(element.type).toBe(ProductDetail);
+  });
+
+  it("inyecta script JSON-LD con Product/Offer cuando el producto existe", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        ...mockProduct,
+        status: "AVAILABLE",
+        price: 45000,
+        images: [{ url: "https://cdn.example.com/x.jpg", alt: "x" }],
+        seller: { id: "s1", name: "Ana" },
+      }),
+    );
+    const element = await renderPage("p1");
+    const kids = (element.props as { children: ReactElement[] }).children;
+    expect(Array.isArray(kids)).toBe(true);
+    const script = kids[0] as ReactElement<{ dangerouslySetInnerHTML: { __html: string }; type: string }>;
+    expect(script.type).toBe("script");
+    expect(script.props.type).toBe("application/ld+json");
+    const json = JSON.parse(script.props.dangerouslySetInnerHTML.__html) as Record<string, unknown>;
+    expect(json["@type"]).toBe("Product");
+    const offers = json.offers as Record<string, unknown>;
+    expect(offers.priceCurrency).toBe("COP");
+    expect(offers.availability).toBe("https://schema.org/InStock");
+  });
+
+  it("mapea SOLD a SoldOut en el JSON-LD", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { ...mockProduct, status: "SOLD" }));
+    const element = await renderPage("p1");
+    const kids = (element.props as { children: ReactElement[] }).children;
+    const script = kids[0] as ReactElement<{ dangerouslySetInnerHTML: { __html: string } }>;
+    const json = JSON.parse(script.props.dangerouslySetInnerHTML.__html) as { offers: { availability: string } };
+    expect(json.offers.availability).toBe("https://schema.org/SoldOut");
+  });
+
+  it("no inyecta JSON-LD cuando la API esta caida", async () => {
+    fetchMock.mockRejectedValue(new Error("ECONNREFUSED"));
+    const element = await renderPage("p1");
+    expect(element.type).toBe(ProductDetail);
+    expect((element.props as { children?: unknown }).children).toBeUndefined();
   });
 });
 

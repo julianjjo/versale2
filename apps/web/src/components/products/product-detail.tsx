@@ -591,7 +591,7 @@ export function ProductDetail({
                       </p>
                     )}
                     <p className="mt-2 text-xs text-text-muted">
-                      {new Date(review.createdAt).toLocaleDateString("es-CO")}
+                      {new Date(review.createdAt).toLocaleDateString("es-CO", { timeZone: "UTC" })}
                     </p>
                   </>
                 )}
