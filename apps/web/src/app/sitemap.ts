@@ -28,8 +28,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // PUBLICLY_VISIBLE on the API already filters to isApproved + AVAILABLE +
     // not paused, which is exactly the "solo aprobados" the roadmap asks for.
     // Paged walk with a hard cap so a huge catalog can't stall the route.
+    // ponytail: sitemap caps 500, paginate/cursor if catalog >500
     const products: ProductLike[] = [];
     const PAGE_SIZE = 100;
+    const SITEMAP_MAX_URLS = 500;
     for (let page = 1; page <= 5; page++) {
       const res = await fetch(
         `${API_URL}/products?page=${page}&limit=${PAGE_SIZE}`,
@@ -43,6 +45,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       products.push(...body.data);
       if (!body.meta?.pages || page >= body.meta.pages) break;
     }
+    if (products.length >= SITEMAP_MAX_URLS) console.warn(`[sitemap] truncated at ${SITEMAP_MAX_URLS} URLs — catalog exceeds cap`);
 
     return [
       ...staticRoutes,
