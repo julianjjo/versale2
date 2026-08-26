@@ -42,8 +42,12 @@ export class NotificationsService {
   // The bell's dropdown: this user's notifications, newest first, optionally
   // narrowed to just the unread ones. Mirrors FavoritesService#findAll's own
   // pagination shape rather than introducing a fourth one.
-  async findAll(userId: string, query: Record<string, unknown> = {}) {
-    const { page, limit, unreadOnly } = query ?? {};
+  async findAll(userId: string, query: unknown = {}) {
+    const q =
+      query !== null && typeof query === 'object' && !Array.isArray(query)
+        ? (query as Record<string, unknown>)
+        : {};
+    const { page, limit, unreadOnly } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const where: { userId: string; read?: boolean } = { userId };
