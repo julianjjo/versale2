@@ -232,6 +232,7 @@ export default function CartPage() {
   });
 
   const handleCheckout = () => {
+    if (checkout.isPending) return;
     const errors: Partial<Record<keyof ShippingAddress, string>> = {};
     for (const field of REQUIRED_ADDRESS_FIELDS) {
       if (shippingAddress[field].trim() === "") {
@@ -243,6 +244,7 @@ export default function CartPage() {
       setError(INCOMPLETE_ADDRESS_ERROR);
       return;
     }
+    if (unavailableItems.length > 0) return;
     setAddressErrors({});
     setError(null);
     checkout.mutate();
