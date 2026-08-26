@@ -20,6 +20,7 @@ export interface RequestConfig {
   params?: QueryParams;
   /** `"blob"` for file downloads (CSV export): `data` comes back as a Blob. */
   responseType?: "json" | "blob";
+  signal?: AbortSignal;
 }
 
 function buildUrl(path: string, config?: RequestConfig): string {
@@ -61,8 +62,10 @@ async function request<T>(
       method,
       headers,
       body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
+      signal: config?.signal,
     });
-  } catch {
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
     throw new ApiError(0, undefined);
   }
 
