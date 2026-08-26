@@ -66,7 +66,7 @@ export default function MisVentasPage() {
     refetch,
   } = useQuery({
     queryKey: ["mis-ventas", search, status, page],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (status !== "all") params.set("status", status);
@@ -75,7 +75,7 @@ export default function MisVentasPage() {
       const res = await api.get<{
         data: Order[];
         meta: { total: number; page: number; pages: number };
-      }>(`/orders/mine/sales?${params.toString()}`);
+      }>(`/orders/mine/sales?${params.toString()}`, { signal });
       return res.data;
     },
     enabled: Boolean(user),
