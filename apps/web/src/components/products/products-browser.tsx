@@ -197,13 +197,14 @@ function ProductsBrowserContent({
   const appliedForm = toFormState(filters);
   const appliedSignature = JSON.stringify(appliedForm);
   const [form, setForm] = useState<FilterFormState>(appliedForm);
-  const [syncedSignature, setSyncedSignature] = useState(appliedSignature);
+  // Sync form when URL-driven filters change (back/forward or applyFilters).
+  // One setState instead of two (previously syncedSignature + form), avoiding
+  // the cascading render the lint rule flags. Signature is the stable key.
   useEffect(() => {
-    if (syncedSignature !== appliedSignature) {
-      setSyncedSignature(appliedSignature);
-      setForm(appliedForm);
-    }
-  }, [syncedSignature, appliedSignature, appliedForm]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional URL→form sync, not derived render state
+    setForm(appliedForm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- appliedForm is derived from appliedSignature; signature is the stable comparison key
+  }, [appliedSignature]);
 
   const applyFilters = (next: ProductFilters) => {
     if (!ownsUrl) {
@@ -226,7 +227,6 @@ function ProductsBrowserContent({
   useEffect(() => {
     setSearchInput(filters.search ?? "");
   }, [filters.search, setSearchInput]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (isFirstSearch.current) {
       isFirstSearch.current = false;
@@ -234,9 +234,9 @@ function ProductsBrowserContent({
     }
     const v = debouncedSearch.trim() || undefined;
     if ((filters.search || undefined) !== v) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       applyFilters({ ...filters, search: v, page: 1 });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- debouncedSearch is the driver; adding applyFilters/filters would cause extra syncs on every filter change
   }, [debouncedSearch]);
 
   const { data, isLoading, isFetching, isError, error } = useQuery({
