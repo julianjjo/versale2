@@ -461,14 +461,16 @@ describe('CartService', () => {
       const result = await service.addItem(userId, productId, 1);
 
       expect(mockPrismaService.client.cartItem.upsert).toHaveBeenCalledTimes(1);
-      expect(mockPrismaService.client.cartItem.findUnique).toHaveBeenCalledWith({
-        where: { cartId_productId: { cartId: 'cart1', productId } },
-        include: {
-          product: {
-            include: { seller: { select: { id: true, name: true } } },
+      expect(mockPrismaService.client.cartItem.findUnique).toHaveBeenCalledWith(
+        {
+          where: { cartId_productId: { cartId: 'cart1', productId } },
+          include: {
+            product: {
+              include: { seller: { select: { id: true, name: true } } },
+            },
           },
         },
-      });
+      );
       expect(result).toEqual(existing);
     });
   });
