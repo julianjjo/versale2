@@ -31,7 +31,7 @@ vi.mock("@/lib/auth", async () => {
   return { ...actual, useAuth: () => authState };
 });
 
-vi.mock("@/lib/api", async (importOriginal) => {
+vi.mock("@/lib/api", async () => {
   // extractApiError REAL: los tests validan el contrato completo
   // página+helper (p. ej. el fallback español ante un error de red sin
   // response), no una reimplementación que puede desincronizarse.
