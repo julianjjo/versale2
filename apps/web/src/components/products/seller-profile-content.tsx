@@ -29,10 +29,8 @@ export function SellerProfileContent({
 
   const { data, isLoading, isError, error } = useQuery<SellerProfile>({
     queryKey: ["seller-profile", params.id],
-    queryFn: async () => {
-      const response = await api.get<SellerProfile>(
-        `/products/sellers/${params.id}`,
-      );
+    queryFn: async ({ signal }) => {
+      const response = await api.get<SellerProfile>(`/products/sellers/${params.id}`, { signal });
       return response.data;
     },
     enabled: Boolean(params.id),
