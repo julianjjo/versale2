@@ -144,8 +144,11 @@ describe('ReportsService', () => {
         ReportCategory.MISMATCH,
       );
 
-      const call =
-        mockPrismaService.client.productReport.upsert.mock.calls[0][0];
+      const call = (
+        mockPrismaService.client.productReport.upsert.mock.calls as unknown as [
+          Prisma.ProductReportUpsertArgs,
+        ][]
+      )[0][0];
       // `createdAt` deliberately stays untouched on a re-report — it's
       // "first reported at", not "last activity" (that's `updatedAt`,
       // which Prisma bumps on its own and isn't part of this update object).
@@ -176,14 +179,23 @@ describe('ReportsService', () => {
         ReportCategory.FRAUD,
       );
 
-      const call =
-        mockPrismaService.client.productReport.upsert.mock.calls[0][0];
-      expect(call.update.status).toBe(ReportStatus.OPEN);
+      const call = (
+        mockPrismaService.client.productReport.upsert.mock.calls as unknown as [
+          Prisma.ProductReportUpsertArgs,
+        ][]
+      )[0][0];
+      expect((call.update as Prisma.ProductReportUpdateInput).status).toBe(
+        ReportStatus.OPEN,
+      );
       // reviewedById/reviewedAt are deliberately NOT part of the update: they
       // record who last reviewed this report, and reopening it shouldn't
       // erase that history — only a fresh dismiss() overwrites it.
-      expect(call.update).not.toHaveProperty('reviewedById');
-      expect(call.update).not.toHaveProperty('reviewedAt');
+      expect(call.update as Record<string, unknown>).not.toHaveProperty(
+        'reviewedById',
+      );
+      expect(call.update as Record<string, unknown>).not.toHaveProperty(
+        'reviewedAt',
+      );
     });
   });
 
@@ -322,6 +334,7 @@ describe('ReportsService', () => {
         data: {
           status: ReportStatus.DISMISSED,
           reviewedById: 'admin1',
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.any(Date) es `any` por diseño de Jest
           reviewedAt: expect.any(Date),
         },
       });
@@ -359,6 +372,7 @@ describe('ReportsService', () => {
         mockPrismaService.client.productReport.update,
       ).toHaveBeenCalledWith({
         where: { id: 'report1', status: ReportStatus.OPEN },
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining es `any` por diseño de Jest
         data: expect.objectContaining({ reviewedById: 'admin2' }),
       });
     });
