@@ -215,7 +215,10 @@ describe("ProductDetail", () => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
     await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith("/products/p1/related");
+      expect(api.get).toHaveBeenCalledWith(
+        "/products/p1/related",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
     });
     expect(screen.queryByText("Productos similares")).not.toBeInTheDocument();
   });
@@ -659,7 +662,10 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("Classic Levi's trucker jacket in great condition")).toBeInTheDocument();
     });
-    expect(api.get).not.toHaveBeenCalledWith("/products/p1");
+    expect(api.get).not.toHaveBeenCalledWith(
+      "/products/p1",
+      expect.anything(),
+    );
     expect(screen.queryByText(/producto no encontrado/i)).toBeNull();
   });
 
@@ -677,7 +683,10 @@ describe("ProductDetail", () => {
 
     expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith("/products/p1");
+      expect(api.get).toHaveBeenCalledWith(
+        "/products/p1",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
     });
     expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     expect(screen.queryByText(/producto no encontrado/i)).toBeNull();
