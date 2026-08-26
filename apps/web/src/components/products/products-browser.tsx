@@ -239,7 +239,7 @@ function ProductsBrowserContent({
 
   const { data, isLoading, isFetching, isError, error } = useQuery({
     queryKey: ["products", filters],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const cleaned: Record<string, string | number> = {};
       for (const [k, v] of Object.entries(filters)) {
         if (v !== undefined && v !== null && v !== "") {
@@ -248,6 +248,7 @@ function ProductsBrowserContent({
       }
       const response = await api.get<PaginatedResponse<Product>>("/products", {
         params: cleaned,
+        signal,
       });
       return response.data;
     },
