@@ -58,4 +58,3 @@ For EVERY feature or task (especially backlog items from `todo-implementacion.md
 - `design.md` — Visual design system (tokens, components, accessibility, anti-patterns) adapted from the static reference in `index.html`. Owns all palette, type, spacing, and component-level rules for the web app.
 - `docs/funcionalidades-propuestas.md` — Roadmap por hitos (v4 histórico + Estado actual v5 verificado 2026-08-24). Cerrado y estable: implementar desde "Orden de implementación del Hito 1"; reabrir solo si cambia una premisa verificada del código o llega tracción real.
 - `docs/todo-implementacion.md` — 17 ítems sincronizados a v5 (verificados en main); pipeline ahora en `AGENTS.md §8-Step Pipeline` (reemplaza `docs/WORKFLOW.md` eliminado).
-- `docs/borrado-cuenta-anonimizacion/design.md`, `docs/envio-definido`, `docs/uploads-seguros`, `docs/mis-publicaciones` — ya alineados, no tocar.

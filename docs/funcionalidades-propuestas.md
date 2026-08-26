@@ -1,5 +1,7 @@
 # Funcionalidades propuestas — Versale (venta de ropa usada)
 
+> **HISTÓRICO v5 — documento cerrado.** El negocio núcleo (hitos 1–3) está implementado y verificado en `main`; el resto quedó explícitamente fuera de alcance o supeditado a tracción real (>500 productos aprobados o usuarios activos). La documentación de diseño por funcionalidad fue eliminada del repositorio (ciclo limpieza-documentación): el código y sus tests son la única fuente de verdad. No abrir nuevas propuestas salvo que cambie una premisa verificada del código o llegue tracción real.
+
 > Alcance: solo funcionalidades directamente ligadas al marketplace de ropa usada C2C.
 > Nada genérico: cada ítem debe servir para que una transacción de ropa usada ocurra con confianza.
 >

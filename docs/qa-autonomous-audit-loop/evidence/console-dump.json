@@ -1,7 +1,0 @@
-{
-  "consoleErrors": [],
-  "hydrationErrors": [],
-  "pageErrors": [],
-  "timestamp": "2026-08-25T02:47:34.541Z",
-  "note": "0 console.error / pageerror / Runtime.exceptionThrown en 3 tests CDP (hydration/5xx/dup, BFS 12 rutas, edge double-click/offline/throttle)"
-}
