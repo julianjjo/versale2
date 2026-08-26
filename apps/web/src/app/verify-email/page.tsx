@@ -28,8 +28,8 @@ function VerifyEmailContent() {
   // manual ref guard needed.
   const { isError, error, isSuccess } = useQuery({
     queryKey: ["verify-email", token],
-    queryFn: async () => {
-      await api.post("/auth/verify-email", { token });
+    queryFn: async ({ signal }) => {
+      await api.post("/auth/verify-email", { token }, { signal });
       // A visitor who followed this link while already signed in has a
       // cached profile that still shows isVerified: false — refresh it so
       // the badge on /profile is correct immediately, without waiting for

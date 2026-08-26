@@ -143,7 +143,7 @@ function MisProductosList() {
 
   const { data, isLoading, isFetching, isError } = useQuery({
     queryKey: ["mis-productos", search, status, page],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       params.set("status", status);
@@ -152,7 +152,7 @@ function MisProductosList() {
       const res = await api.get<{
         data: Product[];
         meta: { total: number; page: number; pages: number };
-      }>(`/products/mine?${params.toString()}`);
+      }>(`/products/mine?${params.toString()}`, { signal });
       return res.data;
     },
     // Igual que en el panel de admin: cada pestaña/página es una queryKey
