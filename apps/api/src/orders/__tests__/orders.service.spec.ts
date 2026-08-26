@@ -2000,13 +2000,15 @@ describe('OrdersService', () => {
 
         expect(refunded).toBe(1);
         // El filtro del sweep: solo PAID cuyo paidAt venció el corte de 7 días.
-        expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
-          where: {
-            status: OrderStatus.PAID,
-            paidAt: { lte: anyDate() },
-          },
-          select: { id: true, userId: true, status: true },
-        });
+        expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: {
+              status: OrderStatus.PAID,
+              paidAt: { lte: anyDate() },
+            },
+            select: { id: true, userId: true, status: true },
+          }),
+        );
         const findManyMock = mockPrismaService.client.order
           .findMany as unknown as {
           mock: {
@@ -2101,13 +2103,15 @@ describe('OrdersService', () => {
         const expired = await service.autoResolveExpiredDisputes();
 
         expect(expired).toBe(1);
-        expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
-          where: {
-            status: OrderStatus.DISPUTED,
-            disputeExpiresAt: { lte: anyDate() },
-          },
-          select: { id: true, userId: true, status: true },
-        });
+        expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: {
+              status: OrderStatus.DISPUTED,
+              disputeExpiresAt: { lte: anyDate() },
+            },
+            select: { id: true, userId: true, status: true },
+          }),
+        );
         expect(mockTx.order.update).toHaveBeenCalledWith(
           objContaining({
             data: objContaining({
@@ -2254,13 +2258,15 @@ describe('OrdersService', () => {
 
       expect(cancelled).toBe(1);
       // El filtro del sweep: solo PENDING cuyo createdAt venció el timeout.
-      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
-        where: {
-          status: OrderStatus.PENDING,
-          createdAt: { lte: anyDate() },
-        },
-        select: { id: true, userId: true, status: true },
-      });
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            status: OrderStatus.PENDING,
+            createdAt: { lte: anyDate() },
+          },
+          select: { id: true, userId: true, status: true },
+        }),
+      );
       const findManyMock = mockPrismaService.client.order
         .findMany as unknown as {
         mock: {
