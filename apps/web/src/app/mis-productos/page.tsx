@@ -372,14 +372,14 @@ function MisProductosList() {
   const products = data?.data ?? [];
   const meta = data?.meta;
 
-  // Mismo patrón que el panel de admin: aprobar/rechazar/eliminar el último
-  // ítem de una página achica `meta.pages` sin que `page` lo siga, dejando la
-  // vista varada en una página vacía. Se corrige durante el render, no en un
-  // efecto, para no pintar primero el estado desactualizado.
-  if (meta && meta.pages !== lastSeenPages) {
-    setLastSeenPages(meta.pages);
-    setPage((currentPage) => Math.min(currentPage, Math.max(1, meta.pages)));
-  }
+  useEffect(() => {
+    if (meta && meta.pages !== lastSeenPages) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clamp pagination when total pages shrink (external meta → local state sync)
+      setLastSeenPages(meta.pages);
+      setPage((currentPage) => Math.min(currentPage, Math.max(1, meta.pages)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- meta.pages is the stable primitive; meta ref changes every fetch
+  }, [meta?.pages, lastSeenPages]);
 
   const setTab = (next: StatusFilter) => {
     setStatus(next);

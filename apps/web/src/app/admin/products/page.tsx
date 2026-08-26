@@ -274,17 +274,14 @@ export default function AdminProductsPage() {
   const products = data?.data ?? [];
   const meta = data?.meta;
 
-  // Approving, rejecting, or deleting the last item on a page shrinks
-  // `meta.pages` without `page` following it down — Pager only clamps its
-  // own button clicks, and renders nothing once `pages <= 1`, leaving no way
-  // back from a now-empty page except switching status tabs. Clamped inline
-  // during render (React's documented pattern for "adjust state when a prop
-  // changes") rather than in a useEffect, which would setState after an
-  // extra committed render instead of before this one paints.
-  if (meta && meta.pages !== lastSeenPages) {
-    setLastSeenPages(meta.pages);
-    setPage((currentPage) => Math.min(currentPage, Math.max(1, meta.pages)));
-  }
+  useEffect(() => {
+    if (meta && meta.pages !== lastSeenPages) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clamp pagination when total pages shrink (external meta → local state sync)
+      setLastSeenPages(meta.pages);
+      setPage((currentPage) => Math.min(currentPage, Math.max(1, meta.pages)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- meta.pages is the stable primitive; meta ref changes every fetch
+  }, [meta?.pages, lastSeenPages]);
 
   const setTab = (next: StatusFilter) => {
     setStatus(next);
