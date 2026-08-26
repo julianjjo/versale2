@@ -77,8 +77,8 @@ export default function OrderDetailPage() {
 
   const { data, isLoading, isError, error, refetch } = useQuery<Order>({
     queryKey: ["order", params.id],
-    queryFn: async () => {
-      const response = await api.get<Order>(`/orders/${params.id}`);
+    queryFn: async ({ signal }) => {
+      const response = await api.get<Order>(`/orders/${params.id}`, { signal });
       return response.data;
     },
     enabled: Boolean(user && params.id),
