@@ -345,8 +345,12 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
   // product title) and filterable by status, paginated the same way every
   // other list endpoint in this API is. Mirrors `getAllOrders` (admin) and
   // `getMySales` (seller) below rather than introducing a third shape.
-  async getUserOrders(userId: string, query: Record<string, unknown> = {}) {
-    const { search, status, page, limit } = query ?? {};
+  async getUserOrders(userId: string, query: unknown = {}) {
+    const q =
+      query !== null && typeof query === 'object' && !Array.isArray(query)
+        ? (query as Record<string, unknown>)
+        : {};
+    const { search, status, page, limit } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const where: Prisma.OrderWhereInput = { userId };
@@ -420,8 +424,12 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     return order;
   }
 
-  async getAllOrders(query: Record<string, unknown> = {}) {
-    const { search, page, limit } = query ?? {};
+  async getAllOrders(query: unknown = {}) {
+    const q =
+      query !== null && typeof query === 'object' && !Array.isArray(query)
+        ? (query as Record<string, unknown>)
+        : {};
+    const { search, page, limit } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const where = buildOrderSearchWhere(search);
@@ -455,8 +463,12 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
   // looking at" actually matches the admin's current search — but unpaged
   // (up to MAX_EXPORT_ROWS) since a CSV is meant to be the whole result set,
   // not one page of it.
-  async exportOrdersCsv(query: Record<string, unknown> = {}) {
-    const { search } = query ?? {};
+  async exportOrdersCsv(query: unknown = {}) {
+    const q =
+      query !== null && typeof query === 'object' && !Array.isArray(query)
+        ? (query as Record<string, unknown>)
+        : {};
+    const { search } = q;
     const where = buildOrderSearchWhere(search);
 
     // The admin uses this file for record-keeping and dispute resolution, so
@@ -542,8 +554,12 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
   // Searchable (by order id, buyer name, or one of the seller's own product
   // titles) and filterable by status, mirroring getUserOrders (buyer) and
   // getAllOrders (admin) rather than introducing a third filtering shape.
-  async getMySales(sellerId: string, query: Record<string, unknown> = {}) {
-    const { search, status, page, limit } = query ?? {};
+  async getMySales(sellerId: string, query: unknown = {}) {
+    const q =
+      query !== null && typeof query === 'object' && !Array.isArray(query)
+        ? (query as Record<string, unknown>)
+        : {};
+    const { search, status, page, limit } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const where: Prisma.OrderWhereInput = {
