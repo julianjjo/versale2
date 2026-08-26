@@ -39,20 +39,20 @@ describe('ReplyReviewDto with the global ValidationPipe', () => {
   });
 
   it('strips unexpected fields so a reply can never forge sellerRepliedAt', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       { reply: 'Gracias', sellerRepliedAt: '2020-01-01' },
       metadata,
-    );
+    )) as ReplyReviewDto;
 
     expect(result).toEqual({ reply: 'Gracias' });
-    expect((result as Record<string, unknown>).sellerRepliedAt).toBeUndefined();
+    expect('sellerRepliedAt' in result).toBe(false);
   });
 
   it('accepts a valid reply', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       { reply: 'Gracias por tu compra, cualquier duda escríbeme' },
       metadata,
-    );
+    )) as ReplyReviewDto;
 
     expect(result).toEqual({
       reply: 'Gracias por tu compra, cualquier duda escríbeme',

@@ -9,12 +9,15 @@ describe('ShipSaleDto with the global ValidationPipe', () => {
   };
 
   it('accepts an empty body — the tracking number is optional', async () => {
-    const result = await pipe.transform({}, metadata);
+    const result = (await pipe.transform({}, metadata)) as ShipSaleDto;
     expect(result).toEqual({});
   });
 
   it('accepts a valid tracking number', async () => {
-    const result = await pipe.transform({ trackingNumber: 'ABC123' }, metadata);
+    const result = (await pipe.transform(
+      { trackingNumber: 'ABC123' },
+      metadata,
+    )) as ShipSaleDto;
     expect(result).toEqual({ trackingNumber: 'ABC123' });
   });
 
@@ -31,11 +34,11 @@ describe('ShipSaleDto with the global ValidationPipe', () => {
   });
 
   it('strips unexpected fields', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       { trackingNumber: 'ABC123', status: 'DELIVERED' },
       metadata,
-    );
+    )) as ShipSaleDto;
     expect(result).toEqual({ trackingNumber: 'ABC123' });
-    expect((result as Record<string, unknown>).status).toBeUndefined();
+    expect('status' in result).toBe(false);
   });
 });
