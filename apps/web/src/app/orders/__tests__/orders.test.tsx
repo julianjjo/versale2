@@ -275,6 +275,7 @@ describe("OrdersPage", () => {
       () => {
         expect(api.get).toHaveBeenCalledWith(
           expect.stringContaining("search=chaqueta"),
+          expect.objectContaining({ signal: expect.any(AbortSignal) }),
         );
       },
       { timeout: 1000 },
@@ -302,6 +303,7 @@ describe("OrdersPage", () => {
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(
         expect.stringContaining("status=DELIVERED"),
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
   });
