@@ -10,9 +10,10 @@ export function useFavorites() {
   const { user } = useAuth();
   return useQuery<PaginatedResponse<Favorite>>({
     queryKey: ["favorites"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const response = await api.get<PaginatedResponse<Favorite>>(
         `/favorites?limit=${FAVORITES_PAGE_LIMIT}`,
+        { signal },
       );
       return response.data;
     },
@@ -24,9 +25,10 @@ export function useFavoriteProductIds(options?: { enabled?: boolean }): Set<stri
   const { user } = useAuth();
   const { data } = useQuery<{ productIds: string[] }>({
     queryKey: ["favorite-ids"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const response = await api.get<{ productIds: string[] }>(
         "/favorites/ids",
+        { signal },
       );
       return response.data;
     },

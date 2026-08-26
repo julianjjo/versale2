@@ -87,8 +87,8 @@ export default function CartPage() {
   const { data, isLoading, isLoadingError, isRefetchError, refetch } =
     useQuery<Cart>({
       queryKey: ["cart"],
-      queryFn: async () => {
-        const response = await api.get<Cart>("/cart");
+      queryFn: async ({ signal }) => {
+        const response = await api.get<Cart>("/cart", { signal });
         return response.data;
       },
       enabled: Boolean(user),
@@ -96,9 +96,10 @@ export default function CartPage() {
 
   const { data: previousOrdersPage } = useQuery<PaginatedResponse<Order>>({
     queryKey: ["orders", "recent-for-checkout"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const response = await api.get<PaginatedResponse<Order>>(
         "/orders?limit=5",
+        { signal },
       );
       return response.data;
     },
