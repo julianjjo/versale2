@@ -11,7 +11,6 @@ import { BrevoService } from '../notifications/brevo.service';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { Prisma, User } from '@prisma/client';
-import { translatePrismaError } from '../common/prisma-error';
 
 const BCRYPT_ROUNDS = 10;
 
@@ -83,7 +82,10 @@ export class AuthService {
       });
     } catch (e) {
       // Two concurrent signups with same email both pass findUnique before either writes
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
         throw new ConflictException('Ya existe una cuenta con ese correo');
       }
       throw e;
