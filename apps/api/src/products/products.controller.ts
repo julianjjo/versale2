@@ -35,6 +35,18 @@ export const PRODUCTS_SEARCH_THROTTLE_LIMIT = toLimit(
   60,
 );
 
+// Shared caches only. The catalog changes the moment an admin approves,
+// rejects or pauses a listing, and the previous
+// `max-age=30, stale-while-revalidate=60` let a browser answer from its own
+// copy for half a minute — and then keep answering from it, stale, for a
+// further minute while it revalidated in the background. Someone who had just
+// looked at the catalog kept seeing it without the listing that had since
+// been approved. `s-maxage` leaves the 30s window where the load this header
+// exists to absorb actually lands, and a browser revalidation is a 304, not a
+// repeated query. `stale-while-revalidate` is gone rather than shortened:
+// there is no shared-cache-only spelling of it.
+const CATALOG_CACHE_CONTROL = 'public, max-age=0, s-maxage=30';
+
 @Controller('products')
 export class ProductsController {
   constructor(private productsService: ProductsService) {}
@@ -46,13 +58,13 @@ export class ProductsController {
     },
   })
   @Get()
-  @Header('Cache-Control', 'public, max-age=30, stale-while-revalidate=60')
+  @Header('Cache-Control', CATALOG_CACHE_CONTROL)
   async findAll(@Query() query: any) {
     return this.productsService.findAll(query);
   }
 
   @Get('facets')
-  @Header('Cache-Control', 'public, max-age=30, stale-while-revalidate=60')
+  @Header('Cache-Control', CATALOG_CACHE_CONTROL)
   async getFacets() {
     return this.productsService.getFacets();
   }
@@ -80,7 +92,7 @@ export class ProductsController {
     },
   })
   @Get('suggested-price')
-  @Header('Cache-Control', 'public, max-age=30, stale-while-revalidate=60')
+  @Header('Cache-Control', CATALOG_CACHE_CONTROL)
   async getSuggestedPrice(
     @Query('category') category: string,
     @Query('condition') condition: string,

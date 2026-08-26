@@ -2,6 +2,7 @@ import { test as base, expect } from "../fixtures/auth";
 import {
   API_URL,
   E2E_SHIPPING_ADDRESS,
+  catalogSearchUrl,
   clearCart,
   createBuyer,
   createPurchasableProduct,
@@ -12,23 +13,27 @@ const test = base.extend({});
 test.describe.configure({ mode: "serial" });
 
 test.describe("Flujo de compra", () => {
-  test("la página de inicio muestra los productos sembrados", async ({ page }) => {
+  // Sobre una prenda recién aprobada, no sobre la semilla: la portada muestra
+  // "lo último aprobado" en seis huecos, y para cuando este archivo corre la
+  // suite ya publicó bastantes más de seis, así que las dos prendas sembradas
+  // — las más viejas del catálogo — ya no caben. Crear la prenda aquí también
+  // afirma algo más fuerte: que aprobar una publicación la lleva a la portada.
+  test("la página de inicio muestra las últimas prendas aprobadas", async ({
+    page,
+  }) => {
+    const product = await createPurchasableProduct(page.request);
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: "Vintage Denim Jacket" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Wool Sweater" }),
+      page.getByRole("heading", { name: product.title }),
     ).toBeVisible();
   });
 
   test("exploración y filtrado de productos", async ({ page }) => {
     await page.goto("/products");
+    // Acotada a `#main-content` por la copia oculta que React deja mientras
+    // transmite la página — ver el comentario en responsive.spec.ts.
     await expect(
-      page.getByRole("heading", { name: "Vintage Denim Jacket" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Wool Sweater" }),
+      page.locator("#main-content").getByTestId("products-grid"),
     ).toBeVisible();
 
     // Por el label, no por el placeholder: el placeholder del buscador es un
@@ -47,7 +52,7 @@ test.describe("Flujo de compra", () => {
   test("la página de detalle del producto muestra su información", async ({
     page,
   }) => {
-    await page.goto("/products");
+    await page.goto(catalogSearchUrl("Vintage Denim Jacket"));
     await page.getByRole("heading", { name: "Vintage Denim Jacket" }).click();
     // Timeout explícito: `/products/[id]` se renderiza en el servidor y, con los
     // archivos de prueba corriendo en paralelo contra `next dev`, la primera
@@ -65,7 +70,7 @@ test.describe("Flujo de compra", () => {
   test("el visitante puede ver un producto pero no agregarlo al carrito", async ({
     page,
   }) => {
-    await page.goto("/products");
+    await page.goto(catalogSearchUrl("Vintage Denim Jacket"));
     await page.getByRole("heading", { name: "Vintage Denim Jacket" }).click();
     await page.getByRole("button", { name: /agregar al carrito/i }).click();
     await expect(page).toHaveURL(/\/login/);
@@ -82,7 +87,7 @@ test.describe("Flujo de compra", () => {
       ).toBeVisible({ timeout: 5_000 });
     }
 
-    await userPage.goto("/products");
+    await userPage.goto(catalogSearchUrl("Vintage Denim Jacket"));
     await userPage.getByRole("heading", { name: "Vintage Denim Jacket" }).click();
     await userPage.getByRole("button", { name: /agregar al carrito/i }).click();
     await expect(userPage.getByText(/agregado al carrito/i)).toBeVisible({
@@ -338,7 +343,7 @@ test.describe("Flujo de compra", () => {
       ).toBeVisible({ timeout: 5_000 });
     }
 
-    await userPage.goto("/products");
+    await userPage.goto(catalogSearchUrl("Vintage Denim Jacket"));
     await userPage.getByRole("heading", { name: "Vintage Denim Jacket" }).click();
     await userPage.getByRole("button", { name: /agregar al carrito/i }).click();
     await expect(userPage.getByText(/agregado al carrito/i)).toBeVisible({
