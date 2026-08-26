@@ -9,10 +9,10 @@ describe('CreateQuestionDto with the global ValidationPipe', () => {
   };
 
   it('accepts a valid question', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       { productId: 'product1', question: '¿Es talla M o L?' },
       metadata,
-    );
+    )) as CreateQuestionDto;
 
     expect(result).toEqual({
       productId: 'product1',
@@ -39,10 +39,10 @@ describe('CreateQuestionDto with the global ValidationPipe', () => {
   });
 
   it('trims the question before validating and storing it', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       { productId: 'product1', question: '  ¿Es talla M?  ' },
       metadata,
-    );
+    )) as CreateQuestionDto;
 
     expect(result.question).toBe('¿Es talla M?');
   });
@@ -57,16 +57,16 @@ describe('CreateQuestionDto with the global ValidationPipe', () => {
   });
 
   it('strips unexpected fields so a question can never forge askerId', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       {
         productId: 'product1',
         question: '¿Pregunta?',
         askerId: 'someone-else',
       },
       metadata,
-    );
+    )) as CreateQuestionDto;
 
     expect(result).toEqual({ productId: 'product1', question: '¿Pregunta?' });
-    expect((result as Record<string, unknown>).askerId).toBeUndefined();
+    expect('askerId' in result).toBe(false);
   });
 });
