@@ -69,9 +69,11 @@ export default function AdminReportsPage() {
 
   useEffect(() => {
     if (meta && meta.pages !== lastSeenPages) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clamp pagination when total pages shrink (external meta → local state sync)
       setLastSeenPages(meta.pages);
       setPage((currentPage) => Math.min(currentPage, Math.max(1, meta.pages)));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- meta.pages is the stable primitive; meta ref changes every fetch
   }, [meta?.pages, lastSeenPages]);
 
   const setTab = (next: StatusFilter) => {
