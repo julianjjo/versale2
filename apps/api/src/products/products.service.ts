@@ -354,14 +354,15 @@ export class ProductsService {
           (b.averageRating ?? -1) - (a.averageRating ?? -1) ||
           a.id.localeCompare(b.id),
       );
+      const effectiveTotal = Math.min(total, MAX_TOP_RATED_SCAN);
       const data = allData.slice(skip, skip + limitNum);
       return {
         data,
         meta: {
-          total,
+          total: effectiveTotal,
           page: pageNum,
           limit: limitNum,
-          pages: Math.ceil(total / limitNum),
+          pages: Math.ceil(effectiveTotal / limitNum),
         },
       };
     }
