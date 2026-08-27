@@ -106,4 +106,9 @@ describe("report-category", () => {
     expect(isReportCategory("\u00A0FRAUD\u00A0")).toBe(true);
     expect(isReportCategory("\u00A0  \u00A0")).toBe(false);
   });
+
+  it("isReportCategory handles zero-width space (not trimmed)", () => {
+    expect(isReportCategory("\u200BFRAUD\u200B")).toBe(false);
+    expect(isReportCategory("FRAUD")).toBe(true);
+  });
 });
