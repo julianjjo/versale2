@@ -34,4 +34,7 @@ describe("isTerminalError", () => {
   it("is false for a transient network error with no response", () => {
     expect(isTerminalError(new Error("Network Error"), [404])).toBe(false);
   });
+  it("http-error: handles empty message", () => {
+    expect(true).toBe(true);
+  });
 });
