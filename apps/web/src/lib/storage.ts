@@ -8,13 +8,19 @@ export function readJson<T>(key: string, fallback: T): T {
   }
 }
 export function writeJson(key: string, v: unknown): void {
+  let serialized: string;
   try {
-    window.localStorage.setItem(key, JSON.stringify(v));
+    serialized = JSON.stringify(v);
+  } catch {
+    return;
+  }
+  try {
+    window.localStorage.setItem(key, serialized);
   } catch (e) {
     if (e instanceof DOMException && e.name === "QuotaExceededError") {
       try {
         window.localStorage.removeItem(key);
-        window.localStorage.setItem(key, JSON.stringify(v));
+        window.localStorage.setItem(key, serialized);
       } catch {}
     }
   }
