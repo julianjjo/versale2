@@ -7,7 +7,7 @@ import {
   conditionLabel,
 } from "@/lib/product-condition";
 import type { PaginatedResponse, Product } from "@/lib/types";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -206,19 +206,22 @@ function ProductsBrowserContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- appliedForm is derived from appliedSignature; signature is the stable comparison key
   }, [appliedSignature]);
 
-  const applyFilters = (next: ProductFilters) => {
-    if (!ownsUrl) {
-      setLocalFilters(next);
+  const applyFilters = useCallback(
+    (next: ProductFilters) => {
+      if (!ownsUrl) {
+        setLocalFilters(next);
+        requestAnimationFrame(() => gridRef.current?.focus());
+        return;
+      }
+      const nextQuery = queryFromFilters(next);
+      if (nextQuery === query) return;
+      router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+        scroll: false,
+      });
       requestAnimationFrame(() => gridRef.current?.focus());
-      return;
-    }
-    const nextQuery = queryFromFilters(next);
-    if (nextQuery === query) return;
-    router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
-      scroll: false,
-    });
-    requestAnimationFrame(() => gridRef.current?.focus());
-  };
+    },
+    [ownsUrl, query, pathname, router],
+  );
 
   // ponytail: 300ms live search, submit fallback
   const { searchInput, setSearchInput, search: debouncedSearch } =
@@ -242,7 +245,6 @@ function ProductsBrowserContent({
     }
     const v = debouncedSearch.trim() || undefined;
     if ((filtersRef.current.search || undefined) !== v) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- debounced live search is the intended external sync trigger
       applyFiltersRef.current({ ...filtersRef.current, search: v, page: 1 });
     }
   }, [debouncedSearch]);
