@@ -52,7 +52,7 @@ async function request<T>(
   const headers: Record<string, string> = {};
   const token = tokenStore.get();
   if (token) headers.Authorization = `Bearer ${token}`;
-  if (body !== undefined && !isFormData) {
+  if (body !== undefined && body !== null && !isFormData) {
     headers["Content-Type"] = "application/json";
   }
 
@@ -61,7 +61,7 @@ async function request<T>(
     response = await fetch(buildUrl(path, config), {
       method,
       headers,
-      body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
+      body: body === undefined || body === null ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
       signal: config?.signal,
     });
   } catch (err) {
