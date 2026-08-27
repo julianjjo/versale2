@@ -11,7 +11,7 @@ import { Button, Card, PageContainer, Spinner } from "@/components/ui";
 function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get("token") ?? "";
+  const token = (searchParams.get("token") ?? "").trim();
   const { refresh } = useAuth();
   // Gated on a click, not fired on mere page load: corporate email-security
   // scanners and chat link-unfurlers issue a real GET/navigation to a link

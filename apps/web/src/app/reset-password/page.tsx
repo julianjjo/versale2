@@ -9,7 +9,7 @@ import { Input, Button, Card, PageContainer, Spinner } from "@/components/ui";
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get("token") ?? "";
+  const token = (searchParams.get("token") ?? "").trim();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
