@@ -61,6 +61,12 @@ describe("types - NOTIFICATION_TYPES", () => {
     expect(isNotificationType(" ORDER_SHIPPED ")).toBe(true);
   });
 
+  it("isNotificationType handles carriage return and tab", () => {
+    expect(isNotificationType("\rORDER_SHIPPED\r")).toBe(true);
+    expect(isNotificationType("\tQUESTION_ASKED\n")).toBe(true);
+    expect(isNotificationType("\r  \n")).toBe(false);
+  });
+
   it("notificationTypeLabel returns label and trims", () => {
     expect(notificationTypeLabel("ORDER_SHIPPED")).toBe("Pedido enviado");
     expect(notificationTypeLabel(" ORDER_SHIPPED ")).toBe("Pedido enviado");
