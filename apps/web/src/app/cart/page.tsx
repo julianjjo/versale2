@@ -318,7 +318,13 @@ export default function CartPage() {
 
   const items = data?.items ?? [];
   const unavailableItems = items.filter(isUnavailable);
-  const total = items.reduce((sum, it) => (isUnavailable(it) ? sum : sum + it.priceAtAdd * it.quantity), 0);
+  const total = items.reduce((sum, it) => {
+    if (isUnavailable(it)) return sum;
+    const price = Number(it.priceAtAdd);
+    const qty = Number(it.quantity);
+    if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum;
+    return sum + price * qty;
+  }, 0);
 
   return (
     <PageContainer size="default">
