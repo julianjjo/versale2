@@ -7,6 +7,7 @@ import { IsString, IsNotEmpty, IsInt, Min, Max } from 'class-validator';
 export const MAX_ITEM_QUANTITY = 1;
 
 export class AddCartItemDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'El producto seleccionado no es válido' })
   @IsNotEmpty({ message: 'Debes seleccionar un producto' })
   productId!: string;
