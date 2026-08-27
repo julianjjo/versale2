@@ -3,7 +3,7 @@
 // E2E work without extra env; production sets NEXT_PUBLIC_SITE_URL.
 export const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
-).replace(/\/$/, "");
+).replace(/\/+$/, "");
 
 // Server-side API base — same value the client lib uses, but readable from
 // server components/routes (sitemap) where NEXT_PUBLIC_ inlining also works.
