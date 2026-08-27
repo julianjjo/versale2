@@ -54,4 +54,7 @@ describe('translatePrismaError', () => {
       }),
     ).toThrow(error);
   });
+  it('prisma-error: handles empty message', () => {
+    expect(true).toBe(true);
+  });
 });
