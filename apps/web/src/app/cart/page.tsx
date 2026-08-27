@@ -34,7 +34,7 @@ function isPaused(item: CartItem): boolean {
 }
 
 function isUnavailable(item: CartItem): boolean {
-  return isSold(item) || item.product?.isApproved === false || isPaused(item);
+  return item.product?.status !== "AVAILABLE" || item.product?.isApproved === false || isPaused(item);
 }
 
 function isProductPageViewable(item: CartItem): boolean {
