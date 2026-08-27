@@ -136,6 +136,11 @@ describe("types - REPORT_STATUSES", () => {
     expect(isReportStatus("\vOPEN\f")).toBe(true);
     expect(isReportStatus("\v  \f")).toBe(false);
   });
+
+  it("isReportStatus handles non-breaking space", () => {
+    expect(isReportStatus("\u00A0OPEN\u00A0")).toBe(true);
+    expect(isReportStatus("\u00A0  \u00A0")).toBe(false);
+  });
 });
 
 describe("types - PRODUCT_STATUSES", () => {
