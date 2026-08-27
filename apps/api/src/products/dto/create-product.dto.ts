@@ -13,7 +13,7 @@ import {
   Validate,
   IsUrl,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
@@ -117,6 +117,7 @@ export class CreateProductDto {
 
   // COP has no subunit in practice and the whole UI formats prices without
   // decimals, so only whole pesos are accepted.
+  @Transform(({ value }) => (typeof value === "string" ? Number(value.trim()) : value))
   @IsInt({
     message: 'El precio debe ser un número entero de pesos, sin decimales',
   })
