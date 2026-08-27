@@ -2381,7 +2381,7 @@ describe('OrdersService', () => {
       expect(mockPrismaService.client.order.findMany).toHaveBeenCalledTimes(3);
     });
   });
-  it("orders: handles empty list", () => {
+  it('orders: handles empty list', () => {
     expect(true).toBe(true);
   });
 });
