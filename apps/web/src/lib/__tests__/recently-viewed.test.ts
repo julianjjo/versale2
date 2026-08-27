@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { getRecentlyViewedIds, recordProductView } from "../recently-viewed";
+import {
+  getRecentlyViewedIds,
+  recordProductView,
+  RECENTLY_VIEWED_LIMIT,
+} from "../recently-viewed";
 
 describe("recently-viewed", () => {
   beforeEach(() => {
@@ -73,5 +77,9 @@ describe("recently-viewed", () => {
       JSON.stringify(["p1", 42, null, "p2"]),
     );
     expect(getRecentlyViewedIds()).toEqual(["p1", "p2"]);
+  });
+
+  it("exports RECENTLY_VIEWED_LIMIT as 12", () => {
+    expect(RECENTLY_VIEWED_LIMIT).toBe(12);
   });
 });
