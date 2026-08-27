@@ -38,7 +38,7 @@ export default function AdminReportsPage() {
     undefined,
   );
 
-  const { data, isLoading, isFetching, isError } = useQuery({
+  const { data, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ["admin-reports", status, page],
     queryFn: async ({ signal }) => {
       const res = await api.get<{
@@ -116,7 +116,7 @@ export default function AdminReportsPage() {
           <Spinner className="h-5 w-5" /> Cargando…
         </div>
       ) : isError ? (
-        <EmptyState title="No pudimos cargar los reportes" />
+        <EmptyState title="No pudimos cargar los reportes" description="Ocurrió un error al conectar con el servidor. Intenta de nuevo." action={<Button onClick={() => refetch()}>Reintentar</Button>} />
       ) : reports.length === 0 ? (
         <EmptyState
           title={EMPTY_STATE_COPY[status]}
