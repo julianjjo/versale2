@@ -22,4 +22,10 @@ describe("formatPublishDate", () => {
       "Publicado el 1 de enero de 2026",
     );
   });
+
+  it("retorna fallback para fecha inválida", () => {
+    expect(formatPublishDate("not-a-date")).toBe("Fecha no disponible");
+    expect(formatPublishDate("")).toBe("Fecha no disponible");
+    expect(formatPublishDate("2026-13-01")).toBe("Fecha no disponible");
+  });
 });
