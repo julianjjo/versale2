@@ -130,4 +130,19 @@ describe("storage", () => {
       expect(() => writeString("k", "v")).not.toThrow();
     });
   });
+
+  describe("writeJson circular", () => {
+    it("does not throw on circular JSON", () => {
+      const circular: Record<string, unknown> = {};
+      circular.self = circular;
+      expect(() => writeJson("k", circular)).not.toThrow();
+      expect(localStorage.getItem("k")).toBeNull();
+    });
+
+    it("does not double-stringify already-string values", () => {
+      writeJson("k", "already");
+      expect(localStorage.getItem("k")).toBe('"already"');
+      expect(JSON.parse(localStorage.getItem("k")!)).toBe("already");
+    });
+  });
 });
