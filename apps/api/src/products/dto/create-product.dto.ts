@@ -144,6 +144,7 @@ export class CreateProductDto {
   // Item 4: seller-curated free text. Optional — a listing without them is
   // valid — but bounded so a listing can't become an essay.
   @IsOptional()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() || undefined : value))
   @IsString({ message: 'Las medidas deben ser un texto' })
   @MaxLength(1000, {
     message: 'Las medidas no pueden superar los 1000 caracteres',
@@ -151,6 +152,7 @@ export class CreateProductDto {
   measurements?: string;
 
   @IsOptional()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() || undefined : value))
   @IsString({ message: 'Los defectos deben ser un texto' })
   @MaxLength(1000, {
     message: 'Los defectos no pueden superar los 1000 caracteres',
