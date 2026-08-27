@@ -7,5 +7,6 @@ export const SITE_URL = (
 
 // Server-side API base — same value the client lib uses, but readable from
 // server components/routes (sitemap) where NEXT_PUBLIC_ inlining also works.
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+export const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"
+).replace(/\/+$/, "");
