@@ -67,4 +67,9 @@ describe("categories", () => {
     expect(isProductCategory(" \tCamisetas \n\r ")).toBe(true);
     expect(isProductCategory(" \t  \n\r ")).toBe(false);
   });
+
+  it("isProductCategory handles vertical tab and form feed", () => {
+    expect(isProductCategory("\vCamisetas\f")).toBe(true);
+    expect(isProductCategory("\v  \f")).toBe(false);
+  });
 });
