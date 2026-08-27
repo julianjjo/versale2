@@ -680,42 +680,38 @@ export class ProductsService {
     return { data: await this.withAverageRating(related) };
   }
 
-  // ponytail: simple average, median/IQR if outliers matter
+  private median(values: number[]): number {
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 !== 0
+      ? sorted[mid]
+      : (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+
   async getSuggestedPrice(category: string, condition: string) {
     const cat = canonicalCategory(category.trim());
     const cond = canonicalCondition(condition);
     if (!cond) return { suggestedPrice: null };
-    const exact = await this.prisma.client.product.aggregate({
+    const exactPrices = await this.prisma.client.product.findMany({
       where: { ...PUBLICLY_VISIBLE, category: cat, condition: cond },
-      _avg: { price: true },
-      _count: true,
+      select: { price: true },
     });
-    const exactCount =
-      typeof exact._count === 'number'
-        ? exact._count
-        : ((exact._count as unknown as { _all: number })._all ?? 0);
-    if (exactCount >= SUGGESTED_PRICE_MIN_SAMPLE && exact._avg.price != null) {
+    if (exactPrices.length >= SUGGESTED_PRICE_MIN_SAMPLE) {
+      const median = this.median(exactPrices.map((p) => p.price));
       return {
-        suggestedPrice: Math.round(exact._avg.price),
-        sampleSize: exactCount,
+        suggestedPrice: Math.round(median),
+        sampleSize: exactPrices.length,
       };
     }
-    const fallback = await this.prisma.client.product.aggregate({
+    const fallbackPrices = await this.prisma.client.product.findMany({
       where: { ...PUBLICLY_VISIBLE, category: cat },
-      _avg: { price: true },
-      _count: true,
+      select: { price: true },
     });
-    const fallbackCount =
-      typeof fallback._count === 'number'
-        ? fallback._count
-        : ((fallback._count as unknown as { _all: number })._all ?? 0);
-    if (
-      fallbackCount >= SUGGESTED_PRICE_MIN_SAMPLE &&
-      fallback._avg.price != null
-    ) {
+    if (fallbackPrices.length >= SUGGESTED_PRICE_MIN_SAMPLE) {
+      const median = this.median(fallbackPrices.map((p) => p.price));
       return {
-        suggestedPrice: Math.round(fallback._avg.price),
-        sampleSize: fallbackCount,
+        suggestedPrice: Math.round(median),
+        sampleSize: fallbackPrices.length,
       };
     }
     return { suggestedPrice: null };

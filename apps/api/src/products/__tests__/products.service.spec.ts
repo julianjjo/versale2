@@ -3429,35 +3429,50 @@ describe('ProductsService', () => {
   });
 
   describe('getSuggestedPrice', () => {
-    it('returns average for exact category+condition when enough samples', async () => {
-      mockPrismaService.client.product.aggregate.mockResolvedValueOnce({
-        _avg: { price: 50000.4 },
-        _count: 5,
-      });
+    it('returns median for exact category+condition when enough samples', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValueOnce(
+        Array.from({ length: 5 }, () => ({ price: 50000 })),
+      );
       const res = await service.getSuggestedPrice('Chaquetas', 'Good');
       expect(res).toEqual({ suggestedPrice: 50000, sampleSize: 5 });
-      expect(mockPrismaService.client.product.aggregate).toHaveBeenCalledTimes(
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledTimes(
         1,
       );
     });
 
     it('falls back to category-only when condition bucket too small', async () => {
-      mockPrismaService.client.product.aggregate
-        .mockResolvedValueOnce({ _avg: { price: 40000 }, _count: 1 })
-        .mockResolvedValueOnce({ _avg: { price: 60000 }, _count: 4 });
+      mockPrismaService.client.product.findMany
+        .mockResolvedValueOnce(
+          Array.from({ length: 1 }, () => ({ price: 40000 })),
+        )
+        .mockResolvedValueOnce(
+          Array.from({ length: 4 }, () => ({ price: 60000 })),
+        );
       const res = await service.getSuggestedPrice('Jeans', 'New');
       expect(res).toEqual({ suggestedPrice: 60000, sampleSize: 4 });
-      expect(mockPrismaService.client.product.aggregate).toHaveBeenCalledTimes(
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledTimes(
         2,
       );
     });
 
     it('returns null when both buckets insufficient', async () => {
-      mockPrismaService.client.product.aggregate
-        .mockResolvedValueOnce({ _avg: { price: null }, _count: 0 })
-        .mockResolvedValueOnce({ _avg: { price: 30000 }, _count: 2 });
+      mockPrismaService.client.product.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce(
+          Array.from({ length: 2 }, () => ({ price: 30000 })),
+        );
       const res = await service.getSuggestedPrice('Otros', 'Fair');
       expect(res).toEqual({ suggestedPrice: null });
+    });
+
+    it('uses median not mean, outlier does not skew (50k,50k,500k → 50k)', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValueOnce([
+        { price: 50000 },
+        { price: 50000 },
+        { price: 500000 },
+      ]);
+      const res = await service.getSuggestedPrice('Chaquetas', 'Good');
+      expect(res).toEqual({ suggestedPrice: 50000, sampleSize: 3 });
     });
   });
 });

@@ -1048,6 +1048,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     // to a database with real multi-connection write concurrency.
     // Cursor pagination keeps memory bounded: each batch is processed before
     // the next is fetched, instead of loading every stale row at once.
+    // eslint-disable-next-line no-constant-condition -- intentional cursor pagination loop, breaks on empty/short batch
     while (true) {
       let batch: { id: string; userId: string; status: OrderStatus }[] = [];
       try {
