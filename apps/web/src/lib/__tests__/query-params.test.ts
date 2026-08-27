@@ -170,5 +170,10 @@ describe("query-params", () => {
       expect(isProductSize("\vM\f")).toBe(true);
       expect(isProductSize("\v  \f")).toBe(false);
     });
+
+    it("isProductSize handles non-breaking space", () => {
+      expect(isProductSize("\u00A0M\u00A0")).toBe(true);
+      expect(isProductSize("\u00A0  \u00A0")).toBe(false);
+    });
   });
 });
