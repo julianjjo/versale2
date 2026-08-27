@@ -91,6 +91,11 @@ describe("product-condition", () => {
     expect(isProductCondition("\u00A0  \u00A0")).toBe(false);
   });
 
+  it("isProductCondition handles ideographic space", () => {
+    expect(isProductCondition("\u3000New\u3000")).toBe(true);
+    expect(isProductCondition("\u3000  \u3000")).toBe(false);
+  });
+
   it("isProductCondition handles zero-width space (not trimmed)", () => {
     expect(isProductCondition("\u200BNew\u200B")).toBe(false);
     expect(isProductCondition("New")).toBe(true);
