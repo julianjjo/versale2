@@ -57,4 +57,9 @@ describe("categories", () => {
     expect(isProductCategory("\rCamisetas\r")).toBe(true);
     expect(isProductCategory("\r  \n")).toBe(false);
   });
+
+  it("isProductCategory handles tab and newline", () => {
+    expect(isProductCategory("\tCamisetas\n")).toBe(true);
+    expect(isProductCategory("\t  \n")).toBe(false);
+  });
 });
