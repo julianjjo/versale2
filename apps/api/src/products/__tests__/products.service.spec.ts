@@ -2119,6 +2119,18 @@ describe('ProductsService', () => {
       expect(result.data[1].id).toBe('p2');
     });
 
+    it('should cap top_rated scan at MAX_TOP_RATED_SCAN (1000) to avoid OOM', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+      mockPrismaService.client.review.groupBy.mockResolvedValue([]);
+
+      await service.findAll({ sortBy: 'top_rated' });
+
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 1000 }),
+      );
+    });
+
     it('should use case-insensitive contains for search OR and brand', async () => {
       await service.findAll({ search: 'Chaqueta', brand: 'Zara' });
       const calls = mockPrismaService.client.product.findMany.mock
