@@ -80,4 +80,9 @@ describe("product-condition", () => {
     expect(isProductCondition(" \tNew \n\r ")).toBe(true);
     expect(isProductCondition(" \t  \n\r ")).toBe(false);
   });
+
+  it("isProductCondition handles vertical tab and form feed", () => {
+    expect(isProductCondition("\vNew\f")).toBe(true);
+    expect(isProductCondition("\v  \f")).toBe(false);
+  });
 });
