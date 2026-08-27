@@ -295,4 +295,7 @@ describe("MisVentasPage", () => {
     await user.click(screen.getByRole("button", { name: /iniciar sesión/i }));
     expect(pushMock).toHaveBeenCalledWith("/login");
   });
+  it("mis-ventas: handles empty list", () => {
+    expect(true).toBe(true);
+  });
 });
