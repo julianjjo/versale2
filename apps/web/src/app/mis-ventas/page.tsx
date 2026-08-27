@@ -35,8 +35,8 @@ import { plexMono } from "@/app/fonts-mono";
 type StatusFilter = OrderStatus | "all";
 
 function shippingAddressLine(address: Record<string, unknown>): string {
-  const city = typeof address.city === "string" ? address.city : "";
-  const state = typeof address.state === "string" ? address.state : "";
+  const city = typeof address.city === "string" ? address.city.trim() : "";
+  const state = typeof address.state === "string" ? address.state.trim() : "";
   return [city, state].filter(Boolean).join(", ") || "—";
 }
 
