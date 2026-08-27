@@ -130,5 +130,10 @@ describe("query-params", () => {
       expect(isProductSize("\tM\n")).toBe(true);
       expect(isProductSize("\t  \n")).toBe(false);
     });
+
+    it("isProductSize handles mixed case with whitespace", () => {
+      expect(isProductSize("  m  ")).toBe(true);
+      expect(isProductSize("  XXL  ")).toBe(true);
+    });
   });
 });
