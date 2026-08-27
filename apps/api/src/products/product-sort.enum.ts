@@ -5,3 +5,11 @@ export enum ProductSortBy {
   MOST_FAVORITED = 'most_favorited',
   TOP_RATED = 'top_rated',
 }
+
+import { ProductStatus } from "@prisma/client";
+
+export const PRODUCT_STATUSES = Object.values(ProductStatus) as ProductStatus[];
+
+export function isProductStatus(value: string): value is ProductStatus {
+  return (PRODUCT_STATUSES as readonly string[]).includes(value.trim());
+}
