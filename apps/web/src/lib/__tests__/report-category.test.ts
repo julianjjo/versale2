@@ -75,4 +75,15 @@ describe("report-category", () => {
     expect(isReportCategory("")).toBe(false);
     expect(isReportCategory("fraud")).toBe(false);
   });
+
+  it("isReportCategory trims whitespace", () => {
+    expect(isReportCategory(" FRAUD ")).toBe(true);
+    expect(isReportCategory("  OTHER  ")).toBe(true);
+    expect(isReportCategory("  UNKNOWN  ")).toBe(false);
+  });
+
+  it("isReportCategory handles carriage return", () => {
+    expect(isReportCategory("\rFRAUD\r")).toBe(true);
+    expect(isReportCategory("\r  \n")).toBe(false);
+  });
 });
