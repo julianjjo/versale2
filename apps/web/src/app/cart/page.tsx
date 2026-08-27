@@ -262,6 +262,7 @@ export default function CartPage() {
       setError(INCOMPLETE_ADDRESS_ERROR);
       return;
     }
+    if (items.length === 0) return;
     if (unavailableItems.length > 0) return;
     setAddressErrors({});
     setError(null);
