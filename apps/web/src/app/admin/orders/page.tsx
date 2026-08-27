@@ -98,7 +98,10 @@ export default function AdminOrdersPage() {
       const link = document.createElement("a");
       link.href = url;
       link.download = "pedidos.csv";
+      link.style.display = "none";
+      document.body.appendChild(link);
       link.click();
+      link.remove();
       // Revoking synchronously right after click() races Safari's download
       // kickoff (which isn't guaranteed synchronous) and can truncate the
       // file — yielding a tick first is the standard fix; Chrome/Firefox are
