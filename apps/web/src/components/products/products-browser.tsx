@@ -106,14 +106,14 @@ function mergeFacetOptions(fetched: string[] | undefined, current: string): stri
 }
 
 function parseAmount(raw: string | null): number | undefined {
-  if (!raw) return undefined;
-  const n = Number(raw);
+  if (!raw || !raw.trim()) return undefined;
+  const n = Number(raw.trim());
   return Number.isFinite(n) && n >= 0 ? n : undefined;
 }
 
 function parsePage(raw: string | null): number | undefined {
-  if (!raw) return undefined;
-  const n = Number(raw);
+  if (!raw || !raw.trim()) return undefined;
+  const n = Number(raw.trim());
   return Number.isFinite(n) && n >= 1 ? Math.floor(n) : undefined;
 }
 
