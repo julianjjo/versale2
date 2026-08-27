@@ -37,4 +37,10 @@ describe("formatPublishDate", () => {
       "Publicado el 10 de enero de 2026",
     );
   });
+
+  it("formatea 15 de marzo determinista", () => {
+    expect(formatPublishDate("2026-03-15T00:00:00Z")).toBe(
+      "Publicado el 15 de marzo de 2026",
+    );
+  });
 });
