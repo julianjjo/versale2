@@ -168,7 +168,8 @@ export class ProductsService {
   private resolveSortOrder(
     sortBy: unknown,
   ): Prisma.ProductOrderByWithRelationInput[] {
-    const value = this.firstValue(sortBy);
+    const raw = this.firstValue(sortBy);
+    const value = typeof raw === "string" ? raw.trim() : raw;
     if (
       value &&
       Object.values(ProductSortBy).includes(value as ProductSortBy)
