@@ -145,4 +145,28 @@ describe("storage", () => {
       expect(JSON.parse(localStorage.getItem("k")!)).toBe("already");
     });
   });
+
+  describe("SSR guard (window undefined)", () => {
+    it("readJson returns fallback when window is undefined", async () => {
+      const origWindow = globalThis.window;
+      // @ts-ignore mock undefined
+      vi.stubGlobal("window", undefined);
+      const mod = await import("../storage");
+      // need fresh import with window undefined at module eval
+      // but readJson checks typeof window at call time, so direct call
+      expect(mod.readJson("any", "fb")).toBe("fb");
+      vi.unstubAllGlobals();
+      (globalThis as unknown as { window: unknown }).window = origWindow;
+    });
+
+    it("writeJson and others do not throw when window is undefined", async () => {
+      vi.stubGlobal("window", undefined);
+      const mod = await import("../storage");
+      expect(() => mod.writeJson("k", { a: 1 })).not.toThrow();
+      expect(() => mod.writeString("k", "v")).not.toThrow();
+      expect(() => mod.removeKey("k")).not.toThrow();
+      expect(mod.readString("k")).toBeNull();
+      vi.unstubAllGlobals();
+    });
+  });
 });
