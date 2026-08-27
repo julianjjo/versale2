@@ -71,4 +71,16 @@ describe("site", () => {
       "http://localhost:3000",
     );
   });
+
+  it("normalizeUrl trims whitespace and slashes", async () => {
+    const { normalizeUrl } = await import("../site");
+    expect(normalizeUrl(" https://a.com/ ")).toBe("https://a.com");
+    expect(normalizeUrl(" https://a.com///  ")).toBe("https://a.com");
+  });
+
+  it("trims whitespace around SITE_URL", async () => {
+    process.env.NEXT_PUBLIC_SITE_URL = " https://example.com/ ";
+    const { SITE_URL } = await import("../site");
+    expect(SITE_URL).toBe("https://example.com");
+  });
 });
