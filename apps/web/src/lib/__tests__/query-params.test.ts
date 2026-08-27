@@ -180,5 +180,10 @@ describe("query-params", () => {
       expect(isProductSize("\u00A0M\u00A0")).toBe(true);
       expect(isProductSize("\u00A0  \u00A0")).toBe(false);
     });
+
+    it("isProductSize handles zero-width space (not trimmed)", () => {
+      expect(isProductSize("\u200BM\u200B")).toBe(false);
+      expect(isProductSize("M")).toBe(true);
+    });
   });
 });
