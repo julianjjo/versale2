@@ -49,7 +49,7 @@ const REPORT_CATEGORY_BADGE_VARIANTS: Record<
 };
 
 export function isReportCategory(value: string): value is ReportCategory {
-  return (REPORT_CATEGORIES as readonly string[]).includes(value);
+  return (REPORT_CATEGORIES as readonly string[]).includes(value.trim());
 }
 
 /** Falls back to "default" so an unknown category still renders a badge. */
