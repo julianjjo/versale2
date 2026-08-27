@@ -126,6 +126,11 @@ describe("order-status", () => {
     expect(isOrderStatus(" \t  \n\r ")).toBe(false);
   });
 
+  it("isOrderStatus handles non-breaking space", () => {
+    expect(isOrderStatus("\u00A0PENDING\u00A0")).toBe(true);
+    expect(isOrderStatus("\u00A0  \u00A0")).toBe(false);
+  });
+
   it("isOrderStatus handles vertical tab and form feed", () => {
     expect(isOrderStatus("\vPENDING\f")).toBe(true);
     expect(isOrderStatus("\v  \f")).toBe(false);
