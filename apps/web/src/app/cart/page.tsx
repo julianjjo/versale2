@@ -215,7 +215,8 @@ export default function CartPage() {
       router.push(`/orders/${created.id}`);
     },
     onError: async (err) => {
-      if (getHttpStatus(err) !== undefined) {
+      const status = getHttpStatus(err);
+      if (status !== undefined && status !== 0) {
         setError(extractApiError(err, "No pudimos procesar el pago"));
         return;
       }
