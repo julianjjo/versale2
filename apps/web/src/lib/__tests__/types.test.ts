@@ -31,6 +31,12 @@ describe("types - USER_ROLES", () => {
     expect(isUserRole(" USER ")).toBe(true);
     expect(isUserRole("  ADMIN  ")).toBe(true);
   });
+
+  it("isUserRole handles carriage return and tab", () => {
+    expect(isUserRole("\rUSER\r")).toBe(true);
+    expect(isUserRole("\tADMIN\n")).toBe(true);
+    expect(isUserRole("\r  \n")).toBe(false);
+  });
 });
 
 describe("types - NOTIFICATION_TYPES", () => {
