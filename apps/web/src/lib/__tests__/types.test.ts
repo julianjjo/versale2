@@ -156,6 +156,11 @@ describe("types - PRODUCT_STATUSES", () => {
     expect(isProductStatus(" \t  \n\r ")).toBe(false);
   });
 
+  it("isProductStatus handles vertical tab and form feed", () => {
+    expect(isProductStatus("\vAVAILABLE\f")).toBe(true);
+    expect(isProductStatus("\v  \f")).toBe(false);
+  });
+
   it("productStatusLabel returns Spanish label and falls back", () => {
     expect(productStatusLabel("AVAILABLE")).toBe("Disponible");
     expect(productStatusLabel("SOLD")).toBe("Vendido");
