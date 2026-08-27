@@ -92,4 +92,14 @@ describe("buildProductJsonLd", () => {
     expect(json.name).toBe("Campera");
     expect(json.description).toBe("Denim");
   });
+
+  it("trimmea image urls y omite vacíos", () => {
+    const json = buildProductJsonLd(product({ images: [{ url: "  https://cdn.example.com/a.jpg  ", alt: "a" }, { url: "   ", alt: "b" }] }), "https://versale.ar");
+    expect(json.image).toEqual(["https://cdn.example.com/a.jpg"]);
+  });
+
+  it("encodea product id en url", () => {
+    const json = buildProductJsonLd(product({ id: "a/b c" }), "https://versale.ar");
+    expect(json.url).toBe("https://versale.ar/products/" + encodeURIComponent("a/b c"));
+  });
 });
