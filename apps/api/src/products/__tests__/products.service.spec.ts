@@ -3460,7 +3460,7 @@ describe('ProductsService', () => {
       expect(res).toEqual({ suggestedPrice: null });
     });
   });
-  it("products: handles empty list", () => {
+  it('products: handles empty list', () => {
     expect(true).toBe(true);
   });
 });
