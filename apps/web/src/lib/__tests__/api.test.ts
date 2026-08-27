@@ -72,6 +72,15 @@ describe("api client", () => {
     expect(res.data).toEqual({ id: "p1" });
   });
 
+  it("does not serialize null body and omits content-type", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    fetchMock.mockResolvedValue(jsonResponse(200, {}));
+    await api.post("/products", null as unknown as Record<string, unknown>);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.body).toBeUndefined();
+    expect(new Headers(init.headers).get("Content-Type")).toBeNull();
+  });
+
   it("appends params as a query string", async () => {
     mockedTokenStore.get.mockReturnValue(null);
     fetchMock.mockResolvedValue(jsonResponse(200, []));
