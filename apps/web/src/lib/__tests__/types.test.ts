@@ -102,6 +102,11 @@ describe("types - NOTIFICATION_TYPES", () => {
     expect(isNotificationType("\u00A0  \u00A0")).toBe(false);
   });
 
+  it("isNotificationType handles zero-width space (not trimmed)", () => {
+    expect(isNotificationType("\u200BORDER_SHIPPED\u200B")).toBe(false);
+    expect(isNotificationType("ORDER_SHIPPED")).toBe(true);
+  });
+
   it("notificationTypeLabel returns label and trims", () => {
     expect(notificationTypeLabel("ORDER_SHIPPED")).toBe("Pedido enviado");
     expect(notificationTypeLabel(" ORDER_SHIPPED ")).toBe("Pedido enviado");
