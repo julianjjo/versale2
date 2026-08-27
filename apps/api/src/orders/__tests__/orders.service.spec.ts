@@ -2275,6 +2275,7 @@ describe('OrdersService', () => {
           >;
         };
       };
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- mock.calls is any by design
       const usedCutoff = findManyMock.mock.calls[0][0].where.createdAt.lte;
       const diffHours = (Date.now() - usedCutoff.getTime()) / (60 * 60 * 1000);
       expect(diffHours).toBeGreaterThanOrEqual(23.99);
