@@ -96,4 +96,9 @@ describe("report-category", () => {
     expect(isReportCategory(" \tFRAUD \n\r ")).toBe(true);
     expect(isReportCategory(" \t  \n\r ")).toBe(false);
   });
+
+  it("isReportCategory handles vertical tab and form feed", () => {
+    expect(isReportCategory("\vFRAUD\f")).toBe(true);
+    expect(isReportCategory("\v  \f")).toBe(false);
+  });
 });
