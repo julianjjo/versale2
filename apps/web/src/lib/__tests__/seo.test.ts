@@ -86,4 +86,10 @@ describe("buildProductJsonLd", () => {
     const blank = buildProductJsonLd(product({ seller: { id: "s1", name: "   " } }), "https://versale.ar");
     expect(blank.offers.seller).toBeUndefined();
   });
+
+  it("trimmea title y description", () => {
+    const json = buildProductJsonLd(product({ title: "  Campera  ", description: "  Denim  " }), "https://versale.ar");
+    expect(json.name).toBe("Campera");
+    expect(json.description).toBe("Denim");
+  });
 });
