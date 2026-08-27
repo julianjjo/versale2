@@ -150,5 +150,10 @@ describe("query-params", () => {
       expect(isProductSize("\rM\r")).toBe(true);
       expect(isProductSize("\r  \n")).toBe(false);
     });
+
+    it("isProductSize handles all whitespace variants", () => {
+      expect(isProductSize(" \tM \n\r ")).toBe(true);
+      expect(isProductSize(" \t  \n\r ")).toBe(false);
+    });
   });
 });
