@@ -70,4 +70,9 @@ describe("product-condition", () => {
     expect(isProductCondition("\rNew\r")).toBe(true);
     expect(isProductCondition("\r  \n")).toBe(false);
   });
+
+  it("isProductCondition handles tab and newline", () => {
+    expect(isProductCondition("\tNew\n")).toBe(true);
+    expect(isProductCondition("\t  \n")).toBe(false);
+  });
 });
