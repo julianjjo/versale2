@@ -211,6 +211,19 @@ export function isNotificationType(value: string): value is NotificationType {
   return (NOTIFICATION_TYPES as readonly string[]).includes(value.trim());
 }
 
+export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
+  ORDER_SHIPPED: "Pedido enviado",
+  ORDER_CANCELLED: "Pedido cancelado",
+  ORDER_STATUS_CHANGED: "Estado actualizado",
+  QUESTION_ASKED: "Pregunta recibida",
+  QUESTION_ANSWERED: "Respuesta recibida",
+};
+
+export function notificationTypeLabel(type: string): string {
+  const t=type.trim();
+  return (NOTIFICATION_TYPE_LABEL as Record<string, string>)[t] ?? type;
+}
+
 export interface Notification {
   id: string;
   userId: string;
