@@ -118,4 +118,9 @@ describe("order-status", () => {
     expect(orderStatusLabel("UNKNOWN")).toBe("UNKNOWN");
     expect(orderStatusLabel("")).toBe("");
   });
+
+  it("orderStatusLabel trims whitespace before lookup", () => {
+    expect(orderStatusLabel(" PENDING ")).toBe("Pendiente");
+    expect(orderStatusLabel("  UNKNOWN  ")).toBe("  UNKNOWN  ");
+  });
 });
