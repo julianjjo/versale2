@@ -121,6 +121,11 @@ describe("order-status", () => {
     expect(isOrderStatus("\r  \n")).toBe(false);
   });
 
+  it("isOrderStatus handles all whitespace variants", () => {
+    expect(isOrderStatus(" \tPENDING \n\r ")).toBe(true);
+    expect(isOrderStatus(" \t  \n\r ")).toBe(false);
+  });
+
   it("orderStatusLabel returns Spanish label and falls back to raw", () => {
     expect(orderStatusLabel("PENDING")).toBe("Pendiente");
     expect(orderStatusLabel("UNKNOWN")).toBe("UNKNOWN");
