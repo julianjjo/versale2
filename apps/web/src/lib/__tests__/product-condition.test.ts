@@ -28,6 +28,11 @@ describe("product-condition", () => {
     expect(conditionLabel("")).toBe("");
   });
 
+  it("conditionLabel trims whitespace before lookup", () => {
+    expect(conditionLabel(" Good ")).toBe("Buen estado");
+    expect(conditionLabel("  Unknown  ")).toBe("  Unknown  ");
+  });
+
   it("CONDITION_OPTIONS derives from same map in same order", () => {
     expect(CONDITION_OPTIONS).toEqual([
       { value: "New", label: "Nuevo" },
