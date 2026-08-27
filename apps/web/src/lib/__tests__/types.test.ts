@@ -72,6 +72,11 @@ describe("types - NOTIFICATION_TYPES", () => {
     expect(isNotificationType("\r  \n")).toBe(false);
   });
 
+  it("isNotificationType handles all whitespace variants", () => {
+    expect(isNotificationType(" \tORDER_SHIPPED \n\r ")).toBe(true);
+    expect(isNotificationType(" \t  \n\r ")).toBe(false);
+  });
+
   it("notificationTypeLabel returns label and trims", () => {
     expect(notificationTypeLabel("ORDER_SHIPPED")).toBe("Pedido enviado");
     expect(notificationTypeLabel(" ORDER_SHIPPED ")).toBe("Pedido enviado");
