@@ -92,6 +92,11 @@ describe("types - NOTIFICATION_TYPES", () => {
     expect(isNotificationType("\v  \f")).toBe(false);
   });
 
+  it("isNotificationType handles non-breaking space", () => {
+    expect(isNotificationType("\u00A0ORDER_SHIPPED\u00A0")).toBe(true);
+    expect(isNotificationType("\u00A0  \u00A0")).toBe(false);
+  });
+
   it("notificationTypeLabel returns label and trims", () => {
     expect(notificationTypeLabel("ORDER_SHIPPED")).toBe("Pedido enviado");
     expect(notificationTypeLabel(" ORDER_SHIPPED ")).toBe("Pedido enviado");
