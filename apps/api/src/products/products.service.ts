@@ -79,6 +79,12 @@ export function isProductCondition(value: string): value is typeof PRODUCT_CONDI
   return (PRODUCT_CONDITIONS as readonly string[]).includes(value.trim());
 }
 
+export const PRODUCT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
+
+export function isProductSize(value: string): value is typeof PRODUCT_SIZES[number] {
+  return (PRODUCT_SIZES as readonly string[]).includes(value.trim().toUpperCase());
+}
+
 // `id` as a secondary key gives ties on the primary sort column a stable
 // order across separate paginated (skip/take) queries. Without it, rows
 // sharing a value on a low-cardinality column like `price` — or even on
