@@ -4,6 +4,7 @@ import {
   CONDITION_LABELS,
   CONDITION_OPTIONS,
   conditionLabel,
+  isProductCondition,
 } from "../product-condition";
 
 describe("product-condition", () => {
@@ -44,5 +45,13 @@ describe("product-condition", () => {
         CONDITION_LABELS[PRODUCT_CONDITIONS[i]],
       );
     }
+  });
+
+  it("isProductCondition guards correctly", () => {
+    expect(isProductCondition("New")).toBe(true);
+    expect(isProductCondition("Fair")).toBe(true);
+    expect(isProductCondition("Unknown")).toBe(false);
+    expect(isProductCondition("")).toBe(false);
+    expect(isProductCondition("new")).toBe(false);
   });
 });

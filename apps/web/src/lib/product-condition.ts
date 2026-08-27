@@ -30,3 +30,7 @@ export const CONDITION_OPTIONS = PRODUCT_CONDITIONS.map((value) => ({
   value,
   label: CONDITION_LABELS[value],
 }));
+
+export function isProductCondition(value: string): value is ProductCondition {
+  return (PRODUCT_CONDITIONS as readonly string[]).includes(value);
+}
