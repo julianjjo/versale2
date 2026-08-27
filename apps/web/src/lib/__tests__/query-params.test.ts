@@ -27,6 +27,12 @@ describe("query-params", () => {
     it("handles undefined fetched", () => {
       expect(mergeFacetOptions(undefined, "Zara")).toEqual(["Zara"]);
     });
+
+    it("trims whitespace and handles empty current", () => {
+      expect(mergeFacetOptions(["Nike"], "  Nike  ")).toEqual(["Nike"]);
+      expect(mergeFacetOptions(["Nike"], "   ")).toEqual(["Nike"]);
+      expect(mergeFacetOptions([], "  Adidas ")).toEqual(["Adidas"]);
+    });
   });
 
   describe("parseAmount", () => {
