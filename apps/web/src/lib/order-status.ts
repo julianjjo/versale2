@@ -51,6 +51,11 @@ export function commonNextStatuses(statuses: OrderStatus[]): OrderStatus[] {
     .reduce((shared, next) => shared.filter((s) => next.includes(s)));
 }
 
+export function orderStatusVariant(status: string): BadgeVariant {
+  const t=status.trim();
+  return (ORDER_STATUS_VARIANT as Record<string, BadgeVariant>)[t] ?? "warning";
+}
+
 export const ORDER_STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
   PENDING: "warning",
   PAID: "info",
