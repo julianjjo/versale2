@@ -66,6 +66,11 @@ export const ORDER_STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
   REFUNDED: "danger",
 };
 
+export function orderStatusReassurance(status: string): string {
+  const t=status.trim();
+  return (ORDER_STATUS_REASSURANCE as Record<string, string>)[t] ?? "";
+}
+
 export const ORDER_STATUS_REASSURANCE: Record<OrderStatus, string> = {
   PENDING: "Estamos confirmando tu pago.",
   PAID: "Tu pedido se está preparando para el envío.",
