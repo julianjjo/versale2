@@ -151,6 +151,11 @@ describe("types - REPORT_STATUSES", () => {
     expect(isReportStatus("\u00A0OPEN\u00A0")).toBe(true);
     expect(isReportStatus("\u00A0  \u00A0")).toBe(false);
   });
+
+  it("isReportStatus handles zero-width space (not trimmed)", () => {
+    expect(isReportStatus("\u200BOPEN\u200B")).toBe(false);
+    expect(isReportStatus("OPEN")).toBe(true);
+  });
 });
 
 describe("types - PRODUCT_STATUSES", () => {
