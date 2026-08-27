@@ -8,7 +8,7 @@ const AVAILABILITY: Record<string, string> = {
 
 export function buildProductJsonLd(product: Product, siteUrl: string) {
   const availability = AVAILABILITY[product.status] ?? "https://schema.org/OutOfStock";
-  const images = product.images?.map((i) => i.url).filter(Boolean) ?? [];
+  const images = product.images?.map((i) => typeof i.url === "string" ? i.url.trim() : "").filter(Boolean) ?? [];
   const url = `${siteUrl.trim().replace(/\/+$/, "")}/products/${encodeURIComponent(product.id)}`;
   return {
     "@context": "https://schema.org",
