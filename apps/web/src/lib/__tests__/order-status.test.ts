@@ -126,6 +126,11 @@ describe("order-status", () => {
     expect(isOrderStatus(" \t  \n\r ")).toBe(false);
   });
 
+  it("isOrderStatus handles vertical tab and form feed", () => {
+    expect(isOrderStatus("\vPENDING\f")).toBe(true);
+    expect(isOrderStatus("\v  \f")).toBe(false);
+  });
+
   it("orderStatusLabel returns Spanish label and falls back to raw", () => {
     expect(orderStatusLabel("PENDING")).toBe("Pendiente");
     expect(orderStatusLabel("UNKNOWN")).toBe("UNKNOWN");
