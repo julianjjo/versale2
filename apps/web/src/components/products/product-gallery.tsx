@@ -15,7 +15,10 @@ export function ProductGallery({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [zoomOpen, setZoomOpen] = useState(false);
   useEffect(() => {
-    if (selectedIndex >= images.length) setSelectedIndex(0);
+    if (selectedIndex >= images.length) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync selectedIndex when product changes to different image count
+      setSelectedIndex(0);
+    }
   }, [images, selectedIndex]);
   const activeImage = images[selectedIndex];
   const activeAlt = activeImage?.alt || title;
