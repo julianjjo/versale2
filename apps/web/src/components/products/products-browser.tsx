@@ -102,7 +102,7 @@ function toFormState(f?: ProductFilters): FilterFormState {
 
 function mergeFacetOptions(fetched: string[] | undefined, current: string): string[] {
   const options = fetched ?? [];
-  return current && !options.includes(current) ? [current, ...options] : options;
+  return current && !options.some((o) => o.toLowerCase() === current.toLowerCase()) ? [current, ...options] : options;
 }
 
 function parseAmount(raw: string | null): number | undefined {
