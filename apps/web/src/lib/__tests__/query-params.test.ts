@@ -120,5 +120,10 @@ describe("query-params", () => {
       expect(isProductSize("   ")).toBe(false);
       expect(isProductSize("  M  ")).toBe(true);
     });
+
+    it("isProductSize handles tab and newline whitespace", () => {
+      expect(isProductSize("\tM\n")).toBe(true);
+      expect(isProductSize("\t  \n")).toBe(false);
+    });
   });
 });
