@@ -2333,6 +2333,44 @@ describe('OrdersService', () => {
       );
     });
 
+    it('pagina con cursor cuando hay más de 500 pedidos stale (batches)', async () => {
+      const batch1 = Array.from({ length: 500 }, (_, i) => ({
+        id: `pending-${String(i).padStart(4, '0')}`,
+        userId: 'buyer1',
+        status: OrderStatus.PENDING,
+      }));
+      const batch2 = Array.from({ length: 10 }, (_, i) => ({
+        id: `pending-5${String(i).padStart(2, '0')}`,
+        userId: 'buyer1',
+        status: OrderStatus.PENDING,
+      }));
+      mockPrismaService.client.order.findMany
+        .mockResolvedValueOnce(batch1)
+        .mockResolvedValueOnce(batch2);
+      mockTx.order.update.mockResolvedValue({ id: 'x' });
+      mockTx.orderItem.findMany.mockResolvedValue([]);
+
+      const cancelled = await service.autoCancelStalePendingOrders();
+
+      expect(cancelled).toBe(510);
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledTimes(2);
+      expect(mockPrismaService.client.order.findMany).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          where: expect.objectContaining({ status: OrderStatus.PENDING }),
+          take: 500,
+          orderBy: { id: 'asc' },
+        }),
+      );
+      expect(mockPrismaService.client.order.findMany).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          cursor: { id: batch1[batch1.length - 1].id },
+          skip: 1,
+        }),
+      );
+    });
+
     it('el barrido hourly ejecuta el timeout de PENDING junto al de PAID/disputas', async () => {
       mockPrismaService.client.order.findMany.mockResolvedValue([]);
 
