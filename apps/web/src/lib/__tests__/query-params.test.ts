@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
+  isSortByValue,
   mergeFacetOptions,
   parseAmount,
   parsePage,
+  SORT_OPTIONS,
 } from "../query-params";
 
 describe("query-params", () => {
@@ -69,6 +71,26 @@ describe("query-params", () => {
       expect(parsePage("0")).toBeUndefined();
       expect(parsePage("-1")).toBeUndefined();
       expect(parsePage("abc")).toBeUndefined();
+    });
+  });
+
+  describe("SORT_OPTIONS / isSortByValue", () => {
+    it("defines 5 sort options", () => {
+      expect(SORT_OPTIONS).toHaveLength(5);
+      expect(SORT_OPTIONS.map((o) => o.value)).toEqual([
+        "price_asc",
+        "price_desc",
+        "most_viewed",
+        "most_favorited",
+        "top_rated",
+      ]);
+    });
+
+    it("isSortByValue guards correctly", () => {
+      expect(isSortByValue("price_asc")).toBe(true);
+      expect(isSortByValue("top_rated")).toBe(true);
+      expect(isSortByValue("unknown")).toBe(false);
+      expect(isSortByValue("")).toBe(false);
     });
   });
 });
