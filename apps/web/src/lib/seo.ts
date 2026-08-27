@@ -7,7 +7,7 @@ const AVAILABILITY: Record<string, string> = {
 };
 
 export function buildProductJsonLd(product: Product, siteUrl: string) {
-  const availability = AVAILABILITY[product.status] ?? "https://schema.org/OutOfStock";
+  const availability = AVAILABILITY[typeof product.status === "string" ? product.status.trim() : product.status] ?? "https://schema.org/OutOfStock";
   const images = product.images?.map((i) => typeof i.url === "string" ? i.url.trim() : "").filter(Boolean) ?? [];
   const url = `${siteUrl.trim().replace(/\/+$/, "")}/products/${encodeURIComponent(product.id)}`;
   return {
