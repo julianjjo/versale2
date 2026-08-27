@@ -120,6 +120,9 @@ function SellForm() {
     defects: draft.defects || "",
   });
   const [images, setImages] = useState<LocalImage[]>([]);
+  const imagesRef = useRef(images);
+  useEffect(() => { imagesRef.current = images; }, [images]);
+  useEffect(() => () => { imagesRef.current.forEach((img) => URL.revokeObjectURL(img.previewUrl)); }, []);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [draftChangedElsewhere, setDraftChangedElsewhere] = useState(false);
@@ -209,10 +212,10 @@ function SellForm() {
         });
         return;
       }
-      patchImage(id, {
-        url: uploaded.url,
-        uploading: false,
-        error: undefined,
+      setImages((prev) => {
+        const target = prev.find((img) => img.id === id);
+        if (target) URL.revokeObjectURL(target.previewUrl);
+        return prev.map((img) => (img.id === id ? { ...img, url: uploaded.url, uploading: false, error: undefined } : img));
       });
     } catch (err) {
       patchImage(id, { uploading: false, error: uploadErrorMessage(err) });
@@ -292,6 +295,11 @@ function SellForm() {
       );
       return;
     }
+    const priceNum = Number(form.price);
+    if (!Number.isFinite(priceNum) || !Number.isInteger(priceNum) || priceNum < 1 || priceNum > 100_000_000) {
+      setError("El precio debe ser un número entero entre 1 y 100.000.000.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       await api.post("/products", {
@@ -301,7 +309,7 @@ function SellForm() {
         brand: form.brand || undefined,
         size: form.size,
         condition: form.condition,
-        price: Number(form.price),
+        price: priceNum,
         images:
           uploadedImages.length > 0
             ? uploadedImages.map((img) => ({ url: img.url as string, alt: img.alt.trim() }))

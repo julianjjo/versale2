@@ -22,7 +22,9 @@ export const CONDITION_LABELS: Record<string, string> = {
 
 /** Falls back to the raw value so an unknown condition still renders. */
 export function conditionLabel(condition: string): string {
-  return CONDITION_LABELS[condition] ?? condition;
+  const t=condition.trim();
+  return CONDITION_LABELS[t] ?? condition;
+
 }
 
 /** Options for the catalog's condition `<select>`, derived from the same map. */
@@ -30,3 +32,7 @@ export const CONDITION_OPTIONS = PRODUCT_CONDITIONS.map((value) => ({
   value,
   label: CONDITION_LABELS[value],
 }));
+
+export function isProductCondition(value: string): value is ProductCondition {
+  return (PRODUCT_CONDITIONS as readonly string[]).includes(value.trim());
+}

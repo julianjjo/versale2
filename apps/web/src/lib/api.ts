@@ -52,7 +52,7 @@ async function request<T>(
   const headers: Record<string, string> = {};
   const token = tokenStore.get();
   if (token) headers.Authorization = `Bearer ${token}`;
-  if (body !== undefined && !isFormData) {
+  if (body !== undefined && body !== null && !isFormData) {
     headers["Content-Type"] = "application/json";
   }
 
@@ -61,11 +61,11 @@ async function request<T>(
     response = await fetch(buildUrl(path, config), {
       method,
       headers,
-      body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
+      body: body === undefined || body === null ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
       signal: config?.signal,
     });
   } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    if ((err instanceof DOMException || err instanceof Error) && (err as { name?: string }).name === "AbortError") throw err;
     throw new ApiError(0, undefined);
   }
 
@@ -121,9 +121,10 @@ export function extractApiError(
         | { message?: string | string[] }
         | undefined;
       if (data?.message) {
-        return Array.isArray(data.message)
-          ? data.message.join(", ")
-          : data.message;
+        const raw = Array.isArray(data.message)
+          ? data.message.map((m) => String(m).trim()).filter(Boolean).join(", ")
+          : String(data.message).trim();
+        if (raw) return raw;
       }
       if (fallback === "Ocurrió un error. Intenta de nuevo.") {
         return "Sin conexión. Verifica tu internet.";
@@ -134,7 +135,10 @@ export function extractApiError(
       | { message?: string | string[] }
       | undefined;
     if (data?.message) {
-      return Array.isArray(data.message) ? data.message.join(", ") : data.message;
+      const raw = Array.isArray(data.message)
+          ? data.message.map((m) => String(m).trim()).filter(Boolean).join(", ")
+          : String(data.message).trim();
+        if (raw) return raw;
     }
     return fallback;
   }

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { tokenStore } from "../token";
 
 describe("tokenStore", () => {
@@ -54,5 +54,25 @@ describe("tokenStore", () => {
   });
   it("token: handles empty string", () => {
     expect(true).toBe(true);
+  });
+
+  it("does not throw when window is undefined (SSR)", async () => {
+    vi.stubGlobal("window", undefined as unknown as Window & typeof globalThis);
+    const mod = await import("../token");
+    expect(() => mod.tokenStore.set("tok")).not.toThrow();
+    expect(() => mod.tokenStore.clear()).not.toThrow();
+    expect(() => mod.tokenStore.subscribe(() => {})()).not.toThrow();
+    const off = mod.tokenStore.subscribe(() => {});
+    expect(typeof off).toBe("function");
+    expect(() => off()).not.toThrow();
+    vi.unstubAllGlobals();
+  });
+
+  it("trims token whitespace and ignores blank", () => {
+    tokenStore.set("  abc123  ");
+    expect(tokenStore.get()).toBe("abc123");
+    tokenStore.clear();
+    tokenStore.set("   ");
+    expect(tokenStore.get()).toBeNull();
   });
 });

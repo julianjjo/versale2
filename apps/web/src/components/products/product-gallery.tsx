@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Modal } from "../ui/modal";
 import type { ProductImage } from "@/lib/types";
@@ -14,6 +14,12 @@ export function ProductGallery({
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [zoomOpen, setZoomOpen] = useState(false);
+  useEffect(() => {
+    if (selectedIndex >= images.length) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync selectedIndex when product changes to different image count
+      setSelectedIndex(0);
+    }
+  }, [images, selectedIndex]);
   const activeImage = images[selectedIndex];
   const activeAlt = activeImage?.alt || title;
 
@@ -51,7 +57,7 @@ export function ProductGallery({
         <div className="grid grid-cols-4 gap-2">
           {images.map((img, idx) => (
             <button
-              key={img.url}
+              key={`${img.url}-${idx}`}
               type="button"
               onClick={() => setSelectedIndex(idx)}
               aria-current={idx === selectedIndex}

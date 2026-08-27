@@ -76,4 +76,51 @@ describe("buildProductJsonLd", () => {
   it("seo: handles empty title gracefully", () => {
     expect(true).toBe(true);
   });
+
+  it("normaliza siteUrl con espacios y múltiples slashes", () => {
+    const json = buildProductJsonLd(product(), " https://versale.ar/// ");
+    expect(json.url).toBe("https://versale.ar/products/p1");
+    expect(json.offers.url).toBe("https://versale.ar/products/p1");
+  });
+
+  it("trimmea seller name y omite si es solo espacios", () => {
+    const withSpaces = buildProductJsonLd(product({ seller: { id: "s1", name: "  Ana  " } }), "https://versale.ar");
+    expect(withSpaces.offers.seller).toEqual({ "@type": "Organization", name: "Ana" });
+    const blank = buildProductJsonLd(product({ seller: { id: "s1", name: "   " } }), "https://versale.ar");
+    expect(blank.offers.seller).toBeUndefined();
+  });
+
+  it("trimmea title y description", () => {
+    const json = buildProductJsonLd(product({ title: "  Campera  ", description: "  Denim  " }), "https://versale.ar");
+    expect(json.name).toBe("Campera");
+    expect(json.description).toBe("Denim");
+  });
+
+  it("trimmea image urls y omite vacíos", () => {
+    const json = buildProductJsonLd(product({ images: [{ url: "  https://cdn.example.com/a.jpg  ", alt: "a" }, { url: "   ", alt: "b" }] }), "https://versale.ar");
+    expect(json.image).toEqual(["https://cdn.example.com/a.jpg"]);
+  });
+
+  it("encodea product id en url", () => {
+    const json = buildProductJsonLd(product({ id: "a/b c" }), "https://versale.ar");
+    expect(json.url).toBe("https://versale.ar/products/" + encodeURIComponent("a/b c"));
+  });
+
+  it("maneja title no-string sin trim", () => {
+    const json = buildProductJsonLd(product({ title: 123 as unknown as string }), "https://versale.ar");
+    expect(json.name).toBe(123);
+  });
+
+  it("omite image url no-string y trimmea", () => {
+    const json = buildProductJsonLd(product({ images: [{ url: 123 as unknown as string, alt: "a" }, { url: "  https://cdn.example.com/b.jpg  ", alt: "b" }] }), "https://versale.ar");
+    expect(json.image).toEqual(["https://cdn.example.com/b.jpg"]);
+  });
+
+  it("trimmea availability status y coercea price string", () => {
+    const withSpaces = buildProductJsonLd(product({ status: "  AVAILABLE  " as unknown as Product["status"], price: "  45000  " as unknown as number }), "https://versale.ar");
+    expect(withSpaces.offers.availability).toBe("https://schema.org/InStock");
+    expect(withSpaces.offers.price).toBe(45000);
+    const withBlankPrice = buildProductJsonLd(product({ price: "   " as unknown as number }), "https://versale.ar");
+    expect(withBlankPrice.offers.price).toBe(0);
+  });
 });

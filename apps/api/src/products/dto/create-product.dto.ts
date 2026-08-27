@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return -- Transform value is any from class-transformer */
 import {
   IsString,
   IsNotEmpty,
@@ -12,8 +13,9 @@ import {
   ValidateNested,
   Validate,
   IsUrl,
+  Matches,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
@@ -61,6 +63,7 @@ export class IsBucketImageUrlConstraint implements ValidatorConstraintInterface 
 }
 
 export class ProductImageDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsUrl(
     { require_tld: false },
     { message: 'Cada imagen debe ser una URL válida' },
@@ -68,8 +71,10 @@ export class ProductImageDto {
   @Validate(IsBucketImageUrlConstraint)
   url!: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'El texto alternativo debe ser un texto' })
   @IsNotEmpty({ message: 'Cada imagen requiere una descripción (alt)' })
+  @Matches(/\S/, { message: 'Cada imagen requiere una descripción (alt)' })
   @MaxLength(150, {
     message: 'La descripción de la imagen no puede superar los 150 caracteres',
   })
@@ -77,18 +82,23 @@ export class ProductImageDto {
 }
 
 export class CreateProductDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'El título debe ser un texto' })
   @IsNotEmpty({ message: 'El título es obligatorio' })
+  @Matches(/\S/, { message: 'El título es obligatorio' })
   @MaxLength(120, { message: 'El título no puede superar los 120 caracteres' })
   title!: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'La descripción debe ser un texto' })
   @IsNotEmpty({ message: 'La descripción es obligatoria' })
+  @Matches(/\S/, { message: 'La descripción es obligatoria' })
   @MaxLength(2000, {
     message: 'La descripción no puede superar los 2000 caracteres',
   })
   description!: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'La categoría debe ser un texto' })
   @IsNotEmpty({ message: 'La categoría es obligatoria' })
   @IsIn(PRODUCT_CATEGORIES, {
@@ -96,10 +106,15 @@ export class CreateProductDto {
   })
   category!: string;
 
-  @IsString({ message: 'La marca debe ser un texto' })
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() || undefined : value,
+  )
+  @IsString({ message: 'La marca debe ser un texto' })
+  @MaxLength(100, { message: 'La marca no puede superar los 100 caracteres' })
   brand?: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'La talla debe ser un texto' })
   @IsNotEmpty({ message: 'La talla es obligatoria' })
   @IsIn(['XS', 'S', 'M', 'L', 'XL', 'XXL'], {
@@ -107,6 +122,7 @@ export class CreateProductDto {
   })
   size!: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'La condición debe ser un texto' })
   @IsNotEmpty({ message: 'La condición es obligatoria' })
   @IsIn(['New', 'Like New', 'Good', 'Fair'], {
@@ -117,6 +133,9 @@ export class CreateProductDto {
 
   // COP has no subunit in practice and the whole UI formats prices without
   // decimals, so only whole pesos are accepted.
+  @Transform(({ value }) =>
+    typeof value === 'string' ? Number(value.trim()) : value,
+  )
   @IsInt({
     message: 'El precio debe ser un número entero de pesos, sin decimales',
   })
@@ -126,28 +145,34 @@ export class CreateProductDto {
   })
   price!: number;
 
+  @IsOptional()
   @IsArray({ message: 'Las imágenes deben enviarse como una lista' })
   @ArrayMaxSize(6, {
     message: 'No puedes publicar más de 6 imágenes por producto',
   })
   @ValidateNested({ each: true, message: 'Imagen inválida' })
   @Type(() => ProductImageDto)
-  @IsOptional()
   images?: ProductImageDto[];
 
   // Item 4: seller-curated free text. Optional — a listing without them is
   // valid — but bounded so a listing can't become an essay.
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() || undefined : value,
+  )
   @IsString({ message: 'Las medidas deben ser un texto' })
   @MaxLength(1000, {
     message: 'Las medidas no pueden superar los 1000 caracteres',
   })
-  @IsOptional()
   measurements?: string;
 
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() || undefined : value,
+  )
   @IsString({ message: 'Los defectos deben ser un texto' })
   @MaxLength(1000, {
     message: 'Los defectos no pueden superar los 1000 caracteres',
   })
-  @IsOptional()
   defects?: string;
 }
