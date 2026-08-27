@@ -1,4 +1,4 @@
-import { ProductStatus } from "@prisma/client";
+import { ProductStatus } from '@prisma/client';
 
 export enum ProductSortBy {
   PRICE_ASC = 'price_asc',

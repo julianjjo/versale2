@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return -- Transform value is any from class-transformer */
 import {
   IsString,
   IsNotEmpty,
@@ -62,7 +63,7 @@ export class IsBucketImageUrlConstraint implements ValidatorConstraintInterface 
 }
 
 export class ProductImageDto {
-  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsUrl(
     { require_tld: false },
     { message: 'Cada imagen debe ser una URL válida' },
@@ -70,7 +71,7 @@ export class ProductImageDto {
   @Validate(IsBucketImageUrlConstraint)
   url!: string;
 
-  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'El texto alternativo debe ser un texto' })
   @IsNotEmpty({ message: 'Cada imagen requiere una descripción (alt)' })
   @Matches(/\S/, { message: 'Cada imagen requiere una descripción (alt)' })
@@ -106,7 +107,9 @@ export class CreateProductDto {
   category!: string;
 
   @IsOptional()
-  @Transform(({ value }) => (typeof value === "string" ? value.trim() || undefined : value))
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() || undefined : value,
+  )
   @IsString({ message: 'La marca debe ser un texto' })
   @MaxLength(100, { message: 'La marca no puede superar los 100 caracteres' })
   brand?: string;
@@ -130,7 +133,9 @@ export class CreateProductDto {
 
   // COP has no subunit in practice and the whole UI formats prices without
   // decimals, so only whole pesos are accepted.
-  @Transform(({ value }) => (typeof value === "string" ? Number(value.trim()) : value))
+  @Transform(({ value }) =>
+    typeof value === 'string' ? Number(value.trim()) : value,
+  )
   @IsInt({
     message: 'El precio debe ser un número entero de pesos, sin decimales',
   })
@@ -152,7 +157,9 @@ export class CreateProductDto {
   // Item 4: seller-curated free text. Optional — a listing without them is
   // valid — but bounded so a listing can't become an essay.
   @IsOptional()
-  @Transform(({ value }) => (typeof value === "string" ? value.trim() || undefined : value))
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() || undefined : value,
+  )
   @IsString({ message: 'Las medidas deben ser un texto' })
   @MaxLength(1000, {
     message: 'Las medidas no pueden superar los 1000 caracteres',
@@ -160,7 +167,9 @@ export class CreateProductDto {
   measurements?: string;
 
   @IsOptional()
-  @Transform(({ value }) => (typeof value === "string" ? value.trim() || undefined : value))
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() || undefined : value,
+  )
   @IsString({ message: 'Los defectos deben ser un texto' })
   @MaxLength(1000, {
     message: 'Los defectos no pueden superar los 1000 caracteres',

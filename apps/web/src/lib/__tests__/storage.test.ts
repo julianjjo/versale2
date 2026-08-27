@@ -149,8 +149,7 @@ describe("storage", () => {
   describe("SSR guard (window undefined)", () => {
     it("readJson returns fallback when window is undefined", async () => {
       const origWindow = globalThis.window;
-      // @ts-ignore mock undefined
-      vi.stubGlobal("window", undefined);
+      vi.stubGlobal("window", undefined as unknown as Window & typeof globalThis);
       const mod = await import("../storage");
       // need fresh import with window undefined at module eval
       // but readJson checks typeof window at call time, so direct call

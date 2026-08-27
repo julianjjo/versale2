@@ -192,7 +192,11 @@ export class CartService {
   }
 
   private assertValidQuantity(quantity: number) {
-    if (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity <= 0) {
+    if (
+      !Number.isFinite(quantity) ||
+      !Number.isInteger(quantity) ||
+      quantity <= 0
+    ) {
       throw new BadRequestException(
         'La cantidad debe ser un número entero positivo',
       );

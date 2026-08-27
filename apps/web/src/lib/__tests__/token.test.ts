@@ -61,7 +61,7 @@ describe("tokenStore", () => {
     const mod = await import("../token");
     expect(() => mod.tokenStore.set("tok")).not.toThrow();
     expect(() => mod.tokenStore.clear()).not.toThrow();
-    expect(mod.tokenStore.subscribe(() => {})()).not.toThrow;
+    expect(() => mod.tokenStore.subscribe(() => {})()).not.toThrow();
     const off = mod.tokenStore.subscribe(() => {});
     expect(typeof off).toBe("function");
     expect(() => off()).not.toThrow();

@@ -91,7 +91,7 @@ export default function MisVentasPage() {
       trackingNumber,
     }: {
       orderId: string;
-      trackingNumber: string;
+      trackingNumber?: string;
     }) => {
       await api.patch(`/orders/mine/sales/${orderId}/ship`, {
         trackingNumber: trackingNumber || undefined,

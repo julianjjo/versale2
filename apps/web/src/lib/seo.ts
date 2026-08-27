@@ -10,6 +10,10 @@ export function buildProductJsonLd(product: Product, siteUrl: string) {
   const availability = AVAILABILITY[typeof product.status === "string" ? product.status.trim() : product.status] ?? "https://schema.org/OutOfStock";
   const images = product.images?.map((i) => typeof i.url === "string" ? i.url.trim() : "").filter(Boolean) ?? [];
   const url = `${siteUrl.trim().replace(/\/+$/, "")}/products/${encodeURIComponent(product.id)}`;
+  // The API can send price as a string even though Product types it as a
+  // number, so widen before the typeof check — narrowing a `number` against
+  // "string" would make the coercion branch `never`.
+  const rawPrice = product.price as unknown;
   return {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -19,7 +23,8 @@ export function buildProductJsonLd(product: Product, siteUrl: string) {
     url,
     offers: {
       "@type": "Offer",
-      price: typeof product.price === "string" ? Number(product.price.trim()) : product.price,
+      price:
+        typeof rawPrice === "string" ? Number(rawPrice.trim()) : (rawPrice as number),
       priceCurrency: "COP",
       availability,
       url,

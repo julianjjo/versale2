@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return -- Transform value is any from class-transformer */
 import { Transform } from 'class-transformer';
 import { IsString, IsNotEmpty, IsInt, Min, Max } from 'class-validator';
 
@@ -11,7 +12,9 @@ export class AddCartItemDto {
   @IsNotEmpty({ message: 'Debes seleccionar un producto' })
   productId!: string;
 
-  @Transform(({ value }) => (typeof value === "string" ? Number(value.trim()) : value))
+  @Transform(({ value }) =>
+    typeof value === 'string' ? Number(value.trim()) : value,
+  )
   @IsInt({ message: 'La cantidad debe ser un número entero' })
   @Min(1, { message: 'La cantidad debe ser de al menos 1 unidad' })
   @Max(MAX_ITEM_QUANTITY, {
@@ -21,7 +24,9 @@ export class AddCartItemDto {
 }
 
 export class UpdateCartItemDto {
-  @Transform(({ value }) => (typeof value === "string" ? Number(value.trim()) : value))
+  @Transform(({ value }) =>
+    typeof value === 'string' ? Number(value.trim()) : value,
+  )
   @IsInt({ message: 'La cantidad debe ser un número entero' })
   @Min(1, { message: 'La cantidad debe ser de al menos 1 unidad' })
   @Max(MAX_ITEM_QUANTITY, {

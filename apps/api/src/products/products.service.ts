@@ -327,7 +327,8 @@ export class ProductsService {
     // writes against, so "chaquetas" queries as "Chaquetas".
     if (typeof category === 'string' && category) {
       const trimmedCategory = category.trim();
-      if (trimmedCategory) where.category = { equals: canonicalCategory(trimmedCategory) };
+      if (trimmedCategory)
+        where.category = { equals: canonicalCategory(trimmedCategory) };
     }
     if (typeof condition === 'string' && condition) {
       const trimmedCondition = condition.trim();
@@ -480,7 +481,11 @@ export class ProductsService {
   async getFacets() {
     const [brands, categories] = await Promise.all([
       this.prisma.client.product.findMany({
-        where: { ...PUBLICLY_VISIBLE, brand: { not: null }, NOT: { brand: "" } },
+        where: {
+          ...PUBLICLY_VISIBLE,
+          brand: { not: null },
+          NOT: { brand: '' },
+        },
         select: { brand: true },
         distinct: ['brand'],
         orderBy: { brand: 'asc' },
