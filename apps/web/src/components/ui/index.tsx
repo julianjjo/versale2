@@ -481,6 +481,16 @@ export function Price({
   value: number;
   className?: string;
 } & HTMLAttributes<HTMLSpanElement>) {
+  if (!Number.isFinite(value)) {
+    return (
+      <span
+        className={`font-display font-medium tabular-nums text-text-primary ${className}`}
+        {...rest}
+      >
+        —
+      </span>
+    );
+  }
   return (
     <span
       className={`font-display font-medium tabular-nums text-text-primary ${className}`}
