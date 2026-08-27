@@ -129,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const res = await api.post<AuthResponse>("/auth/login", {
-      email,
+      email: email.trim(),
       password,
     });
     adoptSession(res.data);
@@ -142,8 +142,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     acceptedTerms: boolean,
   ) => {
     const res = await api.post<AuthResponse>("/auth/signup", {
-      email,
-      name,
+      email: email.trim(),
+      name: name.trim(),
       password,
       acceptedTerms,
     });

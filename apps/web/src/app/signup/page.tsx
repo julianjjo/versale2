@@ -29,7 +29,7 @@ export default function SignupPage() {
     }
     setIsLoading(true);
     try {
-      await signup(email, name, password, acceptedTerms);
+      await signup(email.trim(), name.trim(), password, acceptedTerms);
       router.push("/products");
     } catch (err) {
       setError(extractApiError(err, "No pudimos crear tu cuenta"));

@@ -42,7 +42,7 @@ function LoginForm() {
     setError(null);
     setIsLoading(true);
     try {
-      await login(email, password);
+      await login(email.trim(), password);
       router.push(safeLoginRedirect(next));
     } catch (err) {
       setError(extractApiError(err, "No pudimos iniciar sesión"));
