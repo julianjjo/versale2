@@ -28,8 +28,8 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const next = searchParams.get("next");
-  const reason = searchParams.get("reason");
+  const next = searchParams.get("next")?.trim() ?? null;
+  const reason = searchParams.get("reason")?.trim() ?? "";
   // `reason` viene de la URL: sin verificar que la clave sea propia, valores
   // como "__proto__" devuelven objetos heredados y React no puede renderizarlos.
   const notice =
