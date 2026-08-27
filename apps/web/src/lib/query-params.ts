@@ -27,7 +27,7 @@ export const SORT_OPTIONS = [
 export type SortByValue = (typeof SORT_OPTIONS)[number]["value"];
 
 export function isSortByValue(value: string): value is SortByValue {
-  return SORT_OPTIONS.some((option) => option.value === value);
+  return SORT_OPTIONS.some((option) => option.value === value.trim());
 }
 
 export const PRODUCT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
