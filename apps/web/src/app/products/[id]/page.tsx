@@ -20,7 +20,7 @@ import { buildProductJsonLd } from "@/lib/seo";
 const lookupProduct = cache(async (id: string): Promise<Product | null | undefined> => {
   try {
     const response = await fetch(
-      `${API_URL}/products/${encodeURIComponent(id)}`,
+      `${API_URL}/products/${encodeURIComponent(id.trim())}`,
       {
         cache: "no-store",
         headers: { Accept: "application/json" },
