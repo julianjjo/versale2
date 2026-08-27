@@ -5,11 +5,13 @@ import {
   REPORT_STATUSES,
   PRODUCT_STATUSES,
   PRODUCT_STATUS_LABEL,
+  NOTIFICATION_TYPE_LABEL,
   isUserRole,
   isNotificationType,
   isReportStatus,
   isProductStatus,
   productStatusLabel,
+  notificationTypeLabel,
 } from "../types";
 
 describe("types - USER_ROLES", () => {
@@ -51,6 +53,13 @@ describe("types - NOTIFICATION_TYPES", () => {
 
   it("isNotificationType trims whitespace", () => {
     expect(isNotificationType(" ORDER_SHIPPED ")).toBe(true);
+  });
+
+  it("notificationTypeLabel returns label and trims", () => {
+    expect(notificationTypeLabel("ORDER_SHIPPED")).toBe("Pedido enviado");
+    expect(notificationTypeLabel(" ORDER_SHIPPED ")).toBe("Pedido enviado");
+    expect(notificationTypeLabel("UNKNOWN")).toBe("UNKNOWN");
+    expect(NOTIFICATION_TYPE_LABEL.ORDER_SHIPPED).toBeTruthy();
   });
 });
 
