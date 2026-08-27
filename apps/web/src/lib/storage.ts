@@ -10,7 +10,14 @@ export function readJson<T>(key: string, fallback: T): T {
 export function writeJson(key: string, v: unknown): void {
   try {
     window.localStorage.setItem(key, JSON.stringify(v));
-  } catch {}
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "QuotaExceededError") {
+      try {
+        window.localStorage.removeItem(key);
+        window.localStorage.setItem(key, JSON.stringify(v));
+      } catch {}
+    }
+  }
 }
 export function removeKey(key: string): void {
   try {
@@ -28,5 +35,12 @@ export function readString(key: string): string | null {
 export function writeString(key: string, v: string): void {
   try {
     window.localStorage.setItem(key, v);
-  } catch {}
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "QuotaExceededError") {
+      try {
+        window.localStorage.removeItem(key);
+        window.localStorage.setItem(key, v);
+      } catch {}
+    }
+  }
 }
