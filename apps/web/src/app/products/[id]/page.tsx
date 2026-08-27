@@ -113,7 +113,7 @@ export default async function ProductPage({
   // in localStorage), so the API would answer 404 for a pending product this
   // visitor is in fact allowed to see. Skip the probe and let the client query
   // — which does carry the token — decide what to render.
-  if (preview === "1") return <ProductDetail />;
+  if (preview?.trim() === "1") return <ProductDetail />;
 
   const product = await lookupProduct(id);
   if (product === null) notFound();

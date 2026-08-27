@@ -22,7 +22,7 @@ export default async function ProductsPage({
         title="Explorar marketplace"
         description="Encuentra prendas de segunda de vendedores de la comunidad."
       />
-      {published === "1" && (
+      {published?.trim() === "1" && (
         <p
           role="status"
           className="mb-6 rounded-md border border-success/30 bg-success/10 px-4 py-3 text-sm text-text-primary"
