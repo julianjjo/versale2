@@ -51,7 +51,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return [
       ...staticRoutes,
       ...products.slice(0, SITEMAP_MAX_URLS).map((p) => ({
-        url: `${SITE_URL}/products/${p.id}`,
+        url: `${SITE_URL}/products/${encodeURIComponent(p.id)}`,
         lastModified: new Date(p.updatedAt),
         changeFrequency: "weekly" as const,
         priority: 0.8,
