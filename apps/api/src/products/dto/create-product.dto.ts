@@ -62,6 +62,7 @@ export class IsBucketImageUrlConstraint implements ValidatorConstraintInterface 
 }
 
 export class ProductImageDto {
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsUrl(
     { require_tld: false },
     { message: 'Cada imagen debe ser una URL válida' },
