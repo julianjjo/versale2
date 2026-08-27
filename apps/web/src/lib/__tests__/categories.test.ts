@@ -78,6 +78,11 @@ describe("categories", () => {
     expect(isProductCategory("\u00A0  \u00A0")).toBe(false);
   });
 
+  it("isProductCategory handles ideographic space", () => {
+    expect(isProductCategory("\u3000Camisetas\u3000")).toBe(true);
+    expect(isProductCategory("\u3000  \u3000")).toBe(false);
+  });
+
   it("isProductCategory handles zero-width space (not trimmed)", () => {
     expect(isProductCategory("\u200BCamisetas\u200B")).toBe(false);
     expect(isProductCategory("Camisetas")).toBe(true);
