@@ -49,6 +49,12 @@ describe("site", () => {
     expect(API_URL).toBe("https://api.example.com");
   });
 
+  it("trims trailing slashes from API_URL", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "https://api.example.com///";
+    const { API_URL } = await import("../site");
+    expect(API_URL).toBe("https://api.example.com");
+  });
+
   it("SITE_URL and API_URL are strings", async () => {
     const mod = await import("../site");
     expect(typeof mod.SITE_URL).toBe("string");
