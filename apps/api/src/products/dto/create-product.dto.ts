@@ -69,6 +69,7 @@ export class ProductImageDto {
   @Validate(IsBucketImageUrlConstraint)
   url!: string;
 
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsString({ message: 'El texto alternativo debe ser un texto' })
   @IsNotEmpty({ message: 'Cada imagen requiere una descripción (alt)' })
   @Matches(/\S/, { message: 'Cada imagen requiere una descripción (alt)' })
