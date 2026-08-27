@@ -31,6 +31,12 @@ describe("site", () => {
     expect(SITE_URL).toBe("https://example.com");
   });
 
+  it("trims multiple trailing slashes from SITE_URL", async () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://example.com///";
+    const { SITE_URL } = await import("../site");
+    expect(SITE_URL).toBe("https://example.com");
+  });
+
   it("preserves SITE_URL without trailing slash", async () => {
     process.env.NEXT_PUBLIC_SITE_URL = "https://versale.example.com";
     const { SITE_URL } = await import("../site");
