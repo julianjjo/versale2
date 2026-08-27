@@ -95,6 +95,7 @@ export class CreateProductDto {
   })
   description!: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'La categoría debe ser un texto' })
   @IsNotEmpty({ message: 'La categoría es obligatoria' })
   @IsIn(PRODUCT_CATEGORIES, {
@@ -108,6 +109,7 @@ export class CreateProductDto {
   @MaxLength(100, { message: 'La marca no puede superar los 100 caracteres' })
   brand?: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'La talla debe ser un texto' })
   @IsNotEmpty({ message: 'La talla es obligatoria' })
   @IsIn(['XS', 'S', 'M', 'L', 'XL', 'XXL'], {
@@ -115,6 +117,7 @@ export class CreateProductDto {
   })
   size!: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'La condición debe ser un texto' })
   @IsNotEmpty({ message: 'La condición es obligatoria' })
   @IsIn(['New', 'Like New', 'Good', 'Fair'], {
