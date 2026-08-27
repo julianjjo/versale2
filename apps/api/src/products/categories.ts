@@ -24,6 +24,10 @@ export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];
 // category lands here instead of being rejected outright.
 export const DEFAULT_PRODUCT_CATEGORY: ProductCategory = 'Otros';
 
+export function isProductCategory(value: string): value is ProductCategory {
+  return (PRODUCT_CATEGORIES as readonly string[]).includes(value.trim());
+}
+
 // Folds a user-supplied category filter back to its canonical spelling, so
 // "chaquetas" and "CHAQUETAS" both query as "Chaquetas". Needed because the
 // catalog filter matches with `equals` (SQL `=`), which is case-sensitive on
