@@ -13,4 +13,9 @@ describe("types - USER_ROLES", () => {
     expect(isUserRole("")).toBe(false);
     expect(isUserRole("user")).toBe(false);
   });
+
+  it("isUserRole trims whitespace", () => {
+    expect(isUserRole(" USER ")).toBe(true);
+    expect(isUserRole("  ADMIN  ")).toBe(true);
+  });
 });
