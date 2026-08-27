@@ -66,9 +66,11 @@ export async function generateMetadata({
   const { id } = await params;
   const product = await lookupProduct(id);
 
-
-  if (!product) {
+  if (product === null) {
     return { title: "Producto no encontrado — Versale" };
+  }
+  if (!product) {
+    return { title: "Versale — Marketplace de ropa de segunda mano" };
   }
 
   // The first image's alt doubles as og:image alt; the title is the fallback.
