@@ -19,7 +19,7 @@ export function buildProductJsonLd(product: Product, siteUrl: string) {
     url,
     offers: {
       "@type": "Offer",
-      price: product.price,
+      price: typeof product.price === "string" ? Number(product.price.trim()) : product.price,
       priceCurrency: "COP",
       availability,
       url,
