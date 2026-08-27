@@ -125,6 +125,11 @@ describe("query-params", () => {
       expect(isSortByValue("\u00A0  \u00A0")).toBe(false);
     });
 
+    it("isSortByValue handles ideographic space", () => {
+      expect(isSortByValue("\u3000price_asc\u3000")).toBe(true);
+      expect(isSortByValue("\u3000  \u3000")).toBe(false);
+    });
+
     it("isSortByValue handles zero-width space (not trimmed)", () => {
       expect(isSortByValue("\u200Bprice_asc\u200B")).toBe(false);
       expect(isSortByValue("price_asc")).toBe(true);
