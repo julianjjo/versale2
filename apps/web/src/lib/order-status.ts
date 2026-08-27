@@ -25,6 +25,10 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   REFUNDED: "Reembolsado",
 };
 
+export function orderStatusLabel(status: string): string {
+  return (ORDER_STATUS_LABEL as Record<string, string>)[status] ?? status;
+}
+
 export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PENDING: ["PAID", "CANCELLED"],
   PAID: ["SHIPPED", "CANCELLED", "REFUNDED"],

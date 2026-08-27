@@ -8,6 +8,7 @@ import {
   nextStatusesFor,
   commonNextStatuses,
   isOrderStatus,
+  orderStatusLabel,
 } from "../order-status";
 
 describe("order-status", () => {
@@ -110,5 +111,11 @@ describe("order-status", () => {
   it("isOrderStatus trims whitespace", () => {
     expect(isOrderStatus(" PENDING ")).toBe(true);
     expect(isOrderStatus("  PAID  ")).toBe(true);
+  });
+
+  it("orderStatusLabel returns Spanish label and falls back to raw", () => {
+    expect(orderStatusLabel("PENDING")).toBe("Pendiente");
+    expect(orderStatusLabel("UNKNOWN")).toBe("UNKNOWN");
+    expect(orderStatusLabel("")).toBe("");
   });
 });
