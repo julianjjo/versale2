@@ -95,4 +95,12 @@ describe("site", () => {
     const { API_URL } = await import("../site");
     expect(API_URL).toBe("http://localhost:3001");
   });
+
+  it("normalizeUrl handles empty and slash-only strings", async () => {
+    const { normalizeUrl } = await import("../site");
+    expect(normalizeUrl("")).toBe("");
+    expect(normalizeUrl("   ")).toBe("");
+    expect(normalizeUrl("///")).toBe("");
+    expect(normalizeUrl("https://a.com///")).toBe("https://a.com");
+  });
 });
