@@ -23,8 +23,8 @@ export function buildProductJsonLd(product: Product, siteUrl: string) {
       priceCurrency: "COP",
       availability,
       url,
-      seller: product.seller?.name
-        ? { "@type": "Organization", name: product.seller.name }
+      seller: product.seller?.name?.trim()
+        ? { "@type": "Organization", name: product.seller.name.trim() }
         : undefined,
     },
   };
