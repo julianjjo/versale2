@@ -107,6 +107,11 @@ describe("report-category", () => {
     expect(isReportCategory("\u00A0  \u00A0")).toBe(false);
   });
 
+  it("isReportCategory handles ideographic space", () => {
+    expect(isReportCategory("\u3000FRAUD\u3000")).toBe(true);
+    expect(isReportCategory("\u3000  \u3000")).toBe(false);
+  });
+
   it("isReportCategory handles zero-width space (not trimmed)", () => {
     expect(isReportCategory("\u200BFRAUD\u200B")).toBe(false);
     expect(isReportCategory("FRAUD")).toBe(true);
