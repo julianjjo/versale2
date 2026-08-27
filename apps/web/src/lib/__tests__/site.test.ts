@@ -83,4 +83,16 @@ describe("site", () => {
     const { SITE_URL } = await import("../site");
     expect(SITE_URL).toBe("https://example.com");
   });
+
+  it("falls back to default when SITE_URL is whitespace-only", async () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "   ";
+    const { SITE_URL } = await import("../site");
+    expect(SITE_URL).toBe("http://localhost:3000");
+  });
+
+  it("falls back to default when API_URL is whitespace-only", async () => {
+    process.env.NEXT_PUBLIC_API_URL = "   ";
+    const { API_URL } = await import("../site");
+    expect(API_URL).toBe("http://localhost:3001");
+  });
 });
