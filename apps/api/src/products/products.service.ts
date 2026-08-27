@@ -326,7 +326,8 @@ export class ProductsService {
     // the canonical spelling from the closed category list the DTO validates
     // writes against, so "chaquetas" queries as "Chaquetas".
     if (typeof category === 'string' && category) {
-      where.category = { equals: canonicalCategory(category) };
+      const trimmedCategory = category.trim();
+      if (trimmedCategory) where.category = { equals: canonicalCategory(trimmedCategory) };
     }
     if (typeof condition === 'string' && condition) {
       const trimmedCondition = condition.trim();
