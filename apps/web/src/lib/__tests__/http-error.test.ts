@@ -34,4 +34,13 @@ describe("isTerminalError", () => {
   it("is false for a transient network error with no response", () => {
     expect(isTerminalError(new Error("Network Error"), [404])).toBe(false);
   });
+
+  it("is false for empty terminal list", () => {
+    expect(isTerminalError({ response: { status: 404 } }, [])).toBe(false);
+  });
+
+  it("handles response without status", () => {
+    expect(getHttpStatus({ response: {} })).toBeUndefined();
+    expect(isTerminalError({ response: {} }, [404])).toBe(false);
+  });
 });
