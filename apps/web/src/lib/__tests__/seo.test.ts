@@ -79,4 +79,11 @@ describe("buildProductJsonLd", () => {
     expect(json.url).toBe("https://versale.ar/products/p1");
     expect(json.offers.url).toBe("https://versale.ar/products/p1");
   });
+
+  it("trimmea seller name y omite si es solo espacios", () => {
+    const withSpaces = buildProductJsonLd(product({ seller: { id: "s1", name: "  Ana  " } }), "https://versale.ar");
+    expect(withSpaces.offers.seller).toEqual({ "@type": "Organization", name: "Ana" });
+    const blank = buildProductJsonLd(product({ seller: { id: "s1", name: "   " } }), "https://versale.ar");
+    expect(blank.offers.seller).toBeUndefined();
+  });
 });
