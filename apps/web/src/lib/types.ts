@@ -175,12 +175,18 @@ export interface AuthResponse {
   user: User;
 }
 
-export type NotificationType =
-  | "ORDER_SHIPPED"
-  | "ORDER_CANCELLED"
-  | "ORDER_STATUS_CHANGED"
-  | "QUESTION_ASKED"
-  | "QUESTION_ANSWERED";
+export const NOTIFICATION_TYPES = [
+  "ORDER_SHIPPED",
+  "ORDER_CANCELLED",
+  "ORDER_STATUS_CHANGED",
+  "QUESTION_ASKED",
+  "QUESTION_ANSWERED",
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+export function isNotificationType(value: string): value is NotificationType {
+  return (NOTIFICATION_TYPES as readonly string[]).includes(value.trim());
+}
 
 export interface Notification {
   id: string;
