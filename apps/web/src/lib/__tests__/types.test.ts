@@ -42,6 +42,11 @@ describe("types - USER_ROLES", () => {
     expect(isUserRole(" \tUSER \n\r ")).toBe(true);
     expect(isUserRole(" \t  \n\r ")).toBe(false);
   });
+
+  it("isUserRole handles vertical tab and form feed", () => {
+    expect(isUserRole("\vUSER\f")).toBe(true);
+    expect(isUserRole("\v  \f")).toBe(false);
+  });
 });
 
 describe("types - NOTIFICATION_TYPES", () => {
