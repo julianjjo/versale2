@@ -72,6 +72,15 @@ describe("api client", () => {
     expect(res.data).toEqual({ id: "p1" });
   });
 
+  it("does not serialize null body and omits content-type", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    fetchMock.mockResolvedValue(jsonResponse(200, {}));
+    await api.post("/products", null as unknown as Record<string, unknown>);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.body).toBeUndefined();
+    expect(new Headers(init.headers).get("Content-Type")).toBeNull();
+  });
+
   it("appends params as a query string", async () => {
     mockedTokenStore.get.mockReturnValue(null);
     fetchMock.mockResolvedValue(jsonResponse(200, []));
@@ -144,6 +153,21 @@ describe("api client", () => {
     expect(mockedTokenStore.clear).not.toHaveBeenCalled();
   });
 
+  it("rethrows AbortError from DOMException", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    const abort = new DOMException("aborted", "AbortError");
+    fetchMock.mockRejectedValue(abort);
+    await expect(api.get("/products", { signal: new AbortController().signal })).rejects.toBe(abort);
+  });
+
+  it("rethrows AbortError from Error", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    const err = new Error("aborted");
+    (err as unknown as { name: string }).name = "AbortError";
+    fetchMock.mockRejectedValue(err);
+    await expect(api.get("/products", { signal: new AbortController().signal })).rejects.toBe(err);
+  });
+
   it("returns a Blob for responseType blob downloads", async () => {
     mockedTokenStore.get.mockReturnValue(null);
     fetchMock.mockResolvedValue(
@@ -196,6 +220,20 @@ describe("extractApiError", () => {
   it("returns the fallback for unknown errors", () => {
     expect(extractApiError("string error", "Default fallback")).toBe(
       "Default fallback",
+    );
+  });
+
+  it("trims whitespace in single message", () => {
+    const err = new ApiError(400, { message: "  Bad input  " });
+    expect(extractApiError(err, "fallback")).toBe("Bad input");
+  });
+
+  it("trims whitespace in multiple messages and filters empty", () => {
+    const err = new ApiError(400, {
+      message: ["  name required  ", "  ", "email required  "],
+    });
+    expect(extractApiError(err, "fallback")).toBe(
+      "name required, email required",
     );
   });
 });

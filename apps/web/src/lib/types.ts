@@ -5,12 +5,37 @@ export interface ProductImage {
   alt: string;
 }
 
+export const USER_ROLES = ["USER", "ADMIN"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
+export function isUserRole(value: string): value is UserRole {
+  return (USER_ROLES as readonly string[]).includes(value.trim());
+}
+
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: "USER" | "ADMIN";
+  role: UserRole;
   isVerified?: boolean;
+}
+
+export const PRODUCT_STATUSES = ["AVAILABLE", "SOLD", "WITHDRAWN"] as const;
+export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
+
+export function isProductStatus(value: string): value is ProductStatus {
+  return (PRODUCT_STATUSES as readonly string[]).includes(value.trim());
+}
+
+export const PRODUCT_STATUS_LABEL: Record<ProductStatus, string> = {
+  AVAILABLE: "Disponible",
+  SOLD: "Vendido",
+  WITHDRAWN: "Retirado",
+};
+
+export function productStatusLabel(status: string): string {
+  const t=status.trim();
+  return (PRODUCT_STATUS_LABEL as Record<string, string>)[t] ?? status;
 }
 
 export interface Product {
@@ -25,7 +50,7 @@ export interface Product {
   sellerId: string;
   isApproved: boolean;
   rejectedAt?: string | null;
-  status: "AVAILABLE" | "SOLD" | "WITHDRAWN";
+  status: ProductStatus;
   pausedAt?: string | null;
   rejectionReason?: string | null;
   createdAt: string;
@@ -138,7 +163,12 @@ export interface ProductQuestion {
   product?: { id: string; title: string };
 }
 
-export type ReportStatus = "OPEN" | "DISMISSED";
+export const REPORT_STATUSES = ["OPEN", "DISMISSED"] as const;
+export type ReportStatus = (typeof REPORT_STATUSES)[number];
+
+export function isReportStatus(value: string): value is ReportStatus {
+  return (REPORT_STATUSES as readonly string[]).includes(value.trim());
+}
 
 export interface ProductReport {
   id: string;
@@ -168,12 +198,31 @@ export interface AuthResponse {
   user: User;
 }
 
-export type NotificationType =
-  | "ORDER_SHIPPED"
-  | "ORDER_CANCELLED"
-  | "ORDER_STATUS_CHANGED"
-  | "QUESTION_ASKED"
-  | "QUESTION_ANSWERED";
+export const NOTIFICATION_TYPES = [
+  "ORDER_SHIPPED",
+  "ORDER_CANCELLED",
+  "ORDER_STATUS_CHANGED",
+  "QUESTION_ASKED",
+  "QUESTION_ANSWERED",
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+export function isNotificationType(value: string): value is NotificationType {
+  return (NOTIFICATION_TYPES as readonly string[]).includes(value.trim());
+}
+
+export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
+  ORDER_SHIPPED: "Pedido enviado",
+  ORDER_CANCELLED: "Pedido cancelado",
+  ORDER_STATUS_CHANGED: "Estado actualizado",
+  QUESTION_ASKED: "Pregunta recibida",
+  QUESTION_ANSWERED: "Respuesta recibida",
+};
+
+export function notificationTypeLabel(type: string): string {
+  const t=type.trim();
+  return (NOTIFICATION_TYPE_LABEL as Record<string, string>)[t] ?? type;
+}
 
 export interface Notification {
   id: string;

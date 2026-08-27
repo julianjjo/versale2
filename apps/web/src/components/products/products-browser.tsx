@@ -26,21 +26,16 @@ import { FavoriteButton } from "@/components/products/favorite-button";
 import { useAuth } from "@/lib/auth";
 import { PRODUCT_CATEGORIES } from "@/lib/categories";
 import { formatPublishDate } from "@/lib/format-date";
+import {
+  isSortByValue,
+  mergeFacetOptions,
+  parseAmount,
+  parsePage,
+  PRODUCT_SIZES,
+  SORT_OPTIONS,
+  type SortByValue,
+} from "@/lib/query-params";
 import { useDebouncedSearch } from "@/lib/use-debounced-search";
-
-const SORT_OPTIONS = [
-  { value: "price_asc", label: "Precio: menor a mayor" },
-  { value: "price_desc", label: "Precio: mayor a menor" },
-  { value: "most_viewed", label: "Más vistos" },
-  { value: "most_favorited", label: "Más favoritos" },
-  { value: "top_rated", label: "Mejor valorados" },
-] as const;
-
-type SortByValue = (typeof SORT_OPTIONS)[number]["value"];
-
-function isSortByValue(value: string): value is SortByValue {
-  return SORT_OPTIONS.some((option) => option.value === value);
-}
 
 export interface ProductFilters {
   search?: string;
@@ -62,8 +57,6 @@ interface ProductsBrowserProps {
   showFilters?: boolean;
   showPagination?: boolean;
 }
-
-const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
 interface FilterFormState {
   search: string;
@@ -98,23 +91,6 @@ function toFormState(f?: ProductFilters): FilterFormState {
     condition: f?.condition ?? "",
     sortBy: f?.sortBy ?? "",
   };
-}
-
-function mergeFacetOptions(fetched: string[] | undefined, current: string): string[] {
-  const options = fetched ?? [];
-  return current && !options.includes(current) ? [current, ...options] : options;
-}
-
-function parseAmount(raw: string | null): number | undefined {
-  if (!raw) return undefined;
-  const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 ? n : undefined;
-}
-
-function parsePage(raw: string | null): number | undefined {
-  if (!raw) return undefined;
-  const n = Number(raw);
-  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : undefined;
 }
 
 function filtersFromQuery(
@@ -176,7 +152,7 @@ function ProductsBrowserContent({
   showPagination = true,
 }: ProductsBrowserProps) {
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "/";
   const searchParams = useSearchParams();
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -346,7 +322,7 @@ function ProductsBrowserContent({
             onChange={(e) => setForm((f) => ({ ...f, size: e.target.value }))}
           >
             <option value="">Cualquiera</option>
-            {SIZES.map((s) => (
+            {PRODUCT_SIZES.map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
@@ -512,7 +488,7 @@ export function ProductCard({
             {product.images?.[0] ? (
               <Image
                 src={product.images[0].url}
-                alt={product.title}
+                alt={product.images[0].alt || product.title}
                 fill
                 sizes="(min-width: 1024px) 23vw, (min-width: 640px) 31vw, 46vw"
                 priority={priority}

@@ -8,18 +8,26 @@ export function readJson<T>(key: string, fallback: T): T {
   }
 }
 export function writeJson(key: string, v: unknown): void {
+  if (typeof window === "undefined") return;
+  let serialized: string;
   try {
-    window.localStorage.setItem(key, JSON.stringify(v));
+    serialized = JSON.stringify(v);
+  } catch {
+    return;
+  }
+  try {
+    window.localStorage.setItem(key, serialized);
   } catch (e) {
     if (e instanceof DOMException && e.name === "QuotaExceededError") {
       try {
         window.localStorage.removeItem(key);
-        window.localStorage.setItem(key, JSON.stringify(v));
+        window.localStorage.setItem(key, serialized);
       } catch {}
     }
   }
 }
 export function removeKey(key: string): void {
+  if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(key);
   } catch {}
@@ -33,6 +41,7 @@ export function readString(key: string): string | null {
   }
 }
 export function writeString(key: string, v: string): void {
+  if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(key, v);
   } catch (e) {

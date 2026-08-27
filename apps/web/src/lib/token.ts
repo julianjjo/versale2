@@ -14,7 +14,9 @@ export const tokenStore = {
   },
   set(token: string) {
     if (typeof window === "undefined") return;
-    writeString(TOKEN_KEY, token);
+    const t=token.trim();
+    if (!t) return;
+    writeString(TOKEN_KEY, t);
     emitAuthChange();
   },
   clear() {

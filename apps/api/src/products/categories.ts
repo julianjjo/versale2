@@ -35,8 +35,9 @@ export const DEFAULT_PRODUCT_CATEGORY: ProductCategory = 'Otros';
 // list) pass through untouched: they still match their own exact spelling
 // rather than silently filtering to nothing.
 export function canonicalCategory(value: string): string {
+  const trimmed = value.trim();
   const match = PRODUCT_CATEGORIES.find(
-    (category) => category.toLowerCase() === value.toLowerCase(),
+    (category) => category.toLowerCase() === trimmed.toLowerCase(),
   );
-  return match ?? value;
+  return match ?? trimmed;
 }

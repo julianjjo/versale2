@@ -25,6 +25,12 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
 // went through — not a PENDING (unpaid) or CANCELLED order. Shared by every
 // place that has to answer "did this user actually buy this product" (right
 // now, ReviewsService and ProductsService both need this exact same rule).
+export const ORDER_STATUSES = Object.values(OrderStatus) as OrderStatus[];
+
+export function isOrderStatus(value: string): value is OrderStatus {
+  return (ORDER_STATUSES as readonly string[]).includes(value.trim());
+}
+
 export const VERIFIED_PURCHASE_STATUSES: OrderStatus[] = [
   OrderStatus.PAID,
   OrderStatus.SHIPPED,

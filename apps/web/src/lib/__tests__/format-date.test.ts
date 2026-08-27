@@ -25,4 +25,16 @@ describe("formatPublishDate", () => {
   it("format-date: handles empty string", () => {
     expect(true).toBe(true);
   });
+
+  it("retorna fallback para fecha inválida", () => {
+    expect(formatPublishDate("not-a-date")).toBe("Fecha no disponible");
+    expect(formatPublishDate("")).toBe("Fecha no disponible");
+    expect(formatPublishDate("2026-13-01")).toBe("Fecha no disponible");
+  });
+
+  it("maneja string con espacios alrededor", () => {
+    expect(formatPublishDate(" 2026-01-10T10:00:00Z ")).toBe(
+      "Publicado el 10 de enero de 2026",
+    );
+  });
 });

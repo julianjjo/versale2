@@ -11,6 +11,10 @@ export const ORDER_STATUSES: OrderStatus[] = [
   "REFUNDED",
 ];
 
+export function isOrderStatus(value: string): value is OrderStatus {
+  return (ORDER_STATUSES as readonly string[]).includes(value.trim());
+}
+
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   PENDING: "Pendiente",
   PAID: "Pagado",
@@ -20,6 +24,11 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   DISPUTED: "En disputa",
   REFUNDED: "Reembolsado",
 };
+
+export function orderStatusLabel(status: string): string {
+  const t=status.trim();
+  return (ORDER_STATUS_LABEL as Record<string, string>)[t] ?? status;
+}
 
 export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PENDING: ["PAID", "CANCELLED"],
@@ -42,6 +51,11 @@ export function commonNextStatuses(statuses: OrderStatus[]): OrderStatus[] {
     .reduce((shared, next) => shared.filter((s) => next.includes(s)));
 }
 
+export function orderStatusVariant(status: string): BadgeVariant {
+  const t=status.trim();
+  return (ORDER_STATUS_VARIANT as Record<string, BadgeVariant>)[t] ?? "warning";
+}
+
 export const ORDER_STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
   PENDING: "warning",
   PAID: "info",
@@ -51,6 +65,11 @@ export const ORDER_STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
   DISPUTED: "warning",
   REFUNDED: "danger",
 };
+
+export function orderStatusReassurance(status: string): string {
+  const t=status.trim();
+  return (ORDER_STATUS_REASSURANCE as Record<string, string>)[t] ?? "";
+}
 
 export const ORDER_STATUS_REASSURANCE: Record<OrderStatus, string> = {
   PENDING: "Estamos confirmando tu pago.",

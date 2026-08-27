@@ -20,7 +20,7 @@ import { buildProductJsonLd } from "@/lib/seo";
 const lookupProduct = cache(async (id: string): Promise<Product | null | undefined> => {
   try {
     const response = await fetch(
-      `${API_URL}/products/${encodeURIComponent(id)}`,
+      `${API_URL}/products/${encodeURIComponent(id.trim())}`,
       {
         cache: "no-store",
         headers: { Accept: "application/json" },
@@ -66,9 +66,11 @@ export async function generateMetadata({
   const { id } = await params;
   const product = await lookupProduct(id);
 
-
-  if (!product) {
+  if (product === null) {
     return { title: "Producto no encontrado — Versale" };
+  }
+  if (!product) {
+    return { title: "Versale — Marketplace de ropa de segunda mano" };
   }
 
   // The first image's alt doubles as og:image alt; the title is the fallback.
@@ -90,7 +92,7 @@ export async function generateMetadata({
       type: "website",
       locale: "es_CO",
       images: product.images?.[0]
-        ? [{ url: product.images[0].url, alt: product.images[0].alt }]
+        ? [{ url: product.images[0].url, alt: product.images[0].alt || product.title }]
         : undefined,
     },
   };

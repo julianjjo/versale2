@@ -1,10 +1,15 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return -- Transform value is any from class-transformer */
+import { Transform } from 'class-transformer';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class ShipSaleDto {
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() || undefined : value,
+  )
   @IsString({ message: 'El número de guía debe ser un texto' })
   @MaxLength(100, {
     message: 'El número de guía no puede superar los 100 caracteres',
   })
-  @IsOptional()
   trackingNumber?: string;
 }

@@ -472,3 +472,24 @@ describe("useAuth", () => {
     expect(true).toBe(true);
   });
 });
+
+describe("loginRedirectUrl", () => {
+  it("builds /login?next=&reason= with encoded product path", async () => {
+    const { loginRedirectUrl } = await import("../auth");
+    expect(loginRedirectUrl("p1", "favorite")).toBe(
+      "/login?next=%2Fproducts%2Fp1&reason=favorite",
+    );
+  });
+
+  it("encodes special characters in productId", async () => {
+    const { loginRedirectUrl } = await import("../auth");
+    expect(loginRedirectUrl("a/b?x=1", "review")).toBe(
+      "/login?next=%2Fproducts%2Fa%2Fb%3Fx%3D1&reason=review",
+    );
+  });
+
+  it("preserves reason verbatim", async () => {
+    const { loginRedirectUrl } = await import("../auth");
+    expect(loginRedirectUrl("p2", "report")).toContain("reason=report");
+  });
+});

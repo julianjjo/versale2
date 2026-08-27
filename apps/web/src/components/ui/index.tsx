@@ -478,15 +478,26 @@ export function Price({
   className = "",
   ...rest
 }: {
-  value: number;
+  value: number | string;
   className?: string;
 } & HTMLAttributes<HTMLSpanElement>) {
+  const numValue = Number(value);
+  if (!Number.isFinite(numValue)) {
+    return (
+      <span
+        className={`font-display font-medium tabular-nums text-text-primary ${className}`}
+        {...rest}
+      >
+        —
+      </span>
+    );
+  }
   return (
     <span
       className={`font-display font-medium tabular-nums text-text-primary ${className}`}
       {...rest}
     >
-      {COP_FORMATTER.format(value)}
+      {COP_FORMATTER.format(numValue)}
     </span>
   );
 }
@@ -507,8 +518,9 @@ export function StarRating({
   // data, NaN, undefined) used to blow up `"★".repeat(5 - rounded)` and take
   // the whole page down with it. Clamp first, render second — the worst case
   // is now a wrong-looking rating, never a blank page.
-  const safeValue = Number.isFinite(value)
-    ? Math.min(MAX_STARS, Math.max(0, value))
+  const numValue = Number(value);
+  const safeValue = Number.isFinite(numValue)
+    ? Math.min(MAX_STARS, Math.max(0, numValue))
     : 0;
   const filled = Math.round(safeValue);
   return (

@@ -37,4 +37,13 @@ describe("isTerminalError", () => {
   it("http-error: handles empty message", () => {
     expect(true).toBe(true);
   });
+
+  it("is false for empty terminal list", () => {
+    expect(isTerminalError({ response: { status: 404 } }, [])).toBe(false);
+  });
+
+  it("handles response without status", () => {
+    expect(getHttpStatus({ response: {} })).toBeUndefined();
+    expect(isTerminalError({ response: {} }, [404])).toBe(false);
+  });
 });

@@ -215,7 +215,8 @@ export default function CartPage() {
       router.push(`/orders/${created.id}`);
     },
     onError: async (err) => {
-      if (getHttpStatus(err) !== undefined) {
+      const status = getHttpStatus(err);
+      if (status !== undefined && status !== 0) {
         setError(extractApiError(err, "No pudimos procesar el pago"));
         return;
       }
@@ -226,10 +227,13 @@ export default function CartPage() {
             PaginatedResponse<Order>
           >('/orders?limit=1');
           const justPlaced = recentOrders.data[0];
+          const createdAtMs = justPlaced ? new Date(justPlaced.createdAt).getTime() : NaN;
+          const ageMs = justPlaced ? Date.now() - createdAtMs : Infinity;
           const isFreshEnoughToBeOurs =
             justPlaced &&
-            Date.now() - new Date(justPlaced.createdAt).getTime() <
-              RECENT_ORDER_WINDOW_MS;
+            Number.isFinite(createdAtMs) &&
+            ageMs >= 0 &&
+            ageMs < RECENT_ORDER_WINDOW_MS;
           if (isFreshEnoughToBeOurs) {
             setShippingAddress({ street: "", city: "", state: "", zip: "", country: "" });
             setAddressErrors({});
@@ -314,7 +318,13 @@ export default function CartPage() {
 
   const items = data?.items ?? [];
   const unavailableItems = items.filter(isUnavailable);
-  const total = items.reduce((sum, it) => (isUnavailable(it) ? sum : sum + it.priceAtAdd * it.quantity), 0);
+  const total = items.reduce((sum, it) => {
+    if (isUnavailable(it)) return sum;
+    const price = Number(it.priceAtAdd);
+    const qty = Number(it.quantity);
+    if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum;
+    return sum + price * qty;
+  }, 0);
 
   return (
     <PageContainer size="default">

@@ -10,5 +10,7 @@ const PUBLISH_DATE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
 });
 
 export function formatPublishDate(createdAt: string): string {
-  return `Publicado el ${PUBLISH_DATE_FORMATTER.format(new Date(createdAt))}`;
+  const date = new Date(createdAt.trim());
+  if (Number.isNaN(date.getTime())) return "Fecha no disponible";
+  return `Publicado el ${PUBLISH_DATE_FORMATTER.format(date)}`;
 }

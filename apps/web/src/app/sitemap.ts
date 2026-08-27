@@ -1,10 +1,6 @@
 import type { MetadataRoute } from "next";
 import { API_URL, SITE_URL } from "@/lib/site";
 
-// Item 11: sitemap with only publicly visible listings. force-dynamic: the
-// catalog changes on every approval — a build-time snapshot would go stale
-// (and CI builds run without a reachable API, which the try/catch below
-// degrades to static-routes-only).
 export const dynamic = "force-dynamic";
 
 type ProductLike = { id: string; updatedAt: string };
@@ -25,10 +21,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   try {
-    // PUBLICLY_VISIBLE on the API already filters to isApproved + AVAILABLE +
-    // not paused, which is exactly the "solo aprobados" the roadmap asks for.
-    // Paged walk with a hard cap so a huge catalog can't stall the route.
-    // ponytail: sitemap caps 500, paginate/cursor if catalog >500
     const products: ProductLike[] = [];
     const PAGE_SIZE = 100;
     const SITEMAP_MAX_URLS = 500;
@@ -43,6 +35,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         meta?: { pages?: number };
       };
       products.push(...body.data);
+      if (products.length >= SITEMAP_MAX_URLS) break;
       if (!body.meta?.pages || page >= body.meta.pages) break;
     }
     // cap hit silently — sitemap is a crawler contract, not an operator alert;
@@ -51,15 +44,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     return [
       ...staticRoutes,
-      ...products.slice(0, SITEMAP_MAX_URLS).map((p) => ({
-        url: `${SITE_URL}/products/${p.id}`,
-        lastModified: new Date(p.updatedAt),
-        changeFrequency: "weekly" as const,
-        priority: 0.8,
-      })),
+      ...products.slice(0, SITEMAP_MAX_URLS).map((p) => {
+        const d = new Date(p.updatedAt);
+        return {
+          url: `${SITE_URL}/products/${encodeURIComponent(p.id)}`,
+          lastModified: Number.isNaN(d.getTime()) ? new Date() : d,
+          changeFrequency: "weekly" as const,
+          priority: 0.8,
+        };
+      }),
     ];
   } catch {
-    // API down at request time: a sitemap of static routes beats a 500.
     return staticRoutes;
   }
 }

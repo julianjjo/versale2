@@ -19,8 +19,8 @@ export class CreateReviewDto {
   @Max(5, { message: 'La calificación máxima es 5 estrellas' })
   rating!: number;
 
-  @IsString({ message: 'El comentario debe ser un texto' })
   @IsOptional()
+  @IsString({ message: 'El comentario debe ser un texto' })
   // @IsOptional() only skips validation for a missing/null/undefined value —
   // an explicit "" or "   " still reaches Matches/MaxLength below, same as
   // every other free-text field in this API (sellerReply, questions,

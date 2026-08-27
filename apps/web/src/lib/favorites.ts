@@ -4,7 +4,7 @@ import { api } from "./api";
 import { useAuth } from "./auth";
 import type { Favorite, PaginatedResponse } from "./types";
 
-const FAVORITES_PAGE_LIMIT = 100;
+export const FAVORITES_PAGE_LIMIT = 100;
 
 export function useFavorites() {
   const { user } = useAuth();
