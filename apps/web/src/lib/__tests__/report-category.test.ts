@@ -86,4 +86,9 @@ describe("report-category", () => {
     expect(isReportCategory("\rFRAUD\r")).toBe(true);
     expect(isReportCategory("\r  \n")).toBe(false);
   });
+
+  it("isReportCategory handles tab and newline", () => {
+    expect(isReportCategory("\tFRAUD\n")).toBe(true);
+    expect(isReportCategory("\t  \n")).toBe(false);
+  });
 });
