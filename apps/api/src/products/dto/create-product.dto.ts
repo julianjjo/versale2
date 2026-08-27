@@ -101,6 +101,7 @@ export class CreateProductDto {
   category!: string;
 
   @IsOptional()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() || undefined : value))
   @IsString({ message: 'La marca debe ser un texto' })
   @MaxLength(100, { message: 'La marca no puede superar los 100 caracteres' })
   brand?: string;
