@@ -12,7 +12,7 @@ export const ORDER_STATUSES: OrderStatus[] = [
 ];
 
 export function isOrderStatus(value: string): value is OrderStatus {
-  return (ORDER_STATUSES as readonly string[]).includes(value);
+  return (ORDER_STATUSES as readonly string[]).includes(value.trim());
 }
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
