@@ -12,5 +12,6 @@ export function recordProductView(productId: string): void {
 export function getRecentlyViewedIds(excludeId?: string): string[] {
   const p = readJson<unknown>(STORAGE_KEY, []);
   const ids = Array.isArray(p) ? p.filter((id): id is string => typeof id === "string") : [];
-  return excludeId ? ids.filter((id) => id !== excludeId) : ids;
+  const filtered = excludeId ? ids.filter((id) => id !== excludeId) : ids;
+  return filtered.slice(0, 12);
 }
