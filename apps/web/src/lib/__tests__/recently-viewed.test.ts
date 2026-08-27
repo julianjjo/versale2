@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   getRecentlyViewedIds,
   recordProductView,
@@ -81,5 +81,13 @@ describe("recently-viewed", () => {
 
   it("exports RECENTLY_VIEWED_LIMIT as 12", () => {
     expect(RECENTLY_VIEWED_LIMIT).toBe(12);
+  });
+
+  it("does not throw when window is undefined (SSR)", async () => {
+    vi.stubGlobal("window", undefined as unknown as Window & typeof globalThis);
+    const mod = await import("../recently-viewed");
+    expect(() => mod.recordProductView("p1")).not.toThrow();
+    expect(mod.getRecentlyViewedIds()).toEqual([]);
+    vi.unstubAllGlobals();
   });
 });
