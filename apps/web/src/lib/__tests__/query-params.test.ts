@@ -99,6 +99,11 @@ describe("query-params", () => {
       expect(isSortByValue(" price_asc ")).toBe(true);
       expect(isSortByValue("  top_rated  ")).toBe(true);
     });
+
+    it("isSortByValue handles tab/newline whitespace", () => {
+      expect(isSortByValue("\tprice_asc\n")).toBe(true);
+      expect(isSortByValue("\t  \n")).toBe(false);
+    });
   });
 
   describe("PRODUCT_SIZES / isProductSize", () => {
