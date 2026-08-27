@@ -115,6 +115,12 @@ describe("types - PRODUCT_STATUSES", () => {
     expect(isProductStatus(" AVAILABLE ")).toBe(true);
   });
 
+  it("isProductStatus handles carriage return and tab", () => {
+    expect(isProductStatus("\rAVAILABLE\r")).toBe(true);
+    expect(isProductStatus("\tSOLD\n")).toBe(true);
+    expect(isProductStatus("\r  \n")).toBe(false);
+  });
+
   it("productStatusLabel returns Spanish label and falls back", () => {
     expect(productStatusLabel("AVAILABLE")).toBe("Disponible");
     expect(productStatusLabel("SOLD")).toBe("Vendido");
