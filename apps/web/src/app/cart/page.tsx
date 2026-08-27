@@ -227,10 +227,13 @@ export default function CartPage() {
             PaginatedResponse<Order>
           >('/orders?limit=1');
           const justPlaced = recentOrders.data[0];
+          const createdAtMs = justPlaced ? new Date(justPlaced.createdAt).getTime() : NaN;
+          const ageMs = justPlaced ? Date.now() - createdAtMs : Infinity;
           const isFreshEnoughToBeOurs =
             justPlaced &&
-            Date.now() - new Date(justPlaced.createdAt).getTime() <
-              RECENT_ORDER_WINDOW_MS;
+            Number.isFinite(createdAtMs) &&
+            ageMs >= 0 &&
+            ageMs < RECENT_ORDER_WINDOW_MS;
           if (isFreshEnoughToBeOurs) {
             setShippingAddress({ street: "", city: "", state: "", zip: "", country: "" });
             setAddressErrors({});
