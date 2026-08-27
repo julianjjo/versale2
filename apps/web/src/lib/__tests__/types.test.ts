@@ -4,10 +4,12 @@ import {
   NOTIFICATION_TYPES,
   REPORT_STATUSES,
   PRODUCT_STATUSES,
+  PRODUCT_STATUS_LABEL,
   isUserRole,
   isNotificationType,
   isReportStatus,
   isProductStatus,
+  productStatusLabel,
 } from "../types";
 
 describe("types - USER_ROLES", () => {
@@ -84,5 +86,18 @@ describe("types - PRODUCT_STATUSES", () => {
 
   it("isProductStatus trims whitespace", () => {
     expect(isProductStatus(" AVAILABLE ")).toBe(true);
+  });
+
+  it("productStatusLabel returns Spanish label and falls back", () => {
+    expect(productStatusLabel("AVAILABLE")).toBe("Disponible");
+    expect(productStatusLabel("SOLD")).toBe("Vendido");
+    expect(productStatusLabel("WITHDRAWN")).toBe("Retirado");
+    expect(productStatusLabel("UNKNOWN")).toBe("UNKNOWN");
+  });
+
+  it("PRODUCT_STATUS_LABEL covers all statuses", () => {
+    for (const s of PRODUCT_STATUSES) {
+      expect(PRODUCT_STATUS_LABEL[s]).toBeTruthy();
+    }
   });
 });

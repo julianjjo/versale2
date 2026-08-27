@@ -27,6 +27,16 @@ export function isProductStatus(value: string): value is ProductStatus {
   return (PRODUCT_STATUSES as readonly string[]).includes(value.trim());
 }
 
+export const PRODUCT_STATUS_LABEL: Record<ProductStatus, string> = {
+  AVAILABLE: "Disponible",
+  SOLD: "Vendido",
+  WITHDRAWN: "Retirado",
+};
+
+export function productStatusLabel(status: string): string {
+  return (PRODUCT_STATUS_LABEL as Record<string, string>)[status] ?? status;
+}
+
 export interface Product {
   id: string;
   title: string;
