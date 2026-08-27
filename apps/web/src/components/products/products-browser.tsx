@@ -488,7 +488,7 @@ export function ProductCard({
             {product.images?.[0] ? (
               <Image
                 src={product.images[0].url}
-                alt={product.title}
+                alt={product.images[0].alt || product.title}
                 fill
                 sizes="(min-width: 1024px) 23vw, (min-width: 640px) 31vw, 46vw"
                 priority={priority}
