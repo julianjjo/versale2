@@ -102,6 +102,7 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsString({ message: 'La marca debe ser un texto' })
+  @MaxLength(100, { message: 'La marca no puede superar los 100 caracteres' })
   brand?: string;
 
   @IsString({ message: 'La talla debe ser un texto' })
