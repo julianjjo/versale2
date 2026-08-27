@@ -37,6 +37,11 @@ describe("types - USER_ROLES", () => {
     expect(isUserRole("\tADMIN\n")).toBe(true);
     expect(isUserRole("\r  \n")).toBe(false);
   });
+
+  it("isUserRole handles all whitespace variants", () => {
+    expect(isUserRole(" \tUSER \n\r ")).toBe(true);
+    expect(isUserRole(" \t  \n\r ")).toBe(false);
+  });
 });
 
 describe("types - NOTIFICATION_TYPES", () => {
