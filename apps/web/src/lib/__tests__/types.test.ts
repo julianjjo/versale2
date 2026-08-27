@@ -52,6 +52,11 @@ describe("types - USER_ROLES", () => {
     expect(isUserRole("\u00A0USER\u00A0")).toBe(true);
     expect(isUserRole("\u00A0  \u00A0")).toBe(false);
   });
+
+  it("isUserRole handles zero-width space (not trimmed)", () => {
+    expect(isUserRole("\u200BUSER\u200B")).toBe(false);
+    expect(isUserRole("USER")).toBe(true);
+  });
 });
 
 describe("types - NOTIFICATION_TYPES", () => {
