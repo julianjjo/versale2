@@ -60,4 +60,13 @@ describe("resolvePagination", () => {
       skip: 25,
     });
   });
+
+  it("handles string inputs with whitespace", () => {
+    expect(resolvePagination(" 2 ", " 10 ")).toEqual({
+      pageNum: 2,
+      limitNum: 10,
+      skip: 10,
+    });
+    expect(resolvePagination("   ", "   ").limitNum).toBe(10);
+  });
 });
