@@ -1,3 +1,5 @@
+import { ProductStatus } from "@prisma/client";
+
 export enum ProductSortBy {
   PRICE_ASC = 'price_asc',
   PRICE_DESC = 'price_desc',
@@ -6,10 +8,14 @@ export enum ProductSortBy {
   TOP_RATED = 'top_rated',
 }
 
-import { ProductStatus } from "@prisma/client";
-
 export const PRODUCT_STATUSES = Object.values(ProductStatus) as ProductStatus[];
 
 export function isProductStatus(value: string): value is ProductStatus {
   return (PRODUCT_STATUSES as readonly string[]).includes(value.trim());
+}
+
+export const PRODUCT_SORT_BYS = Object.values(ProductSortBy) as ProductSortBy[];
+
+export function isProductSortBy(value: string): value is ProductSortBy {
+  return (PRODUCT_SORT_BYS as readonly string[]).includes(value.trim());
 }
