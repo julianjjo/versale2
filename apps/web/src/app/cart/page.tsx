@@ -208,6 +208,8 @@ export default function CartPage() {
       return data;
     },
     onSuccess: (created) => {
+      setShippingAddress({ street: "", city: "", state: "", zip: "", country: "" });
+      setAddressErrors({});
       queryClient.invalidateQueries({ queryKey: ['cart'] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       router.push(`/orders/${created.id}`);
@@ -229,6 +231,8 @@ export default function CartPage() {
             Date.now() - new Date(justPlaced.createdAt).getTime() <
               RECENT_ORDER_WINDOW_MS;
           if (isFreshEnoughToBeOurs) {
+            setShippingAddress({ street: "", city: "", state: "", zip: "", country: "" });
+            setAddressErrors({});
             queryClient.invalidateQueries({ queryKey: ['cart'] });
             queryClient.invalidateQueries({ queryKey: ['orders'] });
             router.push(`/orders/${justPlaced.id}`);
