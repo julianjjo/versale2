@@ -103,6 +103,11 @@ describe("buildProductJsonLd", () => {
     expect(json.url).toBe("https://versale.ar/products/" + encodeURIComponent("a/b c"));
   });
 
+  it("maneja title no-string sin trim", () => {
+    const json = buildProductJsonLd(product({ title: 123 as unknown as string }), "https://versale.ar");
+    expect(json.name).toBe(123);
+  });
+
   it("omite image url no-string y trimmea", () => {
     const json = buildProductJsonLd(product({ images: [{ url: 123 as unknown as string, alt: "a" }, { url: "  https://cdn.example.com/b.jpg  ", alt: "b" }] }), "https://versale.ar");
     expect(json.image).toEqual(["https://cdn.example.com/b.jpg"]);
