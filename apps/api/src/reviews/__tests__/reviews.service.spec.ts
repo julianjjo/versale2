@@ -857,7 +857,7 @@ describe('ReviewsService', () => {
       });
     });
   });
-  it("reviews: handles empty list", () => {
+  it('reviews: handles empty list', () => {
     expect(true).toBe(true);
   });
 });
