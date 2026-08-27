@@ -103,6 +103,11 @@ describe("buildProductJsonLd", () => {
     expect(json.url).toBe("https://versale.ar/products/" + encodeURIComponent("a/b c"));
   });
 
+  it("omite image url no-string y trimmea", () => {
+    const json = buildProductJsonLd(product({ images: [{ url: 123 as unknown as string, alt: "a" }, { url: "  https://cdn.example.com/b.jpg  ", alt: "b" }] }), "https://versale.ar");
+    expect(json.image).toEqual(["https://cdn.example.com/b.jpg"]);
+  });
+
   it("trimmea availability status y coercea price string", () => {
     const withSpaces = buildProductJsonLd(product({ status: "  AVAILABLE  " as unknown as Product["status"], price: "  45000  " as unknown as number }), "https://versale.ar");
     expect(withSpaces.offers.availability).toBe("https://schema.org/InStock");
