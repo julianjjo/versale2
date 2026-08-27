@@ -64,4 +64,12 @@ describe("tokenStore", () => {
     expect(() => off()).not.toThrow();
     vi.unstubAllGlobals();
   });
+
+  it("trims token whitespace and ignores blank", () => {
+    tokenStore.set("  abc123  ");
+    expect(tokenStore.get()).toBe("abc123");
+    tokenStore.clear();
+    tokenStore.set("   ");
+    expect(tokenStore.get()).toBeNull();
+  });
 });
