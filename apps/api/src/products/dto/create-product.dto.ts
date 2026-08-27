@@ -96,8 +96,8 @@ export class CreateProductDto {
   })
   category!: string;
 
-  @IsString({ message: 'La marca debe ser un texto' })
   @IsOptional()
+  @IsString({ message: 'La marca debe ser un texto' })
   brand?: string;
 
   @IsString({ message: 'La talla debe ser un texto' })
@@ -126,28 +126,28 @@ export class CreateProductDto {
   })
   price!: number;
 
+  @IsOptional()
   @IsArray({ message: 'Las imágenes deben enviarse como una lista' })
   @ArrayMaxSize(6, {
     message: 'No puedes publicar más de 6 imágenes por producto',
   })
   @ValidateNested({ each: true, message: 'Imagen inválida' })
   @Type(() => ProductImageDto)
-  @IsOptional()
   images?: ProductImageDto[];
 
   // Item 4: seller-curated free text. Optional — a listing without them is
   // valid — but bounded so a listing can't become an essay.
+  @IsOptional()
   @IsString({ message: 'Las medidas deben ser un texto' })
   @MaxLength(1000, {
     message: 'Las medidas no pueden superar los 1000 caracteres',
   })
-  @IsOptional()
   measurements?: string;
 
+  @IsOptional()
   @IsString({ message: 'Los defectos deben ser un texto' })
   @MaxLength(1000, {
     message: 'Los defectos no pueden superar los 1000 caracteres',
   })
-  @IsOptional()
   defects?: string;
 }
