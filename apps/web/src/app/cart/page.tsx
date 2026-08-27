@@ -33,6 +33,10 @@ function isPaused(item: CartItem): boolean {
   return Boolean(item.product?.pausedAt);
 }
 
+function isWithdrawn(item: CartItem): boolean {
+  return item.product?.status === "WITHDRAWN";
+}
+
 function isUnavailable(item: CartItem): boolean {
   return !item.product || (Boolean(item.product.status) && item.product.status !== "AVAILABLE") || item.product.isApproved === false || isPaused(item);
 }
@@ -507,6 +511,7 @@ function CartItemRow({
 }) {
   const sold = isSold(item);
   const paused = isPaused(item);
+  const withdrawn = isWithdrawn(item);
   const unavailable = isUnavailable(item);
   const viewable = isProductPageViewable(item);
   const title = item.product?.title ?? item.productId;
@@ -554,9 +559,11 @@ function CartItemRow({
             <Badge variant="warning" className="mt-2">
               {sold
                 ? "Ya se vendió"
-                : paused
-                  ? "El vendedor la pausó temporalmente"
-                  : "Ya no está disponible"}
+                : withdrawn
+                  ? "Retirada por el vendedor"
+                  : paused
+                    ? "El vendedor la pausó temporalmente"
+                    : "Ya no está disponible"}
             </Badge>
           )}
         </div>
