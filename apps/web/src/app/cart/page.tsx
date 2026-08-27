@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -309,11 +309,11 @@ export default function CartPage() {
   }
 
   const items = data?.items ?? [];
-  const unavailableItems = items.filter(isUnavailable);
-  const total = items.reduce(
-    (sum, it) => (isUnavailable(it) ? sum : sum + it.priceAtAdd * it.quantity),
-    0,
-  );
+  const { unavailableItems, total } = useMemo(() => {
+    const unavailable = items.filter(isUnavailable);
+    const tot = items.reduce((sum, it) => (isUnavailable(it) ? sum : sum + it.priceAtAdd * it.quantity), 0);
+    return { unavailableItems: unavailable, total: tot };
+  }, [items]);
 
   return (
     <PageContainer size="default">
