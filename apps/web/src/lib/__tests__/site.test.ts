@@ -61,4 +61,14 @@ describe("site", () => {
     expect(typeof mod.API_URL).toBe("string");
     expect(mod.SITE_URL.length).toBeGreaterThan(0);
   });
+
+  it("normalizeUrl trims and preserves", async () => {
+    const { normalizeUrl } = await import("../site");
+    expect(normalizeUrl("https://a.com/")).toBe("https://a.com");
+    expect(normalizeUrl("https://a.com///")).toBe("https://a.com");
+    expect(normalizeUrl("https://a.com")).toBe("https://a.com");
+    expect(normalizeUrl("http://localhost:3000/")).toBe(
+      "http://localhost:3000",
+    );
+  });
 });
