@@ -77,4 +77,9 @@ describe("categories", () => {
     expect(isProductCategory("\u00A0Camisetas\u00A0")).toBe(true);
     expect(isProductCategory("\u00A0  \u00A0")).toBe(false);
   });
+
+  it("isProductCategory handles zero-width space (not trimmed)", () => {
+    expect(isProductCategory("\u200BCamisetas\u200B")).toBe(false);
+    expect(isProductCategory("Camisetas")).toBe(true);
+  });
 });
