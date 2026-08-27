@@ -7,6 +7,7 @@ import {
   ORDER_STATUS_REASSURANCE,
   nextStatusesFor,
   commonNextStatuses,
+  isOrderStatus,
 } from "../order-status";
 
 describe("order-status", () => {
@@ -96,5 +97,13 @@ describe("order-status", () => {
         "REFUNDED",
       ]);
     });
+  });
+
+  it("isOrderStatus guards correctly", () => {
+    expect(isOrderStatus("PENDING")).toBe(true);
+    expect(isOrderStatus("REFUNDED")).toBe(true);
+    expect(isOrderStatus("UNKNOWN")).toBe(false);
+    expect(isOrderStatus("")).toBe(false);
+    expect(isOrderStatus("pending")).toBe(false);
   });
 });
