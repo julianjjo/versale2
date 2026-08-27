@@ -13,6 +13,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { Role } from '@prisma/client';
 import { ProductSortBy } from './product-sort.enum';
 import { canonicalCategory } from './categories';
+import { asRecord } from '../common/query';
 import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
 import { VERIFIED_PURCHASE_STATUSES } from '../orders/order-status.enum';
@@ -247,10 +248,7 @@ export class ProductsService {
   }
 
   async findAll(query: unknown = {}) {
-    const q =
-      query !== null && typeof query === 'object' && !Array.isArray(query)
-        ? (query as Record<string, unknown>)
-        : {};
+    const q = asRecord(query);
     const {
       search: rawSearch,
       minPrice,
@@ -1050,10 +1048,7 @@ export class ProductsService {
   // (title, description, brand, category) so a seller with many listings
   // can find one without paging through every status tab by hand.
   async findAllMine(sellerId: string, query: unknown = {}) {
-    const q =
-      query !== null && typeof query === 'object' && !Array.isArray(query)
-        ? (query as Record<string, unknown>)
-        : {};
+    const q = asRecord(query);
     const { search: rawSearch, status, page = 1, limit = 10 } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
     const search = this.firstValue(rawSearch);
@@ -1125,10 +1120,7 @@ export class ProductsService {
   }
 
   async findAllForAdmin(query: unknown = {}) {
-    const q =
-      query !== null && typeof query === 'object' && !Array.isArray(query)
-        ? (query as Record<string, unknown>)
-        : {};
+    const q = asRecord(query);
     const { status, page = 1, limit = 10 } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 

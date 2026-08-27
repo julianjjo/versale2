@@ -14,6 +14,7 @@ import { ORDER_STATUS_LABEL, OrderStatus } from './order-status.enum';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { MAX_ITEM_QUANTITY } from '../cart/dto/cart.dto';
 import { Role } from '@prisma/client';
+import { asRecord } from '../common/query';
 import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
 import { toCsv, withExcelCompat } from '../common/csv';
@@ -346,10 +347,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
   // other list endpoint in this API is. Mirrors `getAllOrders` (admin) and
   // `getMySales` (seller) below rather than introducing a third shape.
   async getUserOrders(userId: string, query: unknown = {}) {
-    const q =
-      query !== null && typeof query === 'object' && !Array.isArray(query)
-        ? (query as Record<string, unknown>)
-        : {};
+    const q = asRecord(query);
     const { search, status, page, limit } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
@@ -425,10 +423,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getAllOrders(query: unknown = {}) {
-    const q =
-      query !== null && typeof query === 'object' && !Array.isArray(query)
-        ? (query as Record<string, unknown>)
-        : {};
+    const q = asRecord(query);
     const { search, page, limit } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
@@ -464,10 +459,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
   // (up to MAX_EXPORT_ROWS) since a CSV is meant to be the whole result set,
   // not one page of it.
   async exportOrdersCsv(query: unknown = {}) {
-    const q =
-      query !== null && typeof query === 'object' && !Array.isArray(query)
-        ? (query as Record<string, unknown>)
-        : {};
+    const q = asRecord(query);
     const { search } = q;
     const where = buildOrderSearchWhere(search);
 
@@ -555,10 +547,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
   // titles) and filterable by status, mirroring getUserOrders (buyer) and
   // getAllOrders (admin) rather than introducing a third filtering shape.
   async getMySales(sellerId: string, query: unknown = {}) {
-    const q =
-      query !== null && typeof query === 'object' && !Array.isArray(query)
-        ? (query as Record<string, unknown>)
-        : {};
+    const q = asRecord(query);
     const { search, status, page, limit } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
@@ -1048,6 +1037,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     // to a database with real multi-connection write concurrency.
     // Cursor pagination keeps memory bounded: each batch is processed before
     // the next is fetched, instead of loading every stale row at once.
+    // eslint-disable-next-line no-constant-condition -- intentional cursor pagination loop
     while (true) {
       let batch: { id: string; userId: string; status: OrderStatus }[] = [];
       try {
