@@ -95,6 +95,11 @@ describe("types - PRODUCT_STATUSES", () => {
     expect(productStatusLabel("UNKNOWN")).toBe("UNKNOWN");
   });
 
+  it("productStatusLabel trims whitespace before lookup", () => {
+    expect(productStatusLabel(" AVAILABLE ")).toBe("Disponible");
+    expect(productStatusLabel("  UNKNOWN  ")).toBe("  UNKNOWN  ");
+  });
+
   it("PRODUCT_STATUS_LABEL covers all statuses", () => {
     for (const s of PRODUCT_STATUSES) {
       expect(PRODUCT_STATUS_LABEL[s]).toBeTruthy();
