@@ -28,19 +28,19 @@ export class ShippingAddressDto {
   // The checkout form leaves departamento and código postal optional, so they
   // are validated as strings but may arrive empty.
   @IsOptional()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsString({ message: 'El departamento debe ser un texto' })
   @MaxLength(100, {
     message: 'El departamento no puede superar los 100 caracteres',
   })
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   state?: string;
 
   @IsOptional()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   @IsString({ message: 'El código postal debe ser un texto' })
   @MaxLength(20, {
     message: 'El código postal no puede superar los 20 caracteres',
   })
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   zip?: string;
 
   @IsString({ message: 'El país debe ser un texto' })
