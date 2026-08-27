@@ -12,7 +12,11 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/api", () => ({
   api: {
-    get: vi.fn().mockResolvedValue({ data: { data: [], meta: { total: 0, page: 1, pages: 0 } } }),
+    get: vi
+      .fn()
+      .mockResolvedValue({
+        data: { data: [], meta: { total: 0, page: 1, pages: 0 } },
+      }),
   },
   extractApiError: (err: unknown, fallback: string) =>
     err instanceof Error ? err.message : fallback,
