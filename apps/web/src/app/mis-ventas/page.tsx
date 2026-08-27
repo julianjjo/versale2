@@ -97,8 +97,13 @@ export default function MisVentasPage() {
         trackingNumber: trackingNumber || undefined,
       });
     },
-    onSuccess: () => {
+    onSuccess: (_, { orderId }) => {
       setError(null);
+      setTrackingDrafts((drafts) => {
+        const next = { ...drafts };
+        delete next[orderId];
+        return next;
+      });
       queryClient.invalidateQueries({ queryKey: ["mis-ventas"] });
     },
     onError: (err) =>
