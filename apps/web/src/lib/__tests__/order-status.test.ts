@@ -9,6 +9,8 @@ import {
   commonNextStatuses,
   isOrderStatus,
   orderStatusLabel,
+  orderStatusVariant,
+  orderStatusReassurance,
 } from "../order-status";
 
 describe("order-status", () => {
@@ -122,5 +124,16 @@ describe("order-status", () => {
   it("orderStatusLabel trims whitespace before lookup", () => {
     expect(orderStatusLabel(" PENDING ")).toBe("Pendiente");
     expect(orderStatusLabel("  UNKNOWN  ")).toBe("  UNKNOWN  ");
+  });
+
+  it("orderStatusVariant trims whitespace", () => {
+    expect(orderStatusVariant(" PENDING ")).toBe("warning");
+    expect(orderStatusVariant("  DELIVERED  ")).toBe("success");
+    expect(orderStatusVariant("  UNKNOWN  ")).toBe("warning");
+  });
+
+  it("orderStatusReassurance trims whitespace", () => {
+    expect(orderStatusReassurance(" PENDING ")).toMatch(/confirmando/i);
+    expect(orderStatusReassurance("  UNKNOWN  ")).toBe("");
   });
 });
