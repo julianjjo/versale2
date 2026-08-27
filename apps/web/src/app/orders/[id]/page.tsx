@@ -581,15 +581,15 @@ export default function OrderDetailPage() {
               <p className="text-text-muted">{shipping.eliminada}</p>
             ) : (
               <>
-                {shipping.street && <p>{shipping.street}</p>}
-                {(shipping.city || shipping.state || shipping.zip) && (
+                {typeof shipping.street === "string" && shipping.street.trim() && <p>{shipping.street.trim()}</p>}
+                {(typeof shipping.city === "string" && shipping.city.trim() || typeof shipping.state === "string" && shipping.state.trim() || typeof shipping.zip === "string" && shipping.zip.trim()) && (
                   <p>
-                    {[shipping.city, shipping.state, shipping.zip]
+                    {[typeof shipping.city === "string" ? shipping.city.trim() : "", typeof shipping.state === "string" ? shipping.state.trim() : "", typeof shipping.zip === "string" ? shipping.zip.trim() : ""]
                       .filter(Boolean)
                       .join(", ")}
                   </p>
                 )}
-                {shipping.country && <p>{shipping.country}</p>}
+                {typeof shipping.country === "string" && shipping.country.trim() && <p>{shipping.country.trim()}</p>}
               </>
             )}
           </div>
