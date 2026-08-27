@@ -109,6 +109,11 @@ describe("query-params", () => {
       expect(isSortByValue("\rprice_asc\r")).toBe(true);
       expect(isSortByValue("\r  \n")).toBe(false);
     });
+
+    it("isSortByValue handles all whitespace variants", () => {
+      expect(isSortByValue(" \tprice_asc \n\r ")).toBe(true);
+      expect(isSortByValue(" \t  \n\r ")).toBe(false);
+    });
   });
 
   describe("PRODUCT_SIZES / isProductSize", () => {
