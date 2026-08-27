@@ -92,7 +92,7 @@ export async function generateMetadata({
       type: "website",
       locale: "es_CO",
       images: product.images?.[0]
-        ? [{ url: product.images[0].url, alt: product.images[0].alt }]
+        ? [{ url: product.images[0].url, alt: product.images[0].alt || product.title }]
         : undefined,
     },
   };
