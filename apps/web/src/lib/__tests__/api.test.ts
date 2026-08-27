@@ -144,6 +144,21 @@ describe("api client", () => {
     expect(mockedTokenStore.clear).not.toHaveBeenCalled();
   });
 
+  it("rethrows AbortError from DOMException", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    const abort = new DOMException("aborted", "AbortError");
+    fetchMock.mockRejectedValue(abort);
+    await expect(api.get("/products", { signal: new AbortController().signal })).rejects.toBe(abort);
+  });
+
+  it("rethrows AbortError from Error", async () => {
+    mockedTokenStore.get.mockReturnValue(null);
+    const err = new Error("aborted");
+    (err as unknown as { name: string }).name = "AbortError";
+    fetchMock.mockRejectedValue(err);
+    await expect(api.get("/products", { signal: new AbortController().signal })).rejects.toBe(err);
+  });
+
   it("returns a Blob for responseType blob downloads", async () => {
     mockedTokenStore.get.mockReturnValue(null);
     fetchMock.mockResolvedValue(
