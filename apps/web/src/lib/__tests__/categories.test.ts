@@ -52,4 +52,9 @@ describe("categories", () => {
     expect(isProductCategory("  Otros  ")).toBe(true);
     expect(isProductCategory("  Invalid  ")).toBe(false);
   });
+
+  it("isProductCategory handles carriage return", () => {
+    expect(isProductCategory("\rCamisetas\r")).toBe(true);
+    expect(isProductCategory("\r  \n")).toBe(false);
+  });
 });
