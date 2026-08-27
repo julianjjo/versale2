@@ -101,4 +101,9 @@ describe("report-category", () => {
     expect(isReportCategory("\vFRAUD\f")).toBe(true);
     expect(isReportCategory("\v  \f")).toBe(false);
   });
+
+  it("isReportCategory handles non-breaking space", () => {
+    expect(isReportCategory("\u00A0FRAUD\u00A0")).toBe(true);
+    expect(isReportCategory("\u00A0  \u00A0")).toBe(false);
+  });
 });
