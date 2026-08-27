@@ -24,8 +24,8 @@ export class UpdateReviewDto {
   @ValidateIf((_object, value) => value !== undefined)
   rating?: number;
 
-  @IsString({ message: 'El comentario debe ser un texto' })
   @IsOptional()
+  @IsString({ message: 'El comentario debe ser un texto' })
   // Same reasoning as CreateReviewDto's own comment field: IsOptional only
   // skips an omitted/null/undefined value, so an explicit "" or "   " still
   // has to clear these.
