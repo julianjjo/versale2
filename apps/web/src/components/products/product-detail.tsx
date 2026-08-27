@@ -134,8 +134,8 @@ export function ProductDetail({
     refetch,
   } = useQuery<Product>({
     queryKey: ["product", id],
-    queryFn: async () => {
-      const response = await api.get<Product>(`/products/${id}`);
+    queryFn: async ({ signal }) => {
+      const response = await api.get<Product>(`/products/${id}`, { signal });
       return response.data;
     },
     enabled: Boolean(id),
@@ -146,10 +146,8 @@ export function ProductDetail({
 
   const { data: related } = useQuery<{ data: Product[] }>({
     queryKey: ["product-related", id],
-    queryFn: async () => {
-      const response = await api.get<{ data: Product[] }>(
-        `/products/${id}/related`,
-      );
+    queryFn: async ({ signal }) => {
+      const response = await api.get<{ data: Product[] }>(`/products/${id}/related`, { signal });
       return response.data;
     },
     enabled: Boolean(id),

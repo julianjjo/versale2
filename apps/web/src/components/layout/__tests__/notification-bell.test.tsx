@@ -84,7 +84,10 @@ describe("NotificationBell", () => {
     );
 
     await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith("/notifications/unread-count");
+      expect(api.get).toHaveBeenCalledWith(
+        "/notifications/unread-count",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
     });
     expect(
       screen.getByRole("button", { name: "Notificaciones" }),

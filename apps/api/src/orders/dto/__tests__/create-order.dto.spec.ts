@@ -56,22 +56,18 @@ describe('CreateOrderDto with the global ValidationPipe', () => {
   });
 
   it('accepts the address shape the checkout form sends', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       { shippingAddress: validAddress },
       metadata,
-    );
+    )) as CreateOrderDto;
 
     expect(result).toBeInstanceOf(CreateOrderDto);
-    expect((result as CreateOrderDto).shippingAddress).toBeInstanceOf(
-      ShippingAddressDto,
-    );
-    expect({ ...(result as CreateOrderDto).shippingAddress }).toEqual(
-      validAddress,
-    );
+    expect(result.shippingAddress).toBeInstanceOf(ShippingAddressDto);
+    expect({ ...result.shippingAddress }).toEqual(validAddress);
   });
 
   it('accepts the optional departamento and código postal left empty', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       {
         shippingAddress: {
           street: 'Carrera 43 #5-10',
@@ -82,24 +78,17 @@ describe('CreateOrderDto with the global ValidationPipe', () => {
         },
       },
       metadata,
-    );
+    )) as CreateOrderDto;
 
-    expect((result as CreateOrderDto).shippingAddress.city).toBe('Medellín');
+    expect(result.shippingAddress.city).toBe('Medellín');
   });
 
   it('strips unknown keys smuggled into the address', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       { shippingAddress: { ...validAddress, isPaid: true } },
       metadata,
-    );
+    )) as CreateOrderDto;
 
-    expect(
-      (
-        (result as CreateOrderDto).shippingAddress as unknown as Record<
-          string,
-          unknown
-        >
-      ).isPaid,
-    ).toBeUndefined();
+    expect('isPaid' in result.shippingAddress).toBe(false);
   });
 });

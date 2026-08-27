@@ -237,9 +237,7 @@ describe("MisVentasPage", () => {
     await user.type(screen.getByLabelText(/buscar ventas/i), "chaqueta");
 
     await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith(
-        expect.stringContaining("search=chaqueta"),
-      );
+      expect(api.get).toHaveBeenCalledWith(expect.stringContaining("search=chaqueta"), expect.objectContaining({ signal: expect.any(AbortSignal) }));
     });
   });
 
@@ -259,9 +257,7 @@ describe("MisVentasPage", () => {
     await user.selectOptions(screen.getByLabelText(/filtrar por estado/i), "SHIPPED");
 
     await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith(
-        expect.stringContaining("status=SHIPPED"),
-      );
+      expect(api.get).toHaveBeenCalledWith(expect.stringContaining("status=SHIPPED"), expect.objectContaining({ signal: expect.any(AbortSignal) }));
     });
   });
 

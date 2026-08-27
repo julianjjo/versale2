@@ -40,6 +40,21 @@ const lookupProduct = cache(async (id: string): Promise<Product | null | undefin
   }
 });
 
+function truncateGrapheme(str: string, max: number): string {
+  if (str.length <= max) return str;
+  const Seg = (Intl as unknown as { Segmenter?: new (l: string, o: { granularity: string }) => { segment(s: string): Iterable<{ segment: string }> } }).Segmenter;
+  const seg = Seg ? new Seg("es", { granularity: "grapheme" }) : null;
+  const graphemes: string[] = seg
+    ? [...seg.segment(str)].map((s) => s.segment)
+    : [...str];
+  let result = "";
+  for (const g of graphemes) {
+    if ((result + g).length > max - 3) break;
+    result += g;
+  }
+  return result + "...";
+}
+
 // Item 11: dynamic metadata — the listing's own title/description in the
 // tags crawlers and link previews read. Shares the server-side lookup with
 // the page render via the cache() wrapper above.
@@ -57,8 +72,7 @@ export async function generateMetadata({
   }
 
   // The first image's alt doubles as og:image alt; the title is the fallback.
-  // ponytail: truncate inline slice; restore helper with Intl.Segmenter if emoji at boundary
-  const description = product.description.length <= 160 ? product.description : product.description.slice(0, 157) + "...";
+  const description = truncateGrapheme(product.description, 160);
 
   return {
     title: `${product.title} — Versale`,

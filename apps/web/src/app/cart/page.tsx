@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -33,12 +33,16 @@ function isPaused(item: CartItem): boolean {
   return Boolean(item.product?.pausedAt);
 }
 
+function isWithdrawn(item: CartItem): boolean {
+  return item.product?.status === "WITHDRAWN";
+}
+
 function isUnavailable(item: CartItem): boolean {
-  return isSold(item) || item.product?.isApproved === false || isPaused(item);
+  return !item.product || (Boolean(item.product.status) && item.product.status !== "AVAILABLE") || item.product.isApproved === false || isPaused(item);
 }
 
 function isProductPageViewable(item: CartItem): boolean {
-  return item.product?.isApproved !== false;
+  return !!item.product && item.product.isApproved !== false && item.product.status !== "WITHDRAWN";
 }
 
 type ShippingAddress = {
@@ -63,6 +67,11 @@ export default function CartPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  useEffect(() => {
+    if (!announcement) return;
+    const t = setTimeout(() => setAnnouncement(""), 3000);
+    return () => clearTimeout(t);
+  }, [announcement]);
   const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
     street: "",
     city: "",
@@ -87,8 +96,8 @@ export default function CartPage() {
   const { data, isLoading, isLoadingError, isRefetchError, refetch } =
     useQuery<Cart>({
       queryKey: ["cart"],
-      queryFn: async () => {
-        const response = await api.get<Cart>("/cart");
+      queryFn: async ({ signal }) => {
+        const response = await api.get<Cart>("/cart", { signal });
         return response.data;
       },
       enabled: Boolean(user),
@@ -96,9 +105,10 @@ export default function CartPage() {
 
   const { data: previousOrdersPage } = useQuery<PaginatedResponse<Order>>({
     queryKey: ["orders", "recent-for-checkout"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const response = await api.get<PaginatedResponse<Order>>(
         "/orders?limit=5",
+        { signal },
       );
       return response.data;
     },
@@ -198,6 +208,8 @@ export default function CartPage() {
       return data;
     },
     onSuccess: (created) => {
+      setShippingAddress({ street: "", city: "", state: "", zip: "", country: "" });
+      setAddressErrors({});
       queryClient.invalidateQueries({ queryKey: ['cart'] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       router.push(`/orders/${created.id}`);
@@ -219,6 +231,8 @@ export default function CartPage() {
             Date.now() - new Date(justPlaced.createdAt).getTime() <
               RECENT_ORDER_WINDOW_MS;
           if (isFreshEnoughToBeOurs) {
+            setShippingAddress({ street: "", city: "", state: "", zip: "", country: "" });
+            setAddressErrors({});
             queryClient.invalidateQueries({ queryKey: ['cart'] });
             queryClient.invalidateQueries({ queryKey: ['orders'] });
             router.push(`/orders/${justPlaced.id}`);
@@ -232,6 +246,7 @@ export default function CartPage() {
   });
 
   const handleCheckout = () => {
+    if (checkout.isPending) return;
     const errors: Partial<Record<keyof ShippingAddress, string>> = {};
     for (const field of REQUIRED_ADDRESS_FIELDS) {
       if (shippingAddress[field].trim() === "") {
@@ -243,6 +258,7 @@ export default function CartPage() {
       setError(INCOMPLETE_ADDRESS_ERROR);
       return;
     }
+    if (unavailableItems.length > 0) return;
     setAddressErrors({});
     setError(null);
     checkout.mutate();
@@ -298,10 +314,7 @@ export default function CartPage() {
 
   const items = data?.items ?? [];
   const unavailableItems = items.filter(isUnavailable);
-  const total = items.reduce(
-    (sum, it) => (isUnavailable(it) ? sum : sum + it.priceAtAdd * it.quantity),
-    0,
-  );
+  const total = items.reduce((sum, it) => (isUnavailable(it) ? sum : sum + it.priceAtAdd * it.quantity), 0);
 
   return (
     <PageContainer size="default">
@@ -388,7 +401,7 @@ export default function CartPage() {
                     productTitle: item.product?.title ?? "el producto",
                   })
                 }
-                isRemoving={removeItem.isPending}
+                isRemoving={removeItem.isPending && (removeItem.variables as { itemId: string } | undefined)?.itemId === item.id}
               />
             ))}
           </div>
@@ -504,6 +517,7 @@ function CartItemRow({
 }) {
   const sold = isSold(item);
   const paused = isPaused(item);
+  const withdrawn = isWithdrawn(item);
   const unavailable = isUnavailable(item);
   const viewable = isProductPageViewable(item);
   const title = item.product?.title ?? item.productId;
@@ -551,9 +565,11 @@ function CartItemRow({
             <Badge variant="warning" className="mt-2">
               {sold
                 ? "Ya se vendió"
-                : paused
-                  ? "El vendedor la pausó temporalmente"
-                  : "Ya no está disponible"}
+                : withdrawn
+                  ? "Retirada por el vendedor"
+                  : paused
+                    ? "El vendedor la pausó temporalmente"
+                    : "Ya no está disponible"}
             </Badge>
           )}
         </div>

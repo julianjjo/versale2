@@ -345,8 +345,12 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
   // product title) and filterable by status, paginated the same way every
   // other list endpoint in this API is. Mirrors `getAllOrders` (admin) and
   // `getMySales` (seller) below rather than introducing a third shape.
-  async getUserOrders(userId: string, query: Record<string, unknown> = {}) {
-    const { search, status, page, limit } = query ?? {};
+  async getUserOrders(userId: string, query: unknown = {}) {
+    const q =
+      query !== null && typeof query === 'object' && !Array.isArray(query)
+        ? (query as Record<string, unknown>)
+        : {};
+    const { search, status, page, limit } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const where: Prisma.OrderWhereInput = { userId };
@@ -420,8 +424,12 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     return order;
   }
 
-  async getAllOrders(query: Record<string, unknown> = {}) {
-    const { search, page, limit } = query ?? {};
+  async getAllOrders(query: unknown = {}) {
+    const q =
+      query !== null && typeof query === 'object' && !Array.isArray(query)
+        ? (query as Record<string, unknown>)
+        : {};
+    const { search, page, limit } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const where = buildOrderSearchWhere(search);
@@ -455,8 +463,12 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
   // looking at" actually matches the admin's current search — but unpaged
   // (up to MAX_EXPORT_ROWS) since a CSV is meant to be the whole result set,
   // not one page of it.
-  async exportOrdersCsv(query: Record<string, unknown> = {}) {
-    const { search } = query ?? {};
+  async exportOrdersCsv(query: unknown = {}) {
+    const q =
+      query !== null && typeof query === 'object' && !Array.isArray(query)
+        ? (query as Record<string, unknown>)
+        : {};
+    const { search } = q;
     const where = buildOrderSearchWhere(search);
 
     // The admin uses this file for record-keeping and dispute resolution, so
@@ -542,8 +554,12 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
   // Searchable (by order id, buyer name, or one of the seller's own product
   // titles) and filterable by status, mirroring getUserOrders (buyer) and
   // getAllOrders (admin) rather than introducing a third filtering shape.
-  async getMySales(sellerId: string, query: Record<string, unknown> = {}) {
-    const { search, status, page, limit } = query ?? {};
+  async getMySales(sellerId: string, query: unknown = {}) {
+    const q =
+      query !== null && typeof query === 'object' && !Array.isArray(query)
+        ? (query as Record<string, unknown>)
+        : {};
+    const { search, status, page, limit } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const where: Prisma.OrderWhereInput = {
@@ -998,10 +1014,11 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ponytail: 3× loop dedup into helper, split into per-status sweepers if drift needs isolation
-  // ponytail: unbounded scan, paginate with cursor if rows >1k
   /**
    * Sweeps stale orders matching `where` into `toStatus`.
    * Returns number of orders attempted (findMany count), not just successes.
+   * Paginates with cursor (500/batch) so a large backlog after an outage
+   * doesn't OOM by loading every stale row into one array.
    */
   private async sweepOrders(opts: {
     where: Prisma.OrderWhereInput;
@@ -1009,17 +1026,9 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     notification: { type: NotificationType; message: string };
     warnPrefix: string;
   }): Promise<number> {
-    let stale: { id: string; userId: string; status: OrderStatus }[] = [];
-    try {
-      const rows = await this.prisma.client.order.findMany({
-        where: opts.where,
-        select: { id: true, userId: true, status: true },
-      });
-      stale = rows as unknown as typeof stale;
-    } catch (e) {
-      this.logger.error(`${opts.warnPrefix} findMany failed`, e as Error);
-      return 0;
-    }
+    const BATCH_SIZE = 500;
+    let cursor: string | undefined;
+    let total = 0;
 
     // Deliberately sequential, not Promise.allSettled: transitionStatus's
     // releasesGarments branch opens a real $transaction, and this repo's
@@ -1037,23 +1046,48 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     // queue, so a "parallel" sweep can clear FEWER orders per run than this
     // plain sequential loop, not more. Revisit if this ever moves off SQLite
     // to a database with real multi-connection write concurrency.
-    for (const order of stale) {
+    // Cursor pagination keeps memory bounded: each batch is processed before
+    // the next is fetched, instead of loading every stale row at once.
+    while (true) {
+      let batch: { id: string; userId: string; status: OrderStatus }[] = [];
       try {
-        await this.transitionStatus(order, opts.toStatus);
-        await this.notifySafely(() =>
-          this.notifications.create(
-            order.userId,
-            opts.notification.type,
-            opts.notification.message,
-            order.id,
-          ),
-        );
-      } catch (error) {
-        // One stale order failing (e.g. raced by an admin) must not abort the sweep over the rest.
-        this.logger.warn(`${opts.warnPrefix} ${order.id}:`, error as Error);
+        const rows = await this.prisma.client.order.findMany({
+          where: opts.where,
+          select: { id: true, userId: true, status: true },
+          take: BATCH_SIZE,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+          orderBy: { id: 'asc' },
+        });
+        batch = rows as unknown as typeof batch;
+      } catch (e) {
+        this.logger.error(`${opts.warnPrefix} findMany failed`, e as Error);
+        return total;
       }
+
+      if (batch.length === 0) break;
+      total += batch.length;
+
+      for (const order of batch) {
+        try {
+          await this.transitionStatus(order, opts.toStatus);
+          await this.notifySafely(() =>
+            this.notifications.create(
+              order.userId,
+              opts.notification.type,
+              opts.notification.message,
+              order.id,
+            ),
+          );
+        } catch (error) {
+          // One stale order failing (e.g. raced by an admin) must not abort the sweep over the rest.
+          this.logger.warn(`${opts.warnPrefix} ${order.id}:`, error as Error);
+        }
+      }
+
+      if (batch.length < BATCH_SIZE) break;
+      cursor = batch[batch.length - 1].id;
     }
-    return stale.length;
+    return total;
   }
 
   /**

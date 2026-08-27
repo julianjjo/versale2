@@ -59,7 +59,7 @@ export class ProductsController {
   })
   @Get()
   @Header('Cache-Control', CATALOG_CACHE_CONTROL)
-  async findAll(@Query() query: any) {
+  async findAll(@Query() query: unknown) {
     return this.productsService.findAll(query);
   }
 
@@ -81,7 +81,7 @@ export class ProductsController {
   // Declared before ':id' so 'mine' is never swallowed by the id param route.
   @UseGuards(JwtAuthGuard)
   @Get('mine')
-  async findAllMine(@Query() query: any, @Req() req: AuthRequest) {
+  async findAllMine(@Query() query: unknown, @Req() req: AuthRequest) {
     return this.productsService.findAllMine(req.user.id, query);
   }
 
@@ -195,7 +195,7 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Get('admin/all')
-  async findAllForAdmin(@Query() query: any) {
+  async findAllForAdmin(@Query() query: unknown) {
     return this.productsService.findAllForAdmin(query);
   }
 

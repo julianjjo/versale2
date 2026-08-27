@@ -123,7 +123,10 @@ describe("FavoriteButton", () => {
     );
 
     await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith("/favorites/ids");
+      expect(api.get).toHaveBeenCalledWith(
+        "/favorites/ids",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
     });
   });
 

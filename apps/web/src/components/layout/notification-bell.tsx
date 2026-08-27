@@ -27,9 +27,10 @@ export function NotificationBell() {
 
   const { data: unread } = useQuery<{ count: number }>({
     queryKey: ["notifications", "unread-count"],
-    queryFn: async () =>
-      (await api.get("/notifications/unread-count")).data,
+    queryFn: async ({ signal }) =>
+      (await api.get("/notifications/unread-count", { signal })).data,
     refetchInterval: UNREAD_COUNT_REFETCH_MS,
+    refetchIntervalInBackground: false,
     staleTime: 60_000,
   });
 
@@ -42,8 +43,8 @@ export function NotificationBell() {
     refetch: refetchList,
   } = useQuery<PaginatedResponse<Notification>>({
     queryKey: ["notifications", "list"],
-    queryFn: async () =>
-      (await api.get("/notifications", { params: { limit: 10 } })).data,
+    queryFn: async ({ signal }) =>
+      (await api.get("/notifications", { params: { limit: 10 }, signal })).data,
     enabled: isOpen,
   });
 

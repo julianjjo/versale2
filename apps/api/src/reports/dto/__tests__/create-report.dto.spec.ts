@@ -10,14 +10,14 @@ describe('CreateReportDto with the global ValidationPipe', () => {
   };
 
   it('accepts a valid report', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       {
         productId: 'product1',
         reason: 'Parece una estafa',
         category: ReportCategory.FRAUD,
       },
       metadata,
-    );
+    )) as CreateReportDto;
 
     expect(result).toEqual({
       productId: 'product1',
@@ -77,14 +77,14 @@ describe('CreateReportDto with the global ValidationPipe', () => {
   });
 
   it('trims the reason before validating and storing it', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       {
         productId: 'product1',
         reason: '  Parece una estafa  ',
         category: ReportCategory.OTHER,
       },
       metadata,
-    );
+    )) as CreateReportDto;
 
     expect(result.reason).toBe('Parece una estafa');
   });
@@ -103,7 +103,7 @@ describe('CreateReportDto with the global ValidationPipe', () => {
   });
 
   it('strips unexpected fields so a report can never forge reporterId', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       {
         productId: 'product1',
         reason: 'Parece una estafa',
@@ -111,13 +111,13 @@ describe('CreateReportDto with the global ValidationPipe', () => {
         reporterId: 'someone-else',
       },
       metadata,
-    );
+    )) as CreateReportDto;
 
     expect(result).toEqual({
       productId: 'product1',
       reason: 'Parece una estafa',
       category: ReportCategory.OTHER,
     });
-    expect((result as Record<string, unknown>).reporterId).toBeUndefined();
+    expect('reporterId' in result).toBe(false);
   });
 });

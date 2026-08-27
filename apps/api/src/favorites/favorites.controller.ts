@@ -18,7 +18,7 @@ export class FavoritesController {
   constructor(private favoritesService: FavoritesService) {}
 
   @Get()
-  async getFavorites(@Req() req: AuthRequest, @Query() query: any) {
+  async getFavorites(@Req() req: AuthRequest, @Query() query: unknown) {
     return this.favoritesService.findAll(req.user.id, query);
   }
 

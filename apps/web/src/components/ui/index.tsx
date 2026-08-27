@@ -467,7 +467,12 @@ export function SectionHeader({
   );
 }
 
-// ponytail: Price via toLocaleString; Intl.NumberFormat singleton if render hot (>100 Prices/page)
+const COP_FORMATTER = new Intl.NumberFormat("es-CO", {
+  style: "currency",
+  currency: "COP",
+  maximumFractionDigits: 0,
+});
+
 export function Price({
   value,
   className = "",
@@ -481,7 +486,7 @@ export function Price({
       className={`font-display font-medium tabular-nums text-text-primary ${className}`}
       {...rest}
     >
-      {value.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })}
+      {COP_FORMATTER.format(value)}
     </span>
   );
 }

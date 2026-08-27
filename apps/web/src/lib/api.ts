@@ -20,6 +20,7 @@ export interface RequestConfig {
   params?: QueryParams;
   /** `"blob"` for file downloads (CSV export): `data` comes back as a Blob. */
   responseType?: "json" | "blob";
+  signal?: AbortSignal;
 }
 
 function buildUrl(path: string, config?: RequestConfig): string {
@@ -61,8 +62,10 @@ async function request<T>(
       method,
       headers,
       body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
+      signal: config?.signal,
     });
-  } catch {
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
     throw new ApiError(0, undefined);
   }
 
@@ -79,7 +82,12 @@ async function request<T>(
   }
   if (response.status === 204) return { data: undefined as T };
   const text = await response.text();
-  return { data: (text ? JSON.parse(text) : undefined) as T };
+  if (!text) return { data: undefined as T };
+  try {
+    return { data: JSON.parse(text) as T };
+  } catch {
+    throw new ApiError(response.status, { message: "Respuesta no válida del servidor" });
+  }
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */

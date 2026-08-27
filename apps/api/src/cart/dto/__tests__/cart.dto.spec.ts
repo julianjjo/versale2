@@ -39,10 +39,10 @@ describe('cart quantity bounds with the global ValidationPipe', () => {
   });
 
   it('accepts the single unit that actually exists', async () => {
-    const result = await pipe.transform(
+    const result = (await pipe.transform(
       { productId: 'product1', quantity: MAX_ITEM_QUANTITY },
       addMetadata,
-    );
+    )) as AddCartItemDto;
 
     expect(result).toEqual({
       productId: 'product1',

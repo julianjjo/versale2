@@ -45,11 +45,11 @@ function pieceLabel(count: number) {
 export function CategoryGrid() {
   const { data, isPending, isError } = useQuery({
     queryKey: ["products-facets"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const response = await api.get<{
         brands: string[];
         categories: CategoryFacet[];
-      }>("/products/facets");
+      }>("/products/facets", { signal });
       return response.data;
     },
     staleTime: 5 * 60 * 1000,

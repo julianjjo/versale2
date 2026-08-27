@@ -44,7 +44,7 @@ export default function OrdersPage() {
   const { data, isLoading, isLoadingError, isFetching, isRefetchError, refetch } =
     useQuery<PaginatedResponse<Order>>({
       queryKey: ["orders", search, status, page],
-      queryFn: async () => {
+      queryFn: async ({ signal }) => {
         const params = new URLSearchParams();
         if (search) params.set("search", search);
         if (status !== "all") params.set("status", status);
@@ -52,6 +52,7 @@ export default function OrdersPage() {
         params.set("limit", "10");
         const response = await api.get<PaginatedResponse<Order>>(
           `/orders?${params.toString()}`,
+          { signal },
         );
         return response.data;
       },

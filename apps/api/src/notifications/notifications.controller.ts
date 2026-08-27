@@ -17,7 +17,7 @@ export class NotificationsController {
   constructor(private notificationsService: NotificationsService) {}
 
   @Get()
-  async findAll(@Req() req: AuthRequest, @Query() query: any) {
+  async findAll(@Req() req: AuthRequest, @Query() query: unknown) {
     return this.notificationsService.findAll(req.user.id, query);
   }
 

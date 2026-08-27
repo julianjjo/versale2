@@ -2000,13 +2000,15 @@ describe('OrdersService', () => {
 
         expect(refunded).toBe(1);
         // El filtro del sweep: solo PAID cuyo paidAt venció el corte de 7 días.
-        expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
-          where: {
-            status: OrderStatus.PAID,
-            paidAt: { lte: anyDate() },
-          },
-          select: { id: true, userId: true, status: true },
-        });
+        expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: {
+              status: OrderStatus.PAID,
+              paidAt: { lte: anyDate() },
+            },
+            select: { id: true, userId: true, status: true },
+          }),
+        );
         const findManyMock = mockPrismaService.client.order
           .findMany as unknown as {
           mock: {
@@ -2101,13 +2103,15 @@ describe('OrdersService', () => {
         const expired = await service.autoResolveExpiredDisputes();
 
         expect(expired).toBe(1);
-        expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
-          where: {
-            status: OrderStatus.DISPUTED,
-            disputeExpiresAt: { lte: anyDate() },
-          },
-          select: { id: true, userId: true, status: true },
-        });
+        expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: {
+              status: OrderStatus.DISPUTED,
+              disputeExpiresAt: { lte: anyDate() },
+            },
+            select: { id: true, userId: true, status: true },
+          }),
+        );
         expect(mockTx.order.update).toHaveBeenCalledWith(
           objContaining({
             data: objContaining({
@@ -2254,13 +2258,15 @@ describe('OrdersService', () => {
 
       expect(cancelled).toBe(1);
       // El filtro del sweep: solo PENDING cuyo createdAt venció el timeout.
-      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith({
-        where: {
-          status: OrderStatus.PENDING,
-          createdAt: { lte: anyDate() },
-        },
-        select: { id: true, userId: true, status: true },
-      });
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            status: OrderStatus.PENDING,
+            createdAt: { lte: anyDate() },
+          },
+          select: { id: true, userId: true, status: true },
+        }),
+      );
       const findManyMock = mockPrismaService.client.order
         .findMany as unknown as {
         mock: {
@@ -2324,6 +2330,44 @@ describe('OrdersService', () => {
         NotificationType.ORDER_CANCELLED,
         expect.any(String),
         'pending2',
+      );
+    });
+
+    it('pagina con cursor cuando hay más de 500 pedidos stale (batches)', async () => {
+      const batch1 = Array.from({ length: 500 }, (_, i) => ({
+        id: `pending-${String(i).padStart(4, '0')}`,
+        userId: 'buyer1',
+        status: OrderStatus.PENDING,
+      }));
+      const batch2 = Array.from({ length: 10 }, (_, i) => ({
+        id: `pending-5${String(i).padStart(2, '0')}`,
+        userId: 'buyer1',
+        status: OrderStatus.PENDING,
+      }));
+      mockPrismaService.client.order.findMany
+        .mockResolvedValueOnce(batch1)
+        .mockResolvedValueOnce(batch2);
+      mockTx.order.update.mockResolvedValue({ id: 'x' });
+      mockTx.orderItem.findMany.mockResolvedValue([]);
+
+      const cancelled = await service.autoCancelStalePendingOrders();
+
+      expect(cancelled).toBe(510);
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledTimes(2);
+      expect(mockPrismaService.client.order.findMany).toHaveBeenNthCalledWith(
+        1,
+        objContaining({
+          where: objContaining({ status: OrderStatus.PENDING }),
+          take: 500,
+          orderBy: { id: 'asc' },
+        }),
+      );
+      expect(mockPrismaService.client.order.findMany).toHaveBeenNthCalledWith(
+        2,
+        objContaining({
+          cursor: { id: batch1[batch1.length - 1].id },
+          skip: 1,
+        }),
       );
     });
 

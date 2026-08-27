@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 import { api, extractApiError } from "@/lib/api";
+import { useEffect } from "react";
 import { Spinner, Card, EmptyState, Button, Badge } from "@/components/ui";
 import { Pager } from "@/components/admin/pager";
 import { reportCategoryLabel, reportCategoryBadgeVariant } from "@/lib/report-category";
@@ -39,11 +40,11 @@ export default function AdminReportsPage() {
 
   const { data, isLoading, isFetching, isError } = useQuery({
     queryKey: ["admin-reports", status, page],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await api.get<{
         data: ProductReport[];
         meta: { total: number; page: number; pages: number };
-      }>(`/reports/admin/all?status=${status}&page=${page}&limit=20`);
+      }>(`/reports/admin/all?status=${status}&page=${page}&limit=20`, { signal });
       return res.data;
     },
     // Igual que en las otras listas del panel: se conserva la página anterior
@@ -66,16 +67,14 @@ export default function AdminReportsPage() {
   const reports = data?.data ?? [];
   const meta = data?.meta;
 
-  // Dismissing the last open report on a page shrinks `meta.pages` without
-  // `page` following it down — Pager only clamps its own button clicks, and
-  // renders nothing once `pages <= 1`, leaving no way back except switching
-  // tabs. Clamped inline during render (same pattern as admin/products and
-  // mis-productos) rather than in a useEffect, which would setState after an
-  // extra committed render instead of before this one paints.
-  if (meta && meta.pages !== lastSeenPages) {
-    setLastSeenPages(meta.pages);
-    setPage((currentPage) => Math.min(currentPage, Math.max(1, meta.pages)));
-  }
+  useEffect(() => {
+    if (meta && meta.pages !== lastSeenPages) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clamp pagination when total pages shrink (external meta → local state sync)
+      setLastSeenPages(meta.pages);
+      setPage((currentPage) => Math.min(currentPage, Math.max(1, meta.pages)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- meta.pages is the stable primitive; meta ref changes every fetch
+  }, [meta?.pages, lastSeenPages]);
 
   const setTab = (next: StatusFilter) => {
     setStatus(next);
@@ -160,6 +159,7 @@ export default function AdminReportsPage() {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
+                      timeZone: "UTC",
                     })}
                   </p>
                   <p className="mt-2 whitespace-pre-line text-sm text-text-primary">
@@ -174,6 +174,7 @@ export default function AdminReportsPage() {
                         year: "numeric",
                         month: "long",
                         day: "numeric",
+                        timeZone: "UTC",
                       })}
                     </p>
                   )}

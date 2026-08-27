@@ -59,13 +59,11 @@ export default function AdminOrdersPage() {
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ["admin-orders", search, page],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await api.get<{
         data: Order[];
         meta: { total: number; page: number; pages: number };
-      }>(
-        `/orders/admin/all?search=${encodeURIComponent(search)}&page=${page}&limit=20`,
-      );
+      }>(`/orders/admin/all?search=${encodeURIComponent(search)}&page=${page}&limit=20`, { signal });
       return res.data;
     },
     // Cada término de búsqueda es una queryKey nueva: sin esto la página se

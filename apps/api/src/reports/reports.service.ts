@@ -57,8 +57,20 @@ export class ReportsService {
     });
   }
 
-  async getAll(query: any) {
-    const { page, limit, status: rawStatus } = query ?? {};
+  async getAll(query: unknown) {
+    const q =
+      query !== null && typeof query === 'object' && !Array.isArray(query)
+        ? (query as Record<string, unknown>)
+        : {};
+    const {
+      page,
+      limit,
+      status: rawStatus,
+    } = q as {
+      page?: unknown;
+      limit?: unknown;
+      status?: unknown;
+    };
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     // Defaults to only the reports nobody has acted on yet — dismiss() no

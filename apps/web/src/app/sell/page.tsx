@@ -23,6 +23,11 @@ import { readJson, writeJson, removeKey } from "@/lib/storage";
 
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
+const ALT_LIST_FORMATTER = new Intl.ListFormat("es", {
+  style: "long",
+  type: "conjunction",
+});
+
 const ACCEPTED_EXTENSIONS = ".jpg,.jpeg,.png,.webp";
 const MAX_FILE_SIZE_MB = 5;
 const MAX_FILES = 6;
@@ -283,8 +288,7 @@ function SellForm() {
       setError(
         missingAltPositions.length === 1
           ? `Falta la descripción de la foto ${missingAltPositions[0]}.`
-          : // ponytail: manual "y" for es conjunction; Intl.ListFormat if locale rules grow
-            `Faltan las descripciones de las fotos ${missingAltPositions.join(", ").replace(/, ([^,]*)$/, " y $1")}.`,
+          : `Faltan las descripciones de las fotos ${ALT_LIST_FORMATTER.format(missingAltPositions.map(String))}.`,
       );
       return;
     }

@@ -7,7 +7,7 @@ import {
   conditionLabel,
 } from "@/lib/product-condition";
 import type { PaginatedResponse, Product } from "@/lib/types";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -197,49 +197,61 @@ function ProductsBrowserContent({
   const appliedForm = toFormState(filters);
   const appliedSignature = JSON.stringify(appliedForm);
   const [form, setForm] = useState<FilterFormState>(appliedForm);
-  const [syncedSignature, setSyncedSignature] = useState(appliedSignature);
-  if (syncedSignature !== appliedSignature) {
-    setSyncedSignature(appliedSignature);
+  // Sync form when URL-driven filters change (back/forward or applyFilters).
+  // One setState instead of two (previously syncedSignature + form), avoiding
+  // the cascading render the lint rule flags. Signature is the stable key.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional URL→form sync, not derived render state
     setForm(appliedForm);
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- appliedForm is derived from appliedSignature; signature is the stable comparison key
+  }, [appliedSignature]);
 
-  const applyFilters = (next: ProductFilters) => {
-    if (!ownsUrl) {
-      setLocalFilters(next);
+  const applyFilters = useCallback(
+    (next: ProductFilters) => {
+      if (!ownsUrl) {
+        setLocalFilters(next);
+        requestAnimationFrame(() => gridRef.current?.focus());
+        return;
+      }
+      const nextQuery = queryFromFilters(next);
+      if (nextQuery === query) return;
+      router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+        scroll: false,
+      });
       requestAnimationFrame(() => gridRef.current?.focus());
-      return;
-    }
-    const nextQuery = queryFromFilters(next);
-    if (nextQuery === query) return;
-    router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
-      scroll: false,
-    });
-    requestAnimationFrame(() => gridRef.current?.focus());
-  };
+    },
+    [ownsUrl, query, pathname, router],
+  );
 
   // ponytail: 300ms live search, submit fallback
   const { searchInput, setSearchInput, search: debouncedSearch } =
     useDebouncedSearch();
   const isFirstSearch = useRef(true);
+  const filtersRef = useRef(filters);
+  const applyFiltersRef = useRef(applyFilters);
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
+  useEffect(() => {
+    applyFiltersRef.current = applyFilters;
+  }, [applyFilters]);
   useEffect(() => {
     setSearchInput(filters.search ?? "");
   }, [filters.search, setSearchInput]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (isFirstSearch.current) {
       isFirstSearch.current = false;
       return;
     }
     const v = debouncedSearch.trim() || undefined;
-    if ((filters.search || undefined) !== v) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      applyFilters({ ...filters, search: v, page: 1 });
+    if ((filtersRef.current.search || undefined) !== v) {
+      applyFiltersRef.current({ ...filtersRef.current, search: v, page: 1 });
     }
   }, [debouncedSearch]);
 
   const { data, isLoading, isFetching, isError, error } = useQuery({
     queryKey: ["products", filters],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const cleaned: Record<string, string | number> = {};
       for (const [k, v] of Object.entries(filters)) {
         if (v !== undefined && v !== null && v !== "") {
@@ -248,6 +260,7 @@ function ProductsBrowserContent({
       }
       const response = await api.get<PaginatedResponse<Product>>("/products", {
         params: cleaned,
+        signal,
       });
       return response.data;
     },
@@ -257,11 +270,11 @@ function ProductsBrowserContent({
 
   const { data: facets } = useQuery({
     queryKey: ["products-facets"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const response = await api.get<{
         brands: string[];
         categories: { name: string; count: number }[];
-      }>("/products/facets");
+      }>("/products/facets", { signal });
       return response.data;
     },
     enabled: showFilters,

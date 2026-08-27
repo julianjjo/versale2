@@ -36,13 +36,11 @@ export default function AdminUsersPage() {
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ["admin-users", search, role, page],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const res = await api.get<{
         data: User[];
         meta: { total: number; page: number; pages: number };
-      }>(
-        `/users?search=${encodeURIComponent(search)}&role=${role}&page=${page}&limit=20`,
-      );
+      }>(`/users?search=${encodeURIComponent(search)}&role=${role}&page=${page}&limit=20`, { signal });
       return res.data;
     },
     // Cada término de búsqueda es una queryKey nueva: sin esto la página se
@@ -56,10 +54,8 @@ export default function AdminUsersPage() {
   // búsqueda devolvía un solo admin, aunque hubiera diez más.
   const { data: totalAdmins } = useQuery({
     queryKey: ["admin-users-admin-count"],
-    queryFn: async () => {
-      const res = await api.get<{ meta: { total: number } }>(
-        "/users?role=ADMIN&page=1&limit=1",
-      );
+    queryFn: async ({ signal }) => {
+      const res = await api.get<{ meta: { total: number } }>("/users?role=ADMIN&page=1&limit=1", { signal });
       return res.data.meta.total;
     },
   });

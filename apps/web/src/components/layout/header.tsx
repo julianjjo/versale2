@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui";
@@ -9,6 +9,7 @@ import { NotificationBell } from "./notification-bell";
 
 export function Header() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isLoading, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
@@ -33,6 +34,11 @@ export function Header() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [isMenuOpen]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- close mobile menu on navigation, intentional UI sync
+    setIsMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (isMenuOpen) {
@@ -363,9 +369,15 @@ function MoreMenu({
 }: {
   items: { href: string; label: React.ReactNode }[];
 }) {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- close overflow menu on navigation, intentional UI sync
+    setIsOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!isOpen) return;

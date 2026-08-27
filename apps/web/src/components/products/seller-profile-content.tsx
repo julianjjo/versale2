@@ -14,6 +14,12 @@ export interface SellerProfile {
   activeListings: number;
 }
 
+const MEMBER_SINCE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
+  year: "numeric",
+  month: "long",
+  timeZone: "UTC",
+});
+
 export function SellerProfileContent({
   /** Profile already resolved on the server (see `app/vendedores/[id]/page.tsx`).
    *  Seeds the query so the page paints without a spinner. Unlike a product
@@ -29,10 +35,8 @@ export function SellerProfileContent({
 
   const { data, isLoading, isError, error } = useQuery<SellerProfile>({
     queryKey: ["seller-profile", params.id],
-    queryFn: async () => {
-      const response = await api.get<SellerProfile>(
-        `/products/sellers/${params.id}`,
-      );
+    queryFn: async ({ signal }) => {
+      const response = await api.get<SellerProfile>(`/products/sellers/${params.id}`, { signal });
       return response.data;
     },
     enabled: Boolean(params.id),
@@ -71,10 +75,9 @@ export function SellerProfileContent({
           <Spinner className="h-5 w-5" /> Cargando…
         </div>
       ) : (
-        // ponytail: memberSince per es-CO month/year via toLocaleDateString; Intl.DateTimeFormat with timeZone UTC if pinning needed
         <SectionHeader
           title={data.name}
-          description={`Miembro desde ${new Date(data.memberSince).toLocaleDateString("es-CO", { year: "numeric", month: "long", timeZone: "UTC" })} · ${data.activeListings} ${data.activeListings === 1 ? "publicación activa" : "publicaciones activas"}`}
+          description={`Miembro desde ${MEMBER_SINCE_FORMATTER.format(new Date(data.memberSince))} · ${data.activeListings} ${data.activeListings === 1 ? "publicación activa" : "publicaciones activas"}`}
         />
       )}
       {params.id && (

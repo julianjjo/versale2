@@ -66,6 +66,7 @@ describe("AdminOrdersPage", () => {
       () => {
         expect(api.get).toHaveBeenCalledWith(
           expect.stringContaining("search=ana"),
+          expect.objectContaining({ signal: expect.any(AbortSignal) }),
         );
       },
       { timeout: 5000 },
