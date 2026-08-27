@@ -59,4 +59,10 @@ describe("product-condition", () => {
     expect(isProductCondition("")).toBe(false);
     expect(isProductCondition("new")).toBe(false);
   });
+
+  it("isProductCondition trims whitespace", () => {
+    expect(isProductCondition(" New ")).toBe(true);
+    expect(isProductCondition("  Good  ")).toBe(true);
+    expect(isProductCondition("  Unknown  ")).toBe(false);
+  });
 });
