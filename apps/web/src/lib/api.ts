@@ -65,7 +65,7 @@ async function request<T>(
       signal: config?.signal,
     });
   } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    if ((err instanceof DOMException || err instanceof Error) && (err as { name?: string }).name === "AbortError") throw err;
     throw new ApiError(0, undefined);
   }
 
