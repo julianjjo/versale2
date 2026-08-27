@@ -40,4 +40,14 @@ describe("auth-events", () => {
     notifyUnauthorized();
     expect(h).not.toHaveBeenCalled();
   });
+
+  it("does not throw when window is undefined (SSR)", async () => {
+    vi.stubGlobal("window", undefined as unknown as Window & typeof globalThis);
+    const mod = await import("../auth-events");
+    expect(() => mod.notifyUnauthorized()).not.toThrow();
+    const off = mod.onUnauthorized(() => {});
+    expect(typeof off).toBe("function");
+    expect(() => off()).not.toThrow();
+    vi.unstubAllGlobals();
+  });
 });
