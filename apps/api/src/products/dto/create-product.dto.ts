@@ -79,12 +79,14 @@ export class ProductImageDto {
 }
 
 export class CreateProductDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'El título debe ser un texto' })
   @IsNotEmpty({ message: 'El título es obligatorio' })
   @Matches(/\S/, { message: 'El título es obligatorio' })
   @MaxLength(120, { message: 'El título no puede superar los 120 caracteres' })
   title!: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'La descripción debe ser un texto' })
   @IsNotEmpty({ message: 'La descripción es obligatoria' })
   @Matches(/\S/, { message: 'La descripción es obligatoria' })
