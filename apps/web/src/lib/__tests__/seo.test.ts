@@ -102,4 +102,12 @@ describe("buildProductJsonLd", () => {
     const json = buildProductJsonLd(product({ id: "a/b c" }), "https://versale.ar");
     expect(json.url).toBe("https://versale.ar/products/" + encodeURIComponent("a/b c"));
   });
+
+  it("trimmea availability status y coercea price string", () => {
+    const withSpaces = buildProductJsonLd(product({ status: "  AVAILABLE  " as unknown as Product["status"], price: "  45000  " as unknown as number }), "https://versale.ar");
+    expect(withSpaces.offers.availability).toBe("https://schema.org/InStock");
+    expect(withSpaces.offers.price).toBe(45000);
+    const withBlankPrice = buildProductJsonLd(product({ price: "   " as unknown as number }), "https://versale.ar");
+    expect(withBlankPrice.offers.price).toBe(0);
+  });
 });
