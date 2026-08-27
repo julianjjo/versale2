@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
 import { loginRedirectUrl, useAuth } from "@/lib/auth";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Button,
   Textarea,
@@ -116,6 +116,15 @@ export function ProductDetail({
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!success) return;
+    if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    successTimerRef.current = setTimeout(() => setSuccess(null), 3000);
+    return () => {
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    };
+  }, [success]);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
@@ -171,7 +180,6 @@ export function ProductDetail({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cart"] });
       setSuccess("Agregado al carrito");
-      setTimeout(() => setSuccess(null), 3000);
     },
     onError: (err) =>
       setError(extractApiError(err, "No pudimos agregarlo al carrito")),
@@ -190,7 +198,6 @@ export function ProductDetail({
       setComment("");
       setRating(5);
       setSuccess("Reseña publicada");
-      setTimeout(() => setSuccess(null), 3000);
     },
     onError: (err) =>
       setError(extractApiError(err, "No pudimos publicar la reseña")),
@@ -205,7 +212,6 @@ export function ProductDetail({
       setReplyingTo(null);
       setReplyText("");
       setSuccess("Respuesta publicada");
-      setTimeout(() => setSuccess(null), 3000);
     },
     onError: (err) =>
       setError(extractApiError(err, "No pudimos publicar la respuesta")),
@@ -222,7 +228,6 @@ export function ProductDetail({
       queryClient.invalidateQueries({ queryKey: ["product", id] });
       setEditingReviewId(null);
       setSuccess("Reseña actualizada");
-      setTimeout(() => setSuccess(null), 3000);
     },
     onError: (err) =>
       setError(extractApiError(err, "No pudimos actualizar tu reseña")),
@@ -235,7 +240,6 @@ export function ProductDetail({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["product", id] });
       setSuccess("Reseña eliminada");
-      setTimeout(() => setSuccess(null), 3000);
     },
     onError: (err) =>
       setError(extractApiError(err, "No pudimos eliminar tu reseña")),
@@ -399,7 +403,6 @@ export function ProductDetail({
                   onCopied={() => {
                     setError(null);
                     setSuccess("Enlace copiado");
-                    setTimeout(() => setSuccess(null), 3000);
                   }}
                   onError={(message) => {
                     setSuccess(null);
