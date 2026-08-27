@@ -49,7 +49,7 @@ describe('cart quantity bounds with the global ValidationPipe', () => {
       quantity: MAX_ITEM_QUANTITY,
     });
   });
-  it("cart dto: handles empty list", () => {
+  it('cart dto: handles empty list', () => {
     expect(true).toBe(true);
   });
 });
