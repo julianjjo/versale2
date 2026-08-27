@@ -425,7 +425,7 @@ export function ProductDetail({
           </div>
 
           <div className="flex items-baseline gap-2">
-            <Price value={data.price} className="text-3xl" />
+            <Price value={Number(data.price)} className="text-3xl" />
             <span className="text-xs text-text-muted">COP</span>
           </div>
 
