@@ -2275,7 +2275,6 @@ describe('OrdersService', () => {
           >;
         };
       };
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- mock.calls is any by design
       const usedCutoff = findManyMock.mock.calls[0][0].where.createdAt.lte;
       const diffHours = (Date.now() - usedCutoff.getTime()) / (60 * 60 * 1000);
       expect(diffHours).toBeGreaterThanOrEqual(23.99);
@@ -2357,15 +2356,15 @@ describe('OrdersService', () => {
       expect(mockPrismaService.client.order.findMany).toHaveBeenCalledTimes(2);
       expect(mockPrismaService.client.order.findMany).toHaveBeenNthCalledWith(
         1,
-        expect.objectContaining({
-          where: expect.objectContaining({ status: OrderStatus.PENDING }),
+        objContaining({
+          where: objContaining({ status: OrderStatus.PENDING }),
           take: 500,
           orderBy: { id: 'asc' },
         }),
       );
       expect(mockPrismaService.client.order.findMany).toHaveBeenNthCalledWith(
         2,
-        expect.objectContaining({
+        objContaining({
           cursor: { id: batch1[batch1.length - 1].id },
           skip: 1,
         }),
