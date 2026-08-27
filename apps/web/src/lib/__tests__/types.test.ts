@@ -47,6 +47,11 @@ describe("types - USER_ROLES", () => {
     expect(isUserRole("\vUSER\f")).toBe(true);
     expect(isUserRole("\v  \f")).toBe(false);
   });
+
+  it("isUserRole handles non-breaking space", () => {
+    expect(isUserRole("\u00A0USER\u00A0")).toBe(true);
+    expect(isUserRole("\u00A0  \u00A0")).toBe(false);
+  });
 });
 
 describe("types - NOTIFICATION_TYPES", () => {
