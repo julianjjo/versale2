@@ -160,5 +160,10 @@ describe("query-params", () => {
       expect(isProductSize(" \tM \n\r ")).toBe(true);
       expect(isProductSize(" \t  \n\r ")).toBe(false);
     });
+
+    it("isProductSize handles vertical tab and form feed", () => {
+      expect(isProductSize("\vM\f")).toBe(true);
+      expect(isProductSize("\v  \f")).toBe(false);
+    });
   });
 });
