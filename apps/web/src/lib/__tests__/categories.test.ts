@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   PRODUCT_CATEGORIES,
   DEFAULT_PRODUCT_CATEGORY,
+  isProductCategory,
 } from "../categories";
 
 describe("categories", () => {
@@ -36,5 +37,13 @@ describe("categories", () => {
     expect(new Set(PRODUCT_CATEGORIES).size).toBe(
       PRODUCT_CATEGORIES.length,
     );
+  });
+
+  it("isProductCategory guards correctly", () => {
+    expect(isProductCategory("Camisetas")).toBe(true);
+    expect(isProductCategory("Otros")).toBe(true);
+    expect(isProductCategory("Invalid")).toBe(false);
+    expect(isProductCategory("")).toBe(false);
+    expect(isProductCategory("camisetas")).toBe(false);
   });
 });
