@@ -91,4 +91,9 @@ describe("report-category", () => {
     expect(isReportCategory("\tFRAUD\n")).toBe(true);
     expect(isReportCategory("\t  \n")).toBe(false);
   });
+
+  it("isReportCategory handles all whitespace variants", () => {
+    expect(isReportCategory(" \tFRAUD \n\r ")).toBe(true);
+    expect(isReportCategory(" \t  \n\r ")).toBe(false);
+  });
 });
