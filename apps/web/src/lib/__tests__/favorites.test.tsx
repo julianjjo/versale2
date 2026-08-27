@@ -13,7 +13,12 @@ vi.mock("../auth", async (importOriginal) => {
 
 import { api } from "../api";
 import { useAuth } from "../auth";
-import { useFavorites, useFavoriteProductIds, useToggleFavorite } from "../favorites";
+import {
+  useFavorites,
+  useFavoriteProductIds,
+  useToggleFavorite,
+  FAVORITES_PAGE_LIMIT,
+} from "../favorites";
 
 const mockedApi = api as unknown as {
   get: ReturnType<typeof vi.fn>;
@@ -111,5 +116,9 @@ describe("favorites lib", () => {
       expect(spy).toHaveBeenCalledWith({ queryKey: ["favorites"] });
       expect(spy).toHaveBeenCalledWith({ queryKey: ["favorite-ids"] });
     });
+  });
+
+  it("exports FAVORITES_PAGE_LIMIT as 100", () => {
+    expect(FAVORITES_PAGE_LIMIT).toBe(100);
   });
 });
