@@ -114,6 +114,11 @@ describe("query-params", () => {
       expect(isSortByValue(" \tprice_asc \n\r ")).toBe(true);
       expect(isSortByValue(" \t  \n\r ")).toBe(false);
     });
+
+    it("isSortByValue handles vertical tab and form feed", () => {
+      expect(isSortByValue("\vprice_asc\f")).toBe(true);
+      expect(isSortByValue("\v  \f")).toBe(false);
+    });
   });
 
   describe("PRODUCT_SIZES / isProductSize", () => {
