@@ -198,6 +198,20 @@ describe("extractApiError", () => {
       "Default fallback",
     );
   });
+
+  it("trims whitespace in single message", () => {
+    const err = new ApiError(400, { message: "  Bad input  " });
+    expect(extractApiError(err, "fallback")).toBe("Bad input");
+  });
+
+  it("trims whitespace in multiple messages and filters empty", () => {
+    const err = new ApiError(400, {
+      message: ["  name required  ", "  ", "email required  "],
+    });
+    expect(extractApiError(err, "fallback")).toBe(
+      "name required, email required",
+    );
+  });
 });
 
 describe("extractApiError for blob downloads", () => {
