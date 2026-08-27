@@ -35,8 +35,8 @@ export function Header() {
     return () => document.removeEventListener("keydown", onKey);
   }, [isMenuOpen]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- close mobile menu on navigation, intentional UI sync
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- close mobile menu on navigation, intentional UI sync
     setIsMenuOpen(false);
   }, [pathname]);
 
@@ -374,8 +374,8 @@ function MoreMenu({
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- close overflow menu on navigation, intentional UI sync
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- close overflow menu on navigation, intentional UI sync
     setIsOpen(false);
   }, [pathname]);
 
