@@ -176,6 +176,11 @@ describe("types - PRODUCT_STATUSES", () => {
     expect(isProductStatus("\v  \f")).toBe(false);
   });
 
+  it("isProductStatus handles non-breaking space", () => {
+    expect(isProductStatus("\u00A0AVAILABLE\u00A0")).toBe(true);
+    expect(isProductStatus("\u00A0  \u00A0")).toBe(false);
+  });
+
   it("productStatusLabel returns Spanish label and falls back", () => {
     expect(productStatusLabel("AVAILABLE")).toBe("Disponible");
     expect(productStatusLabel("SOLD")).toBe("Vendido");
