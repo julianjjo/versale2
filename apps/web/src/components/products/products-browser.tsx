@@ -26,6 +26,11 @@ import { FavoriteButton } from "@/components/products/favorite-button";
 import { useAuth } from "@/lib/auth";
 import { PRODUCT_CATEGORIES } from "@/lib/categories";
 import { formatPublishDate } from "@/lib/format-date";
+import {
+  mergeFacetOptions,
+  parseAmount,
+  parsePage,
+} from "@/lib/query-params";
 import { useDebouncedSearch } from "@/lib/use-debounced-search";
 
 const SORT_OPTIONS = [
@@ -98,23 +103,6 @@ function toFormState(f?: ProductFilters): FilterFormState {
     condition: f?.condition ?? "",
     sortBy: f?.sortBy ?? "",
   };
-}
-
-function mergeFacetOptions(fetched: string[] | undefined, current: string): string[] {
-  const options = fetched ?? [];
-  return current && !options.some((o) => o.toLowerCase() === current.toLowerCase()) ? [current, ...options] : options;
-}
-
-function parseAmount(raw: string | null): number | undefined {
-  if (!raw || !raw.trim()) return undefined;
-  const n = Number(raw.trim());
-  return Number.isFinite(n) && n >= 0 ? n : undefined;
-}
-
-function parsePage(raw: string | null): number | undefined {
-  if (!raw || !raw.trim()) return undefined;
-  const n = Number(raw.trim());
-  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : undefined;
 }
 
 function filtersFromQuery(
