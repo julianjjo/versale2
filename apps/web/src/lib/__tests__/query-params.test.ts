@@ -190,5 +190,10 @@ describe("query-params", () => {
       expect(isProductSize("\u200BM\u200B")).toBe(false);
       expect(isProductSize("M")).toBe(true);
     });
+
+    it("isProductSize handles ideographic space", () => {
+      expect(isProductSize("\u3000M\u3000")).toBe(true);
+      expect(isProductSize("\u3000  \u3000")).toBe(false);
+    });
   });
 });
