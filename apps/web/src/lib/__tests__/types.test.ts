@@ -82,6 +82,11 @@ describe("types - NOTIFICATION_TYPES", () => {
     expect(isNotificationType(" \t  \n\r ")).toBe(false);
   });
 
+  it("isNotificationType handles vertical tab and form feed", () => {
+    expect(isNotificationType("\vORDER_SHIPPED\f")).toBe(true);
+    expect(isNotificationType("\v  \f")).toBe(false);
+  });
+
   it("notificationTypeLabel returns label and trims", () => {
     expect(notificationTypeLabel("ORDER_SHIPPED")).toBe("Pedido enviado");
     expect(notificationTypeLabel(" ORDER_SHIPPED ")).toBe("Pedido enviado");
