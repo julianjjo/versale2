@@ -42,7 +42,7 @@ function isUnavailable(item: CartItem): boolean {
 }
 
 function isProductPageViewable(item: CartItem): boolean {
-  return Boolean(item.product) && item.product.isApproved !== false && item.product.status !== "WITHDRAWN";
+  return !!item.product && item.product.isApproved !== false && item.product.status !== "WITHDRAWN";
 }
 
 type ShippingAddress = {
