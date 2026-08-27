@@ -136,6 +136,11 @@ describe("types - PRODUCT_STATUSES", () => {
     expect(isProductStatus("\r  \n")).toBe(false);
   });
 
+  it("isProductStatus handles all whitespace variants", () => {
+    expect(isProductStatus(" \tAVAILABLE \n\r ")).toBe(true);
+    expect(isProductStatus(" \t  \n\r ")).toBe(false);
+  });
+
   it("productStatusLabel returns Spanish label and falls back", () => {
     expect(productStatusLabel("AVAILABLE")).toBe("Disponible");
     expect(productStatusLabel("SOLD")).toBe("Vendido");
