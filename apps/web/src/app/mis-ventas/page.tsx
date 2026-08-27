@@ -274,9 +274,14 @@ export default function MisVentasPage() {
                   onSubmit={(e) => {
                     e.preventDefault();
                     setError(null);
+                    const tracking = (trackingDrafts[order.id] ?? "").trim();
+                    if (tracking.length > 100) {
+                      setError("El número de guía no puede superar los 100 caracteres");
+                      return;
+                    }
                     ship.mutate({
                       orderId: order.id,
-                      trackingNumber: trackingDrafts[order.id] ?? "",
+                      trackingNumber: tracking || undefined,
                     });
                   }}
                   className="mt-3 flex flex-wrap items-end gap-2"
