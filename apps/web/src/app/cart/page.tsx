@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -67,6 +67,11 @@ export default function CartPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  useEffect(() => {
+    if (!announcement) return;
+    const t = setTimeout(() => setAnnouncement(""), 3000);
+    return () => clearTimeout(t);
+  }, [announcement]);
   const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
     street: "",
     city: "",
