@@ -401,7 +401,7 @@ export default function CartPage() {
                     productTitle: item.product?.title ?? "el producto",
                   })
                 }
-                isRemoving={removeItem.isPending}
+                isRemoving={removeItem.isPending && (removeItem.variables as { itemId: string } | undefined)?.itemId === item.id}
               />
             ))}
           </div>
