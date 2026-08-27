@@ -295,6 +295,11 @@ function SellForm() {
       );
       return;
     }
+    const priceNum = Number(form.price);
+    if (!Number.isFinite(priceNum) || !Number.isInteger(priceNum) || priceNum < 1 || priceNum > 100_000_000) {
+      setError("El precio debe ser un número entero entre 1 y 100.000.000.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       await api.post("/products", {
@@ -304,7 +309,7 @@ function SellForm() {
         brand: form.brand || undefined,
         size: form.size,
         condition: form.condition,
-        price: Number(form.price),
+        price: priceNum,
         images:
           uploadedImages.length > 0
             ? uploadedImages.map((img) => ({ url: img.url as string, alt: img.alt.trim() }))
