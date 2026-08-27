@@ -85,4 +85,9 @@ describe("product-condition", () => {
     expect(isProductCondition("\vNew\f")).toBe(true);
     expect(isProductCondition("\v  \f")).toBe(false);
   });
+
+  it("isProductCondition handles non-breaking space", () => {
+    expect(isProductCondition("\u00A0New\u00A0")).toBe(true);
+    expect(isProductCondition("\u00A0  \u00A0")).toBe(false);
+  });
 });
