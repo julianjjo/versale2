@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { tokenStore } from "../token";
 
 describe("tokenStore", () => {
@@ -51,5 +51,17 @@ describe("tokenStore", () => {
     expect(notified).toBe(1);
     window.dispatchEvent(new StorageEvent("storage", { key: "other_key" }));
     expect(notified).toBe(1);
+  });
+
+  it("does not throw when window is undefined (SSR)", async () => {
+    vi.stubGlobal("window", undefined as unknown as Window & typeof globalThis);
+    const mod = await import("../token");
+    expect(() => mod.tokenStore.set("tok")).not.toThrow();
+    expect(() => mod.tokenStore.clear()).not.toThrow();
+    expect(mod.tokenStore.subscribe(() => {})()).not.toThrow;
+    const off = mod.tokenStore.subscribe(() => {});
+    expect(typeof off).toBe("function");
+    expect(() => off()).not.toThrow();
+    vi.unstubAllGlobals();
   });
 });
