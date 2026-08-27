@@ -126,6 +126,11 @@ describe("order-status", () => {
     expect(isOrderStatus(" \t  \n\r ")).toBe(false);
   });
 
+  it("isOrderStatus handles zero-width space (not trimmed)", () => {
+    expect(isOrderStatus("\u200BPENDING\u200B")).toBe(false);
+    expect(isOrderStatus("PENDING")).toBe(true);
+  });
+
   it("isOrderStatus handles non-breaking space", () => {
     expect(isOrderStatus("\u00A0PENDING\u00A0")).toBe(true);
     expect(isOrderStatus("\u00A0  \u00A0")).toBe(false);
