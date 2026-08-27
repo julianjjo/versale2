@@ -104,6 +104,11 @@ describe("query-params", () => {
       expect(isSortByValue("\tprice_asc\n")).toBe(true);
       expect(isSortByValue("\t  \n")).toBe(false);
     });
+
+    it("isSortByValue handles carriage return", () => {
+      expect(isSortByValue("\rprice_asc\r")).toBe(true);
+      expect(isSortByValue("\r  \n")).toBe(false);
+    });
   });
 
   describe("PRODUCT_SIZES / isProductSize", () => {
