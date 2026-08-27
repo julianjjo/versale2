@@ -65,4 +65,9 @@ describe("product-condition", () => {
     expect(isProductCondition("  Good  ")).toBe(true);
     expect(isProductCondition("  Unknown  ")).toBe(false);
   });
+
+  it("isProductCondition handles carriage return", () => {
+    expect(isProductCondition("\rNew\r")).toBe(true);
+    expect(isProductCondition("\r  \n")).toBe(false);
+  });
 });
