@@ -3,9 +3,11 @@ import {
   USER_ROLES,
   NOTIFICATION_TYPES,
   REPORT_STATUSES,
+  PRODUCT_STATUSES,
   isUserRole,
   isNotificationType,
   isReportStatus,
+  isProductStatus,
 } from "../types";
 
 describe("types - USER_ROLES", () => {
@@ -64,5 +66,23 @@ describe("types - REPORT_STATUSES", () => {
 
   it("isReportStatus trims whitespace", () => {
     expect(isReportStatus(" OPEN ")).toBe(true);
+  });
+});
+
+describe("types - PRODUCT_STATUSES", () => {
+  it("defines 3 product statuses", () => {
+    expect(PRODUCT_STATUSES).toEqual(["AVAILABLE", "SOLD", "WITHDRAWN"]);
+  });
+
+  it("isProductStatus guards correctly", () => {
+    expect(isProductStatus("AVAILABLE")).toBe(true);
+    expect(isProductStatus("SOLD")).toBe(true);
+    expect(isProductStatus("WITHDRAWN")).toBe(true);
+    expect(isProductStatus("UNKNOWN")).toBe(false);
+    expect(isProductStatus("")).toBe(false);
+  });
+
+  it("isProductStatus trims whitespace", () => {
+    expect(isProductStatus(" AVAILABLE ")).toBe(true);
   });
 });

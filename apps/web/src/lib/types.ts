@@ -20,6 +20,13 @@ export interface User {
   isVerified?: boolean;
 }
 
+export const PRODUCT_STATUSES = ["AVAILABLE", "SOLD", "WITHDRAWN"] as const;
+export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
+
+export function isProductStatus(value: string): value is ProductStatus {
+  return (PRODUCT_STATUSES as readonly string[]).includes(value.trim());
+}
+
 export interface Product {
   id: string;
   title: string;
@@ -32,7 +39,7 @@ export interface Product {
   sellerId: string;
   isApproved: boolean;
   rejectedAt?: string | null;
-  status: "AVAILABLE" | "SOLD" | "WITHDRAWN";
+  status: ProductStatus;
   pausedAt?: string | null;
   rejectionReason?: string | null;
   createdAt: string;
