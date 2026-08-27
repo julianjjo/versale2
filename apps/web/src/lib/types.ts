@@ -34,7 +34,8 @@ export const PRODUCT_STATUS_LABEL: Record<ProductStatus, string> = {
 };
 
 export function productStatusLabel(status: string): string {
-  return (PRODUCT_STATUS_LABEL as Record<string, string>)[status] ?? status;
+  const t=status.trim();
+  return (PRODUCT_STATUS_LABEL as Record<string, string>)[t] ?? status;
 }
 
 export interface Product {
