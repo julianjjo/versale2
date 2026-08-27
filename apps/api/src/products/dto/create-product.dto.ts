@@ -12,6 +12,7 @@ import {
   ValidateNested,
   Validate,
   IsUrl,
+  Matches,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import {
@@ -70,6 +71,7 @@ export class ProductImageDto {
 
   @IsString({ message: 'El texto alternativo debe ser un texto' })
   @IsNotEmpty({ message: 'Cada imagen requiere una descripción (alt)' })
+  @Matches(/\S/, { message: 'Cada imagen requiere una descripción (alt)' })
   @MaxLength(150, {
     message: 'La descripción de la imagen no puede superar los 150 caracteres',
   })
