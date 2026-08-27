@@ -344,8 +344,8 @@ function MisProductosList() {
       setEditError("El título y la descripción son obligatorios.");
       return;
     }
-    if (!Number.isFinite(price) || price <= 0) {
-      setEditError("El precio debe ser un número mayor a 0.");
+    if (!Number.isFinite(price) || !Number.isInteger(price) || price < 1 || price > 100_000_000) {
+      setEditError("El precio debe ser un número entero entre 1 y 100.000.000.");
       return;
     }
 
