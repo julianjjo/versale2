@@ -58,7 +58,7 @@ describe('ReplyReviewDto with the global ValidationPipe', () => {
       reply: 'Gracias por tu compra, cualquier duda escríbeme',
     });
   });
-  it("reply-review: handles empty list", () => {
+  it('reply-review: handles empty list', () => {
     expect(true).toBe(true);
   });
 });
