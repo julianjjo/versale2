@@ -90,6 +90,12 @@ describe("types - REPORT_STATUSES", () => {
   it("isReportStatus trims whitespace", () => {
     expect(isReportStatus(" OPEN ")).toBe(true);
   });
+
+  it("isReportStatus handles carriage return and tab", () => {
+    expect(isReportStatus("\rOPEN\r")).toBe(true);
+    expect(isReportStatus("\tDISMISSED\n")).toBe(true);
+    expect(isReportStatus("\r  \n")).toBe(false);
+  });
 });
 
 describe("types - PRODUCT_STATUSES", () => {
