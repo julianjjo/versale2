@@ -56,7 +56,7 @@ export function Header() {
     const panel = menuPanelRef.current;
     if (!panel) return;
     const focusable = panel.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled])',
+      "a[href], button:not([disabled])",
     );
     focusable[0]?.focus();
 
@@ -77,9 +77,7 @@ export function Header() {
   }, [isMenuOpen]);
 
   return (
-    <header
-      className="sticky top-0 z-40 border-b border-line bg-surface/90 backdrop-blur supports-[backdrop-filter]:bg-surface/75"
-    >
+    <header className="sticky top-0 z-40 border-b border-line bg-surface/90 backdrop-blur supports-[backdrop-filter]:bg-surface/75">
       <div className="mx-auto flex h-[var(--header-h)] w-full max-w-[1320px] items-center justify-between gap-2 px-5 sm:px-8">
         <Link
           href="/"

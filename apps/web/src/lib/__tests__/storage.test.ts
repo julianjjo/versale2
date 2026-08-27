@@ -51,7 +51,8 @@ describe("storage", () => {
         value: string,
       ) {
         attempt++;
-        if (attempt === 1) throw new DOMException("quota", "QuotaExceededError");
+        if (attempt === 1)
+          throw new DOMException("quota", "QuotaExceededError");
         return originalSetItem.call(this, key, value);
       });
       expect(() => writeJson("quota-key", { v: 1 })).not.toThrow();

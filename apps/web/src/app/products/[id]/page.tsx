@@ -6,7 +6,6 @@ import type { Product } from "@/lib/types";
 import { API_URL, SITE_URL } from "@/lib/site";
 import { buildProductJsonLd } from "@/lib/seo";
 
-
 // The listing is resolved on the server first so a product that no longer
 // exists (deleted, rejected, never approved) answers with a real HTTP 404
 // instead of a 200 that merely *looks* like an error page: crawlers, uptime
@@ -17,32 +16,41 @@ import { buildProductJsonLd } from "@/lib/seo";
 // without this, generateMetadata below and the page body each fired their
 // own real request to the API for the same render, despite the comment that
 // used to live on generateMetadata claiming otherwise.
-const lookupProduct = cache(async (id: string): Promise<Product | null | undefined> => {
-  try {
-    const response = await fetch(
-      `${API_URL}/products/${encodeURIComponent(id)}`,
-      {
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-        // A hung API must not stall the whole page response: an aborted
-        // fetch throws, which the catch below already degrades to
-        // "unavailable" so the client query can offer a retry instead.
-        signal: AbortSignal.timeout(5000),
-      },
-    );
-    if (response.status === 404) return null;
-    if (!response.ok) return undefined;
-    return (await response.json()) as Product;
-  } catch {
-    // API unreachable: not a reason to claim the product is gone. Fall through
-    // to the client query so the visitor gets the retryable error state.
-    return undefined;
-  }
-});
+const lookupProduct = cache(
+  async (id: string): Promise<Product | null | undefined> => {
+    try {
+      const response = await fetch(
+        `${API_URL}/products/${encodeURIComponent(id)}`,
+        {
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+          // A hung API must not stall the whole page response: an aborted
+          // fetch throws, which the catch below already degrades to
+          // "unavailable" so the client query can offer a retry instead.
+          signal: AbortSignal.timeout(5000),
+        },
+      );
+      if (response.status === 404) return null;
+      if (!response.ok) return undefined;
+      return (await response.json()) as Product;
+    } catch {
+      // API unreachable: not a reason to claim the product is gone. Fall through
+      // to the client query so the visitor gets the retryable error state.
+      return undefined;
+    }
+  },
+);
 
 function truncateGrapheme(str: string, max: number): string {
   if (str.length <= max) return str;
-  const Seg = (Intl as unknown as { Segmenter?: new (l: string, o: { granularity: string }) => { segment(s: string): Iterable<{ segment: string }> } }).Segmenter;
+  const Seg = (
+    Intl as unknown as {
+      Segmenter?: new (
+        l: string,
+        o: { granularity: string },
+      ) => { segment(s: string): Iterable<{ segment: string }> };
+    }
+  ).Segmenter;
   const seg = Seg ? new Seg("es", { granularity: "grapheme" }) : null;
   const graphemes: string[] = seg
     ? [...seg.segment(str)].map((s) => s.segment)
@@ -124,7 +132,9 @@ export default async function ProductPage({
       <>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+          }}
         />
         <ProductDetail initialProduct={product} />
       </>

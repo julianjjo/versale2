@@ -80,7 +80,11 @@ export function ProductGallery({
         </div>
       )}
       {activeImage && (
-        <Modal open={zoomOpen} onClose={() => setZoomOpen(false)} title={activeAlt}>
+        <Modal
+          open={zoomOpen}
+          onClose={() => setZoomOpen(false)}
+          title={activeAlt}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={activeImage.url}

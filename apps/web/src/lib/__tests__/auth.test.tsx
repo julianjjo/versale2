@@ -219,9 +219,9 @@ describe("useAuth", () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
-      await expect(
-        result.current.login("x@y.z", "wrong"),
-      ).rejects.toThrow("Invalid credentials");
+      await expect(result.current.login("x@y.z", "wrong")).rejects.toThrow(
+        "Invalid credentials",
+      );
     });
 
     expect(clearSpy).not.toHaveBeenCalled();

@@ -1,6 +1,12 @@
-export function mergeFacetOptions(fetched: string[] | undefined, current: string): string[] {
+export function mergeFacetOptions(
+  fetched: string[] | undefined,
+  current: string,
+): string[] {
   const options = fetched ?? [];
-  return current && !options.some((o) => o.toLowerCase() === current.toLowerCase()) ? [current, ...options] : options;
+  return current &&
+    !options.some((o) => o.toLowerCase() === current.toLowerCase())
+    ? [current, ...options]
+    : options;
 }
 
 export function parseAmount(raw: string | null): number | undefined {

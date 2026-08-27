@@ -20,9 +20,7 @@ describe("report-category", () => {
 
   it("labels every category in Spanish", () => {
     expect(REPORT_CATEGORY_LABELS.FRAUD).toBe("Estafa o fraude");
-    expect(REPORT_CATEGORY_LABELS.INAPPROPRIATE).toBe(
-      "Contenido inapropiado",
-    );
+    expect(REPORT_CATEGORY_LABELS.INAPPROPRIATE).toBe("Contenido inapropiado");
     expect(REPORT_CATEGORY_LABELS.MISMATCH).toBe(
       "No coincide con la descripción",
     );

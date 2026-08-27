@@ -48,7 +48,8 @@ async function request<T>(
   body?: unknown,
   config?: RequestConfig,
 ): Promise<{ data: T }> {
-  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  const isFormData =
+    typeof FormData !== "undefined" && body instanceof FormData;
   const headers: Record<string, string> = {};
   const token = tokenStore.get();
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -61,11 +62,20 @@ async function request<T>(
     response = await fetch(buildUrl(path, config), {
       method,
       headers,
-      body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
+      body:
+        body === undefined
+          ? undefined
+          : isFormData
+            ? (body as FormData)
+            : JSON.stringify(body),
       signal: config?.signal,
     });
   } catch (err) {
-    if ((err instanceof DOMException || err instanceof Error) && (err as { name?: string }).name === "AbortError") throw err;
+    if (
+      (err instanceof DOMException || err instanceof Error) &&
+      (err as { name?: string }).name === "AbortError"
+    )
+      throw err;
     throw new ApiError(0, undefined);
   }
 
@@ -86,7 +96,9 @@ async function request<T>(
   try {
     return { data: JSON.parse(text) as T };
   } catch {
-    throw new ApiError(response.status, { message: "Respuesta no válida del servidor" });
+    throw new ApiError(response.status, {
+      message: "Respuesta no válida del servidor",
+    });
   }
 }
 
@@ -118,11 +130,13 @@ export function extractApiError(
         return "Sin conexión. Verifica tu internet.";
       }
       const data = err.response.data as
-        | { message?: string | string[] }
-        | undefined;
+        { message?: string | string[] } | undefined;
       if (data?.message) {
         const raw = Array.isArray(data.message)
-          ? data.message.map((m) => String(m).trim()).filter(Boolean).join(", ")
+          ? data.message
+              .map((m) => String(m).trim())
+              .filter(Boolean)
+              .join(", ")
           : String(data.message).trim();
         if (raw) return raw;
       }
@@ -132,18 +146,18 @@ export function extractApiError(
       return fallback;
     }
     const data = err.response.data as
-      | { message?: string | string[] }
-      | undefined;
+      { message?: string | string[] } | undefined;
     if (data?.message) {
       const raw = Array.isArray(data.message)
-          ? data.message.map((m) => String(m).trim()).filter(Boolean).join(", ")
-          : String(data.message).trim();
-        if (raw) return raw;
+        ? data.message
+            .map((m) => String(m).trim())
+            .filter(Boolean)
+            .join(", ")
+        : String(data.message).trim();
+      if (raw) return raw;
     }
     return fallback;
   }
   if (err instanceof Error) return err.message;
   return fallback;
 }
-
-

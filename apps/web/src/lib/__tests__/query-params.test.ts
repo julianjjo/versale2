@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  mergeFacetOptions,
-  parseAmount,
-  parsePage,
-} from "../query-params";
+import { mergeFacetOptions, parseAmount, parsePage } from "../query-params";
 
 describe("query-params", () => {
   describe("mergeFacetOptions", () => {
@@ -13,10 +9,7 @@ describe("query-params", () => {
     });
 
     it("prepends current when not in fetched (case-insensitive)", () => {
-      expect(mergeFacetOptions(["Nike"], "Adidas")).toEqual([
-        "Adidas",
-        "Nike",
-      ]);
+      expect(mergeFacetOptions(["Nike"], "Adidas")).toEqual(["Adidas", "Nike"]);
     });
 
     it("does not duplicate when case-insensitive match", () => {

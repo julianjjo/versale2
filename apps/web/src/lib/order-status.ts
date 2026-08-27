@@ -66,4 +66,3 @@ export const ORDER_STATUS_REASSURANCE: Record<OrderStatus, string> = {
     "Tu disputa está en revisión por un administrador. Te avisaremos la resolución.",
   REFUNDED: "El monto de este pedido te fue reembolsado.",
 };
-

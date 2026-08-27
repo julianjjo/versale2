@@ -63,7 +63,10 @@ export default function AdminOrdersPage() {
       const res = await api.get<{
         data: Order[];
         meta: { total: number; page: number; pages: number };
-      }>(`/orders/admin/all?search=${encodeURIComponent(search)}&page=${page}&limit=20`, { signal });
+      }>(
+        `/orders/admin/all?search=${encodeURIComponent(search)}&page=${page}&limit=20`,
+        { signal },
+      );
       return res.data;
     },
     // Cada término de búsqueda es una queryKey nueva: sin esto la página se
@@ -170,7 +173,9 @@ export default function AdminOrdersPage() {
     // Pase lo que pase, la lista se recarga: nunca dejamos estados obsoletos.
     onSettled: invalidateOrders,
     onError: (err) =>
-      setError(extractApiError(err, "No pudimos actualizar los pedidos seleccionados")),
+      setError(
+        extractApiError(err, "No pudimos actualizar los pedidos seleccionados"),
+      ),
   });
 
   const orders = data?.data ?? [];
@@ -228,10 +233,7 @@ export default function AdminOrdersPage() {
   }, [selected.size, bulkUpdateStatus.isPending]);
 
   return (
-    <div
-      className={plexMono.variable}
-      style={{ paddingBottom: bulkBarHeight }}
-    >
+    <div className={plexMono.variable} style={{ paddingBottom: bulkBarHeight }}>
       <h1 className="heading-section mb-4 text-text-primary">
         Todos los pedidos
       </h1>
@@ -274,7 +276,11 @@ export default function AdminOrdersPage() {
         </div>
       ) : orders.length === 0 ? (
         <EmptyState
-          title={search ? "Ningún pedido coincide con la búsqueda" : "Aún no hay pedidos"}
+          title={
+            search
+              ? "Ningún pedido coincide con la búsqueda"
+              : "Aún no hay pedidos"
+          }
         />
       ) : (
         <div aria-busy={isFetching}>
@@ -314,7 +320,9 @@ export default function AdminOrdersPage() {
                         {order.items.length} producto
                         {order.items.length === 1 ? "" : "s"} ·{" "}
                         <Price value={order.totalAmount} /> ·{" "}
-                        {new Date(order.createdAt).toLocaleDateString("es-CO", { timeZone: "UTC" })}
+                        {new Date(order.createdAt).toLocaleDateString("es-CO", {
+                          timeZone: "UTC",
+                        })}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 sm:flex-shrink-0">

@@ -25,7 +25,9 @@ export const REPORT_CATEGORY_LABELS: Record<ReportCategory, string> = {
 /** Falls back to the raw value so an unknown category still renders. */
 export function reportCategoryLabel(category: string): string {
   const trimmed = category.trim();
-  return (REPORT_CATEGORY_LABELS as Record<string, string>)[trimmed] ?? category;
+  return (
+    (REPORT_CATEGORY_LABELS as Record<string, string>)[trimmed] ?? category
+  );
 }
 
 /** Options for the report form's category `<select>`, derived from the same map. */
@@ -59,8 +61,11 @@ export function reportCategoryBadgeVariant(
 ): ReportCategoryBadgeVariant {
   const trimmed = category.trim();
   return (
-    (REPORT_CATEGORY_BADGE_VARIANTS as Record<string, ReportCategoryBadgeVariant>)[
-      trimmed
-    ] ?? "default"
+    (
+      REPORT_CATEGORY_BADGE_VARIANTS as Record<
+        string,
+        ReportCategoryBadgeVariant
+      >
+    )[trimmed] ?? "default"
   );
 }

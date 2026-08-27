@@ -1,13 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { TestProviders, createTestQueryClient } from "@/test-utils/TestProviders";
+import {
+  TestProviders,
+  createTestQueryClient,
+} from "@/test-utils/TestProviders";
 
 vi.mock("../api", () => ({
   api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
 }));
 vi.mock("../auth", async (importOriginal) => {
-  const actual = await importOriginal() as Record<string, unknown>;
+  const actual = (await importOriginal()) as Record<string, unknown>;
   return { ...actual, useAuth: vi.fn() };
 });
 

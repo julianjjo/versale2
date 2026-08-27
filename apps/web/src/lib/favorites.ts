@@ -21,7 +21,9 @@ export function useFavorites() {
   });
 }
 
-export function useFavoriteProductIds(options?: { enabled?: boolean }): Set<string> {
+export function useFavoriteProductIds(options?: {
+  enabled?: boolean;
+}): Set<string> {
   const { user } = useAuth();
   const { data } = useQuery<{ productIds: string[] }>({
     queryKey: ["favorite-ids"],

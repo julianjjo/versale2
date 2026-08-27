@@ -88,9 +88,7 @@ function StarRatingInput({
               }
             }}
             className={`flex h-11 w-11 items-center justify-center text-2xl transition-colors ${
-              n <= value
-                ? "text-warning"
-                : "text-border hover:text-text-muted"
+              n <= value ? "text-warning" : "text-border hover:text-text-muted"
             }`}
             aria-label={`${n} estrella${n === 1 ? "" : "s"}`}
           >
@@ -156,7 +154,10 @@ export function ProductDetail({
   const { data: related } = useQuery<{ data: Product[] }>({
     queryKey: ["product-related", id],
     queryFn: async ({ signal }) => {
-      const response = await api.get<{ data: Product[] }>(`/products/${id}/related`, { signal });
+      const response = await api.get<{ data: Product[] }>(
+        `/products/${id}/related`,
+        { signal },
+      );
       return response.data;
     },
     enabled: Boolean(id),
@@ -165,9 +166,7 @@ export function ProductDetail({
   const relatedProducts = related?.data ?? [];
 
   useRecordProductView(
-    data && !isAuthLoading && user?.id !== data.sellerId
-      ? data.id
-      : undefined,
+    data && !isAuthLoading && user?.id !== data.sellerId ? data.id : undefined,
   );
 
   const addToCart = useMutation({
@@ -571,7 +570,9 @@ export function ProductDetail({
                         size="sm"
                         disabled={updateReview.isPending}
                       >
-                        {updateReview.isPending ? "Guardando…" : "Guardar cambios"}
+                        {updateReview.isPending
+                          ? "Guardando…"
+                          : "Guardar cambios"}
                       </Button>
                       <Button
                         type="button"
@@ -592,7 +593,9 @@ export function ProductDetail({
                       </p>
                     )}
                     <p className="mt-2 text-xs text-text-muted">
-                      {new Date(review.createdAt).toLocaleDateString("es-CO", { timeZone: "UTC" })}
+                      {new Date(review.createdAt).toLocaleDateString("es-CO", {
+                        timeZone: "UTC",
+                      })}
                     </p>
                   </>
                 )}
@@ -635,7 +638,9 @@ export function ProductDetail({
                         onClick={() => handleDeleteReview(review.id)}
                         disabled={deleteReview.isPending}
                       >
-                        {deleteReview.isPending ? "Eliminando…" : "Eliminar reseña"}
+                        {deleteReview.isPending
+                          ? "Eliminando…"
+                          : "Eliminar reseña"}
                       </Button>
                     </div>
                   )}

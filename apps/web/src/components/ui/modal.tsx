@@ -1,5 +1,11 @@
 "use client";
-import { useEffect, useEffectEvent, useId, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useId,
+  useRef,
+  type ReactNode,
+} from "react";
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 export function Modal({
@@ -23,7 +29,8 @@ export function Modal({
     const panel = panelRef.current;
     if (!panel) return;
     const previouslyFocused = document.activeElement as HTMLElement | null;
-    const focusable = () => Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
+    const focusable = () =>
+      Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
     (focusable()[0] ?? panel).focus();
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -58,7 +65,11 @@ export function Modal({
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-ink/40" aria-hidden="true" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-ink/40"
+        aria-hidden="true"
+        onClick={onClose}
+      />
       <div
         ref={panelRef}
         role="dialog"

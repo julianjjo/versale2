@@ -38,11 +38,20 @@ function isWithdrawn(item: CartItem): boolean {
 }
 
 function isUnavailable(item: CartItem): boolean {
-  return !item.product || (Boolean(item.product.status) && item.product.status !== "AVAILABLE") || item.product.isApproved === false || isPaused(item);
+  return (
+    !item.product ||
+    (Boolean(item.product.status) && item.product.status !== "AVAILABLE") ||
+    item.product.isApproved === false ||
+    isPaused(item)
+  );
 }
 
 function isProductPageViewable(item: CartItem): boolean {
-  return Boolean(item.product) && item.product.isApproved !== false && item.product.status !== "WITHDRAWN";
+  return (
+    !!item.product &&
+    item.product.isApproved !== false &&
+    item.product.status !== "WITHDRAWN"
+  );
 }
 
 type ShippingAddress = {
@@ -59,7 +68,8 @@ const REQUIRED_ADDRESS_FIELDS: Array<keyof ShippingAddress> = [
   "country",
 ];
 
-const INCOMPLETE_ADDRESS_ERROR = "Completa la dirección de envío para continuar.";
+const INCOMPLETE_ADDRESS_ERROR =
+  "Completa la dirección de envío para continuar.";
 
 export default function CartPage() {
   const router = useRouter();
@@ -124,9 +134,7 @@ export default function CartPage() {
     Array.isArray(previousOrders) ? previousOrders : []
   ).find((order) => {
     const address = order.shippingAddress as
-      | Record<string, unknown>
-      | null
-      | undefined;
+      Record<string, unknown> | null | undefined;
     return (
       !!address &&
       REQUIRED_ADDRESS_FIELDS.every(
@@ -202,16 +210,22 @@ export default function CartPage() {
 
   const checkout = useMutation({
     mutationFn: async () => {
-      const { data } = await api.post<{ id: string }>('/orders', {
+      const { data } = await api.post<{ id: string }>("/orders", {
         shippingAddress,
       });
       return data;
     },
     onSuccess: (created) => {
-      setShippingAddress({ street: "", city: "", state: "", zip: "", country: "" });
+      setShippingAddress({
+        street: "",
+        city: "",
+        state: "",
+        zip: "",
+        country: "",
+      });
       setAddressErrors({});
-      queryClient.invalidateQueries({ queryKey: ['cart'] });
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ["cart"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
       router.push(`/orders/${created.id}`);
     },
     onError: async (err) => {
@@ -221,13 +235,14 @@ export default function CartPage() {
         return;
       }
       try {
-        const { data: freshCart } = await api.get<Cart>('/cart');
+        const { data: freshCart } = await api.get<Cart>("/cart");
         if (freshCart.items.length === 0) {
-          const { data: recentOrders } = await api.get<
-            PaginatedResponse<Order>
-          >('/orders?limit=1');
+          const { data: recentOrders } =
+            await api.get<PaginatedResponse<Order>>("/orders?limit=1");
           const justPlaced = recentOrders.data[0];
-          const createdAtMs = justPlaced ? new Date(justPlaced.createdAt).getTime() : NaN;
+          const createdAtMs = justPlaced
+            ? new Date(justPlaced.createdAt).getTime()
+            : NaN;
           const ageMs = justPlaced ? Date.now() - createdAtMs : Infinity;
           const isFreshEnoughToBeOurs =
             justPlaced &&
@@ -235,16 +250,21 @@ export default function CartPage() {
             ageMs >= 0 &&
             ageMs < RECENT_ORDER_WINDOW_MS;
           if (isFreshEnoughToBeOurs) {
-            setShippingAddress({ street: "", city: "", state: "", zip: "", country: "" });
+            setShippingAddress({
+              street: "",
+              city: "",
+              state: "",
+              zip: "",
+              country: "",
+            });
             setAddressErrors({});
-            queryClient.invalidateQueries({ queryKey: ['cart'] });
-            queryClient.invalidateQueries({ queryKey: ['orders'] });
+            queryClient.invalidateQueries({ queryKey: ["cart"] });
+            queryClient.invalidateQueries({ queryKey: ["orders"] });
             router.push(`/orders/${justPlaced.id}`);
             return;
           }
         }
-      } catch {
-      }
+      } catch {}
       setError(extractApiError(err, "No pudimos procesar el pago"));
     },
   });
@@ -318,7 +338,10 @@ export default function CartPage() {
 
   const items = data?.items ?? [];
   const unavailableItems = items.filter(isUnavailable);
-  const total = items.reduce((sum, it) => (isUnavailable(it) ? sum : sum + it.priceAtAdd * it.quantity), 0);
+  const total = items.reduce(
+    (sum, it) => (isUnavailable(it) ? sum : sum + it.priceAtAdd * it.quantity),
+    0,
+  );
 
   return (
     <PageContainer size="default">
@@ -405,7 +428,11 @@ export default function CartPage() {
                     productTitle: item.product?.title ?? "el producto",
                   })
                 }
-                isRemoving={removeItem.isPending && (removeItem.variables as { itemId: string } | undefined)?.itemId === item.id}
+                isRemoving={
+                  removeItem.isPending &&
+                  (removeItem.variables as { itemId: string } | undefined)
+                    ?.itemId === item.id
+                }
               />
             ))}
           </div>

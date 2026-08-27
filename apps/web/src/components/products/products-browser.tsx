@@ -2,12 +2,16 @@
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, extractApiError } from "@/lib/api";
-import {
-  CONDITION_OPTIONS,
-  conditionLabel,
-} from "@/lib/product-condition";
+import { CONDITION_OPTIONS, conditionLabel } from "@/lib/product-condition";
 import type { PaginatedResponse, Product } from "@/lib/types";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -26,11 +30,7 @@ import { FavoriteButton } from "@/components/products/favorite-button";
 import { useAuth } from "@/lib/auth";
 import { PRODUCT_CATEGORIES } from "@/lib/categories";
 import { formatPublishDate } from "@/lib/format-date";
-import {
-  mergeFacetOptions,
-  parseAmount,
-  parsePage,
-} from "@/lib/query-params";
+import { mergeFacetOptions, parseAmount, parsePage } from "@/lib/query-params";
 import { useDebouncedSearch } from "@/lib/use-debounced-search";
 
 const SORT_OPTIONS = [
@@ -130,8 +130,10 @@ function filtersFromQuery(
 function queryFromFilters(filters: ProductFilters): string {
   const params = new URLSearchParams();
   if (filters.search) params.set("search", filters.search);
-  if (filters.minPrice != null) params.set("minPrice", String(filters.minPrice));
-  if (filters.maxPrice != null) params.set("maxPrice", String(filters.maxPrice));
+  if (filters.minPrice != null)
+    params.set("minPrice", String(filters.minPrice));
+  if (filters.maxPrice != null)
+    params.set("maxPrice", String(filters.maxPrice));
   if (filters.size) params.set("size", filters.size);
   if (filters.condition) params.set("condition", filters.condition);
   if (filters.brand) params.set("brand", filters.brand);
@@ -212,8 +214,11 @@ function ProductsBrowserContent({
   );
 
   // ponytail: 300ms live search, submit fallback
-  const { searchInput, setSearchInput, search: debouncedSearch } =
-    useDebouncedSearch();
+  const {
+    searchInput,
+    setSearchInput,
+    search: debouncedSearch,
+  } = useDebouncedSearch();
   const isFirstSearch = useRef(true);
   const filtersRef = useRef(filters);
   const applyFiltersRef = useRef(applyFilters);
@@ -387,9 +392,7 @@ function ProductsBrowserContent({
             name="sortBy"
             label="Ordenar por"
             value={form.sortBy}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, sortBy: e.target.value }))
-            }
+            onChange={(e) => setForm((f) => ({ ...f, sortBy: e.target.value }))}
             wrapperClassName="sm:col-span-2 lg:col-span-2"
           >
             <option value="">Más recientes</option>
@@ -455,11 +458,17 @@ function ProductsBrowserContent({
         className="products-grid grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4 outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
       >
         {data?.data.map((product, index) => (
-          <ProductCard key={product.id} product={product} priority={index < 4} />
+          <ProductCard
+            key={product.id}
+            product={product}
+            priority={index < 4}
+          />
         ))}
       </div>
       <p aria-live="polite" role="status" className="sr-only">
-        {data?.meta.pages && data.meta.pages > 1 ? `Mostrando página ${filters.page ?? 1} de ${data.meta.pages}` : ""}
+        {data?.meta.pages && data.meta.pages > 1
+          ? `Mostrando página ${filters.page ?? 1} de ${data.meta.pages}`
+          : ""}
       </p>
 
       {showPagination && data && data.meta.pages > 1 && (
@@ -475,7 +484,6 @@ function ProductsBrowserContent({
     </div>
   );
 }
-
 
 export function ProductCard({
   product,
@@ -555,7 +563,10 @@ export function ProductCard({
               </div>
             )}
             <div className="mt-1.5 flex items-center justify-between gap-2">
-              <Price value={product.price} className="text-[16px] sm:text-[18px]" />
+              <Price
+                value={product.price}
+                className="text-[16px] sm:text-[18px]"
+              />
               <span className="text-[11px] text-muted">
                 Talla {product.size} · {conditionLabel(product.condition)}
               </span>

@@ -82,7 +82,8 @@ function emitDraftChange() {
 type SellDraft = Partial<Record<string, string>>;
 function readDraft(): SellDraft {
   const parsed = readJson<unknown>(DRAFT_STORAGE_KEY, {});
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
+    return {};
   return parsed as SellDraft;
 }
 function writeDraft(form: Record<string, string>) {
@@ -121,8 +122,15 @@ function SellForm() {
   });
   const [images, setImages] = useState<LocalImage[]>([]);
   const imagesRef = useRef(images);
-  useEffect(() => { imagesRef.current = images; }, [images]);
-  useEffect(() => () => { imagesRef.current.forEach((img) => URL.revokeObjectURL(img.previewUrl)); }, []);
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+  useEffect(
+    () => () => {
+      imagesRef.current.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+    },
+    [],
+  );
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [draftChangedElsewhere, setDraftChangedElsewhere] = useState(false);
@@ -173,7 +181,11 @@ function SellForm() {
         <EmptyState
           title="Inicia sesión"
           description="Necesitas una cuenta para publicar productos."
-          action={<Button onClick={() => router.push("/login")}>Iniciar sesión</Button>}
+          action={
+            <Button onClick={() => router.push("/login")}>
+              Iniciar sesión
+            </Button>
+          }
         />
       </PageContainer>
     );
@@ -196,7 +208,6 @@ function SellForm() {
   const uploadOne = async (id: string, file: File) => {
     patchImage(id, { uploading: true, error: undefined });
 
-
     const data = new FormData();
     data.append("files", file);
     try {
@@ -215,7 +226,11 @@ function SellForm() {
       setImages((prev) => {
         const target = prev.find((img) => img.id === id);
         if (target) URL.revokeObjectURL(target.previewUrl);
-        return prev.map((img) => (img.id === id ? { ...img, url: uploaded.url, uploading: false, error: undefined } : img));
+        return prev.map((img) =>
+          img.id === id
+            ? { ...img, url: uploaded.url, uploading: false, error: undefined }
+            : img,
+        );
       });
     } catch (err) {
       patchImage(id, { uploading: false, error: uploadErrorMessage(err) });
@@ -234,7 +249,9 @@ function SellForm() {
     }
     const accepted = incoming.slice(0, slots);
     if (incoming.length > accepted.length) {
-      setError(`Solo se suben las primeras ${slots} imágenes (máx ${MAX_FILES}).`);
+      setError(
+        `Solo se suben las primeras ${slots} imágenes (máx ${MAX_FILES}).`,
+      );
     }
 
     const placeholders: LocalImage[] = accepted.map((f) => ({
@@ -296,7 +313,12 @@ function SellForm() {
       return;
     }
     const priceNum = Number(form.price);
-    if (!Number.isFinite(priceNum) || !Number.isInteger(priceNum) || priceNum < 1 || priceNum > 100_000_000) {
+    if (
+      !Number.isFinite(priceNum) ||
+      !Number.isInteger(priceNum) ||
+      priceNum < 1 ||
+      priceNum > 100_000_000
+    ) {
       setError("El precio debe ser un número entero entre 1 y 100.000.000.");
       return;
     }
@@ -312,7 +334,10 @@ function SellForm() {
         price: priceNum,
         images:
           uploadedImages.length > 0
-            ? uploadedImages.map((img) => ({ url: img.url as string, alt: img.alt.trim() }))
+            ? uploadedImages.map((img) => ({
+                url: img.url as string,
+                alt: img.alt.trim(),
+              }))
             : undefined,
         measurements: form.measurements.trim() || undefined,
         defects: form.defects.trim() || undefined,
@@ -338,9 +363,9 @@ function SellForm() {
           role="status"
           className="mb-4 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-text-primary"
         >
-          Editaste este borrador en otra pestaña. Actualiza esta página para
-          ver los cambios más recientes; si sigues escribiendo aquí,
-          sobrescribirás lo que guardaste allá.
+          Editaste este borrador en otra pestaña. Actualiza esta página para ver
+          los cambios más recientes; si sigues escribiendo aquí, sobrescribirás
+          lo que guardaste allá.
         </div>
       )}
 
@@ -429,7 +454,8 @@ function SellForm() {
           />
           {suggested?.suggestedPrice != null && (
             <p className="text-xs text-text-muted">
-              Precio sugerido: ${suggested.suggestedPrice.toLocaleString("es-CO")} (basado en{" "}
+              Precio sugerido: $
+              {suggested.suggestedPrice.toLocaleString("es-CO")} (basado en{" "}
               {suggested.sampleSize} publicaciones)
             </p>
           )}
@@ -452,8 +478,8 @@ function SellForm() {
               className="block w-full text-sm text-text-primary file:mr-3 file:rounded-md file:border file:border-control file:bg-surface file:px-3 file:py-2 file:text-sm file:font-medium file:text-text-primary hover:file:bg-surface-muted"
             />
             <p className="text-xs text-text-muted">
-              Sin fotos, tu prenda se muestra en el catálogo con un recuadro
-              que dice «Sin imagen». Hasta {MAX_FILES} imágenes, máximo{" "}
+              Sin fotos, tu prenda se muestra en el catálogo con un recuadro que
+              dice «Sin imagen». Hasta {MAX_FILES} imágenes, máximo{" "}
               {MAX_FILE_SIZE_MB}MB cada una. Formatos: JPG, PNG o WEBP.
             </p>
             {images.length > 0 && (
@@ -510,7 +536,10 @@ function SellForm() {
                 </p>
                 {uploadedImages.map((img, index) => (
                   <div key={img.id} className="flex items-center gap-2">
-                    <span aria-hidden="true" className="text-xs text-text-muted">
+                    <span
+                      aria-hidden="true"
+                      className="text-xs text-text-muted"
+                    >
                       {index + 1}.
                     </span>
                     <input
@@ -570,8 +599,8 @@ function SellForm() {
           </div>
 
           <p className="text-xs text-text-muted">
-            Un administrador revisará tu publicación antes de que aparezca en
-            el marketplace.
+            Un administrador revisará tu publicación antes de que aparezca en el
+            marketplace.
           </p>
           {error && (
             <p className="text-sm text-danger" role="alert">

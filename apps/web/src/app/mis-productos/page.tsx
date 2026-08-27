@@ -31,12 +31,7 @@ import type { Product } from "@/lib/types";
 import Link from "next/link";
 
 type StatusFilter =
-  | "all"
-  | "pending"
-  | "approved"
-  | "paused"
-  | "rejected"
-  | "sold";
+  "all" | "pending" | "approved" | "paused" | "rejected" | "sold";
 
 const STATUS_TABS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "Todos" },
@@ -107,7 +102,11 @@ export default function MisProductosPage() {
         <EmptyState
           title="Inicia sesión"
           description="Necesitas una cuenta para ver tus publicaciones."
-          action={<Button onClick={() => router.push("/login")}>Iniciar sesión</Button>}
+          action={
+            <Button onClick={() => router.push("/login")}>
+              Iniciar sesión
+            </Button>
+          }
         />
       </PageContainer>
     );
@@ -220,7 +219,9 @@ function MisProductosList() {
       setEditTarget(null);
     },
     onError: (err) =>
-      setEditError(extractApiError(err, "No pudimos actualizar la publicación")),
+      setEditError(
+        extractApiError(err, "No pudimos actualizar la publicación"),
+      ),
   });
 
   const remove = useMutation({
@@ -293,7 +294,10 @@ function MisProductosList() {
     onError: (err) => {
       setNotice(null);
       setError(
-        extractApiError(err, "No pudimos pausar las publicaciones seleccionadas"),
+        extractApiError(
+          err,
+          "No pudimos pausar las publicaciones seleccionadas",
+        ),
       );
     },
   });
@@ -328,7 +332,10 @@ function MisProductosList() {
     onError: (err) => {
       setNotice(null);
       setError(
-        extractApiError(err, "No pudimos reactivar las publicaciones seleccionadas"),
+        extractApiError(
+          err,
+          "No pudimos reactivar las publicaciones seleccionadas",
+        ),
       );
     },
   });
@@ -344,8 +351,15 @@ function MisProductosList() {
       setEditError("El título y la descripción son obligatorios.");
       return;
     }
-    if (!Number.isFinite(price) || !Number.isInteger(price) || price < 1 || price > 100_000_000) {
-      setEditError("El precio debe ser un número entero entre 1 y 100.000.000.");
+    if (
+      !Number.isFinite(price) ||
+      !Number.isInteger(price) ||
+      price < 1 ||
+      price > 100_000_000
+    ) {
+      setEditError(
+        "El precio debe ser un número entero entre 1 y 100.000.000.",
+      );
       return;
     }
 
@@ -358,7 +372,8 @@ function MisProductosList() {
     // whatever this sends against the stored value with a strict `!==`).
     const body: Record<string, string | number> = {};
     if (title !== editTarget.title.trim()) body.title = title;
-    if (description !== editTarget.description.trim()) body.description = description;
+    if (description !== editTarget.description.trim())
+      body.description = description;
     if (price !== editTarget.price) body.price = price;
 
     if (Object.keys(body).length === 0) {
@@ -554,9 +569,7 @@ function MisProductosList() {
             variant="secondary"
             onClick={() => bulkUnpause.mutate(Array.from(selectedIds))}
             disabled={
-              bulkActionPending ||
-              exceedsBulkLimit ||
-              noneSelectedCanBeUnpaused
+              bulkActionPending || exceedsBulkLimit || noneSelectedCanBeUnpaused
             }
           >
             {bulkUnpause.isPending ? (
@@ -624,8 +637,7 @@ function MisProductosList() {
             // Moderation band, per the roadmap's closed state rule: a rejection
             // without a written reason reads as "En revisión" to the seller —
             // an unexplained "Rechazado" is less actionable than silence.
-            const isRejected =
-              !product.isApproved && !!product.rejectionReason;
+            const isRejected = !product.isApproved && !!product.rejectionReason;
             const isSold = product.status === "SOLD";
             const isPaused = !!product.pausedAt;
             const canEditOrDelete = !isSold;

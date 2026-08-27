@@ -14,7 +14,8 @@ import {
   type HTMLAttributes,
 } from "react";
 
-export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost" | "accent";
+export type ButtonVariant =
+  "primary" | "secondary" | "danger" | "ghost" | "accent";
 export type ButtonSize = "sm" | "md" | "lg";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -35,8 +36,7 @@ const buttonClasses: Record<ButtonVariant, string> = {
     "bg-terracotta-deep text-paper hover:brightness-95 active:brightness-90",
   secondary:
     "bg-surface text-text-primary border border-border hover:bg-surface-muted active:bg-surface-muted/80",
-  danger:
-    "bg-danger text-text-inverse hover:bg-danger/90 active:bg-danger/95",
+  danger: "bg-danger text-text-inverse hover:bg-danger/90 active:bg-danger/95",
   ghost:
     "bg-transparent text-text-primary hover:bg-surface-muted active:bg-surface-muted/80",
 };
@@ -143,7 +143,11 @@ function useFieldAria(
 ) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
-  const messageId = error ? `${fieldId}-error` : hint ? `${fieldId}-hint` : undefined;
+  const messageId = error
+    ? `${fieldId}-error`
+    : hint
+      ? `${fieldId}-hint`
+      : undefined;
   const describedBy =
     [ariaDescribedBy, messageId].filter(Boolean).join(" ") || undefined;
   return { fieldId, describedBy };
@@ -178,7 +182,12 @@ export function Input({
   "aria-describedby": ariaDescribedBy,
   ...props
 }: InputProps) {
-  const { fieldId, describedBy } = useFieldAria(id, hint, error, ariaDescribedBy);
+  const { fieldId, describedBy } = useFieldAria(
+    id,
+    hint,
+    error,
+    ariaDescribedBy,
+  );
   return (
     <Field
       fieldId={fieldId}
@@ -219,7 +228,12 @@ export function Textarea({
   "aria-describedby": ariaDescribedBy,
   ...props
 }: TextareaProps) {
-  const { fieldId, describedBy } = useFieldAria(id, hint, error, ariaDescribedBy);
+  const { fieldId, describedBy } = useFieldAria(
+    id,
+    hint,
+    error,
+    ariaDescribedBy,
+  );
   return (
     <Field
       fieldId={fieldId}
@@ -262,7 +276,12 @@ export function Select({
   children,
   ...props
 }: SelectProps) {
-  const { fieldId, describedBy } = useFieldAria(id, hint, error, ariaDescribedBy);
+  const { fieldId, describedBy } = useFieldAria(
+    id,
+    hint,
+    error,
+    ariaDescribedBy,
+  );
   return (
     <Field
       fieldId={fieldId}
@@ -386,20 +405,13 @@ export function Card({
 }
 
 export type BadgeVariant =
-  | "default"
-  | "primary"
-  | "success"
-  | "warning"
-  | "danger"
-  | "info";
+  "default" | "primary" | "success" | "warning" | "danger" | "info";
 
 const badgeClasses: Record<BadgeVariant, string> = {
   default: "bg-surface-muted text-text-muted border-border",
   primary: "bg-primary/15 text-primary-foreground border-primary/30",
-  success:
-    "bg-success/10 text-success border-success/20",
-  warning:
-    "bg-warning/10 text-warning border-warning/20",
+  success: "bg-success/10 text-success border-success/20",
+  warning: "bg-warning/10 text-warning border-warning/20",
   danger: "bg-danger/10 text-danger border-danger/20",
   info: "bg-info/10 text-info border-info/20",
 };
@@ -538,7 +550,5 @@ export function StarRating({
 }
 
 export function Divider({ className = "" }: { className?: string }) {
-  return (
-    <hr className={`border-0 border-t border-border ${className}`} />
-  );
+  return <hr className={`border-0 border-t border-border ${className}`} />;
 }

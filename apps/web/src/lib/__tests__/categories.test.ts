@@ -34,9 +34,7 @@ describe("categories", () => {
   });
 
   it("has no duplicates", () => {
-    expect(new Set(PRODUCT_CATEGORIES).size).toBe(
-      PRODUCT_CATEGORIES.length,
-    );
+    expect(new Set(PRODUCT_CATEGORIES).size).toBe(PRODUCT_CATEGORIES.length);
   });
 
   it("isProductCategory guards correctly", () => {

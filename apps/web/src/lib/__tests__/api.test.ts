@@ -148,7 +148,9 @@ describe("api client", () => {
     mockedTokenStore.get.mockReturnValue(null);
     const abort = new DOMException("aborted", "AbortError");
     fetchMock.mockRejectedValue(abort);
-    await expect(api.get("/products", { signal: new AbortController().signal })).rejects.toBe(abort);
+    await expect(
+      api.get("/products", { signal: new AbortController().signal }),
+    ).rejects.toBe(abort);
   });
 
   it("rethrows AbortError from Error", async () => {
@@ -156,7 +158,9 @@ describe("api client", () => {
     const err = new Error("aborted");
     (err as unknown as { name: string }).name = "AbortError";
     fetchMock.mockRejectedValue(err);
-    await expect(api.get("/products", { signal: new AbortController().signal })).rejects.toBe(err);
+    await expect(
+      api.get("/products", { signal: new AbortController().signal }),
+    ).rejects.toBe(err);
   });
 
   it("returns a Blob for responseType blob downloads", async () => {
@@ -232,7 +236,9 @@ describe("extractApiError", () => {
 describe("extractApiError for blob downloads", () => {
   it("reads JSON error body from a failed blob download", async () => {
     mockedTokenStore.get.mockReturnValue(null);
-    fetchMock.mockResolvedValue(jsonResponse(403, { message: "No autorizado" }));
+    fetchMock.mockResolvedValue(
+      jsonResponse(403, { message: "No autorizado" }),
+    );
 
     let caught: unknown;
     try {
