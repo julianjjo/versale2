@@ -62,4 +62,9 @@ describe("categories", () => {
     expect(isProductCategory("\tCamisetas\n")).toBe(true);
     expect(isProductCategory("\t  \n")).toBe(false);
   });
+
+  it("isProductCategory handles all whitespace variants", () => {
+    expect(isProductCategory(" \tCamisetas \n\r ")).toBe(true);
+    expect(isProductCategory(" \t  \n\r ")).toBe(false);
+  });
 });
