@@ -113,5 +113,10 @@ describe("query-params", () => {
       expect(isProductSize("unknown")).toBe(false);
       expect(isProductSize("")).toBe(false);
     });
+
+    it("isProductSize handles whitespace-only", () => {
+      expect(isProductSize("   ")).toBe(false);
+      expect(isProductSize("  M  ")).toBe(true);
+    });
   });
 });
