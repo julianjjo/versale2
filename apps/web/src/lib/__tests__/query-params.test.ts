@@ -135,5 +135,10 @@ describe("query-params", () => {
       expect(isProductSize("  m  ")).toBe(true);
       expect(isProductSize("  XXL  ")).toBe(true);
     });
+
+    it("isProductSize handles tab and newline with mixed case", () => {
+      expect(isProductSize("\txs\n")).toBe(true);
+      expect(isProductSize("\tXl\n")).toBe(true);
+    });
   });
 });
