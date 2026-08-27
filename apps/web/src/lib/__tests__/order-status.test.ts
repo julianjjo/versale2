@@ -106,4 +106,9 @@ describe("order-status", () => {
     expect(isOrderStatus("")).toBe(false);
     expect(isOrderStatus("pending")).toBe(false);
   });
+
+  it("isOrderStatus trims whitespace", () => {
+    expect(isOrderStatus(" PENDING ")).toBe(true);
+    expect(isOrderStatus("  PAID  ")).toBe(true);
+  });
 });
