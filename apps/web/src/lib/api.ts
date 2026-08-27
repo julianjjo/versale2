@@ -121,9 +121,10 @@ export function extractApiError(
         | { message?: string | string[] }
         | undefined;
       if (data?.message) {
-        return Array.isArray(data.message)
-          ? data.message.join(", ")
-          : data.message;
+        const raw = Array.isArray(data.message)
+          ? data.message.map((m) => String(m).trim()).filter(Boolean).join(", ")
+          : String(data.message).trim();
+        if (raw) return raw;
       }
       if (fallback === "Ocurrió un error. Intenta de nuevo.") {
         return "Sin conexión. Verifica tu internet.";
@@ -134,7 +135,10 @@ export function extractApiError(
       | { message?: string | string[] }
       | undefined;
     if (data?.message) {
-      return Array.isArray(data.message) ? data.message.join(", ") : data.message;
+      const raw = Array.isArray(data.message)
+          ? data.message.map((m) => String(m).trim()).filter(Boolean).join(", ")
+          : String(data.message).trim();
+        if (raw) return raw;
     }
     return fallback;
   }
