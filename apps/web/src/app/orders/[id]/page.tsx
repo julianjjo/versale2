@@ -553,7 +553,7 @@ export default function OrderDetailPage() {
                 )}
               </div>
               <div className="font-semibold">
-                <Price value={item.price * item.quantity} />
+                <Price value={Number(item.price) * Number(item.quantity)} />
               </div>
             </div>
           ))}
