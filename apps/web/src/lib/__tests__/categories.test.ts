@@ -46,4 +46,10 @@ describe("categories", () => {
     expect(isProductCategory("")).toBe(false);
     expect(isProductCategory("camisetas")).toBe(false);
   });
+
+  it("isProductCategory trims whitespace", () => {
+    expect(isProductCategory(" Camisetas ")).toBe(true);
+    expect(isProductCategory("  Otros  ")).toBe(true);
+    expect(isProductCategory("  Invalid  ")).toBe(false);
+  });
 });
