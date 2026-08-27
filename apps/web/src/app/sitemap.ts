@@ -42,6 +42,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         meta?: { pages?: number };
       };
       products.push(...body.data);
+      if (products.length >= SITEMAP_MAX_URLS) break;
       if (!body.meta?.pages || page >= body.meta.pages) break;
     }
     // cap hit silently — sitemap is a crawler contract, not an operator alert;
