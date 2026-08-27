@@ -1013,6 +1013,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     return updated;
   }
 
+  // ponytail: 3× loop dedup into helper, split into per-status sweepers if drift needs isolation
   /**
    * Sweeps stale orders matching `where` into `toStatus`.
    * Returns number of orders attempted (findMany count), not just successes.
