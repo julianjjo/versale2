@@ -145,7 +145,12 @@ export interface ProductQuestion {
   product?: { id: string; title: string };
 }
 
-export type ReportStatus = "OPEN" | "DISMISSED";
+export const REPORT_STATUSES = ["OPEN", "DISMISSED"] as const;
+export type ReportStatus = (typeof REPORT_STATUSES)[number];
+
+export function isReportStatus(value: string): value is ReportStatus {
+  return (REPORT_STATUSES as readonly string[]).includes(value.trim());
+}
 
 export interface ProductReport {
   id: string;
