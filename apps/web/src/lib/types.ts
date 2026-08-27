@@ -5,11 +5,18 @@ export interface ProductImage {
   alt: string;
 }
 
+export const USER_ROLES = ["USER", "ADMIN"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
+export function isUserRole(value: string): value is UserRole {
+  return (USER_ROLES as readonly string[]).includes(value);
+}
+
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: "USER" | "ADMIN";
+  role: UserRole;
   isVerified?: boolean;
 }
 
