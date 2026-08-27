@@ -121,6 +121,11 @@ describe("types - REPORT_STATUSES", () => {
     expect(isReportStatus(" \tOPEN \n\r ")).toBe(true);
     expect(isReportStatus(" \t  \n\r ")).toBe(false);
   });
+
+  it("isReportStatus handles vertical tab and form feed", () => {
+    expect(isReportStatus("\vOPEN\f")).toBe(true);
+    expect(isReportStatus("\v  \f")).toBe(false);
+  });
 });
 
 describe("types - PRODUCT_STATUSES", () => {
