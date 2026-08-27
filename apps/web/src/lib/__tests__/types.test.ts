@@ -107,6 +107,11 @@ describe("types - NOTIFICATION_TYPES", () => {
     expect(isNotificationType("\u00A0  \u00A0")).toBe(false);
   });
 
+  it("isNotificationType handles ideographic space", () => {
+    expect(isNotificationType("\u3000ORDER_SHIPPED\u3000")).toBe(true);
+    expect(isNotificationType("\u3000  \u3000")).toBe(false);
+  });
+
   it("isNotificationType handles zero-width space (not trimmed)", () => {
     expect(isNotificationType("\u200BORDER_SHIPPED\u200B")).toBe(false);
     expect(isNotificationType("ORDER_SHIPPED")).toBe(true);
