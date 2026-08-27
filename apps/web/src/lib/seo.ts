@@ -13,8 +13,8 @@ export function buildProductJsonLd(product: Product, siteUrl: string) {
   return {
     "@context": "https://schema.org",
     "@type": "Product",
-    name: product.title.trim(),
-    description: product.description.trim(),
+    name: typeof product.title === "string" ? product.title.trim() : product.title,
+    description: typeof product.description === "string" ? product.description.trim() : product.description,
     image: images.length ? images : undefined,
     url,
     offers: {
