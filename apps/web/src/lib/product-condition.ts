@@ -32,5 +32,5 @@ export const CONDITION_OPTIONS = PRODUCT_CONDITIONS.map((value) => ({
 }));
 
 export function isProductCondition(value: string): value is ProductCondition {
-  return (PRODUCT_CONDITIONS as readonly string[]).includes(value);
+  return (PRODUCT_CONDITIONS as readonly string[]).includes(value.trim());
 }
