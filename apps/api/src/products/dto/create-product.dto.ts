@@ -130,7 +130,7 @@ export class CreateProductDto {
 
   // COP has no subunit in practice and the whole UI formats prices without
   // decimals, so only whole pesos are accepted.
-  @Transform(({ value }) => (typeof value === "string" ? Number(value.trim()) : value))
+  @Transform(({ value }) => (typeof value === "string" ? Number(value.trim().replace(/,/g, "")) : value))
   @IsInt({
     message: 'El precio debe ser un número entero de pesos, sin decimales',
   })
