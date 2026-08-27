@@ -1,5 +1,5 @@
 export function normalizeUrl(url: string): string {
-  return url.replace(/\/+$/, "");
+  return url.trim().replace(/\/+$/, "");
 }
 
 // Item 11: canonical origin of the site. Used by sitemap.ts, robots.ts and
