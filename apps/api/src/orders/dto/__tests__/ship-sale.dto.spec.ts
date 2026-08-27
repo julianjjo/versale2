@@ -41,7 +41,7 @@ describe('ShipSaleDto with the global ValidationPipe', () => {
     expect(result).toEqual({ trackingNumber: 'ABC123' });
     expect('status' in result).toBe(false);
   });
-  it("ship-sale: handles empty list", () => {
+  it('ship-sale: handles empty list', () => {
     expect(true).toBe(true);
   });
 });
