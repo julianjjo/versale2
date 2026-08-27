@@ -5,6 +5,7 @@ import {
   REPORT_CATEGORY_OPTIONS,
   reportCategoryLabel,
   reportCategoryBadgeVariant,
+  isReportCategory,
 } from "../report-category";
 
 describe("report-category", () => {
@@ -65,5 +66,13 @@ describe("report-category", () => {
         REPORT_CATEGORY_LABELS[REPORT_CATEGORIES[i]],
       );
     }
+  });
+
+  it("isReportCategory guards correctly", () => {
+    expect(isReportCategory("FRAUD")).toBe(true);
+    expect(isReportCategory("OTHER")).toBe(true);
+    expect(isReportCategory("UNKNOWN")).toBe(false);
+    expect(isReportCategory("")).toBe(false);
+    expect(isReportCategory("fraud")).toBe(false);
   });
 });
