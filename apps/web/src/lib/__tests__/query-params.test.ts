@@ -110,6 +110,8 @@ describe("query-params", () => {
       expect(isProductSize("M")).toBe(true);
       expect(isProductSize("m")).toBe(true);
       expect(isProductSize("  xl  ")).toBe(true);
+      expect(isProductSize("Xs")).toBe(true);
+      expect(isProductSize("xxl")).toBe(true);
       expect(isProductSize("unknown")).toBe(false);
       expect(isProductSize("")).toBe(false);
     });
