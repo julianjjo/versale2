@@ -2652,6 +2652,7 @@ describe('ProductsService', () => {
             status: 'AVAILABLE' as const,
             pausedAt: null,
             brand: { not: null },
+            NOT: { brand: "" },
           },
           select: { brand: true },
           distinct: ['brand'],

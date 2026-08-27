@@ -480,7 +480,7 @@ export class ProductsService {
   async getFacets() {
     const [brands, categories] = await Promise.all([
       this.prisma.client.product.findMany({
-        where: { ...PUBLICLY_VISIBLE, brand: { not: null } },
+        where: { ...PUBLICLY_VISIBLE, brand: { not: null }, NOT: { brand: "" } },
         select: { brand: true },
         distinct: ['brand'],
         orderBy: { brand: 'asc' },
