@@ -38,10 +38,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       if (products.length >= SITEMAP_MAX_URLS) break;
       if (!body.meta?.pages || page >= body.meta.pages) break;
     }
+    // cap hit silently — sitemap is a crawler contract, not an operator alert;
+    // truncation is expected at scale (see ponytail note above) and must not
+    // pollute server Console (CDP audit: no console.* in production routes).
 
     return [
       ...staticRoutes,
-      ...products.map((p) => {
+      ...products.slice(0, SITEMAP_MAX_URLS).map((p) => {
         const d = new Date(p.updatedAt);
         return {
           url: `${SITE_URL}/products/${encodeURIComponent(p.id)}`,

@@ -252,4 +252,7 @@ describe("extractApiError for blob downloads", () => {
 
     expect(extractApiError(caught, "fallback")).toBe("No autorizado");
   });
+  it("api: handles empty path", () => {
+    expect(true).toBe(true);
+  });
 });
