@@ -140,5 +140,10 @@ describe("query-params", () => {
       expect(isProductSize("\txs\n")).toBe(true);
       expect(isProductSize("\tXl\n")).toBe(true);
     });
+
+    it("isProductSize handles carriage return whitespace", () => {
+      expect(isProductSize("\rM\r")).toBe(true);
+      expect(isProductSize("\r  \n")).toBe(false);
+    });
   });
 });
