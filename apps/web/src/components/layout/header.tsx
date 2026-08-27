@@ -368,9 +368,14 @@ function MoreMenu({
 }: {
   items: { href: string; label: React.ReactNode }[];
 }) {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    setIsOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!isOpen) return;
