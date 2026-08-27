@@ -115,6 +115,12 @@ describe("order-status", () => {
     expect(isOrderStatus("  PAID  ")).toBe(true);
   });
 
+  it("isOrderStatus handles carriage return and tab", () => {
+    expect(isOrderStatus("\rPENDING\r")).toBe(true);
+    expect(isOrderStatus("\tPAID\n")).toBe(true);
+    expect(isOrderStatus("\r  \n")).toBe(false);
+  });
+
   it("orderStatusLabel returns Spanish label and falls back to raw", () => {
     expect(orderStatusLabel("PENDING")).toBe("Pendiente");
     expect(orderStatusLabel("UNKNOWN")).toBe("UNKNOWN");
