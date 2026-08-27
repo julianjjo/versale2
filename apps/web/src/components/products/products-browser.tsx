@@ -31,6 +31,7 @@ import {
   mergeFacetOptions,
   parseAmount,
   parsePage,
+  PRODUCT_SIZES,
   SORT_OPTIONS,
   type SortByValue,
 } from "@/lib/query-params";
@@ -56,8 +57,6 @@ interface ProductsBrowserProps {
   showFilters?: boolean;
   showPagination?: boolean;
 }
-
-const SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
 interface FilterFormState {
   search: string;
@@ -323,7 +322,7 @@ function ProductsBrowserContent({
             onChange={(e) => setForm((f) => ({ ...f, size: e.target.value }))}
           >
             <option value="">Cualquiera</option>
-            {SIZES.map((s) => (
+            {PRODUCT_SIZES.map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>

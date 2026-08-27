@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
   isSortByValue,
+  isProductSize,
   mergeFacetOptions,
   parseAmount,
   parsePage,
+  PRODUCT_SIZES,
   SORT_OPTIONS,
 } from "../query-params";
 
@@ -91,6 +93,20 @@ describe("query-params", () => {
       expect(isSortByValue("top_rated")).toBe(true);
       expect(isSortByValue("unknown")).toBe(false);
       expect(isSortByValue("")).toBe(false);
+    });
+  });
+
+  describe("PRODUCT_SIZES / isProductSize", () => {
+    it("defines 6 sizes", () => {
+      expect(PRODUCT_SIZES).toEqual(["XS", "S", "M", "L", "XL", "XXL"]);
+    });
+
+    it("isProductSize guards case-insensitive and trims", () => {
+      expect(isProductSize("M")).toBe(true);
+      expect(isProductSize("m")).toBe(true);
+      expect(isProductSize("  xl  ")).toBe(true);
+      expect(isProductSize("unknown")).toBe(false);
+      expect(isProductSize("")).toBe(false);
     });
   });
 });

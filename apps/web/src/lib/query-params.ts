@@ -29,3 +29,10 @@ export type SortByValue = (typeof SORT_OPTIONS)[number]["value"];
 export function isSortByValue(value: string): value is SortByValue {
   return SORT_OPTIONS.some((option) => option.value === value);
 }
+
+export const PRODUCT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
+export type ProductSize = (typeof PRODUCT_SIZES)[number];
+
+export function isProductSize(value: string): value is ProductSize {
+  return (PRODUCT_SIZES as readonly string[]).includes(value.toUpperCase().trim());
+}
