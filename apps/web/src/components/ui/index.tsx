@@ -478,10 +478,11 @@ export function Price({
   className = "",
   ...rest
 }: {
-  value: number;
+  value: number | string;
   className?: string;
 } & HTMLAttributes<HTMLSpanElement>) {
-  if (!Number.isFinite(value)) {
+  const numValue = Number(value);
+  if (!Number.isFinite(numValue)) {
     return (
       <span
         className={`font-display font-medium tabular-nums text-text-primary ${className}`}
@@ -496,7 +497,7 @@ export function Price({
       className={`font-display font-medium tabular-nums text-text-primary ${className}`}
       {...rest}
     >
-      {COP_FORMATTER.format(value)}
+      {COP_FORMATTER.format(numValue)}
     </span>
   );
 }
