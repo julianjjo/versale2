@@ -295,6 +295,13 @@ function SellForm() {
       );
       return;
     }
+    const trimmedTitle = form.title.trim();
+    const trimmedDescription = form.description.trim();
+    const trimmedBrand = form.brand.trim();
+    if (!trimmedTitle || !trimmedDescription) {
+      setError("El título y la descripción son obligatorios.");
+      return;
+    }
     const priceNum = Number(form.price);
     if (!Number.isFinite(priceNum) || !Number.isInteger(priceNum) || priceNum < 1 || priceNum > 100_000_000) {
       setError("El precio debe ser un número entero entre 1 y 100.000.000.");
@@ -303,10 +310,10 @@ function SellForm() {
     setIsSubmitting(true);
     try {
       await api.post("/products", {
-        title: form.title,
-        description: form.description,
+        title: trimmedTitle,
+        description: trimmedDescription,
         category: form.category,
-        brand: form.brand || undefined,
+        brand: trimmedBrand || undefined,
         size: form.size,
         condition: form.condition,
         price: priceNum,
