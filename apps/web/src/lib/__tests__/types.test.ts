@@ -53,6 +53,11 @@ describe("types - USER_ROLES", () => {
     expect(isUserRole("\u00A0  \u00A0")).toBe(false);
   });
 
+  it("isUserRole handles ideographic space", () => {
+    expect(isUserRole("\u3000USER\u3000")).toBe(true);
+    expect(isUserRole("\u3000  \u3000")).toBe(false);
+  });
+
   it("isUserRole handles zero-width space (not trimmed)", () => {
     expect(isUserRole("\u200BUSER\u200B")).toBe(false);
     expect(isUserRole("USER")).toBe(true);
