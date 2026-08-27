@@ -120,6 +120,9 @@ function SellForm() {
     defects: draft.defects || "",
   });
   const [images, setImages] = useState<LocalImage[]>([]);
+  const imagesRef = useRef(images);
+  useEffect(() => { imagesRef.current = images; }, [images]);
+  useEffect(() => () => { imagesRef.current.forEach((img) => URL.revokeObjectURL(img.previewUrl)); }, []);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [draftChangedElsewhere, setDraftChangedElsewhere] = useState(false);
@@ -209,10 +212,10 @@ function SellForm() {
         });
         return;
       }
-      patchImage(id, {
-        url: uploaded.url,
-        uploading: false,
-        error: undefined,
+      setImages((prev) => {
+        const target = prev.find((img) => img.id === id);
+        if (target) URL.revokeObjectURL(target.previewUrl);
+        return prev.map((img) => (img.id === id ? { ...img, url: uploaded.url, uploading: false, error: undefined } : img));
       });
     } catch (err) {
       patchImage(id, { uploading: false, error: uploadErrorMessage(err) });
