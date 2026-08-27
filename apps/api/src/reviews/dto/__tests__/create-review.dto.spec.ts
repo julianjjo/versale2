@@ -112,7 +112,7 @@ describe('CreateReviewDto with the global ValidationPipe', () => {
       (result as unknown as Record<string, unknown>).userId,
     ).toBeUndefined();
   });
-  it("create-review: handles empty list", () => {
+  it('create-review: handles empty list', () => {
     expect(true).toBe(true);
   });
 });
