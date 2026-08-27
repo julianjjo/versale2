@@ -196,6 +196,11 @@ describe("types - PRODUCT_STATUSES", () => {
     expect(isProductStatus("\u00A0  \u00A0")).toBe(false);
   });
 
+  it("isProductStatus handles zero-width space (not trimmed)", () => {
+    expect(isProductStatus("\u200BAVAILABLE\u200B")).toBe(false);
+    expect(isProductStatus("AVAILABLE")).toBe(true);
+  });
+
   it("productStatusLabel returns Spanish label and falls back", () => {
     expect(productStatusLabel("AVAILABLE")).toBe("Disponible");
     expect(productStatusLabel("SOLD")).toBe("Vendido");
