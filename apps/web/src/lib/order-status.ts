@@ -26,7 +26,8 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
 };
 
 export function orderStatusLabel(status: string): string {
-  return (ORDER_STATUS_LABEL as Record<string, string>)[status] ?? status;
+  const t=status.trim();
+  return (ORDER_STATUS_LABEL as Record<string, string>)[t] ?? status;
 }
 
 export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
