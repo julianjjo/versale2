@@ -94,6 +94,11 @@ describe("query-params", () => {
       expect(isSortByValue("unknown")).toBe(false);
       expect(isSortByValue("")).toBe(false);
     });
+
+    it("isSortByValue trims whitespace", () => {
+      expect(isSortByValue(" price_asc ")).toBe(true);
+      expect(isSortByValue("  top_rated  ")).toBe(true);
+    });
   });
 
   describe("PRODUCT_SIZES / isProductSize", () => {
