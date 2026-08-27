@@ -73,4 +73,10 @@ describe("buildProductJsonLd", () => {
     expect(json.image).toBeUndefined();
     expect(json.offers.seller).toBeUndefined();
   });
+
+  it("normaliza siteUrl con espacios y múltiples slashes", () => {
+    const json = buildProductJsonLd(product(), " https://versale.ar/// ");
+    expect(json.url).toBe("https://versale.ar/products/p1");
+    expect(json.offers.url).toBe("https://versale.ar/products/p1");
+  });
 });
