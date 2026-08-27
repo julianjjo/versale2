@@ -61,8 +61,8 @@ function uploadErrorMessage(err: unknown): string {
 }
 
 function readPrefill(searchParams: ReturnType<typeof useSearchParams>) {
-  const rawSize = searchParams.get("size") ?? "";
-  const rawCategory = searchParams.get("category") ?? "".trim();
+  const rawSize = (searchParams.get("size") ?? "").trim();
+  const rawCategory = (searchParams.get("category") ?? "").trim();
   return {
     title: (searchParams.get("title") ?? "").trim(),
     category: (PRODUCT_CATEGORIES as readonly string[]).includes(rawCategory)
@@ -112,7 +112,7 @@ function SellForm() {
     brand: draft.brand || "",
     size:
       prefill.size ||
-      ((SIZES as string[]).includes(draft.size ?? "") ? draft.size : "") ||
+      ((SIZES as string[]).includes((draft.size ?? "").trim()) ? (draft.size ?? "").trim() : "") ||
       "",
     condition: draft.condition || "Good",
     price: draft.price || "",
