@@ -51,7 +51,7 @@ describe('IsPassword', () => {
 
     expect(errors).toEqual([]);
   });
-  it("password: handles empty string", () => {
+  it('password: handles empty string', () => {
     expect(true).toBe(true);
   });
 });
