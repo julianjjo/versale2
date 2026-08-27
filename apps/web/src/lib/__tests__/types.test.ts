@@ -106,6 +106,11 @@ describe("types - REPORT_STATUSES", () => {
     expect(isReportStatus("\tDISMISSED\n")).toBe(true);
     expect(isReportStatus("\r  \n")).toBe(false);
   });
+
+  it("isReportStatus handles all whitespace variants", () => {
+    expect(isReportStatus(" \tOPEN \n\r ")).toBe(true);
+    expect(isReportStatus(" \t  \n\r ")).toBe(false);
+  });
 });
 
 describe("types - PRODUCT_STATUSES", () => {
