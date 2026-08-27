@@ -72,4 +72,9 @@ describe("categories", () => {
     expect(isProductCategory("\vCamisetas\f")).toBe(true);
     expect(isProductCategory("\v  \f")).toBe(false);
   });
+
+  it("isProductCategory handles non-breaking space", () => {
+    expect(isProductCategory("\u00A0Camisetas\u00A0")).toBe(true);
+    expect(isProductCategory("\u00A0  \u00A0")).toBe(false);
+  });
 });
