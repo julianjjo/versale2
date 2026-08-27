@@ -124,6 +124,11 @@ describe("query-params", () => {
       expect(isSortByValue("\u00A0price_asc\u00A0")).toBe(true);
       expect(isSortByValue("\u00A0  \u00A0")).toBe(false);
     });
+
+    it("isSortByValue handles zero-width space (not trimmed)", () => {
+      expect(isSortByValue("\u200Bprice_asc\u200B")).toBe(false);
+      expect(isSortByValue("price_asc")).toBe(true);
+    });
   });
 
   describe("PRODUCT_SIZES / isProductSize", () => {
