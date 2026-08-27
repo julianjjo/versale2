@@ -2,8 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   USER_ROLES,
   NOTIFICATION_TYPES,
+  REPORT_STATUSES,
   isUserRole,
   isNotificationType,
+  isReportStatus,
 } from "../types";
 
 describe("types - USER_ROLES", () => {
@@ -45,5 +47,22 @@ describe("types - NOTIFICATION_TYPES", () => {
 
   it("isNotificationType trims whitespace", () => {
     expect(isNotificationType(" ORDER_SHIPPED ")).toBe(true);
+  });
+});
+
+describe("types - REPORT_STATUSES", () => {
+  it("defines 2 report statuses", () => {
+    expect(REPORT_STATUSES).toEqual(["OPEN", "DISMISSED"]);
+  });
+
+  it("isReportStatus guards correctly", () => {
+    expect(isReportStatus("OPEN")).toBe(true);
+    expect(isReportStatus("DISMISSED")).toBe(true);
+    expect(isReportStatus("UNKNOWN")).toBe(false);
+    expect(isReportStatus("")).toBe(false);
+  });
+
+  it("isReportStatus trims whitespace", () => {
+    expect(isReportStatus(" OPEN ")).toBe(true);
   });
 });
