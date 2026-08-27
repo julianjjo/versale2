@@ -75,6 +75,10 @@ function canonicalCondition(value: string): string | null {
   return match ?? null;
 }
 
+export function isProductCondition(value: string): value is typeof PRODUCT_CONDITIONS[number] {
+  return (PRODUCT_CONDITIONS as readonly string[]).includes(value.trim());
+}
+
 // `id` as a secondary key gives ties on the primary sort column a stable
 // order across separate paginated (skip/take) queries. Without it, rows
 // sharing a value on a low-cardinality column like `price` — or even on
