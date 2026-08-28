@@ -6,9 +6,6 @@
 - `apps/api/src/products/products.service.ts:66`, cap MAX_TOP_RATED_SCAN=1000. ceiling: cap 1000. upgrade: materialize `averageRating`+index if catalog >1k sustained.
 - `apps/api/src/products/products.service.ts:343`, O(n) in-memory top_rated sort per page. ceiling: O(n) cheap for n<10k (n=limit≤100 paginated, effective scan ≤1000). upgrade: materialize `averageRating` column + index if catalog >10k.
 
-## apps/web/src/app/products/[id]/__tests__/product-page.test.tsx
-- `apps/web/src/app/products/[id]/__tests__/product-page.test.tsx:204`, slice tolerante en truncateDescription test. ceiling: longitud y sufijo, no igualdad de grafema. upgrade: `no-trigger` — test tolerante a emoji split; restore grapheme equality with `Intl.Segmenter` if needed.
-
 ## apps/web/src/app/sell/page.tsx
 - `apps/web/src/app/sell/page.tsx:77`, deleted BroadcastChannel dup. ceiling: storage+CustomEvent cover cross/same-tab. upgrade: restore `BroadcastChannel("versale-sell-draft")` if need instant cross-tab without storage round-trip.
 
@@ -43,6 +40,6 @@
 
 ---
 
-19 markers, 9 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock resolved; 2026-08-28: apps/api/src/cart per-key lock resolved — removed `ponytail: naive P2002` marker, now in-process Map + P2002 fallback; debts saldadas.)
+18 markers, 8 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock resolved; 2026-08-28: apps/api/src/cart per-key lock resolved; 2026-08-28: apps/web/src/app/products/[id]/__tests__/product-page.test.tsx grapheme-strict resolved — removed `ponytail: slice tolerante` marker, now Segmenter-strict; debts saldadas.)
 
 > Ponytail ceiling for ledger itself: `// ponytail: ledger file, regenerate via grep if markers change; no watcher/cron until debt cadence >1/iteration` — regenerate with `npm run ponytail:debt` alias if cadence grows; until then manual iteration is YAGNI.
