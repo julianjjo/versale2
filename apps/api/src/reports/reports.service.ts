@@ -23,6 +23,7 @@ export class ReportsService {
     reason: string,
     category: ReportCategory,
   ) {
+    productId = productId.trim();
     // Confirms the product exists (and surfaces the same 404 as everywhere
     // else) before creating a report that would otherwise dangle. Unlike
     // favoriting, this deliberately does NOT require isApproved: a listing
@@ -124,6 +125,7 @@ export class ReportsService {
   }
 
   async dismiss(id: string, adminId: string) {
+    id = id.trim();
     try {
       // Guarding on status: OPEN (not just id) makes this a no-op-safe
       // compare-and-swap: a second dismiss of the same report — two admin
