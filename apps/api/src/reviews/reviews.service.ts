@@ -30,6 +30,7 @@ export class ReviewsService {
     userId: string,
     productId: string,
   ) {
+    productId = productId.trim();
     const product = await this.prisma.client.product.findUnique({
       where: { id: productId },
     });
@@ -103,6 +104,7 @@ export class ReviewsService {
   }
 
   async findAllByProduct(productId: string) {
+    productId = productId.trim();
     // Every listing is a single physical garment, never restocked — so at
     // most one order item can ever record its actual sale. Whoever that
     // order belongs to (if it went through) is the one buyer a review can
@@ -137,6 +139,7 @@ export class ReviewsService {
     userId: string,
     role: Role,
   ) {
+    id = id.trim();
     const review = await this.prisma.client.review.findUnique({
       where: { id },
     });
@@ -162,6 +165,7 @@ export class ReviewsService {
   }
 
   async replyToReview(id: string, sellerId: string, reply: string) {
+    id = id.trim();
     const review = await this.prisma.client.review.findUnique({
       where: { id },
       include: { product: { select: { sellerId: true } } },
@@ -188,6 +192,7 @@ export class ReviewsService {
   // Marking twice is a no-op, not an error — mirrors
   // FavoritesService#addFavorite's own upsert-on-a-compound-unique-key.
   async markHelpful(reviewId: string, userId: string) {
+    reviewId = reviewId.trim();
     const review = await this.prisma.client.review.findUnique({
       where: { id: reviewId },
       select: { userId: true },
@@ -229,6 +234,7 @@ export class ReviewsService {
   }
 
   async unmarkHelpful(reviewId: string, userId: string) {
+    reviewId = reviewId.trim();
     // Mirrors markHelpful's own existence check: without it, unmarking a
     // vote on a reviewId that never existed still 404s (via P2025 below),
     // but with the wrong message — "you haven't voted" instead of "this
@@ -265,6 +271,7 @@ export class ReviewsService {
   // votedByMe is re-queried rather than trusted from caller: rapid toggle 3x
   // interleaves mark/unmark and the last caller's boolean would be stale
   private async getHelpfulSummary(reviewId: string, userId: string) {
+    reviewId = reviewId.trim();
     const [helpfulCount, mine] = await Promise.all([
       this.prisma.client.reviewHelpfulVote.count({ where: { reviewId } }),
       this.prisma.client.reviewHelpfulVote.findUnique({
@@ -276,6 +283,7 @@ export class ReviewsService {
   }
 
   async remove(id: string, userId: string, role: Role) {
+    id = id.trim();
     const review = await this.prisma.client.review.findUnique({
       where: { id },
     });
