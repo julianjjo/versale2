@@ -14,6 +14,21 @@ describe('CreateReviewDto with the global ValidationPipe', () => {
     );
   });
 
+  it('rejects a whitespace-only productId', async () => {
+    await expect(
+      pipe.transform({ productId: '   ', rating: 5 }, metadata),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('trims the productId before validating and storing it', async () => {
+    const result = (await pipe.transform(
+      { productId: '  product-1  ', rating: 5 },
+      metadata,
+    )) as CreateReviewDto;
+
+    expect(result.productId).toBe('product-1');
+  });
+
   it('rejects a missing rating', async () => {
     await expect(
       pipe.transform({ productId: 'product-1' }, metadata),
