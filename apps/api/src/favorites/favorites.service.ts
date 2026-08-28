@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { ProductsService } from '../products/products.service';
 import { translatePrismaError } from '../common/prisma-error';
+import { asRecord } from '../common/query';
 import { resolvePagination } from '../common/pagination';
 
 // findAllIds() has no pagination UI to bound it the way findAll() has, so
@@ -47,10 +48,7 @@ export class FavoritesService {
   ) {}
 
   async findAll(userId: string, query: unknown) {
-    const q =
-      query !== null && typeof query === 'object' && !Array.isArray(query)
-        ? (query as Record<string, unknown>)
-        : {};
+    const q = asRecord(query);
     const { page = 1, limit = 10 } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
