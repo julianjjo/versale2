@@ -45,7 +45,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return [
       ...staticRoutes,
       ...products.slice(0, SITEMAP_MAX_URLS).map((p) => {
-        const d = new Date(p.updatedAt);
+        const rawUpdatedAt =
+          typeof p.updatedAt === "string" ? p.updatedAt.trim() : p.updatedAt;
+        const d = new Date(rawUpdatedAt);
         return {
           url: `${SITE_URL}/products/${encodeURIComponent(p.id)}`,
           lastModified: Number.isNaN(d.getTime()) ? new Date() : d,
