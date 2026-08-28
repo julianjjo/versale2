@@ -108,7 +108,7 @@ export function ProductDetail({
   initialProduct?: Product;
 } = {}) {
   const params = useParams<{ id: string }>();
-  const id = params.id;
+  const id = (params.id ?? "").trim();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -144,7 +144,7 @@ export function ProductDetail({
   } = useQuery<Product>({
     queryKey: ["product", id],
     queryFn: async ({ signal }) => {
-      const response = await api.get<Product>(`/products/${id}`, { signal });
+      const response = await api.get<Product>(`/products/${encodeURIComponent(id)}`, { signal });
       return response.data;
     },
     enabled: Boolean(id),
@@ -156,7 +156,7 @@ export function ProductDetail({
   const { data: related } = useQuery<{ data: Product[] }>({
     queryKey: ["product-related", id],
     queryFn: async ({ signal }) => {
-      const response = await api.get<{ data: Product[] }>(`/products/${id}/related`, { signal });
+      const response = await api.get<{ data: Product[] }>(`/products/${encodeURIComponent(id)}/related`, { signal });
       return response.data;
     },
     enabled: Boolean(id),
