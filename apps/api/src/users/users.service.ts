@@ -129,9 +129,13 @@ export class UsersService implements OnModuleInit, OnModuleDestroy {
     } else {
       where.deletedAt = null;
     }
-    if (typeof search === 'string' && search) {
-      const term = search;
-      where.OR = [{ name: { contains: term } }, { email: { contains: term } }];
+    if (typeof search === 'string') {
+      const term = search.trim();
+      if (term)
+        where.OR = [
+          { name: { contains: term } },
+          { email: { contains: term } },
+        ];
     }
     // Prisma rejects a value outside the enum with an unhandled error, so an
     // unknown `?role=` is ignored rather than passed through.
