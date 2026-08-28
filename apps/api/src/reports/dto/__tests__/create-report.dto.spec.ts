@@ -35,6 +35,32 @@ describe('CreateReportDto with the global ValidationPipe', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('rejects a whitespace-only productId', async () => {
+    await expect(
+      pipe.transform(
+        {
+          productId: '   ',
+          reason: 'Motivo',
+          category: ReportCategory.OTHER,
+        },
+        metadata,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('trims the productId before validating and storing it', async () => {
+    const result = (await pipe.transform(
+      {
+        productId: '  product1  ',
+        reason: 'Motivo',
+        category: ReportCategory.OTHER,
+      },
+      metadata,
+    )) as CreateReportDto;
+
+    expect(result.productId).toBe('product1');
+  });
+
   it('rejects a missing category', async () => {
     await expect(
       pipe.transform({ productId: 'product1', reason: 'Motivo' }, metadata),
