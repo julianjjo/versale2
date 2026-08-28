@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return -- Transform value is any from class-transformer */
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsString,
@@ -8,12 +10,14 @@ import {
 import { IsPassword } from '../../common/password-validation';
 
 export class SignupDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsEmail({}, { message: 'Ingresa un correo electrónico válido' })
   email!: string;
 
   @IsPassword()
   password!: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'El nombre debe ser un texto' })
   @IsNotEmpty({ message: 'El nombre es obligatorio' })
   name!: string;
