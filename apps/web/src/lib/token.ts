@@ -1,7 +1,6 @@
 import { readString, writeString, removeKey } from "./storage";
 const TOKEN_KEY = "versale_token";
 const AUTH_EVENT = "versale:auth-change";
-// ponytail: deleted BroadcastChannel dup; storage+CustomEvent cover cross/same-tab; restore BC if need instant cross-tab without storage round-trip
 
 function emitAuthChange() {
   if (typeof window === "undefined") return;

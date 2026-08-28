@@ -6,14 +6,8 @@
 - `apps/api/src/products/products.service.ts:66`, cap MAX_TOP_RATED_SCAN=1000, warn on truncation. ceiling: cap 1000, warned via logger.warn. upgrade: materialize `averageRating`+index if cap warn sustained (>1k).
 - `apps/api/src/products/products.service.ts:343`, O(n) in-memory top_rated sort per page, warned. ceiling: O(n) cheap for n<10k, warned. upgrade: materialize `averageRating` column + index if catalog >10k.
 
-## apps/web/src/app/sell/page.tsx
-- `apps/web/src/app/sell/page.tsx:77`, deleted BroadcastChannel dup. ceiling: storage+CustomEvent cover cross/same-tab. upgrade: restore `BroadcastChannel("versale-sell-draft")` if need instant cross-tab without storage round-trip.
-
 ## apps/web/src/components/products/products-browser.tsx
 - `apps/web/src/components/products/products-browser.tsx:202`, 300ms live search via useDebouncedSearch, submit fallback. ceiling: 300ms debounced live search. upgrade: server search index if catalog >10k.
-
-## apps/web/src/lib/token.ts
-- `apps/web/src/lib/token.ts:4`, deleted BroadcastChannel dup. ceiling: storage+CustomEvent cover cross/same-tab. upgrade: restore `BroadcastChannel("versale-auth")` if need instant cross-tab without storage round-trip.
 
 ## e2e/tests/account-deletion.spec.ts
 - `e2e/tests/account-deletion.spec.ts:8`, serial — backdate mutates shared e2e.db; upgrade: per-test DB isolation or per-worker e2e.db if parallel needed. ceiling: serial. upgrade: per-test DB isolation or per-worker e2e.db if parallel needed.
@@ -38,6 +32,6 @@
 
 ---
 
-16 markers, 0 with no trigger. Clean ledger. (2026-08-28: scripts/qa-worktree.js per-port lock; 2026-08-28: apps/api/src/cart per-key lock; 2026-08-28: product-page grapheme-strict; 2026-08-28: products-browser debounce; 2026-08-28: products top_rated cap warned; 2026-08-28: orders debug sweeps endpoint; 2026-08-28: account-flows bundled UI split; 2026-08-28: cdp-audit upgrade; 2026-08-28: publish-moderation reject reason required; 2026-08-28: account-deletion serial upgrade; 2026-08-28: account-flows serial upgrade; 2026-08-28: account-flows resend upgrade; 2026-08-28: publish-moderation paused upgrade; 2026-08-28: products cap/O(n) upgrade explicit; 2026-08-28: auth debug backdate endpoint; 2026-08-28: account-flows verify+reset expirado migrated to HTTP — 2 tests now use POST /auth/debug/backdate; Clean ledger.)
+14 markers, 0 with no trigger. Clean ledger. (2026-08-28: scripts/qa-worktree.js per-port lock; 2026-08-28: apps/api/src/cart per-key lock; 2026-08-28: product-page grapheme-strict; 2026-08-28: products-browser debounce; 2026-08-28: products top_rated cap warned; 2026-08-28: orders debug sweeps endpoint; 2026-08-28: account-flows bundled UI split; 2026-08-28: cdp-audit upgrade; 2026-08-28: publish-moderation reject reason required; 2026-08-28: account-deletion serial upgrade; 2026-08-28: account-flows serial upgrade; 2026-08-28: account-flows resend upgrade; 2026-08-28: publish-moderation paused upgrade; 2026-08-28: products cap/O(n) upgrade explicit; 2026-08-28: auth debug backdate endpoint; 2026-08-28: account-flows verify+reset expirado migrated to HTTP; 2026-08-28: remove BroadcastChannel ponytails (sell/page.tsx:77, token.ts:4) — debt saldada, 16→14; Clean ledger.)
 
 > Ponytail ceiling for ledger itself: `// ponytail: ledger file, regenerate via grep if markers change; no watcher/cron until debt cadence >1/iteration` — regenerate with `npm run ponytail:debt` alias if cadence grows; until then manual iteration is YAGNI.

@@ -78,7 +78,7 @@ function readPrefill(searchParams: ReturnType<typeof useSearchParams>) {
 
 const DRAFT_STORAGE_KEY = "versale:sell-draft:v1";
 const DRAFT_EVENT = "versale:sell-draft-change";
-// ponytail: deleted BroadcastChannel dup; storage+CustomEvent cover cross/same-tab; restore BC if need instant cross-tab without storage round-trip
+
 function emitDraftChange() {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(DRAFT_EVENT));
