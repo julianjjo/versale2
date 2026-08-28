@@ -21,7 +21,9 @@ export function useFavorites() {
   });
 }
 
-export function useFavoriteProductIds(options?: { enabled?: boolean }): Set<string> {
+export function useFavoriteProductIds(options?: {
+  enabled?: boolean;
+}): Set<string> {
   const { user } = useAuth();
   const { data } = useQuery<{ productIds: string[] }>({
     queryKey: ["favorite-ids"],
@@ -47,10 +49,13 @@ export function useToggleFavorite() {
       productId: string;
       isFavorite: boolean;
     }) => {
+      const trimmed = productId.trim();
+      if (!trimmed) return;
+      const encoded = encodeURIComponent(trimmed);
       if (isFavorite) {
-        await api.delete(`/favorites/${productId}`);
+        await api.delete(`/favorites/${encoded}`);
       } else {
-        await api.post(`/favorites/${productId}`);
+        await api.post(`/favorites/${encoded}`);
       }
     },
     onSuccess: () => {

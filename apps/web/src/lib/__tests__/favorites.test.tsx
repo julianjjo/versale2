@@ -1,13 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { TestProviders, createTestQueryClient } from "@/test-utils/TestProviders";
+import {
+  TestProviders,
+  createTestQueryClient,
+} from "@/test-utils/TestProviders";
 
 vi.mock("../api", () => ({
   api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
 }));
 vi.mock("../auth", async (importOriginal) => {
-  const actual = await importOriginal() as Record<string, unknown>;
+  const actual = (await importOriginal()) as Record<string, unknown>;
   return { ...actual, useAuth: vi.fn() };
 });
 
@@ -100,6 +103,58 @@ describe("favorites lib", () => {
       expect(mockedApi.post).toHaveBeenCalledWith("/favorites/p1");
       await result.current.mutateAsync({ productId: "p1", isFavorite: true });
       expect(mockedApi.delete).toHaveBeenCalledWith("/favorites/p1");
+    });
+
+    it("trims and encodes padded productId", async () => {
+      mockedApi.post.mockResolvedValue({});
+      mockedApi.delete.mockResolvedValue({});
+      const qc = createTestQueryClient();
+      const wrapperWithClient = ({ children }: { children: ReactNode }) => (
+        <TestProviders client={qc}>{children}</TestProviders>
+      );
+      const { result } = renderHook(() => useToggleFavorite(), {
+        wrapper: wrapperWithClient,
+      });
+      await result.current.mutateAsync({
+        productId: "  p1  ",
+        isFavorite: false,
+      });
+      expect(mockedApi.post).toHaveBeenCalledWith("/favorites/p1");
+      await result.current.mutateAsync({
+        productId: "  p1  ",
+        isFavorite: true,
+      });
+      expect(mockedApi.delete).toHaveBeenCalledWith("/favorites/p1");
+    });
+
+    it("encodes special characters in productId", async () => {
+      mockedApi.post.mockResolvedValue({});
+      const qc = createTestQueryClient();
+      const wrapperWithClient = ({ children }: { children: ReactNode }) => (
+        <TestProviders client={qc}>{children}</TestProviders>
+      );
+      const { result } = renderHook(() => useToggleFavorite(), {
+        wrapper: wrapperWithClient,
+      });
+      await result.current.mutateAsync({
+        productId: "a/b c",
+        isFavorite: false,
+      });
+      expect(mockedApi.post).toHaveBeenCalledWith("/favorites/a%2Fb%20c");
+    });
+
+    it("does not call api for whitespace-only productId", async () => {
+      const qc = createTestQueryClient();
+      const wrapperWithClient = ({ children }: { children: ReactNode }) => (
+        <TestProviders client={qc}>{children}</TestProviders>
+      );
+      const { result } = renderHook(() => useToggleFavorite(), {
+        wrapper: wrapperWithClient,
+      });
+      await result.current.mutateAsync({ productId: "   ", isFavorite: false });
+      expect(mockedApi.post).not.toHaveBeenCalled();
+      await result.current.mutateAsync({ productId: "   ", isFavorite: true });
+      expect(mockedApi.delete).not.toHaveBeenCalled();
     });
 
     it("invalidates queries on success", async () => {
