@@ -347,6 +347,37 @@ describe('FavoritesService', () => {
       );
       expect(mockPrismaService.client.favorite.upsert).not.toHaveBeenCalled();
     });
+
+    it('should trim a padded productId before looking it up and upserting', async () => {
+      const userId = 'user1';
+      const mockProduct = approvedProduct({ id: 'product1' });
+      mockProductsService.findRaw.mockResolvedValue(mockProduct);
+      mockPrismaService.client.favorite.upsert.mockResolvedValue({
+        id: 'fav1',
+        userId,
+        productId: 'product1',
+      });
+
+      await service.addFavorite(userId, '  product1  ');
+
+      expect(mockProductsService.findRaw).toHaveBeenCalledWith('product1');
+      expect(mockPrismaService.client.favorite.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId_productId: { userId, productId: 'product1' } },
+          create: { userId, productId: 'product1' },
+        }),
+      );
+    });
+
+    it('should reject a whitespace-only productId', async () => {
+      await expect(service.addFavorite('user1', '   ')).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.addFavorite('user1', '   ')).rejects.toThrow(
+        'El producto seleccionado no es válido',
+      );
+      expect(mockProductsService.findRaw).not.toHaveBeenCalled();
+    });
   });
 
   describe('removeFavorite', () => {
@@ -401,6 +432,30 @@ describe('FavoritesService', () => {
       await expect(service.removeFavorite(userId, productId)).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('should trim a padded productId before deleting', async () => {
+      mockPrismaService.client.favorite.delete.mockResolvedValue({
+        id: 'fav1',
+        userId: 'user1',
+        productId: 'product1',
+      });
+
+      await service.removeFavorite('user1', '  product1  ');
+
+      expect(mockPrismaService.client.favorite.delete).toHaveBeenCalledWith({
+        where: { userId_productId: { userId: 'user1', productId: 'product1' } },
+      });
+    });
+
+    it('should reject a whitespace-only productId on remove', async () => {
+      await expect(service.removeFavorite('user1', '   ')).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.removeFavorite('user1', '   ')).rejects.toThrow(
+        'El producto seleccionado no es válido',
+      );
+      expect(mockPrismaService.client.favorite.delete).not.toHaveBeenCalled();
     });
   });
   it('favorites: handles empty list', () => {

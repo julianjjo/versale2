@@ -109,9 +109,13 @@ export class FavoritesService {
   }
 
   async addFavorite(userId: string, productId: string) {
+    const trimmedProductId = productId.trim();
+    if (!trimmedProductId) {
+      throw new BadRequestException('El producto seleccionado no es válido');
+    }
     // Confirms the product exists (and surfaces the same 404 as everywhere
     // else) before creating a bookmark that would otherwise dangle.
-    const product = await this.productsService.findRaw(productId);
+    const product = await this.productsService.findRaw(trimmedProductId);
 
     // Unapproved listings can't be bookmarked: they aren't shown to buyers,
     // so a guessed or leaked productId must not surface their full details
@@ -137,9 +141,9 @@ export class FavoritesService {
 
     // Favoriting twice is a no-op, not an error: the button just toggles.
     return this.prisma.client.favorite.upsert({
-      where: { userId_productId: { userId, productId } },
+      where: { userId_productId: { userId, productId: trimmedProductId } },
       update: {},
-      create: { userId, productId },
+      create: { userId, productId: trimmedProductId },
       include: {
         product: { select: FAVORITE_PRODUCT_SELECT },
       },
@@ -147,9 +151,13 @@ export class FavoritesService {
   }
 
   async removeFavorite(userId: string, productId: string) {
+    const trimmedProductId = productId.trim();
+    if (!trimmedProductId) {
+      throw new BadRequestException('El producto seleccionado no es válido');
+    }
     try {
       await this.prisma.client.favorite.delete({
-        where: { userId_productId: { userId, productId } },
+        where: { userId_productId: { userId, productId: trimmedProductId } },
       });
     } catch (error) {
       translatePrismaError(error, {
