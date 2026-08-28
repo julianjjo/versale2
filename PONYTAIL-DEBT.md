@@ -21,7 +21,7 @@
 - `e2e/tests/account-deletion.spec.ts:247`, cron not exposed via HTTP — direct DB backdate is minimal e2e bridge. ceiling: cron not exposed via HTTP. upgrade: same as above.
 
 ## e2e/tests/account-flows.spec.ts
-- `e2e/tests/account-flows.spec.ts:8`, serial — backdate mutates shared e2e.db. ceiling: serial. upgrade: `no-trigger`.
+- `e2e/tests/account-flows.spec.ts:8`, serial — backdate mutates shared e2e.db; upgrade: per-test DB isolation or per-worker e2e.db if parallel needed. ceiling: serial. upgrade: per-test DB isolation or per-worker e2e.db if parallel needed.
 - `e2e/tests/account-flows.spec.ts:21`, cron not exposed via HTTP — direct DB backdate is minimal e2e bridge. ceiling: cron not exposed. upgrade: expose debug endpoint if HTTP needed.
 - `e2e/tests/account-flows.spec.ts:98`, resend no expone raw token — rotación probada vía invalidación del anterior. ceiling: no raw token in resend. upgrade: `no-trigger` — keep invalidación check; expose raw token only in test env if needed.
 
@@ -38,6 +38,6 @@
 
 ---
 
-16 markers, 4 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock; 2026-08-28: apps/api/src/cart per-key lock; 2026-08-28: product-page grapheme-strict; 2026-08-28: products-browser debounce; 2026-08-28: products top_rated cap warned; 2026-08-28: orders debug sweeps endpoint; 2026-08-28: account-flows bundled UI split; 2026-08-28: cdp-audit upgrade; 2026-08-28: publish-moderation reject reason required; 2026-08-28: account-deletion serial upgrade explicit — no-trigger 5→4; debts saldadas/progress.)
+16 markers, 3 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock; 2026-08-28: apps/api/src/cart per-key lock; 2026-08-28: product-page grapheme-strict; 2026-08-28: products-browser debounce; 2026-08-28: products top_rated cap warned; 2026-08-28: orders debug sweeps endpoint; 2026-08-28: account-flows bundled UI split; 2026-08-28: cdp-audit upgrade; 2026-08-28: publish-moderation reject reason required; 2026-08-28: account-deletion serial upgrade; 2026-08-28: account-flows serial upgrade explicit — no-trigger 4→3; debts saldadas/progress.)
 
 > Ponytail ceiling for ledger itself: `// ponytail: ledger file, regenerate via grep if markers change; no watcher/cron until debt cadence >1/iteration` — regenerate with `npm run ponytail:debt` alias if cadence grows; until then manual iteration is YAGNI.
