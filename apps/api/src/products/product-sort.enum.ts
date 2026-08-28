@@ -17,5 +17,8 @@ export function isProductStatus(value: string): value is ProductStatus {
 export const PRODUCT_SORT_BYS = Object.values(ProductSortBy) as ProductSortBy[];
 
 export function isProductSortBy(value: string): value is ProductSortBy {
-  return (PRODUCT_SORT_BYS as readonly string[]).includes(value.trim());
+  const trimmed = value.trim().toLowerCase();
+  return (PRODUCT_SORT_BYS as readonly string[]).some(
+    (v) => v.toLowerCase() === trimmed,
+  );
 }

@@ -159,12 +159,14 @@ export class ProductsService {
   private resolveSortOrder(
     sortBy: unknown,
   ): Prisma.ProductOrderByWithRelationInput[] {
-    const value = this.firstValue(sortBy);
-    if (
-      value &&
-      Object.values(ProductSortBy).includes(value as ProductSortBy)
-    ) {
-      return SORT_ORDER_BY[value as ProductSortBy];
+    const raw = this.firstValue(sortBy);
+    const normalized =
+      typeof raw === 'string' ? raw.trim().toLowerCase() : undefined;
+    const canonical = (Object.values(ProductSortBy) as ProductSortBy[]).find(
+      (v) => v.toLowerCase() === normalized,
+    );
+    if (canonical) {
+      return SORT_ORDER_BY[canonical];
     }
     return [{ createdAt: 'desc' }, { id: 'asc' }];
   }
@@ -265,7 +267,8 @@ export class ProductsService {
     } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
     const raw = (this.firstValue(sortBy) as string | undefined)?.trim();
-    const isTopRated = raw === ProductSortBy.TOP_RATED;
+    const isTopRated =
+      raw?.toLowerCase() === ProductSortBy.TOP_RATED.toLowerCase();
     const orderBy = this.resolveSortOrder(raw);
 
     const search = this.firstValue(rawSearch);
