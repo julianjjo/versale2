@@ -35,10 +35,10 @@
 - `e2e/tests/publish-moderation.spec.ts:164`, paused sigue contando (anti-bypass); liberar vía DELETE del más antiguo. ceiling: paused counts toward limit. upgrade: `no-trigger` — keep anti-bypass; change to exclude paused if product policy changes.
 
 ## e2e/utils/cdp-audit.ts
-- `e2e/utils/cdp-audit.ts:39`, single CDPSession per page. ceiling: single CDPSession. upgrade: `no-trigger` — per-page session is fine; fan-out only if CDP contention observed.
+- `e2e/utils/cdp-audit.ts:39`, single CDPSession per page; upgrade: per-page session is fine; fan-out or per-context session if CDP contention observed. ceiling: single CDPSession. upgrade: fan-out or per-context session if CDP contention observed.
 
 ---
 
-17 markers, 7 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock; 2026-08-28: apps/api/src/cart per-key lock; 2026-08-28: product-page grapheme-strict; 2026-08-28: products-browser debounce; 2026-08-28: products top_rated cap warned; 2026-08-28: orders debug sweeps endpoint; 2026-08-28: account-flows bundled UI split into 3 tests — removed ponytail: bundled marker, now 17; debts saldadas/progress.)
+17 markers, 6 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock; 2026-08-28: apps/api/src/cart per-key lock; 2026-08-28: product-page grapheme-strict; 2026-08-28: products-browser debounce; 2026-08-28: products top_rated cap warned; 2026-08-28: orders debug sweeps endpoint; 2026-08-28: account-flows bundled UI split; 2026-08-28: cdp-audit single CDPSession upgrade explicit + close/crash handlers — no-trigger 7→6; debts saldadas/progress.)
 
 > Ponytail ceiling for ledger itself: `// ponytail: ledger file, regenerate via grep if markers change; no watcher/cron until debt cadence >1/iteration` — regenerate with `npm run ponytail:debt` alias if cadence grows; until then manual iteration is YAGNI.
