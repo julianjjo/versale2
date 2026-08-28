@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return -- Transform value is any from class-transformer */
+import { Transform } from 'class-transformer';
 import {
   IsInt,
   IsString,
@@ -20,6 +22,7 @@ export class CreateReviewDto {
   rating!: number;
 
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'El comentario debe ser un texto' })
   // @IsOptional() only skips validation for a missing/null/undefined value —
   // an explicit "" or "   " still reaches Matches/MaxLength below, same as

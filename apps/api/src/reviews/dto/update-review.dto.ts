@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return -- Transform value is any from class-transformer */
+import { Transform } from 'class-transformer';
 import {
   IsInt,
   IsString,
@@ -25,6 +27,7 @@ export class UpdateReviewDto {
   rating?: number;
 
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'El comentario debe ser un texto' })
   // Same reasoning as CreateReviewDto's own comment field: IsOptional only
   // skips an omitted/null/undefined value, so an explicit "" or "   " still
