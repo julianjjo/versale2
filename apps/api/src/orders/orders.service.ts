@@ -400,6 +400,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getOrderById(id: string, userId: string, role: Role) {
+    id = id.trim();
     const order = await this.prisma.client.order.findUnique({
       where: { id },
       include: {
@@ -613,6 +614,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
   // also has another seller's still-unshipped item would misreport it as
   // shipped. That mixed case is refused and left for an admin to handle.
   async shipOwnSale(sellerId: string, id: string, trackingNumber?: string) {
+    id = id.trim();
     const order = await this.prisma.client.order.findUnique({
       where: { id },
       select: {
@@ -686,6 +688,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
   }
 
   async updateOrderStatus(id: string, status: OrderStatus) {
+    id = id.trim();
     const order = await this.prisma.client.order.findUnique({
       where: { id },
       select: {
@@ -749,6 +752,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
   // status release so a buyer's cancellation relists the garment exactly like
   // an admin's does.
   async cancelOwnOrder(userId: string, id: string) {
+    id = id.trim();
     const order = await this.prisma.client.order.findUnique({
       where: { id },
       select: {
@@ -891,6 +895,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     orderId: string,
     dto: { reason: string; photos: string[] },
   ) {
+    orderId = orderId.trim();
     // Tipado explícito con el enum local: la comparación de estados contra
     // el enum del runtime de Prisma dispara no-unsafe-enum-comparison.
     const order = (await this.prisma.client.order.findUnique({
@@ -1036,6 +1041,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     // to a database with real multi-connection write concurrency.
     // Cursor pagination keeps memory bounded: each batch is processed before
     // the next is fetched, instead of loading every stale row at once.
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       let batch: { id: string; userId: string; status: OrderStatus }[] = [];
       try {
