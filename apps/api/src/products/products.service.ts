@@ -287,8 +287,9 @@ export class ProductsService {
     // the same catalog visibility rules above rather than a bespoke query —
     // a seller's profile shows exactly what any buyer could already find by
     // browsing, never a private preview of unapproved or sold stock.
-    if (typeof sellerId === 'string' && sellerId) {
-      where.sellerId = sellerId;
+    if (typeof sellerId === 'string') {
+      const trimmedSellerId = sellerId.trim();
+      if (trimmedSellerId) where.sellerId = trimmedSellerId;
     }
 
     // Powers the storefront's "recently viewed" rail (a fixed set of ids,

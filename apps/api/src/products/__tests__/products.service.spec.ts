@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- expect.objectContaining is any by design */
 import { Test, TestingModule } from '@nestjs/testing';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
@@ -2276,6 +2277,35 @@ describe('ProductsService', () => {
           sellerId: 'seller1',
         },
       });
+    });
+
+    it('should trim a padded sellerId before filtering', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+      await service.findAll({ sellerId: '  seller1  ' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ sellerId: 'seller1' }),
+        }),
+      );
+    });
+
+    it('should ignore a whitespace-only sellerId', async () => {
+      mockPrismaService.client.product.findMany.mockResolvedValue([]);
+      mockPrismaService.client.product.count.mockResolvedValue(0);
+      await service.findAll({ sellerId: '   ' });
+      expect(mockPrismaService.client.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            isApproved: true,
+            status: 'AVAILABLE' as const,
+            pausedAt: null,
+          },
+        }),
+      );
+      const [[{ where }]] = mockPrismaService.client.product.findMany.mock
+        .calls as [[{ where: Record<string, unknown> }]];
+      expect(where.sellerId).toBeUndefined();
     });
 
     it("should still only surface that seller's approved, unsold listings, same as the public catalog", async () => {
