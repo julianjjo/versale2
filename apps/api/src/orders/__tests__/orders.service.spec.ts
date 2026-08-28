@@ -804,6 +804,16 @@ describe('OrdersService', () => {
 
       expect(result).toEqual(mockOrder);
     });
+
+    it('should trim a padded orderId before querying', async () => {
+      const mockOrder = { id: 'order1', userId: 'user1', status: 'PENDING' };
+      mockPrismaService.client.order.findUnique.mockResolvedValue(mockOrder);
+      await service.getOrderById('  order1  ', 'user1', Role.USER);
+      expect(mockPrismaService.client.order.findUnique).toHaveBeenCalledWith({
+        where: { id: 'order1' },
+        include: { items: { include: { product: true } } },
+      });
+    });
   });
 
   describe('getAllOrders', () => {
@@ -1983,6 +1993,18 @@ describe('OrdersService', () => {
         await expect(
           service.openDispute('otro-usuario', orderId, dto),
         ).rejects.toThrow(ForbiddenException);
+      });
+
+      it('recorta un orderId con espacios antes de buscar', async () => {
+        mockDeliveredOrder(hoursAgo(2));
+        mockPrismaService.client.order.update.mockResolvedValue({
+          id: orderId,
+          status: OrderStatus.DISPUTED,
+        });
+        await service.openDispute('buyer1', '  order1  ', dto);
+        expect(mockPrismaService.client.order.findUnique).toHaveBeenCalledWith(
+          expect.objectContaining({ where: { id: 'order1' } }),
+        );
       });
     });
 
