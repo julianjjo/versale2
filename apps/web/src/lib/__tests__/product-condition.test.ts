@@ -33,6 +33,12 @@ describe("product-condition", () => {
     expect(conditionLabel("  Unknown  ")).toBe("  Unknown  ");
   });
 
+  it("conditionLabel handles lower-case and padded input", () => {
+    expect(conditionLabel("  good  ")).toBe("Buen estado");
+    expect(conditionLabel("GOOD")).toBe("Buen estado");
+    expect(conditionLabel("  like new  ")).toBe("Como nuevo");
+  });
+
   it("CONDITION_OPTIONS derives from same map in same order", () => {
     expect(CONDITION_OPTIONS).toEqual([
       { value: "New", label: "Nuevo" },
