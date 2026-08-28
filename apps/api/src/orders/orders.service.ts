@@ -56,8 +56,9 @@ function formatShippingAddress(address: unknown): string {
 // same admin-facing order list by the same three fields, so they'd otherwise
 // drift into two copies of the identical filter.
 function buildOrderSearchWhere(search: unknown): Prisma.OrderWhereInput {
-  if (typeof search !== 'string' || !search) return {};
-  const term = search;
+  if (typeof search !== 'string') return {};
+  const term = search.trim();
+  if (!term) return {};
   return {
     OR: [
       { id: { contains: term } },
@@ -352,12 +353,16 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
     const where: Prisma.OrderWhereInput = { userId };
-    if (typeof search === 'string' && search) {
-      const term = search;
-      where.OR = [
-        { id: { contains: term } },
-        { items: { some: { product: { is: { title: { contains: term } } } } } },
-      ];
+    if (typeof search === 'string') {
+      const term = search.trim();
+      if (term) {
+        where.OR = [
+          { id: { contains: term } },
+          {
+            items: { some: { product: { is: { title: { contains: term } } } } },
+          },
+        ];
+      }
     }
     // Validated against the enum instead of passed through as-is: Prisma
     // throws an unhandled `PrismaClientValidationError` (a raw 500, no
@@ -555,20 +560,24 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     const where: Prisma.OrderWhereInput = {
       items: { some: { product: { sellerId } } },
     };
-    if (typeof search === 'string' && search) {
-      const term = search;
-      where.OR = [
-        { id: { contains: term } },
-        { user: { is: { name: { contains: term } } } },
-        // Scoped to `sellerId` too, not just `title`: otherwise a title match
-        // on another seller's item in a mixed-cart order would surface an
-        // order that has nothing to do with this seller's own listing.
-        {
-          items: {
-            some: { product: { is: { sellerId, title: { contains: term } } } },
+    if (typeof search === 'string') {
+      const term = search.trim();
+      if (term) {
+        where.OR = [
+          { id: { contains: term } },
+          { user: { is: { name: { contains: term } } } },
+          // Scoped to `sellerId` too, not just `title`: otherwise a title match
+          // on another seller's item in a mixed-cart order would surface an
+          // order that has nothing to do with this seller's own listing.
+          {
+            items: {
+              some: {
+                product: { is: { sellerId, title: { contains: term } } },
+              },
+            },
           },
-        },
-      ];
+        ];
+      }
     }
     // Validated against the enum for the same reason as getUserOrders: an
     // out-of-enum value would otherwise reach Prisma and raise an unhandled
