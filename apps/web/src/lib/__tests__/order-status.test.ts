@@ -126,6 +126,12 @@ describe("order-status", () => {
     expect(orderStatusLabel("  UNKNOWN  ")).toBe("  UNKNOWN  ");
   });
 
+  it("orderStatusLabel handles lower-case and padded input", () => {
+    expect(orderStatusLabel("  paid  ")).toBe("Pagado");
+    expect(orderStatusLabel("delivered")).toBe("Entregado");
+    expect(orderStatusLabel("  disputed  ")).toBe("En disputa");
+  });
+
   it("orderStatusVariant trims whitespace", () => {
     expect(orderStatusVariant(" PENDING ")).toBe("warning");
     expect(orderStatusVariant("  DELIVERED  ")).toBe("success");
