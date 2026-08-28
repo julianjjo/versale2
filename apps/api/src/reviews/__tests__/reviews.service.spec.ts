@@ -339,6 +339,15 @@ describe('ReviewsService', () => {
 
       expect(result).toEqual([{ ...mockReviews[0], verifiedPurchase: false }]);
     });
+
+    it('should trim a padded productId before querying', async () => {
+      mockPrismaService.client.review.findMany.mockResolvedValue([]);
+      mockPrismaService.client.orderItem.findFirst.mockResolvedValue(null);
+      await service.findAllByProduct('  product1  ');
+      expect(mockPrismaService.client.review.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { productId: 'product1' } }),
+      );
+    });
   });
 
   describe('update', () => {
@@ -470,6 +479,24 @@ describe('ReviewsService', () => {
         id: reviewId,
         comment: 'Contenido moderado',
       });
+    });
+
+    it('should trim a padded reviewId before querying', async () => {
+      const reviewId = 'review1';
+      mockPrismaService.client.review.findUnique.mockResolvedValue({
+        id: reviewId,
+        userId: 'user1',
+      });
+      mockPrismaService.client.review.update.mockResolvedValue({
+        id: reviewId,
+      });
+      await service.update('  review1  ', { rating: 5 }, 'user1', Role.USER);
+      expect(mockPrismaService.client.review.findUnique).toHaveBeenCalledWith({
+        where: { id: 'review1' },
+      });
+      expect(mockPrismaService.client.review.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'review1' } }),
+      );
     });
   });
 
