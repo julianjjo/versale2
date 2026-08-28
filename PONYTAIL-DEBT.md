@@ -2,9 +2,6 @@
 
 > Generado via `grep -rnE '(#|//) ?ponytail:' apps e2e scripts` (excluye node_modules/.next/.git/.claude/.pi). Cada fila: `<file>:<line>, <what>. ceiling: <limit>. upgrade: <trigger>.` `no-trigger` = sin upgrade path explícito → riesgo de pudrirse.
 
-## apps/api/src/cart/cart.service.ts
-- `apps/api/src/cart/cart.service.ts:97`, naive P2002-only idempotency. ceiling: P2002-only, no per-key lock. upgrade: safe because `CartItem @@unique[cartId,productId]` enforces it; add per-key lock/mutex if concurrent addToCart races surface.
-
 ## apps/api/src/products/products.service.ts
 - `apps/api/src/products/products.service.ts:66`, cap MAX_TOP_RATED_SCAN=1000. ceiling: cap 1000. upgrade: materialize `averageRating`+index if catalog >1k sustained.
 - `apps/api/src/products/products.service.ts:343`, O(n) in-memory top_rated sort per page. ceiling: O(n) cheap for n<10k (n=limit≤100 paginated, effective scan ≤1000). upgrade: materialize `averageRating` column + index if catalog >10k.
@@ -46,6 +43,6 @@
 
 ---
 
-20 markers, 9 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock resolved — removed `ponytail: global probe lock` marker, now per-port Map + allocated set; debt saldada.)
+19 markers, 9 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock resolved; 2026-08-28: apps/api/src/cart per-key lock resolved — removed `ponytail: naive P2002` marker, now in-process Map + P2002 fallback; debts saldadas.)
 
 > Ponytail ceiling for ledger itself: `// ponytail: ledger file, regenerate via grep if markers change; no watcher/cron until debt cadence >1/iteration` — regenerate with `npm run ponytail:debt` alias if cadence grows; until then manual iteration is YAGNI.
