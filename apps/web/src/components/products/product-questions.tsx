@@ -43,7 +43,7 @@ export function ProductQuestions({
 
   const askQuestion = useMutation({
     mutationFn: async () => {
-      await api.post("/questions", { productId, question: questionText });
+      await api.post("/questions", { productId, question: questionText.trim() });
     },
     onSuccess: () => {
       invalidate();
@@ -55,7 +55,7 @@ export function ProductQuestions({
 
   const answerQuestion = useMutation({
     mutationFn: async ({ id, answer }: { id: string; answer: string }) => {
-      await api.patch(`/questions/${id}/answer`, { answer });
+      await api.patch(`/questions/${id}/answer`, { answer: answer.trim() });
     },
     // Only clears the editor if it's still open on the question this
     // response is actually for — otherwise a slow save for question A
@@ -83,7 +83,8 @@ export function ProductQuestions({
 
   const handleAsk = (e: React.FormEvent) => {
     e.preventDefault();
-    if (questionText.trim().length === 0 || questionText.length > 500) return;
+    const trimmed = questionText.trim();
+    if (trimmed.length === 0 || trimmed.length > 500) return;
     setError(null);
     askQuestion.mutate();
   };
@@ -110,9 +111,10 @@ export function ProductQuestions({
 
   const handleAnswerSubmit = (e: React.FormEvent, id: string) => {
     e.preventDefault();
-    if (!answerText.trim() || answerText.length > 1000) return;
+    const trimmed = answerText.trim();
+    if (!trimmed || trimmed.length > 1000) return;
     setError(null);
-    answerQuestion.mutate({ id, answer: answerText });
+    answerQuestion.mutate({ id, answer: trimmed });
   };
 
   const handleDelete = (id: string) => {
@@ -164,7 +166,7 @@ export function ProductQuestions({
                         rows={2}
                         maxLength={1000}
                       />
-                      <span className="text-xs text-text-muted">{answerText.length}/1000</span>
+                      <span className="text-xs text-text-muted">{answerText.trim().length}/1000</span>
                       <div className="flex gap-2">
                         <Button
                           type="submit"
@@ -172,7 +174,7 @@ export function ProductQuestions({
                           disabled={
                             answerQuestion.isPending ||
                             !answerText.trim() ||
-                            answerText.length > 1000
+                            answerText.trim().length > 1000
                           }
                         >
                           {answerQuestion.isPending
@@ -237,10 +239,10 @@ export function ProductQuestions({
             maxLength={500}
             placeholder="Ej. ¿esta prenda tiene alguna mancha o defecto?"
           />
-          <span className="text-xs text-text-muted">{questionText.length}/500</span>
+          <span className="text-xs text-text-muted">{questionText.trim().length}/500</span>
           <Button
             type="submit"
-            disabled={askQuestion.isPending || !questionText.trim() || questionText.length > 500}
+            disabled={askQuestion.isPending || !questionText.trim() || questionText.trim().length > 500}
           >
             {askQuestion.isPending ? "Enviando…" : "Enviar pregunta"}
           </Button>
