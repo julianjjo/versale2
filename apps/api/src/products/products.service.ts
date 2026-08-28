@@ -63,7 +63,7 @@ const PUBLICLY_VISIBLE = {
 // caps (MAX_FAVORITE_IDS, MAX_ITEM_QUANTITY) rather than a default parameter
 // nothing actually overrides.
 const RELATED_PRODUCTS_LIMIT = 4;
-const MAX_TOP_RATED_SCAN = 1000; // ponytail: cap 1000, warn on truncation; materialize averageRating+index if >1k sustained
+const MAX_TOP_RATED_SCAN = 1000; // ponytail: cap 1000, warn on truncation; upgrade: materialize averageRating+index if >1k sustained
 
 export const SUGGESTED_PRICE_MIN_SAMPLE = 3;
 
@@ -340,7 +340,7 @@ export class ProductsService {
       // Global rating sort cannot be pushed to DB without a materialized
       // column; per-page in-memory sort misorders pagination (page1 top 3 vs
       // global top 10). Fetch all matches, enrich, sort globally, then slice.
-      // ponytail: O(n) in-memory, cheap for n<10k, warned; materialize averageRating + index if catalog >10k
+      // ponytail: O(n) in-memory, cheap for n<10k, warned; upgrade: materialize averageRating + index if catalog >10k
       const [allProducts, total] = await Promise.all([
         this.prisma.client.product.findMany({
           where,
