@@ -86,6 +86,7 @@ export class NotificationsService {
   }
 
   async markAsRead(userId: string, id: string) {
+    id = id.trim();
     // Scoped by userId in the same lookup (not a separate ownership check
     // after an unscoped findUnique) so "doesn't exist" and "exists but isn't
     // yours" are indistinguishable — an authenticated caller could otherwise
