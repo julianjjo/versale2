@@ -34,8 +34,11 @@ export const PRODUCT_STATUS_LABEL: Record<ProductStatus, string> = {
 };
 
 export function productStatusLabel(status: string): string {
-  const t=status.trim();
-  return (PRODUCT_STATUS_LABEL as Record<string, string>)[t] ?? status;
+  const trimmed = status.trim();
+  const key =
+    PRODUCT_STATUSES.find((s) => s.toLowerCase() === trimmed.toLowerCase()) ??
+    trimmed;
+  return (PRODUCT_STATUS_LABEL as Record<string, string>)[key] ?? status;
 }
 
 export interface Product {
@@ -220,8 +223,11 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
 };
 
 export function notificationTypeLabel(type: string): string {
-  const t=type.trim();
-  return (NOTIFICATION_TYPE_LABEL as Record<string, string>)[t] ?? type;
+  const trimmed = type.trim();
+  const key =
+    NOTIFICATION_TYPES.find((t) => t.toLowerCase() === trimmed.toLowerCase()) ??
+    trimmed;
+  return (NOTIFICATION_TYPE_LABEL as Record<string, string>)[key] ?? type;
 }
 
 export interface Notification {
