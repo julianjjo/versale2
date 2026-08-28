@@ -219,9 +219,9 @@ describe("useAuth", () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
-      await expect(
-        result.current.login("x@y.z", "wrong"),
-      ).rejects.toThrow("Invalid credentials");
+      await expect(result.current.login("x@y.z", "wrong")).rejects.toThrow(
+        "Invalid credentials",
+      );
     });
 
     expect(clearSpy).not.toHaveBeenCalled();
@@ -491,5 +491,12 @@ describe("loginRedirectUrl", () => {
   it("preserves reason verbatim", async () => {
     const { loginRedirectUrl } = await import("../auth");
     expect(loginRedirectUrl("p2", "report")).toContain("reason=report");
+  });
+
+  it("trims a padded productId before encoding", async () => {
+    const { loginRedirectUrl } = await import("../auth");
+    expect(loginRedirectUrl("  p1  ", "favorite")).toBe(
+      "/login?next=%2Fproducts%2Fp1&reason=favorite",
+    );
   });
 });

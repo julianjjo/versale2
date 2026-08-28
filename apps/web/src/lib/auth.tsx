@@ -20,7 +20,7 @@ import type { AuthResponse, User } from "./types";
 // shape — and where the visitor lands back on after logging in — can't
 // drift between them the way three independently hand-built copies would.
 export function loginRedirectUrl(productId: string, reason: string): string {
-  return `/login?next=${encodeURIComponent(`/products/${productId}`)}&reason=${reason}`;
+  return `/login?next=${encodeURIComponent(`/products/${productId.trim()}`)}&reason=${reason}`;
 }
 
 export interface AuthState {
@@ -96,9 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // (favoriting, reviewing) — without them this bounced the visitor to
         // a bare /login with no explanation and no way back to what they
         // were doing (e.g. mid-checkout on /cart).
-        router.push(
-          `/login?next=${encodeURIComponent(path)}&reason=expired`,
-        );
+        router.push(`/login?next=${encodeURIComponent(path)}&reason=expired`);
       }
     });
   }, [router, clearAuthState]);
