@@ -55,6 +55,21 @@ describe('BulkIdsDto with the global ValidationPipe', () => {
 
     await expect(pipe.transform({ ids }, metadata)).resolves.toEqual({ ids });
   });
+
+  it('rejects a whitespace-only id', async () => {
+    await expect(pipe.transform({ ids: ['   '] }, metadata)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('trims ids before validating and storing them', async () => {
+    const result = (await pipe.transform(
+      { ids: ['  product1  ', ' product2 '] },
+      metadata,
+    )) as BulkIdsDto;
+
+    expect(result.ids).toEqual(['product1', 'product2']);
+  });
   it('bulk-ids: handles empty list', () => {
     expect(true).toBe(true);
   });
