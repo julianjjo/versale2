@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- expect.any is any by design */
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   BadRequestException,
@@ -119,6 +120,43 @@ describe('PaymentsService', () => {
           failure: 'https://x.test/f',
         }),
       ).rejects.toThrow(/ya no está pendiente/);
+    });
+
+    it('recorta un orderId con espacios antes de buscar', async () => {
+      mockPrismaService.client.order.findUnique.mockResolvedValue({
+        id: 'order1',
+        userId: 'buyer1',
+        status: OrderStatus.PENDING,
+        totalAmount: 80000,
+        items: [],
+      });
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            id: 'pref123',
+            init_point: 'https://mp.test/init',
+          }),
+      });
+      await service.createPreference('buyer1', '  order1  ', {
+        success: 'https://x.test/s',
+        failure: 'https://x.test/f',
+      });
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.any is any by design
+      expect(mockPrismaService.client.order.findUnique).toHaveBeenCalledWith({
+        where: { id: 'order1' },
+        select: expect.any(Object),
+      });
+    });
+
+    it('rechaza un orderId solo con espacios', async () => {
+      await expect(
+        service.createPreference('buyer1', '   ', {
+          success: 'https://x.test/s',
+          failure: 'https://x.test/f',
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

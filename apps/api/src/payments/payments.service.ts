@@ -61,6 +61,7 @@ export class PaymentsService {
     orderId: string,
     backUrls: { success: string; failure: string },
   ): Promise<PaymentPreference> {
+    orderId = orderId.trim();
     if (!orderId) {
       throw new BadRequestException('orderId es obligatorio');
     }
