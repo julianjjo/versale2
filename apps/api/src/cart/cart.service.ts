@@ -11,6 +11,23 @@ import { Prisma, ProductStatus } from '@prisma/client';
 
 @Injectable()
 export class CartService {
+  private readonly locks = new Map<string, Promise<unknown>>();
+
+  private async withPerKeyLock<T>(
+    key: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const prev = this.locks.get(key) || Promise.resolve();
+    const next = prev.then(() => fn());
+    const silenced = next.catch(() => {});
+    this.locks.set(key, silenced);
+    try {
+      return await next;
+    } finally {
+      if (this.locks.get(key) === silenced) this.locks.delete(key);
+    }
+  }
+
   constructor(
     private prisma: PrismaService,
     private productsService: ProductsService,
@@ -74,43 +91,46 @@ export class CartService {
       );
     }
 
-    try {
-      return await this.prisma.client.cartItem.upsert({
-        where: { cartId_productId: { cartId, productId } },
-        // Each listing is a single garment, so re-adding it keeps the line at the
-        // same quantity instead of incrementing, and refreshes the price snapshot
-        // so a later checkout can never be charged an outdated price.
-        update: { quantity, priceAtAdd: product.price },
-        create: {
-          cartId,
-          productId,
-          quantity,
-          priceAtAdd: product.price,
-        },
-        include: {
-          product: {
-            include: { seller: { select: { id: true, name: true } } },
+    const key = `${cartId}:${productId}`;
+    return this.withPerKeyLock(key, async () => {
+      try {
+        return await this.prisma.client.cartItem.upsert({
+          where: { cartId_productId: { cartId, productId } },
+          // Each listing is a single garment, so re-adding it keeps the line at the
+          // same quantity instead of incrementing, and refreshes the price snapshot
+          // so a later checkout can never be charged an outdated price.
+          update: { quantity, priceAtAdd: product.price },
+          create: {
+            cartId,
+            productId,
+            quantity,
+            priceAtAdd: product.price,
           },
-        },
-      });
-    } catch (e: unknown) {
-      // ponytail: naive P2002-only idempotency; no per-key lock, safe because CartItem @@unique[cartId,productId] enforces it
-      if (
-        !(e instanceof Prisma.PrismaClientKnownRequestError) ||
-        e.code !== 'P2002'
-      )
-        throw e;
-      const existing = await this.prisma.client.cartItem.findUnique({
-        where: { cartId_productId: { cartId, productId } },
-        include: {
-          product: {
-            include: { seller: { select: { id: true, name: true } } },
+          include: {
+            product: {
+              include: { seller: { select: { id: true, name: true } } },
+            },
           },
-        },
-      });
-      if (!existing) throw e;
-      return existing;
-    }
+        });
+      } catch (e: unknown) {
+        // per-key lock via in-process Map; P2002 fallback for inter-process; Redis lock if multi-replica contention high
+        if (
+          !(e instanceof Prisma.PrismaClientKnownRequestError) ||
+          e.code !== 'P2002'
+        )
+          throw e;
+        const existing = await this.prisma.client.cartItem.findUnique({
+          where: { cartId_productId: { cartId, productId } },
+          include: {
+            product: {
+              include: { seller: { select: { id: true, name: true } } },
+            },
+          },
+        });
+        if (!existing) throw e;
+        return existing;
+      }
+    });
   }
 
   async updateItem(cartItemId: string, quantity: number, userId: string) {
