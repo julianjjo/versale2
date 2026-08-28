@@ -4,6 +4,7 @@ import { IsEnum, IsString, IsNotEmpty, MaxLength } from 'class-validator';
 import { ReportCategory } from '@prisma/client';
 
 export class CreateReportDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'El producto seleccionado no es válido' })
   @IsNotEmpty({ message: 'Debes indicar el producto que quieres reportar' })
   productId!: string;
