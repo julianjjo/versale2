@@ -162,6 +162,7 @@ export class UsersService implements OnModuleInit, OnModuleDestroy {
   }
 
   async findOne(id: string) {
+    id = id.trim();
     const user = await this.prisma.client.user.findUnique({
       where: { id },
       select: PUBLIC_USER_SELECT,
@@ -179,6 +180,7 @@ export class UsersService implements OnModuleInit, OnModuleDestroy {
     updateUserDto: UpdateUserDto,
     options: { isSelfService?: boolean } = {},
   ) {
+    id = id.trim();
     const { currentPassword, ...data } = updateUserDto;
     const nextEmail = data.email;
     const wantsPasswordChange = data.password !== undefined;
@@ -307,6 +309,7 @@ export class UsersService implements OnModuleInit, OnModuleDestroy {
    * tokenVersion dentro de la transacción invalida todos sus JWT de inmediato.
    */
   async deleteOwnAccount(id: string, dto: DeleteAccountDto) {
+    id = id.trim();
     const user = await this.prisma.client.user.findUnique({
       where: { id },
       select: { id: true, password: true, deletedAt: true },
@@ -347,6 +350,7 @@ export class UsersService implements OnModuleInit, OnModuleDestroy {
    * commitó, ve cero vivos y su transacción entera revierte.
    */
   private async anonymizeUserInTransaction(id: string): Promise<void> {
+    id = id.trim();
     // Fuera de la transacción: bcrypt puro-JS (~100 ms) no debe retener el
     // lock de escritura de SQLite.
     const replacementPasswordHash = await bcrypt.hash(
@@ -442,6 +446,7 @@ export class UsersService implements OnModuleInit, OnModuleDestroy {
   }
 
   async remove(id: string, requesterId: string) {
+    id = id.trim();
     if (id === requesterId) {
       throw new ForbiddenException('No puedes eliminar tu propia cuenta.');
     }

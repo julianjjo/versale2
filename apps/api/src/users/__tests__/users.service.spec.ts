@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unnecessary-type-assertion -- any mocks, test assertions */
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from '../users.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -351,6 +352,15 @@ describe('UsersService', () => {
       mockPrismaService.client.user.findUnique.mockResolvedValue(null);
 
       await expect(service.findOne(userId)).rejects.toThrow(NotFoundException);
+    });
+    it('should trim a padded userId before querying', async () => {
+      const mockUser = { id: 'user1', name: 'Alice' };
+      mockPrismaService.client.user.findUnique.mockResolvedValue(mockUser);
+      await service.findOne('  user1  ');
+      expect(mockPrismaService.client.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'user1' },
+        select: expect.any(Object),
+      });
     });
   });
 
@@ -709,6 +719,20 @@ describe('UsersService', () => {
       await expect(
         service.update('user1', { name: 'Updated Name' }),
       ).rejects.toThrow(unrelatedError);
+    });
+    it('should trim a padded userId before updating', async () => {
+      const mockUser = { deletedAt: null };
+      mockPrismaService.client.user.findUnique.mockResolvedValue(
+        mockUser as unknown as { deletedAt: Date | null },
+      );
+      mockPrismaService.client.user.update.mockResolvedValue({
+        id: 'user1',
+      } as unknown as { id: string });
+      await service.update('  user1  ', { name: 'Bob' });
+      expect(mockPrismaService.client.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 'user1' },
+        select: { deletedAt: true },
+      });
     });
   });
 
