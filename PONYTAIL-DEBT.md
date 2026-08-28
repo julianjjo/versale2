@@ -31,7 +31,6 @@
 - `e2e/tests/order-lifecycle.spec.ts:385`, si hace falta testear autoRefund/autoResolve por HTTP, exponer POST /orders/admin/debug/run-sweeps solo en NODE_ENV=test. ceiling: no HTTP sweeps. upgrade: endpoint exists `POST /orders/admin/debug/run-sweeps` (test only, implemented 2026-08-28).
 
 ## e2e/tests/publish-moderation.spec.ts
-- `e2e/tests/publish-moderation.spec.ts:75`, reason optional en DTO actual; si se vuelve required debe ser 400. ceiling: reason optional. upgrade: `no-trigger` — update expectation to 400 if DTO makes reason required.
 - `e2e/tests/publish-moderation.spec.ts:164`, paused sigue contando (anti-bypass); liberar vía DELETE del más antiguo. ceiling: paused counts toward limit. upgrade: `no-trigger` — keep anti-bypass; change to exclude paused if product policy changes.
 
 ## e2e/utils/cdp-audit.ts
@@ -39,6 +38,6 @@
 
 ---
 
-17 markers, 6 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock; 2026-08-28: apps/api/src/cart per-key lock; 2026-08-28: product-page grapheme-strict; 2026-08-28: products-browser debounce; 2026-08-28: products top_rated cap warned; 2026-08-28: orders debug sweeps endpoint; 2026-08-28: account-flows bundled UI split; 2026-08-28: cdp-audit single CDPSession upgrade explicit + close/crash handlers — no-trigger 7→6; debts saldadas/progress.)
+16 markers, 5 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock; 2026-08-28: apps/api/src/cart per-key lock; 2026-08-28: product-page grapheme-strict; 2026-08-28: products-browser debounce; 2026-08-28: products top_rated cap warned; 2026-08-28: orders debug sweeps endpoint; 2026-08-28: account-flows bundled UI split; 2026-08-28: cdp-audit upgrade; 2026-08-28: publish-moderation reject reason required — removed ponytail: reason optional marker, now 16; debts saldadas/progress.)
 
 > Ponytail ceiling for ledger itself: `// ponytail: ledger file, regenerate via grep if markers change; no watcher/cron until debt cadence >1/iteration` — regenerate with `npm run ponytail:debt` alias if cadence grows; until then manual iteration is YAGNI.
