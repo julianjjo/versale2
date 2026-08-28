@@ -44,7 +44,7 @@ describe("categories", () => {
     expect(isProductCategory("Otros")).toBe(true);
     expect(isProductCategory("Invalid")).toBe(false);
     expect(isProductCategory("")).toBe(false);
-    expect(isProductCategory("camisetas")).toBe(false);
+    expect(isProductCategory("camisetas")).toBe(true);
   });
 
   it("isProductCategory trims whitespace", () => {

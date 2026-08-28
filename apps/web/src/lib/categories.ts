@@ -19,5 +19,6 @@ export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];
 export const DEFAULT_PRODUCT_CATEGORY: ProductCategory = "Otros";
 
 export function isProductCategory(value: string): value is ProductCategory {
-  return (PRODUCT_CATEGORIES as readonly string[]).includes(value.trim());
+  const trimmed = value.trim().toLowerCase();
+  return PRODUCT_CATEGORIES.some((c) => c.toLowerCase() === trimmed);
 }
