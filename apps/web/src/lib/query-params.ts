@@ -1,7 +1,13 @@
-export function mergeFacetOptions(fetched: string[] | undefined, current: string): string[] {
+export function mergeFacetOptions(
+  fetched: string[] | undefined,
+  current: string,
+): string[] {
   const trimmed = current.trim();
   const options = fetched ?? [];
-  return trimmed && !options.some((o) => o.toLowerCase() === trimmed.toLowerCase()) ? [trimmed, ...options] : options;
+  return trimmed &&
+    !options.some((o) => o.toLowerCase() === trimmed.toLowerCase())
+    ? [trimmed, ...options]
+    : options;
 }
 
 export function parseAmount(raw: string | null): number | undefined {
@@ -34,5 +40,7 @@ export const PRODUCT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
 export type ProductSize = (typeof PRODUCT_SIZES)[number];
 
 export function isProductSize(value: string): value is ProductSize {
-  return (PRODUCT_SIZES as readonly string[]).includes(value.toUpperCase().trim());
+  return (PRODUCT_SIZES as readonly string[]).includes(
+    value.trim().toUpperCase(),
+  );
 }
