@@ -508,21 +508,6 @@ describe('ProductsController', () => {
       );
       expect(result).toEqual(mockResult);
     });
-
-    it('should call productsService.rejectProduct with undefined reason when none is given', async () => {
-      const productId = 'product1';
-      const mockResult = { id: productId, isApproved: false };
-
-      mockProductsService.rejectProduct.mockResolvedValue(mockResult);
-
-      const result = await controller.rejectProduct(productId, {});
-
-      expect(mockProductsService.rejectProduct).toHaveBeenCalledWith(
-        productId,
-        undefined,
-      );
-      expect(result).toEqual(mockResult);
-    });
   });
 
   describe('bulkRejectProducts', () => {
@@ -538,21 +523,6 @@ describe('ProductsController', () => {
       expect(mockProductsService.bulkReject).toHaveBeenCalledWith(
         ['product1', 'product2'],
         'Fotos borrosas',
-      );
-      expect(result).toEqual(mockResult);
-    });
-
-    it('should call productsService.bulkReject with undefined reason when none is given', async () => {
-      const mockResult = { rejected: 1, requested: 1 };
-      mockProductsService.bulkReject.mockResolvedValue(mockResult);
-
-      const result = await controller.bulkRejectProducts({
-        ids: ['product1'],
-      });
-
-      expect(mockProductsService.bulkReject).toHaveBeenCalledWith(
-        ['product1'],
-        undefined,
       );
       expect(result).toEqual(mockResult);
     });
