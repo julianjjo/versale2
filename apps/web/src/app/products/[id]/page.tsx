@@ -79,7 +79,7 @@ export async function generateMetadata({
   return {
     title: `${product.title} — Versale`,
     description,
-    alternates: { canonical: `/products/${id}` },
+    alternates: { canonical: `/products/${encodeURIComponent(id.trim())}` },
     openGraph: {
       title: product.title,
       description,
