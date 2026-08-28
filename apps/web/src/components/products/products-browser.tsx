@@ -111,7 +111,19 @@ function filtersFromQuery(
   if (maxPrice !== undefined) filters.maxPrice = maxPrice;
   for (const key of ["size", "brand", "category", "condition"] as const) {
     const value = params.get(key)?.trim();
-    if (value) filters[key] = key === "size" ? value.toUpperCase() : value;
+    if (!value) continue;
+    if (key === "size") filters[key] = value.toUpperCase();
+    else if (key === "category") {
+      const canonical = PRODUCT_CATEGORIES.find(
+        (c) => c.toLowerCase() === value.toLowerCase(),
+      );
+      filters[key] = canonical ?? value;
+    } else if (key === "condition") {
+      const canonical = CONDITION_OPTIONS.find(
+        (o) => o.value.toLowerCase() === value.toLowerCase(),
+      )?.value;
+      filters[key] = canonical ?? value;
+    } else filters[key] = value;
   }
   const rawSortBy = params.get("sortBy")?.trim() ?? "";
   if (isSortByValue(rawSortBy)) {
