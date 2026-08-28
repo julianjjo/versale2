@@ -27,9 +27,9 @@
 - `e2e/tests/account-flows.spec.ts:190`, bundled 3 UI flows in 1 serial test to avoid 2 extra signups — split if flaky. ceiling: bundled 3 flows. upgrade: split into 3 tests if flaky.
 
 ## e2e/tests/order-lifecycle.spec.ts
-- `e2e/tests/order-lifecycle.spec.ts:83`, cron not exposed via HTTP — direct DB backdate is minimal e2e bridge. ceiling: cron not exposed. upgrade: expose `POST /orders/admin/debug/run-sweeps` only in `NODE_ENV=test` if needed.
-- `e2e/tests/order-lifecycle.spec.ts:334`, cron no expuesto por HTTP — backdate directo a DB y verifica estado vía GET. ceiling: cron no expuesto. upgrade: same.
-- `e2e/tests/order-lifecycle.spec.ts:385`, si hace falta testear autoRefund/autoResolve por HTTP, exponer POST /orders/admin/debug/run-sweeps solo en NODE_ENV=test. ceiling: no HTTP sweeps. upgrade: expose debug route if needed.
+- `e2e/tests/order-lifecycle.spec.ts:83`, cron not exposed via HTTP — direct DB backdate is minimal e2e bridge. ceiling: cron not exposed, backdate bridge. upgrade: endpoint exists `POST /orders/admin/debug/run-sweeps` (test only, #400) — e2e can now trigger sweeps via HTTP if desired.
+- `e2e/tests/order-lifecycle.spec.ts:334`, cron no expuesto por HTTP — backdate directo a DB y verifica estado vía GET. ceiling: cron no expuesto. upgrade: same endpoint exists.
+- `e2e/tests/order-lifecycle.spec.ts:385`, si hace falta testear autoRefund/autoResolve por HTTP, exponer POST /orders/admin/debug/run-sweeps solo en NODE_ENV=test. ceiling: no HTTP sweeps. upgrade: endpoint exists `POST /orders/admin/debug/run-sweeps` (test only, implemented 2026-08-28).
 
 ## e2e/tests/publish-moderation.spec.ts
 - `e2e/tests/publish-moderation.spec.ts:75`, reason optional en DTO actual; si se vuelve required debe ser 400. ceiling: reason optional. upgrade: `no-trigger` — update expectation to 400 if DTO makes reason required.
@@ -40,6 +40,6 @@
 
 ---
 
-18 markers, 7 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock; 2026-08-28: apps/api/src/cart per-key lock; 2026-08-28: product-page grapheme-strict; 2026-08-28: products-browser debounce; 2026-08-28: products top_rated cap warned via logger.warn — cap now observable; debts saldadas/progress.)
+18 markers, 7 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock; 2026-08-28: apps/api/src/cart per-key lock; 2026-08-28: product-page grapheme-strict; 2026-08-28: products-browser debounce; 2026-08-28: products top_rated cap warned; 2026-08-28: orders debug sweeps endpoint POST /orders/admin/debug/run-sweeps (test only) — implements upgrade for order-lifecycle ponytails; debts saldadas/progress.)
 
 > Ponytail ceiling for ledger itself: `// ponytail: ledger file, regenerate via grep if markers change; no watcher/cron until debt cadence >1/iteration` — regenerate with `npm run ponytail:debt` alias if cadence grows; until then manual iteration is YAGNI.
