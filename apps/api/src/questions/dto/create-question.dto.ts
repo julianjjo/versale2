@@ -3,6 +3,7 @@ import { Transform } from 'class-transformer';
 import { IsString, IsNotEmpty, Matches, MaxLength } from 'class-validator';
 
 export class CreateQuestionDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'El producto seleccionado no es válido' })
   @IsNotEmpty({ message: 'Debes indicar el producto sobre el que preguntas' })
   productId!: string;

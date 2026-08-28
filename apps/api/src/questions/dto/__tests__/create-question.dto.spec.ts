@@ -26,6 +26,21 @@ describe('CreateQuestionDto with the global ValidationPipe', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('rejects a whitespace-only productId', async () => {
+    await expect(
+      pipe.transform({ productId: '   ', question: '¿Pregunta?' }, metadata),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('trims the productId before validating and storing it', async () => {
+    const result = (await pipe.transform(
+      { productId: '  product1  ', question: '¿Pregunta?' },
+      metadata,
+    )) as CreateQuestionDto;
+
+    expect(result.productId).toBe('product1');
+  });
+
   it('rejects an empty question', async () => {
     await expect(
       pipe.transform({ productId: 'product1', question: '' }, metadata),
