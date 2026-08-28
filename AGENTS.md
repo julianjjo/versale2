@@ -56,5 +56,6 @@ For EVERY feature or task (especially backlog items from `todo-implementacion.md
 - `apps/web/AGENTS.md` — Next.js 16.2.7 frontend, React Query, Vitest, routes `mis-productos`, `mis-ventas`, `favoritos`, `vendedores/[id]`, `verify-email`, `sitemap.ts`/ `robots.ts`.
 - `e2e/AGENTS.md` — Playwright suites, fixtures, global setup, seed.
 - `design.md` — Visual design system (tokens, components, accessibility, anti-patterns) adapted from the static reference in `index.html`. Owns all palette, type, spacing, and component-level rules for the web app.
+- `docs/arquitectura.md` — Diagrama Mermaid del monorepo: módulos de `apps/api`, rutas y capas de `apps/web`, y las integraciones externas (Brevo, Cloudflare R2, Mercado Pago) sobre Prisma/SQLite.
 - `docs/funcionalidades-propuestas.md` — Roadmap por hitos (v4 histórico + Estado actual v5 verificado 2026-08-24). Cerrado y estable: implementar desde "Orden de implementación del Hito 1"; reabrir solo si cambia una premisa verificada del código o llega tracción real.
 - `docs/todo-implementacion.md` — 17 ítems sincronizados a v5 (verificados en main); pipeline ahora en `AGENTS.md §8-Step Pipeline` (reemplaza `docs/WORKFLOW.md` eliminado).

@@ -6,6 +6,7 @@ import {
 import { Prisma, ReportCategory, ReportStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProductsService } from '../products/products.service';
+import { asRecord } from '../common/query';
 import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
 
@@ -58,10 +59,7 @@ export class ReportsService {
   }
 
   async getAll(query: unknown) {
-    const q =
-      query !== null && typeof query === 'object' && !Array.isArray(query)
-        ? (query as Record<string, unknown>)
-        : {};
+    const q = asRecord(query);
     const {
       page,
       limit,

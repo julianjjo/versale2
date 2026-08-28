@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { Role } from '@prisma/client';
+import { asRecord } from '../common/query';
 import { resolvePagination } from '../common/pagination';
 import {
   OrderStatus,
@@ -293,10 +294,7 @@ export class ReviewsService {
   }
 
   async getAllReviews(query: unknown) {
-    const q =
-      query !== null && typeof query === 'object' && !Array.isArray(query)
-        ? (query as Record<string, unknown>)
-        : {};
+    const q = asRecord(query);
     const { page, limit } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
