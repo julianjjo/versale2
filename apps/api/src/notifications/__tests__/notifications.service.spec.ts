@@ -296,6 +296,29 @@ describe('NotificationsService', () => {
         NotFoundException,
       );
     });
+
+    it('should trim a padded notificationId before querying', async () => {
+      mockPrismaService.client.notification.findUnique.mockResolvedValue({
+        id: 'notif1',
+      });
+      mockPrismaService.client.notification.update.mockResolvedValue({
+        id: 'notif1',
+        read: true,
+      });
+      await service.markAsRead('user1', '  notif1  ');
+      expect(
+        mockPrismaService.client.notification.findUnique,
+      ).toHaveBeenCalledWith({
+        where: { id: 'notif1', userId: 'user1' },
+        select: { id: true },
+      });
+      expect(mockPrismaService.client.notification.update).toHaveBeenCalledWith(
+        {
+          where: { id: 'notif1', userId: 'user1' },
+          data: { read: true },
+        },
+      );
+    });
   });
 
   describe('markAllAsRead', () => {
