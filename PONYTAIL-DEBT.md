@@ -22,7 +22,7 @@
 
 ## e2e/tests/account-flows.spec.ts
 - `e2e/tests/account-flows.spec.ts:8`, serial — backdate mutates shared e2e.db; upgrade: per-test DB isolation or per-worker e2e.db if parallel needed. ceiling: serial. upgrade: per-test DB isolation or per-worker e2e.db if parallel needed.
-- `e2e/tests/account-flows.spec.ts:21`, cron not exposed via HTTP — direct DB backdate is minimal e2e bridge. ceiling: cron not exposed. upgrade: endpoint exists `POST /auth/debug/backdate` (test only, #413) — e2e can now backdate via HTTP if desired.
+- `e2e/tests/account-flows.spec.ts:21`, cron not exposed via HTTP — direct DB backdate is minimal e2e bridge. ceiling: cron not exposed. upgrade: endpoint exists `POST /auth/debug/backdate` (test only, #413) — `verify expirado` test now uses HTTP (migrated 2026-08-28), helper remains for other backdates.
 - `e2e/tests/account-flows.spec.ts:98`, resend no expone raw token — rotación probada vía invalidación del anterior; upgrade: expose raw token only in test env if needed. ceiling: no raw token in resend. upgrade: expose raw token only in test env if needed.
 
 ## e2e/tests/order-lifecycle.spec.ts
@@ -38,6 +38,6 @@
 
 ---
 
-16 markers, 0 with no trigger. Clean ledger. (2026-08-28: scripts/qa-worktree.js per-port lock; 2026-08-28: apps/api/src/cart per-key lock; 2026-08-28: product-page grapheme-strict; 2026-08-28: products-browser debounce; 2026-08-28: products top_rated cap warned; 2026-08-28: orders debug sweeps endpoint; 2026-08-28: account-flows bundled UI split; 2026-08-28: cdp-audit upgrade; 2026-08-28: publish-moderation reject reason required; 2026-08-28: account-deletion serial upgrade; 2026-08-28: account-flows serial upgrade; 2026-08-28: account-flows resend upgrade; 2026-08-28: publish-moderation paused upgrade; 2026-08-28: products cap/O(n) upgrade explicit; 2026-08-28: auth debug backdate endpoint POST /auth/debug/backdate (test only) — implements upgrade for account-flows/account-deletion cron ponytails; Clean ledger.)
+16 markers, 0 with no trigger. Clean ledger. (2026-08-28: scripts/qa-worktree.js per-port lock; 2026-08-28: apps/api/src/cart per-key lock; 2026-08-28: product-page grapheme-strict; 2026-08-28: products-browser debounce; 2026-08-28: products top_rated cap warned; 2026-08-28: orders debug sweeps endpoint; 2026-08-28: account-flows bundled UI split; 2026-08-28: cdp-audit upgrade; 2026-08-28: publish-moderation reject reason required; 2026-08-28: account-deletion serial upgrade; 2026-08-28: account-flows serial upgrade; 2026-08-28: account-flows resend upgrade; 2026-08-28: publish-moderation paused upgrade; 2026-08-28: products cap/O(n) upgrade explicit; 2026-08-28: auth debug backdate endpoint; 2026-08-28: account-flows verify expirado migrated to HTTP — 1 test now uses POST /auth/debug/backdate; Clean ledger.)
 
 > Ponytail ceiling for ledger itself: `// ponytail: ledger file, regenerate via grep if markers change; no watcher/cron until debt cadence >1/iteration` — regenerate with `npm run ponytail:debt` alias if cadence grows; until then manual iteration is YAGNI.

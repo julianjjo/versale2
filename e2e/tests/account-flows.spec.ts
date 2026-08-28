@@ -79,15 +79,13 @@ test.describe("Flujos de cuenta: verificación y recuperación", () => {
     };
     expect(tok).toBeTruthy();
 
-    const prisma = prismaForE2e();
-    try {
-      await prisma.user.update({
-        where: { email },
-        data: { verificationTokenExpires: new Date(Date.now() - 60_000) },
-      });
-    } finally {
-      await prisma.$disconnect();
-    }
+    const backdate = await req.post(`${API_URL}/auth/debug/backdate`, {
+      data: {
+        email,
+        verificationTokenExpires: new Date(Date.now() - 60_000).toISOString(),
+      },
+    });
+    expect(backdate.status()).toBe(200);
 
     const r = await req.post(`${API_URL}/auth/verify-email`, {
       data: { token: tok },
