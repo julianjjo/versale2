@@ -113,8 +113,14 @@ function filtersFromQuery(
     const value = params.get(key)?.trim();
     if (value) filters[key] = key === "size" ? value.toUpperCase() : value;
   }
-  const sortBy = params.get("sortBy")?.trim() ?? "";
-  if (isSortByValue(sortBy)) filters.sortBy = sortBy;
+  const rawSortBy = params.get("sortBy")?.trim() ?? "";
+  if (isSortByValue(rawSortBy)) {
+    const canonical =
+      SORT_OPTIONS.find(
+        (o) => o.value.toLowerCase() === rawSortBy.toLowerCase(),
+      )?.value ?? (rawSortBy.trim().toLowerCase() as SortByValue);
+    filters.sortBy = canonical;
+  }
   filters.page = parsePage(params.get("page")) ?? filters.page ?? 1;
   return filters;
 }
