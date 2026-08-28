@@ -7,7 +7,9 @@ const AVAILABILITY: Record<string, string> = {
 };
 
 export function buildProductJsonLd(product: Product, siteUrl: string) {
-  const availability = AVAILABILITY[typeof product.status === "string" ? product.status.trim() : product.status] ?? "https://schema.org/OutOfStock";
+  const rawStatus =
+    typeof product.status === "string" ? product.status.trim().toUpperCase() : product.status;
+  const availability = AVAILABILITY[rawStatus] ?? "https://schema.org/OutOfStock";
   const images = product.images?.map((i) => typeof i.url === "string" ? i.url.trim() : "").filter(Boolean) ?? [];
   const url = `${siteUrl.trim().replace(/\/+$/, "")}/products/${encodeURIComponent(product.id)}`;
   // The API can send price as a string even though Product types it as a
