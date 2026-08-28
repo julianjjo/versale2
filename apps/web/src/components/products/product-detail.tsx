@@ -190,7 +190,7 @@ export function ProductDetail({
       await api.post<Review>("/reviews", {
         productId: id,
         rating,
-        comment: comment || undefined,
+        comment: comment.trim() || undefined,
       });
     },
     onSuccess: () => {
@@ -205,7 +205,7 @@ export function ProductDetail({
 
   const replyToReview = useMutation({
     mutationFn: async (reviewId: string) => {
-      await api.patch(`/reviews/${reviewId}/reply`, { reply: replyText });
+      await api.patch(`/reviews/${reviewId}/reply`, { reply: replyText.trim() });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["product", id] });
@@ -221,7 +221,7 @@ export function ProductDetail({
     mutationFn: async (reviewId: string) => {
       await api.patch(`/reviews/${reviewId}`, {
         rating: editRating,
-        comment: editComment,
+        comment: editComment.trim(),
       });
     },
     onSuccess: () => {
