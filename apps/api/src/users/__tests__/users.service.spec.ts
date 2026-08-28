@@ -313,6 +313,32 @@ describe('UsersService', () => {
         expect.objectContaining({ where: { role: 'ADMIN', deletedAt: null } }),
       );
     });
+
+    it('should trim a padded search term before filtering', async () => {
+      mockPrismaService.client.user.findMany.mockResolvedValue([]);
+      mockPrismaService.client.user.count.mockResolvedValue(0);
+      await service.findAll({ search: '  ana  ' });
+      expect(mockPrismaService.client.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [{ name: { contains: 'ana' } }, { email: { contains: 'ana' } }],
+            deletedAt: null,
+          },
+        }),
+      );
+    });
+
+    it('should ignore a whitespace-only search term', async () => {
+      mockPrismaService.client.user.findMany.mockResolvedValue([]);
+      mockPrismaService.client.user.count.mockResolvedValue(0);
+      await service.findAll({ search: '   ' });
+      expect(mockPrismaService.client.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { deletedAt: null } }),
+      );
+      const [[{ where }]] = mockPrismaService.client.user.findMany.mock
+        .calls as [[{ where: Record<string, unknown> }]];
+      expect(where.OR).toBeUndefined();
+    });
   });
 
   describe('findOne', () => {
