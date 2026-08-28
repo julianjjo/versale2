@@ -9,6 +9,7 @@ import {
   UseGuards,
   Req,
   Header,
+  NotFoundException,
 } from '@nestjs/common';
 import { AuthRequest } from '../types/request.types';
 import { OrdersService } from './orders.service';
@@ -110,6 +111,18 @@ export class OrdersController {
     @Body() body: UpdateOrderStatusDto,
   ) {
     return this.ordersService.updateOrderStatus(id, body.status);
+  }
+
+  // debug sweeps only in test; no exponer en prod, no añadir auth bypass
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @Post('admin/debug/run-sweeps')
+  async runSweepsDebug() {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new NotFoundException();
+    }
+    await this.ordersService.runOrderDeadlineSweeps();
+    return { ok: true };
   }
 
   // Item 12: una sola disputa por orden, 48h desde la entrega, fotos
