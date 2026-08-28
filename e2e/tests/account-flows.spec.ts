@@ -187,10 +187,8 @@ test.describe("Flujos de cuenta: verificación y recuperación", () => {
     expect(b.resetToken).toBeUndefined();
   });
 
-  // ponytail: bundled 3 UI flows in 1 serial test to avoid 2 extra signups — split if flaky
-  test("UI: verify-email, forgot-password y reset-password", async ({ page }) => {
+  test("UI: verify-email", async ({ page }) => {
     const req = page.request;
-
     const email = uniqueEmail();
     const s = await req.post(`${API_URL}/auth/signup`, {
       data: { email, name: "UI Verify", password: "segura12345", acceptedTerms: true },
@@ -199,25 +197,34 @@ test.describe("Flujos de cuenta: verificación y recuperación", () => {
     await page.goto(`/verify-email?token=${encodeURIComponent(verificationToken)}`);
     await page.getByRole("button", { name: /Verificar mi correo/i }).click();
     await expect(page.getByText(/¡Correo verificado!/i)).toBeVisible({ timeout: 10_000 });
+  });
 
-    const email2 = uniqueEmail();
+  test("UI: forgot-password", async ({ page }) => {
+    const req = page.request;
+    const email = uniqueEmail();
     await req.post(`${API_URL}/auth/signup`, {
-      data: { email: email2, name: "UI Forgot", password: "segura12345", acceptedTerms: true },
+      data: { email, name: "UI Forgot", password: "segura12345", acceptedTerms: true },
     });
     await page.goto("/forgot-password");
-    await page.getByLabel(/Correo electrónico/i).fill(email2);
+    await page.getByLabel(/Correo electrónico/i).fill(email);
     await page.getByRole("button", { name: /Enviar instrucciones/i }).click();
     await expect(page.getByText(/Si el correo existe/i)).toBeVisible({ timeout: 10_000 });
+  });
 
-    const fg = await req.post(`${API_URL}/auth/forgot-password`, { data: { email: email2 } });
+  test("UI: reset-password", async ({ page }) => {
+    const req = page.request;
+    const email = uniqueEmail();
+    await req.post(`${API_URL}/auth/signup`, {
+      data: { email, name: "UI Reset", password: "segura12345", acceptedTerms: true },
+    });
+    const fg = await req.post(`${API_URL}/auth/forgot-password`, { data: { email } });
     const { resetToken } = (await fg.json()) as { resetToken: string };
     await page.goto(`/reset-password?token=${encodeURIComponent(resetToken)}`);
     await page.getByLabel("Nueva contraseña", { exact: true }).fill("uiNueva123!");
     await page.getByLabel("Confirmar contraseña", { exact: true }).fill("uiNueva123!");
     await page.getByRole("button", { name: /Actualizar contraseña/i }).click();
     await expect(page.getByText(/se actualiz/i)).toBeVisible({ timeout: 10_000 });
-
-    const l = await req.post(`${API_URL}/auth/login`, { data: { email: email2, password: "uiNueva123!" } });
+    const l = await req.post(`${API_URL}/auth/login`, { data: { email, password: "uiNueva123!" } });
     expect(l.status()).toBe(200);
   });
 });
