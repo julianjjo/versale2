@@ -49,7 +49,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           typeof p.updatedAt === "string" ? p.updatedAt.trim() : p.updatedAt;
         const d = new Date(rawUpdatedAt);
         return {
-          url: `${SITE_URL}/products/${encodeURIComponent(p.id)}`,
+          url: `${SITE_URL}/products/${encodeURIComponent(typeof p.id === "string" ? p.id.trim() : String(p.id))}`,
           lastModified: Number.isNaN(d.getTime()) ? new Date() : d,
           changeFrequency: "weekly" as const,
           priority: 0.8,
