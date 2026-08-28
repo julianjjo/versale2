@@ -3,8 +3,8 @@
 > Generado via `grep -rnE '(#|//) ?ponytail:' apps e2e scripts` (excluye node_modules/.next/.git/.claude/.pi). Cada fila: `<file>:<line>, <what>. ceiling: <limit>. upgrade: <trigger>.` `no-trigger` = sin upgrade path explícito → riesgo de pudrirse.
 
 ## apps/api/src/products/products.service.ts
-- `apps/api/src/products/products.service.ts:66`, cap MAX_TOP_RATED_SCAN=1000. ceiling: cap 1000. upgrade: materialize `averageRating`+index if catalog >1k sustained.
-- `apps/api/src/products/products.service.ts:343`, O(n) in-memory top_rated sort per page. ceiling: O(n) cheap for n<10k (n=limit≤100 paginated, effective scan ≤1000). upgrade: materialize `averageRating` column + index if catalog >10k.
+- `apps/api/src/products/products.service.ts:66`, cap MAX_TOP_RATED_SCAN=1000, warn on truncation. ceiling: cap 1000, warned via logger.warn. upgrade: materialize `averageRating`+index if cap warn sustained (>1k).
+- `apps/api/src/products/products.service.ts:343`, O(n) in-memory top_rated sort per page, warned. ceiling: O(n) cheap for n<10k, warned. upgrade: materialize `averageRating` column + index if catalog >10k.
 
 ## apps/web/src/app/sell/page.tsx
 - `apps/web/src/app/sell/page.tsx:77`, deleted BroadcastChannel dup. ceiling: storage+CustomEvent cover cross/same-tab. upgrade: restore `BroadcastChannel("versale-sell-draft")` if need instant cross-tab without storage round-trip.
@@ -27,9 +27,9 @@
 - `e2e/tests/account-flows.spec.ts:190`, bundled 3 UI flows in 1 serial test to avoid 2 extra signups — split if flaky. ceiling: bundled 3 flows. upgrade: split into 3 tests if flaky.
 
 ## e2e/tests/order-lifecycle.spec.ts
-- `e2e/tests/order-lifecycle.spec.ts:83`, cron not exposed via HTTP — direct DB backdate is minimal e2e bridge. ceiling: cron not exposed. upgrade: expose `POST /orders/admin/debug/run-sweeps` only in `NODE_ENV=test` if needed.
-- `e2e/tests/order-lifecycle.spec.ts:334`, cron no expuesto por HTTP — backdate directo a DB y verifica estado vía GET. ceiling: cron no expuesto. upgrade: same.
-- `e2e/tests/order-lifecycle.spec.ts:385`, si hace falta testear autoRefund/autoResolve por HTTP, exponer POST /orders/admin/debug/run-sweeps solo en NODE_ENV=test. ceiling: no HTTP sweeps. upgrade: expose debug route if needed.
+- `e2e/tests/order-lifecycle.spec.ts:83`, cron not exposed via HTTP — direct DB backdate is minimal e2e bridge. ceiling: cron not exposed, backdate bridge. upgrade: endpoint exists `POST /orders/admin/debug/run-sweeps` (test only, #400) — e2e can now trigger sweeps via HTTP if desired.
+- `e2e/tests/order-lifecycle.spec.ts:334`, cron no expuesto por HTTP — backdate directo a DB y verifica estado vía GET. ceiling: cron no expuesto. upgrade: same endpoint exists.
+- `e2e/tests/order-lifecycle.spec.ts:385`, si hace falta testear autoRefund/autoResolve por HTTP, exponer POST /orders/admin/debug/run-sweeps solo en NODE_ENV=test. ceiling: no HTTP sweeps. upgrade: endpoint exists `POST /orders/admin/debug/run-sweeps` (test only, implemented 2026-08-28).
 
 ## e2e/tests/publish-moderation.spec.ts
 - `e2e/tests/publish-moderation.spec.ts:75`, reason optional en DTO actual; si se vuelve required debe ser 400. ceiling: reason optional. upgrade: `no-trigger` — update expectation to 400 if DTO makes reason required.
@@ -40,6 +40,6 @@
 
 ---
 
-18 markers, 7 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock resolved; 2026-08-28: apps/api/src/cart per-key lock resolved; 2026-08-28: apps/web/src/app/products/[id]/__tests__/product-page.test.tsx grapheme-strict resolved; 2026-08-28: apps/web/src/components/products/products-browser.tsx debounce explicit + upgrade path — no-trigger 8→7; debts saldadas.)
+18 markers, 7 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock; 2026-08-28: apps/api/src/cart per-key lock; 2026-08-28: product-page grapheme-strict; 2026-08-28: products-browser debounce; 2026-08-28: products top_rated cap warned; 2026-08-28: orders debug sweeps endpoint POST /orders/admin/debug/run-sweeps (test only) — implements upgrade for order-lifecycle ponytails; debts saldadas/progress.)
 
 > Ponytail ceiling for ledger itself: `// ponytail: ledger file, regenerate via grep if markers change; no watcher/cron until debt cadence >1/iteration` — regenerate with `npm run ponytail:debt` alias if cadence grows; until then manual iteration is YAGNI.
