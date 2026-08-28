@@ -63,12 +63,16 @@ function uploadErrorMessage(err: unknown): string {
 function readPrefill(searchParams: ReturnType<typeof useSearchParams>) {
   const rawSize = (searchParams.get("size") ?? "").trim();
   const rawCategory = (searchParams.get("category") ?? "").trim();
+  const matchedCategory =
+    PRODUCT_CATEGORIES.find(
+      (c) => c.toLowerCase() === rawCategory.toLowerCase(),
+    ) ?? null;
+  const normalizedSize =
+    SIZES.find((s) => s.toLowerCase() === rawSize.toLowerCase()) ?? "";
   return {
     title: (searchParams.get("title") ?? "").trim(),
-    category: (PRODUCT_CATEGORIES as readonly string[]).includes(rawCategory)
-      ? rawCategory
-      : DEFAULT_PRODUCT_CATEGORY,
-    size: (SIZES as string[]).includes(rawSize) ? rawSize : "",
+    category: matchedCategory ?? DEFAULT_PRODUCT_CATEGORY,
+    size: normalizedSize,
   };
 }
 
@@ -108,11 +112,19 @@ function SellForm() {
   const [form, setForm] = useState({
     title: prefill.title || draft.title || "",
     description: draft.description || "",
-    category: prefill.category || draft.category || DEFAULT_PRODUCT_CATEGORY,
+    category:
+      prefill.category ||
+      (PRODUCT_CATEGORIES.find(
+        (c) => c.toLowerCase() === (draft.category ?? "").trim().toLowerCase(),
+      ) ?? null) ||
+      draft.category ||
+      DEFAULT_PRODUCT_CATEGORY,
     brand: draft.brand || "",
     size:
       prefill.size ||
-      ((SIZES as string[]).includes((draft.size ?? "").trim()) ? (draft.size ?? "").trim() : "") ||
+      (SIZES.find(
+        (s) => s.toLowerCase() === (draft.size ?? "").trim().toLowerCase(),
+      ) ?? "") ||
       "",
     condition: draft.condition || "Good",
     price: draft.price || "",
