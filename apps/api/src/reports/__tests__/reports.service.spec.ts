@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- expect.objectContaining is any by design */
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma, ReportCategory, ReportStatus } from '@prisma/client';
@@ -197,6 +198,34 @@ describe('ReportsService', () => {
         'reviewedAt',
       );
     });
+
+    it('should trim a padded productId before looking up the product', async () => {
+      mockProductsService.findRaw.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+      });
+      mockPrismaService.client.productReport.upsert.mockResolvedValue({
+        id: 'report1',
+      });
+      await service.create(
+        'buyer1',
+        '  product1  ',
+        'Motivo',
+        ReportCategory.FRAUD,
+      );
+      expect(mockProductsService.findRaw).toHaveBeenCalledWith('product1');
+      expect(
+        mockPrismaService.client.productReport.upsert,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            productId_reporterId: expect.objectContaining({
+              productId: 'product1',
+            }),
+          }),
+        }),
+      );
+    });
   });
 
   describe('getAll', () => {
@@ -375,6 +404,20 @@ describe('ReportsService', () => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining es `any` por diseño de Jest
         data: expect.objectContaining({ reviewedById: 'admin2' }),
       });
+    });
+
+    it('should trim a padded reportId before dismissing', async () => {
+      mockPrismaService.client.productReport.update.mockResolvedValue({
+        id: 'report1',
+      });
+      await service.dismiss('  report1  ', 'admin1');
+      expect(
+        mockPrismaService.client.productReport.update,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: 'report1' }),
+        }),
+      );
     });
   });
   it('reports: handles empty list', () => {
