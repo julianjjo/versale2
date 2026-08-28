@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- expect.objectContaining is any by design */
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrdersService, MAX_PENDING_ORDERS_PER_BUYER } from '../orders.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -721,6 +722,20 @@ describe('OrdersService', () => {
       );
     });
 
+    it('should trim a padded search term for user orders', async () => {
+      const userId = 'user1';
+      mockPrismaService.client.order.findMany.mockResolvedValue([]);
+      mockPrismaService.client.order.count.mockResolvedValue(0);
+      await service.getUserOrders(userId, { search: '  chaqueta  ' });
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: expect.arrayContaining([{ id: { contains: 'chaqueta' } }]),
+          }),
+        }),
+      );
+    });
+
     it('should silently ignore a status value outside the enum instead of passing it to Prisma', async () => {
       const userId = 'user1';
       mockPrismaService.client.order.findMany.mockResolvedValue([]);
@@ -873,6 +888,32 @@ describe('OrdersService', () => {
         },
         orderBy: { createdAt: 'desc' },
       });
+    });
+
+    it('should trim a padded search term before filtering', async () => {
+      mockPrismaService.client.order.findMany.mockResolvedValue([]);
+      mockPrismaService.client.order.count.mockResolvedValue(0);
+      await service.getAllOrders({ search: '  ana@example.com  ' });
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              { id: { contains: 'ana@example.com' } },
+              { user: { is: { name: { contains: 'ana@example.com' } } } },
+              { user: { is: { email: { contains: 'ana@example.com' } } } },
+            ],
+          },
+        }),
+      );
+    });
+
+    it('should ignore a whitespace-only search term', async () => {
+      mockPrismaService.client.order.findMany.mockResolvedValue([]);
+      mockPrismaService.client.order.count.mockResolvedValue(0);
+      await service.getAllOrders({ search: '   ' });
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
     });
 
     it('should clamp an out-of-range page and limit and report the sanitized values in meta', async () => {
@@ -1675,6 +1716,20 @@ describe('OrdersService', () => {
         },
         orderBy: { createdAt: 'desc' },
       });
+    });
+
+    it('should trim a padded search term for seller sales', async () => {
+      const sellerId = 'seller1';
+      mockPrismaService.client.order.findMany.mockResolvedValue([]);
+      mockPrismaService.client.order.count.mockResolvedValue(0);
+      await service.getMySales(sellerId, { search: '  chaqueta  ' });
+      expect(mockPrismaService.client.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: expect.arrayContaining([{ id: { contains: 'chaqueta' } }]),
+          }),
+        }),
+      );
     });
 
     it('should filter by status when a valid status is provided', async () => {
