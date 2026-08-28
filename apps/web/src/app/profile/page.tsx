@@ -69,8 +69,10 @@ function ProfileForm({
 
   // Changing either credential that owns the account has to be proven with the
   // password in force right now; the API rejects the request without it.
+  const trimmedName = name.trim();
+  const trimmedEmail = email.trim();
   const requiresCurrentPassword =
-    Boolean(password) || (Boolean(email) && email !== user.email);
+    Boolean(password) || (Boolean(trimmedEmail) && trimmedEmail !== user.email);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,9 +81,9 @@ function ProfileForm({
     setCurrentPasswordError(null);
 
     const body: Record<string, string> = {};
-    if (name && name !== user.name) body.name = name;
-    const changingEmail = Boolean(email) && email !== user.email;
-    if (changingEmail) body.email = email;
+    if (trimmedName && trimmedName !== user.name) body.name = trimmedName;
+    const changingEmail = Boolean(trimmedEmail) && trimmedEmail !== user.email;
+    if (changingEmail) body.email = trimmedEmail;
     const changingPassword = Boolean(password);
     if (changingPassword) body.password = password;
     if (Object.keys(body).length === 0) {
