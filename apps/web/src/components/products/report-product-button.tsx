@@ -18,7 +18,7 @@ export function ReportProductButton({ productId }: { productId: string }) {
 
   const reportProduct = useMutation({
     mutationFn: async () => {
-      await api.post("/reports", { productId, category, reason });
+      await api.post("/reports", { productId, category, reason: reason.trim() });
     },
     onSuccess: () => {
       setIsOpen(false);
@@ -47,7 +47,8 @@ export function ReportProductButton({ productId }: { productId: string }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!category || !reason.trim() || reason.length > 500) return;
+    const trimmed = reason.trim();
+    if (!category || !trimmed || trimmed.length > 500) return;
     setError(null);
     reportProduct.mutate();
   };
@@ -99,7 +100,7 @@ export function ReportProductButton({ productId }: { productId: string }) {
             maxLength={500}
             placeholder="Ej. sospecho que es una estafa, las fotos no coinciden con la descripción…"
           />
-          <span className="text-xs text-text-muted">{reason.length}/500</span>
+          <span className="text-xs text-text-muted">{reason.trim().length}/500</span>
           <div className="flex gap-2">
             <Button
               type="submit"
@@ -109,7 +110,7 @@ export function ReportProductButton({ productId }: { productId: string }) {
                 reportProduct.isPending ||
                 !category ||
                 !reason.trim() ||
-                reason.length > 500
+                reason.trim().length > 500
               }
             >
               {reportProduct.isPending ? "Enviando…" : "Enviar reporte"}
