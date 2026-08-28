@@ -26,8 +26,11 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
 };
 
 export function orderStatusLabel(status: string): string {
-  const t=status.trim();
-  return (ORDER_STATUS_LABEL as Record<string, string>)[t] ?? status;
+  const trimmed = status.trim();
+  const key =
+    ORDER_STATUSES.find((s) => s.toLowerCase() === trimmed.toLowerCase()) ??
+    trimmed;
+  return (ORDER_STATUS_LABEL as Record<string, string>)[key] ?? status;
 }
 
 export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -52,8 +55,13 @@ export function commonNextStatuses(statuses: OrderStatus[]): OrderStatus[] {
 }
 
 export function orderStatusVariant(status: string): BadgeVariant {
-  const t=status.trim();
-  return (ORDER_STATUS_VARIANT as Record<string, BadgeVariant>)[t] ?? "warning";
+  const trimmed = status.trim();
+  const key =
+    ORDER_STATUSES.find((s) => s.toLowerCase() === trimmed.toLowerCase()) ??
+    trimmed;
+  return (
+    (ORDER_STATUS_VARIANT as Record<string, BadgeVariant>)[key] ?? "warning"
+  );
 }
 
 export const ORDER_STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
@@ -67,8 +75,11 @@ export const ORDER_STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
 };
 
 export function orderStatusReassurance(status: string): string {
-  const t=status.trim();
-  return (ORDER_STATUS_REASSURANCE as Record<string, string>)[t] ?? "";
+  const trimmed = status.trim();
+  const key =
+    ORDER_STATUSES.find((s) => s.toLowerCase() === trimmed.toLowerCase()) ??
+    trimmed;
+  return (ORDER_STATUS_REASSURANCE as Record<string, string>)[key] ?? "";
 }
 
 export const ORDER_STATUS_REASSURANCE: Record<OrderStatus, string> = {
@@ -81,4 +92,3 @@ export const ORDER_STATUS_REASSURANCE: Record<OrderStatus, string> = {
     "Tu disputa está en revisión por un administrador. Te avisaremos la resolución.",
   REFUNDED: "El monto de este pedido te fue reembolsado.",
 };
-
