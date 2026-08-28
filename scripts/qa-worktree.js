@@ -13,14 +13,33 @@ function shOut(cmd) {
   return execSync(cmd, { encoding: "utf8" }).trim();
 }
 
+const portLocks = new Map();
+const allocatedPorts = new Set();
+async function withPortLock(port, fn) {
+  const prev = portLocks.get(port) || Promise.resolve();
+  const next = prev.then(() => fn());
+  const silenced = next.catch(() => {});
+  portLocks.set(port, silenced);
+  try {
+    return await next;
+  } finally {
+    if (portLocks.get(port) === silenced) portLocks.delete(port);
+  }
+}
+
 async function freePort(start) {
-  // ponytail: global probe lock, per-port lock if parallel creation matters
+  // per-port lock via in-process Map + allocated set; file lock if inter-process parallel creation becomes common
   for (let p = start; p < start + 200; p++) {
-    const ok = await new Promise((res) => {
-      const s = net.createServer();
-      s.once("error", () => res(false));
-      s.once("listening", () => s.close(() => res(true)));
-      s.listen(p, "127.0.0.1");
+    const ok = await withPortLock(p, async () => {
+      if (allocatedPorts.has(p)) return false;
+      const free = await new Promise((res) => {
+        const s = net.createServer();
+        s.once("error", () => res(false));
+        s.once("listening", () => s.close(() => res(true)));
+        s.listen(p, "127.0.0.1");
+      });
+      if (free) allocatedPorts.add(p);
+      return free;
     });
     if (ok) return p;
   }

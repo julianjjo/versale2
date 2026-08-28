@@ -44,11 +44,8 @@
 ## e2e/utils/cdp-audit.ts
 - `e2e/utils/cdp-audit.ts:39`, single CDPSession per page. ceiling: single CDPSession. upgrade: `no-trigger` — per-page session is fine; fan-out only if CDP contention observed.
 
-## scripts/qa-worktree.js
-- `scripts/qa-worktree.js:17`, global probe lock, per-port lock if parallel creation matters. ceiling: global probe lock. upgrade: per-port lock if parallel creation matters.
-
 ---
 
-21 markers, 9 with no trigger.
+20 markers, 9 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock resolved — removed `ponytail: global probe lock` marker, now per-port Map + allocated set; debt saldada.)
 
 > Ponytail ceiling for ledger itself: `// ponytail: ledger file, regenerate via grep if markers change; no watcher/cron until debt cadence >1/iteration` — regenerate with `npm run ponytail:debt` alias if cadence grows; until then manual iteration is YAGNI.
