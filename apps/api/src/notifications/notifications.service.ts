@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { asRecord } from '../common/query';
 import { resolvePagination } from '../common/pagination';
 import { translatePrismaError } from '../common/prisma-error';
 
@@ -43,10 +44,7 @@ export class NotificationsService {
   // narrowed to just the unread ones. Mirrors FavoritesService#findAll's own
   // pagination shape rather than introducing a fourth one.
   async findAll(userId: string, query: unknown = {}) {
-    const q =
-      query !== null && typeof query === 'object' && !Array.isArray(query)
-        ? (query as Record<string, unknown>)
-        : {};
+    const q = asRecord(query);
     const { page, limit, unreadOnly } = q;
     const { pageNum, limitNum, skip } = resolvePagination(page, limit);
 
