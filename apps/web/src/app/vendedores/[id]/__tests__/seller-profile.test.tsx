@@ -34,9 +34,9 @@ function jsonResponse(status: number, body?: unknown): Response {
 }
 
 function renderPage(id: string) {
-  return SellerProfilePage({ params: Promise.resolve({ id }) }) as Promise<
-    ReactElement
-  >;
+  return SellerProfilePage({
+    params: Promise.resolve({ id }),
+  }) as Promise<ReactElement>;
 }
 
 const fetchMock = vi.fn();
@@ -54,7 +54,9 @@ describe("SellerProfilePage", () => {
   // Regression: a deleted/nonexistent seller used to render the "vendedor no
   // encontrado" panel over a 200 OK, so the URL stayed indexable.
   it("lanza notFound cuando la API responde 404", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(404, { message: "no encontrado" }));
+    fetchMock.mockResolvedValue(
+      jsonResponse(404, { message: "no encontrado" }),
+    );
     await expect(renderPage("desaparecido")).rejects.toBe(notFoundSignal);
   });
 
@@ -85,6 +87,18 @@ describe("SellerProfilePage", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/products/sellers/seller1"),
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
+  it("recorta un sellerId con espacios antes de consultar", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, mockProfile));
+    await renderPage("  seller1  ");
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/products/sellers/seller1"),
+      expect.any(Object),
+    );
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("%20%20seller1"),
     );
   });
 });

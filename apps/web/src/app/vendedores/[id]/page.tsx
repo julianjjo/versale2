@@ -25,7 +25,7 @@ type SellerLookup =
 const lookupSeller = cache(async (id: string): Promise<SellerLookup> => {
   try {
     const response = await fetch(
-      `${API_URL}/products/sellers/${encodeURIComponent(id)}`,
+      `${API_URL}/products/sellers/${encodeURIComponent(id.trim())}`,
       {
         cache: "no-store",
         headers: { Accept: "application/json" },
@@ -58,7 +58,9 @@ export async function generateMetadata({
   const { profile } = result;
   const title = `${profile.name} — Versale`;
   const description = `Perfil de ${profile.name} en Versale: ${profile.activeListings} ${
-    profile.activeListings === 1 ? "publicación activa" : "publicaciones activas"
+    profile.activeListings === 1
+      ? "publicación activa"
+      : "publicaciones activas"
   }.`;
 
   return {
