@@ -10,11 +10,16 @@ const pushMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock, refresh: vi.fn() }),
-  useParams: () => ({ id: "p1" }),
+  useParams: vi.fn(() => ({ id: "p1" })),
 }));
 
 const authState: {
-  user: null | { id: string; email: string; name: string; role: "USER" | "ADMIN" };
+  user: null | {
+    id: string;
+    email: string;
+    name: string;
+    role: "USER" | "ADMIN";
+  };
   isLoading: boolean;
 } = {
   user: null,
@@ -22,7 +27,8 @@ const authState: {
 };
 
 vi.mock("@/lib/auth", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
+  const actual =
+    await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
   return {
     ...actual,
     useAuth: () => authState,
@@ -30,7 +36,14 @@ vi.mock("@/lib/auth", async () => {
 });
 
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...rest }: { children: React.ReactNode; href: string }) => (
+  default: ({
+    children,
+    href,
+    ...rest
+  }: {
+    children: React.ReactNode;
+    href: string;
+  }) => (
     <a href={href} {...rest}>
       {children}
     </a>
@@ -50,7 +63,9 @@ const mockProduct = {
   isApproved: true,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
-  images: [{ url: "https://example.com/jacket.jpg", alt: "Vintage denim jacket" }],
+  images: [
+    { url: "https://example.com/jacket.jpg", alt: "Vintage denim jacket" },
+  ],
   seller: { id: "s1", name: "Alice" },
   reviews: [
     {
@@ -86,7 +101,8 @@ import { api } from "@/lib/api";
 function mockProductGet(product: { id: string }, related: unknown[] = []) {
   return async (url: string) => {
     if (url === "/favorites/ids") return { data: { productIds: [] } };
-    if (url === `/products/${product.id}/related`) return { data: { data: related } };
+    if (url === `/products/${product.id}/related`)
+      return { data: { data: related } };
     return { data: product };
   };
 }
@@ -144,8 +160,14 @@ describe("ProductDetail", () => {
     const productWithGallery = {
       ...mockProduct,
       images: [
-        { url: "https://example.com/jacket-1.jpg", alt: "Vintage denim jacket" },
-        { url: "https://example.com/jacket-2.jpg", alt: "Vintage denim jacket" },
+        {
+          url: "https://example.com/jacket-1.jpg",
+          alt: "Vintage denim jacket",
+        },
+        {
+          url: "https://example.com/jacket-2.jpg",
+          alt: "Vintage denim jacket",
+        },
       ],
     };
     vi.mocked(api.get).mockResolvedValue({ data: productWithGallery });
@@ -197,7 +219,9 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("Productos similares")).toBeInTheDocument();
     });
-    expect(screen.getByText("Chaqueta de mezclilla clásica")).toBeInTheDocument();
+    expect(
+      screen.getByText("Chaqueta de mezclilla clásica"),
+    ).toBeInTheDocument();
   });
 
   // Regression: this must fail if the related-products query is ever
@@ -259,7 +283,9 @@ describe("ProductDetail", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Chaqueta de mezclilla clásica")).toBeInTheDocument();
+      expect(
+        screen.getByText("Chaqueta de mezclilla clásica"),
+      ).toBeInTheDocument();
     });
 
     expect(
@@ -311,12 +337,16 @@ describe("ProductDetail", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/no pudimos cargar la prenda/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/no pudimos cargar la prenda/i),
+      ).toBeInTheDocument();
     });
     expect(
       screen.getByRole("button", { name: /reintentar/i }),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/producto no encontrado/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/producto no encontrado/i),
+    ).not.toBeInTheDocument();
   });
 
   it("pide inicio de sesión al agregar al carrito sin sesión", async () => {
@@ -331,7 +361,9 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
-    await user.click(screen.getByRole("button", { name: /agregar al carrito/i }));
+    await user.click(
+      screen.getByRole("button", { name: /agregar al carrito/i }),
+    );
     expect(pushMock).toHaveBeenCalledWith(
       "/login?next=%2Fproducts%2Fp1&reason=cart",
     );
@@ -351,7 +383,9 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
-    await user.click(screen.getByRole("button", { name: /agregar al carrito/i }));
+    await user.click(
+      screen.getByRole("button", { name: /agregar al carrito/i }),
+    );
 
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith("/cart/items", {
@@ -448,7 +482,9 @@ describe("ProductDetail", () => {
       await user.click(
         screen.getByRole("button", { name: /agregar al carrito/i }),
       );
-      expect(await screen.findByText("No pudimos agregarlo")).toBeInTheDocument();
+      expect(
+        await screen.findByText("No pudimos agregarlo"),
+      ).toBeInTheDocument();
 
       await user.click(
         screen.getByRole("button", { name: "Compartir esta publicación" }),
@@ -487,13 +523,13 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
-    expect(screen.queryByRole("button", { name: /agregar al carrito/i })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /agregar al carrito/i }),
+    ).toBeNull();
     expect(screen.getByText(/esta es tu publicación/i)).toBeInTheDocument();
     // Favoriting your own listing makes no sense, same reasoning as hiding
     // "Agregar al carrito" above.
-    expect(
-      screen.queryByRole("button", { name: /favoritos/i }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /favoritos/i })).toBeNull();
   });
 
   it("muestra que el vendedor pausó la publicación en vez del botón de comprar", async () => {
@@ -541,9 +577,7 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
-    expect(
-      screen.getByText(/pausaste esta publicación/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/pausaste esta publicación/i)).toBeInTheDocument();
   });
 
   // Regression: a moderated-field edit while paused sends the listing back to
@@ -573,7 +607,9 @@ describe("ProductDetail", () => {
       expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     });
     expect(
-      screen.getByText(/pausaste esta publicación y además está pendiente de revisión/i),
+      screen.getByText(
+        /pausaste esta publicación y además está pendiente de revisión/i,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -622,7 +658,12 @@ describe("ProductDetail", () => {
   });
 
   it("publica una reseña desde el formulario", async () => {
-    authState.user = { id: "u2", email: "u2@b.c", name: "Charlie", role: "USER" };
+    authState.user = {
+      id: "u2",
+      email: "u2@b.c",
+      name: "Charlie",
+      role: "USER",
+    };
     vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
     vi.mocked(api.post).mockResolvedValue({ data: { id: "r2" } });
     const user = userEvent.setup();
@@ -660,12 +701,11 @@ describe("ProductDetail", () => {
 
     expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByText("Classic Levi's trucker jacket in great condition")).toBeInTheDocument();
+      expect(
+        screen.getByText("Classic Levi's trucker jacket in great condition"),
+      ).toBeInTheDocument();
     });
-    expect(api.get).not.toHaveBeenCalledWith(
-      "/products/p1",
-      expect.anything(),
-    );
+    expect(api.get).not.toHaveBeenCalledWith("/products/p1", expect.anything());
     expect(screen.queryByText(/producto no encontrado/i)).toBeNull();
   });
 
@@ -693,7 +733,12 @@ describe("ProductDetail", () => {
   });
 
   it("navega la calificación con el teclado (roving tabindex)", async () => {
-    authState.user = { id: "u2", email: "u2@b.c", name: "Charlie", role: "USER" };
+    authState.user = {
+      id: "u2",
+      email: "u2@b.c",
+      name: "Charlie",
+      role: "USER",
+    };
     vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
     const user = userEvent.setup();
     render(
@@ -738,13 +783,16 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("Love it!")).toBeInTheDocument();
     });
-    expect(
-      screen.queryByRole("button", { name: /responder/i }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /responder/i })).toBeNull();
   });
 
   it("el vendedor puede publicar una respuesta a una reseña", async () => {
-    authState.user = { id: "s1", email: "seller@b.c", name: "Alice", role: "USER" };
+    authState.user = {
+      id: "s1",
+      email: "seller@b.c",
+      name: "Alice",
+      role: "USER",
+    };
     vi.mocked(api.get).mockResolvedValue({ data: mockProduct });
     vi.mocked(api.patch).mockResolvedValue({ data: { id: "r1" } });
     const user = userEvent.setup();
@@ -775,7 +823,12 @@ describe("ProductDetail", () => {
   });
 
   it("muestra la respuesta del vendedor y permite editarla", async () => {
-    authState.user = { id: "s1", email: "seller@b.c", name: "Alice", role: "USER" };
+    authState.user = {
+      id: "s1",
+      email: "seller@b.c",
+      name: "Alice",
+      role: "USER",
+    };
     const productWithReply = {
       ...mockProduct,
       reviews: [
@@ -798,9 +851,7 @@ describe("ProductDetail", () => {
       expect(screen.getByText("Gracias, vuelve pronto")).toBeInTheDocument();
     });
 
-    await user.click(
-      screen.getByRole("button", { name: /editar respuesta/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /editar respuesta/i }));
     const textarea = screen.getByLabelText(/tu respuesta/i);
     expect(textarea).toHaveValue("Gracias, vuelve pronto");
 
@@ -820,9 +871,7 @@ describe("ProductDetail", () => {
   it('muestra el sello "Compra verificada" en la reseña del comprador real', async () => {
     const productWithVerifiedReview = {
       ...mockProduct,
-      reviews: [
-        { ...mockProduct.reviews[0], verifiedPurchase: true },
-      ],
+      reviews: [{ ...mockProduct.reviews[0], verifiedPurchase: true }],
     };
     vi.mocked(api.get).mockImplementation(
       mockProductGet(productWithVerifiedReview),
@@ -900,7 +949,12 @@ describe("ProductDetail", () => {
   });
 
   it("no muestra Editar reseña ni Eliminar reseña en la reseña de otra persona", async () => {
-    authState.user = { id: "u2", email: "charlie@b.c", name: "Charlie", role: "USER" };
+    authState.user = {
+      id: "u2",
+      email: "charlie@b.c",
+      name: "Charlie",
+      role: "USER",
+    };
     vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
     render(
       <TestProviders>
@@ -911,9 +965,7 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("Love it!")).toBeInTheDocument();
     });
-    expect(
-      screen.queryByRole("button", { name: /editar reseña/i }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /editar reseña/i })).toBeNull();
     expect(
       screen.queryByRole("button", { name: /eliminar reseña/i }),
     ).toBeNull();
@@ -948,9 +1000,7 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("Love it!")).toBeInTheDocument();
     });
-    await user.click(
-      screen.getByRole("button", { name: /¿te fue útil\?/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /¿te fue útil\?/i }));
 
     expect(pushMock).toHaveBeenCalledWith(
       "/login?next=%2Fproducts%2Fp1&reason=helpful",
@@ -959,7 +1009,12 @@ describe("ProductDetail", () => {
   });
 
   it("marca como útil la reseña de otra persona", async () => {
-    authState.user = { id: "u2", email: "charlie@b.c", name: "Charlie", role: "USER" };
+    authState.user = {
+      id: "u2",
+      email: "charlie@b.c",
+      name: "Charlie",
+      role: "USER",
+    };
     vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
     vi.mocked(api.post).mockResolvedValue({
       data: { helpfulCount: 1, votedByMe: true },
@@ -974,9 +1029,7 @@ describe("ProductDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("Love it!")).toBeInTheDocument();
     });
-    await user.click(
-      screen.getByRole("button", { name: /¿te fue útil\?/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /¿te fue útil\?/i }));
 
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith("/reviews/r1/helpful");
@@ -984,7 +1037,12 @@ describe("ProductDetail", () => {
   });
 
   it("quita el voto útil de una reseña ya marcada", async () => {
-    authState.user = { id: "u2", email: "charlie@b.c", name: "Charlie", role: "USER" };
+    authState.user = {
+      id: "u2",
+      email: "charlie@b.c",
+      name: "Charlie",
+      role: "USER",
+    };
     const votedProduct = {
       ...mockProduct,
       reviews: [
@@ -1013,7 +1071,12 @@ describe("ProductDetail", () => {
   });
 
   it("no deshabilita el botón útil de otra reseña mientras se vota en la primera", async () => {
-    authState.user = { id: "u3", email: "dana@b.c", name: "Dana", role: "USER" };
+    authState.user = {
+      id: "u3",
+      email: "dana@b.c",
+      name: "Dana",
+      role: "USER",
+    };
     const twoReviewProduct = {
       ...mockProduct,
       reviews: [
@@ -1317,6 +1380,31 @@ describe("ProductDetail", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(localStorage.getItem("versale_recently_viewed")).toBeNull();
   });
+  it("recorta un productId con espacios antes de consultar", async () => {
+    const nav = await import("next/navigation");
+    vi.mocked(nav.useParams).mockReturnValueOnce({
+      id: "  p1  ",
+    } as unknown as { id: string });
+    vi.mocked(api.get).mockImplementation(mockProductGet(mockProduct));
+    render(
+      <TestProviders>
+        <ProductDetail />
+      </TestProviders>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Vintage denim jacket")).toBeInTheDocument();
+    });
+    expect(api.get).toHaveBeenCalledWith("/products/p1", expect.any(Object));
+    expect(api.get).not.toHaveBeenCalledWith(
+      "/products/  p1  ",
+      expect.any(Object),
+    );
+    expect(api.get).not.toHaveBeenCalledWith(
+      "/products/%20%20p1%20%20",
+      expect.any(Object),
+    );
+  });
+
   it("product-detail: handles empty list", () => {
     expect(true).toBe(true);
   });
