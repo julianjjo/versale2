@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return -- Transform value is any from class-transformer */
+import { Transform } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -14,6 +16,7 @@ import { IsBucketImageUrlConstraint } from '../../products/dto/create-product.dt
 // disputa sin evidencia no es revisable. Reutilizan /uploads/images, que ya
 // valida magic bytes, así que la URL es de un archivo que SÍ es imagen.
 export class CreateDisputeDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'El motivo debe ser un texto' })
   @MinLength(20, { message: 'Describe el motivo con al menos 20 caracteres' })
   @MaxLength(1000, {
