@@ -4,12 +4,7 @@
 // differently-shaped array for the filter options, so a translation fix had to
 // land in six places or the same garment would read "Good" on one screen and
 // "Buen estado" on the next.
-export const PRODUCT_CONDITIONS = [
-  "New",
-  "Like New",
-  "Good",
-  "Fair",
-] as const;
+export const PRODUCT_CONDITIONS = ["New", "Like New", "Good", "Fair"] as const;
 
 export type ProductCondition = (typeof PRODUCT_CONDITIONS)[number];
 
@@ -22,9 +17,11 @@ export const CONDITION_LABELS: Record<string, string> = {
 
 /** Falls back to the raw value so an unknown condition still renders. */
 export function conditionLabel(condition: string): string {
-  const t=condition.trim();
-  return CONDITION_LABELS[t] ?? condition;
-
+  const trimmed = condition.trim();
+  const key =
+    PRODUCT_CONDITIONS.find((c) => c.toLowerCase() === trimmed.toLowerCase()) ??
+    trimmed;
+  return CONDITION_LABELS[key] ?? condition;
 }
 
 /** Options for the catalog's condition `<select>`, derived from the same map. */
