@@ -217,15 +217,13 @@ test.describe("Flujos de cuenta: verificación y recuperación", () => {
     const { resetToken } = (await fg.json()) as { resetToken: string };
     expect(resetToken).toBeTruthy();
 
-    const prisma = prismaForE2e();
-    try {
-      await prisma.user.update({
-        where: { email },
-        data: { resetTokenExpires: new Date(Date.now() - 60_000) },
-      });
-    } finally {
-      await prisma.$disconnect();
-    }
+    const backdate2 = await req.post(`${API_URL}/auth/debug/backdate`, {
+      data: {
+        email,
+        resetTokenExpires: new Date(Date.now() - 60_000).toISOString(),
+      },
+    });
+    expect(backdate2.status()).toBe(200);
 
     const r1 = await req.post(`${API_URL}/auth/reset-password`, {
       data: { token: resetToken, password: "nuevaSegura1!" },
