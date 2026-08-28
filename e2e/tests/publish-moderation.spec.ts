@@ -298,7 +298,7 @@ test.describe("Publicación y moderación P1 — publish-moderation", () => {
       },
     });
     expect(p21.status()).toBe(429);
-    // ponytail: paused sigue contando (anti-bypass); liberar vía DELETE del más antiguo
+    // ponytail: paused sigue contando (anti-bypass); liberar vía DELETE del más antiguo; upgrade: keep anti-bypass; change to exclude paused if product policy changes
     const del = await request.delete(`${API_URL}/products/${ids[0]}`, {
       headers: hdr(seller.token),
     });

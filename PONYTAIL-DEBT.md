@@ -31,13 +31,13 @@
 - `e2e/tests/order-lifecycle.spec.ts:385`, si hace falta testear autoRefund/autoResolve por HTTP, exponer POST /orders/admin/debug/run-sweeps solo en NODE_ENV=test. ceiling: no HTTP sweeps. upgrade: endpoint exists `POST /orders/admin/debug/run-sweeps` (test only, implemented 2026-08-28).
 
 ## e2e/tests/publish-moderation.spec.ts
-- `e2e/tests/publish-moderation.spec.ts:164`, paused sigue contando (anti-bypass); liberar vía DELETE del más antiguo. ceiling: paused counts toward limit. upgrade: `no-trigger` — keep anti-bypass; change to exclude paused if product policy changes.
+- `e2e/tests/publish-moderation.spec.ts:164`, paused sigue contando (anti-bypass); liberar vía DELETE del más antiguo; upgrade: keep anti-bypass; change to exclude paused if product policy changes. ceiling: paused counts toward limit. upgrade: keep anti-bypass; change to exclude paused if product policy changes.
 
 ## e2e/utils/cdp-audit.ts
 - `e2e/utils/cdp-audit.ts:39`, single CDPSession per page; upgrade: per-page session is fine; fan-out or per-context session if CDP contention observed. ceiling: single CDPSession. upgrade: fan-out or per-context session if CDP contention observed.
 
 ---
 
-16 markers, 2 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock; 2026-08-28: apps/api/src/cart per-key lock; 2026-08-28: product-page grapheme-strict; 2026-08-28: products-browser debounce; 2026-08-28: products top_rated cap warned; 2026-08-28: orders debug sweeps endpoint; 2026-08-28: account-flows bundled UI split; 2026-08-28: cdp-audit upgrade; 2026-08-28: publish-moderation reject reason required; 2026-08-28: account-deletion serial upgrade; 2026-08-28: account-flows serial upgrade; 2026-08-28: account-flows resend upgrade explicit — no-trigger 3→2; debts saldadas/progress.)
+16 markers, 1 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock; 2026-08-28: apps/api/src/cart per-key lock; 2026-08-28: product-page grapheme-strict; 2026-08-28: products-browser debounce; 2026-08-28: products top_rated cap warned; 2026-08-28: orders debug sweeps endpoint; 2026-08-28: account-flows bundled UI split; 2026-08-28: cdp-audit upgrade; 2026-08-28: publish-moderation reject reason required; 2026-08-28: account-deletion serial upgrade; 2026-08-28: account-flows serial upgrade; 2026-08-28: account-flows resend upgrade; 2026-08-28: publish-moderation paused upgrade explicit — no-trigger 2→1; debts saldadas/progress.)
 
 > Ponytail ceiling for ledger itself: `// ponytail: ledger file, regenerate via grep if markers change; no watcher/cron until debt cadence >1/iteration` — regenerate with `npm run ponytail:debt` alias if cadence grows; until then manual iteration is YAGNI.
