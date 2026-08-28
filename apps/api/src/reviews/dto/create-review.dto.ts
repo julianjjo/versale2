@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 
 export class CreateReviewDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'El producto seleccionado no es válido' })
   @IsNotEmpty({ message: 'Debes indicar el producto que quieres calificar' })
   productId!: string;
