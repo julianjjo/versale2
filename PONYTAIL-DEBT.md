@@ -3,8 +3,8 @@
 > Generado via `grep -rnE '(#|//) ?ponytail:' apps e2e scripts` (excluye node_modules/.next/.git/.claude/.pi). Cada fila: `<file>:<line>, <what>. ceiling: <limit>. upgrade: <trigger>.` `no-trigger` = sin upgrade path explícito → riesgo de pudrirse.
 
 ## apps/api/src/products/products.service.ts
-- `apps/api/src/products/products.service.ts:66`, cap MAX_TOP_RATED_SCAN=1000. ceiling: cap 1000. upgrade: materialize `averageRating`+index if catalog >1k sustained.
-- `apps/api/src/products/products.service.ts:343`, O(n) in-memory top_rated sort per page. ceiling: O(n) cheap for n<10k (n=limit≤100 paginated, effective scan ≤1000). upgrade: materialize `averageRating` column + index if catalog >10k.
+- `apps/api/src/products/products.service.ts:66`, cap MAX_TOP_RATED_SCAN=1000, warn on truncation. ceiling: cap 1000, warned via logger.warn. upgrade: materialize `averageRating`+index if cap warn sustained (>1k).
+- `apps/api/src/products/products.service.ts:343`, O(n) in-memory top_rated sort per page, warned. ceiling: O(n) cheap for n<10k, warned. upgrade: materialize `averageRating` column + index if catalog >10k.
 
 ## apps/web/src/app/sell/page.tsx
 - `apps/web/src/app/sell/page.tsx:77`, deleted BroadcastChannel dup. ceiling: storage+CustomEvent cover cross/same-tab. upgrade: restore `BroadcastChannel("versale-sell-draft")` if need instant cross-tab without storage round-trip.
@@ -40,6 +40,6 @@
 
 ---
 
-18 markers, 7 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock resolved; 2026-08-28: apps/api/src/cart per-key lock resolved; 2026-08-28: apps/web/src/app/products/[id]/__tests__/product-page.test.tsx grapheme-strict resolved; 2026-08-28: apps/web/src/components/products/products-browser.tsx debounce explicit + upgrade path — no-trigger 8→7; debts saldadas.)
+18 markers, 7 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock; 2026-08-28: apps/api/src/cart per-key lock; 2026-08-28: product-page grapheme-strict; 2026-08-28: products-browser debounce; 2026-08-28: products top_rated cap warned via logger.warn — cap now observable; debts saldadas/progress.)
 
 > Ponytail ceiling for ledger itself: `// ponytail: ledger file, regenerate via grep if markers change; no watcher/cron until debt cadence >1/iteration` — regenerate with `npm run ponytail:debt` alias if cadence grows; until then manual iteration is YAGNI.
