@@ -10,7 +10,7 @@
 - `apps/web/src/app/sell/page.tsx:77`, deleted BroadcastChannel dup. ceiling: storage+CustomEvent cover cross/same-tab. upgrade: restore `BroadcastChannel("versale-sell-draft")` if need instant cross-tab without storage round-trip.
 
 ## apps/web/src/components/products/products-browser.tsx
-- `apps/web/src/components/products/products-browser.tsx:202`, 300ms live search. ceiling: 300ms debounced live search. upgrade: `no-trigger` — submit fallback already; tune debounce or add server search index if catalog >10k.
+- `apps/web/src/components/products/products-browser.tsx:202`, 300ms live search via useDebouncedSearch, submit fallback. ceiling: 300ms debounced live search. upgrade: server search index if catalog >10k.
 
 ## apps/web/src/lib/token.ts
 - `apps/web/src/lib/token.ts:4`, deleted BroadcastChannel dup. ceiling: storage+CustomEvent cover cross/same-tab. upgrade: restore `BroadcastChannel("versale-auth")` if need instant cross-tab without storage round-trip.
@@ -40,6 +40,6 @@
 
 ---
 
-18 markers, 8 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock resolved; 2026-08-28: apps/api/src/cart per-key lock resolved; 2026-08-28: apps/web/src/app/products/[id]/__tests__/product-page.test.tsx grapheme-strict resolved — removed `ponytail: slice tolerante` marker, now Segmenter-strict; debts saldadas.)
+18 markers, 7 with no trigger. (2026-08-28: scripts/qa-worktree.js per-port lock resolved; 2026-08-28: apps/api/src/cart per-key lock resolved; 2026-08-28: apps/web/src/app/products/[id]/__tests__/product-page.test.tsx grapheme-strict resolved; 2026-08-28: apps/web/src/components/products/products-browser.tsx debounce explicit + upgrade path — no-trigger 8→7; debts saldadas.)
 
 > Ponytail ceiling for ledger itself: `// ponytail: ledger file, regenerate via grep if markers change; no watcher/cron until debt cadence >1/iteration` — regenerate with `npm run ponytail:debt` alias if cadence grows; until then manual iteration is YAGNI.
