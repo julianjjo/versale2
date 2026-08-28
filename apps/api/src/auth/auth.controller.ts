@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Req,
   UseGuards,
+  NotFoundException,
 } from '@nestjs/common';
 import { Throttle, minutes } from '@nestjs/throttler';
 import { AuthRequest } from '../types/request.types';
@@ -16,6 +17,7 @@ import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
+import { PrismaService } from '../prisma/prisma.service';
 
 const toLimit = (v: string | undefined, f: number) => {
   const n = Number(v);
@@ -33,7 +35,10 @@ export const FORGOT_PASSWORD_THROTTLE_LIMIT = toLimit(
 })
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private prisma: PrismaService,
+  ) {}
 
   @Post('signup')
   async signup(@Body() signupDto: SignupDto) {
@@ -82,5 +87,44 @@ export class AuthController {
   @Post('resend-verification')
   async resendVerification(@Req() req: AuthRequest) {
     return this.authService.resendVerification(req.user.id);
+  }
+
+  // debug backdate only in test; no exponer en prod, no añadir auth bypass
+  @HttpCode(HttpStatus.OK)
+  @Post('debug/backdate')
+  async debugBackdate(
+    @Body()
+    body: {
+      email?: string;
+      verificationTokenExpires?: string | null;
+      resetTokenExpires?: string | null;
+    },
+  ) {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new NotFoundException();
+    }
+    const email = body.email?.trim();
+    if (!email) {
+      throw new NotFoundException('email required');
+    }
+    const data: Record<string, unknown> = {};
+    if (body.verificationTokenExpires !== undefined) {
+      data.verificationTokenExpires = body.verificationTokenExpires
+        ? new Date(body.verificationTokenExpires)
+        : null;
+    }
+    if (body.resetTokenExpires !== undefined) {
+      data.resetTokenExpires = body.resetTokenExpires
+        ? new Date(body.resetTokenExpires)
+        : null;
+    }
+    if (Object.keys(data).length === 0) {
+      throw new NotFoundException('no field to backdate');
+    }
+    await this.prisma.client.user.update({
+      where: { email },
+      data,
+    });
+    return { ok: true };
   }
 }
