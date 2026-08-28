@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- any mocks in tests */
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   BadRequestException,
@@ -289,6 +290,24 @@ describe('QuestionsService', () => {
         service.create('buyer1', 'product1', '¿Pregunta?'),
       ).resolves.toHaveProperty('id', 'question1');
     });
+
+    it('should trim a padded productId before looking up the product', async () => {
+      mockProductsService.findRaw.mockResolvedValue({
+        id: 'product1',
+        sellerId: 'seller1',
+        isApproved: true,
+      });
+      mockPrismaClient.productQuestion.create.mockResolvedValue({
+        id: 'question1',
+      });
+      await service.create('buyer1', '  product1  ', '¿Pregunta?');
+      expect(mockProductsService.findRaw).toHaveBeenCalledWith('product1');
+      expect(mockPrismaClient.productQuestion.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ productId: 'product1' }),
+        }),
+      );
+    });
   });
 
   describe('answer', () => {
@@ -456,6 +475,28 @@ describe('QuestionsService', () => {
 
       expect(result).toEqual(answered);
     });
+
+    it('should trim a padded questionId before querying', async () => {
+      mockPrismaService.client.productQuestion.findUnique.mockResolvedValue({
+        id: 'question1',
+        product: { sellerId: 'seller1' },
+      });
+      mockPrismaService.client.productQuestion.update.mockResolvedValue({
+        id: 'question1',
+        answer: 'Es talla M',
+      });
+      await service.answer('  question1  ', 'seller1', 'Es talla M');
+      expect(
+        mockPrismaService.client.productQuestion.findUnique,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'question1' } }),
+      );
+      expect(
+        mockPrismaService.client.productQuestion.update,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'question1' } }),
+      );
+    });
   });
 
   describe('remove', () => {
@@ -544,6 +585,25 @@ describe('QuestionsService', () => {
       await expect(
         service.remove('question1', 'buyer1', Role.USER),
       ).rejects.toThrow('No se encontró la pregunta con ID question1');
+    });
+
+    it('should trim a padded questionId before querying', async () => {
+      mockPrismaService.client.productQuestion.findUnique.mockResolvedValue({
+        id: 'question1',
+        askerId: 'buyer1',
+      });
+      mockPrismaService.client.productQuestion.delete.mockResolvedValue({
+        id: 'question1',
+      });
+      await service.remove('  question1  ', 'buyer1', Role.USER);
+      expect(
+        mockPrismaService.client.productQuestion.findUnique,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'question1' } }),
+      );
+      expect(
+        mockPrismaService.client.productQuestion.delete,
+      ).toHaveBeenCalledWith({ where: { id: 'question1' } });
     });
   });
 
