@@ -201,9 +201,21 @@ describe("generateMetadata", () => {
       params: Promise.resolve({ id: "p1" }),
     });
 
-    // ponytail: slice tolerante — longitud y sufijo, no igualdad de grafema
+    const Seg = (Intl as unknown as { Segmenter?: new (l: string, o: { granularity: string }) => { segment(s: string): Iterable<{ segment: string }> } }).Segmenter;
+    const seg = Seg ? new Seg("es", { granularity: "grapheme" }) : null;
+    const graphemes: string[] = seg
+      ? [...seg.segment(description)].map((s) => s.segment)
+      : [...description];
+    let expected = "";
+    for (const g of graphemes) {
+      if ((expected + g).length > 157) break;
+      expected += g;
+    }
+    expected += "...";
+    expect(metadata.description).toBe(expected);
     expect(metadata.description?.endsWith("...")).toBe(true);
-    expect(metadata.description?.length).toBeLessThanOrEqual(160);
+    expect([...(metadata.description ?? "")].length).toBeLessThanOrEqual(160);
+    expect(metadata.description).not.toContain("�");
     expect(metadata.openGraph?.description).toBe(metadata.description);
   });
 });
