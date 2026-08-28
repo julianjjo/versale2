@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MisProductosPage from "../page";
-import { TestProviders, createTestQueryClient } from "@/test-utils/TestProviders";
+import {
+  TestProviders,
+  createTestQueryClient,
+} from "@/test-utils/TestProviders";
 import type { Product } from "@/lib/types";
 
 const pushMock = vi.fn();
@@ -13,7 +16,12 @@ vi.mock("next/navigation", () => ({
 }));
 
 const authState: {
-  user: { id: string; email: string; name: string; role: "USER" | "ADMIN" } | null;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: "USER" | "ADMIN";
+  } | null;
   isLoading: boolean;
 } = {
   user: {
@@ -26,9 +34,8 @@ const authState: {
 };
 
 vi.mock("@/lib/auth", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/auth")>(
-    "@/lib/auth",
-  );
+  const actual =
+    await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
   return {
     ...actual,
     useAuth: () => ({
@@ -137,7 +144,9 @@ describe("MisProductosPage", () => {
       rejectionReason: null,
       rejectedAt: new Date("2026-02-01T10:00:00Z").toISOString(),
     });
-    vi.mocked(api.get).mockResolvedValue({ data: paginated([rejectedNoReason]) });
+    vi.mocked(api.get).mockResolvedValue({
+      data: paginated([rejectedNoReason]),
+    });
 
     render(
       <TestProviders>
@@ -533,6 +542,30 @@ describe("MisProductosPage", () => {
     });
   });
 
+  it("recorta un precio con espacios antes de enviar", async () => {
+    const product = productFixture({ id: "p7", title: "Camisa", price: 30000 });
+    vi.mocked(api.get).mockResolvedValue({ data: paginated([product]) });
+    vi.mocked(api.patch).mockResolvedValue({ data: { success: true } });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <MisProductosPage />
+      </TestProviders>,
+    );
+    const card = await screen.findByTestId("mine-product-p7");
+    await user.click(within(card).getByRole("button", { name: "Editar" }));
+    const dialog = screen.getByRole("dialog");
+    const priceInput = within(dialog).getByLabelText(/precio/i);
+    await user.clear(priceInput);
+    await user.type(priceInput, "  35000  ");
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
+    await waitFor(() => {
+      expect(api.patch).toHaveBeenCalledWith("/products/p7", {
+        price: 35000,
+      });
+    });
+  });
+
   it("elimina una publicación tras confirmar", async () => {
     const pending = productFixture({ id: "p5", title: "Pantalón pendiente" });
     vi.mocked(api.get).mockResolvedValue({ data: paginated([pending]) });
@@ -683,7 +716,10 @@ describe("MisProductosPage", () => {
         expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
-    expect(api.get).toHaveBeenLastCalledWith(expect.stringContaining("page=1"), expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    expect(api.get).toHaveBeenLastCalledWith(
+      expect.stringContaining("page=1"),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
   });
 
   it("mantiene la búsqueda al cambiar de pestaña de estado, combinando ambos filtros en la misma solicitud", async () => {
@@ -737,7 +773,10 @@ describe("MisProductosPage", () => {
       await screen.findByText(/aún no has publicado ningún producto/i),
     ).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText(/buscar publicaciones/i), "algo que no existe");
+    await user.type(
+      screen.getByLabelText(/buscar publicaciones/i),
+      "algo que no existe",
+    );
 
     await waitFor(() => {
       expect(
@@ -1063,7 +1102,9 @@ describe("MisProductosPage", () => {
       isApproved: true,
       pausedAt: new Date("2026-02-05T10:00:00Z").toISOString(),
     });
-    vi.mocked(api.get).mockResolvedValue({ data: paginated([approved, paused]) });
+    vi.mocked(api.get).mockResolvedValue({
+      data: paginated([approved, paused]),
+    });
     vi.mocked(api.patch).mockResolvedValue({
       data: { paused: 1, requested: 2 },
     });
@@ -1095,8 +1136,16 @@ describe("MisProductosPage", () => {
   });
 
   it("muestra un aviso de éxito parcial al pausar en lote", async () => {
-    const first = productFixture({ id: "p41", title: "Chaqueta", isApproved: true });
-    const second = productFixture({ id: "p42", title: "Camiseta", isApproved: true });
+    const first = productFixture({
+      id: "p41",
+      title: "Chaqueta",
+      isApproved: true,
+    });
+    const second = productFixture({
+      id: "p42",
+      title: "Camiseta",
+      isApproved: true,
+    });
     vi.mocked(api.get).mockResolvedValue({ data: paginated([first, second]) });
     vi.mocked(api.patch).mockResolvedValue({
       data: { paused: 1, requested: 2 },
@@ -1257,8 +1306,7 @@ describe("MisProductosPage", () => {
     vi.mocked(api.patch).mockImplementation(
       () =>
         new Promise((resolve) => {
-          resolvePause = () =>
-            resolve({ data: { paused: 1, requested: 1 } });
+          resolvePause = () => resolve({ data: { paused: 1, requested: 1 } });
         }),
     );
     const user = userEvent.setup();
@@ -1276,9 +1324,7 @@ describe("MisProductosPage", () => {
     );
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Pendientes" }),
-      ).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Pendientes" })).toBeDisabled();
     });
 
     resolvePause();
