@@ -571,6 +571,38 @@ describe("CartPage", () => {
     expect(pushMock).toHaveBeenCalledWith("/orders/order1");
   });
 
+  it("recorta los campos de dirección con espacios antes de enviar", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: mockCart });
+    vi.mocked(api.post).mockResolvedValue({ data: { id: "order1" } });
+    const user = userEvent.setup();
+    render(
+      <TestProviders>
+        <CartPage />
+      </TestProviders>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Cotton t-shirt")).toBeInTheDocument();
+    });
+    await user.type(
+      screen.getByLabelText("Calle y número"),
+      "  Calle 10 # 5-20  ",
+    );
+    await user.type(screen.getByLabelText("Ciudad"), "  Bogotá  ");
+    await user.type(screen.getByLabelText("País"), "  Colombia  ");
+    await user.click(screen.getByRole("button", { name: /pagar/i }));
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith("/orders", {
+        shippingAddress: {
+          street: "Calle 10 # 5-20",
+          city: "Bogotá",
+          state: "",
+          zip: "",
+          country: "Colombia",
+        },
+      });
+    });
+  });
+
   it("rellena la dirección con la del pedido anterior al hacer click en el acceso rápido", async () => {
     vi.mocked(api.get).mockImplementation(async (url: string) => {
       if (url.startsWith("/orders?")) {
@@ -830,7 +862,9 @@ describe("CartPage", () => {
       }
       return { data: mockCart };
     });
-    vi.mocked(api.delete).mockRejectedValue(new Error("No pudimos eliminar el producto"));
+    vi.mocked(api.delete).mockRejectedValue(
+      new Error("No pudimos eliminar el producto"),
+    );
     const user = userEvent.setup();
     render(
       <TestProviders>
@@ -919,7 +953,9 @@ describe("CartPage", () => {
     });
     vi.mocked(api.get).mockImplementation(async (url: string) => {
       if (url === "/cart") {
-        return { data: checkoutAttempted ? { ...mockCart, items: [] } : mockCart };
+        return {
+          data: checkoutAttempted ? { ...mockCart, items: [] } : mockCart,
+        };
       }
       if (url.startsWith("/orders?limit=1")) {
         return ordersResponse([
@@ -985,7 +1021,9 @@ describe("CartPage", () => {
       // intentar pagar, otra pestaña ya lo había vaciado con su propia
       // compra, y esta solicitud choca con eso.
       if (url === "/cart") {
-        return { data: checkoutAttempted ? { ...mockCart, items: [] } : mockCart };
+        return {
+          data: checkoutAttempted ? { ...mockCart, items: [] } : mockCart,
+        };
       }
       if (url.startsWith("/orders?limit=1")) {
         return ordersResponse([
@@ -1023,9 +1061,7 @@ describe("CartPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Tu carrito está vacío")).toBeInTheDocument();
     });
-    expect(pushMock).not.toHaveBeenCalledWith(
-      "/orders/pedido-de-otra-pestana",
-    );
+    expect(pushMock).not.toHaveBeenCalledWith("/orders/pedido-de-otra-pestana");
   });
 
   it("no confía en un pedido 'reciente' que en realidad ya tiene varios minutos (no es el que se acaba de intentar)", async () => {
@@ -1036,7 +1072,9 @@ describe("CartPage", () => {
     });
     vi.mocked(api.get).mockImplementation(async (url: string) => {
       if (url === "/cart") {
-        return { data: checkoutAttempted ? { ...mockCart, items: [] } : mockCart };
+        return {
+          data: checkoutAttempted ? { ...mockCart, items: [] } : mockCart,
+        };
       }
       if (url.startsWith("/orders?limit=1")) {
         return ordersResponse([
