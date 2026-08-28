@@ -733,6 +733,25 @@ describe('ProductsService', () => {
         mockProduct,
       );
     });
+
+    it('should trim a padded productId before querying', async () => {
+      const mockProduct = {
+        id: 'product1',
+        sellerId: 'seller1',
+        isApproved: true,
+        reviews: [],
+        status: 'AVAILABLE' as const,
+      };
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+
+      await service.findOne('  product1  ', null);
+
+      expect(mockPrismaService.client.product.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'product1' } }),
+      );
+    });
   });
 
   describe('findRaw', () => {
@@ -782,6 +801,24 @@ describe('ProductsService', () => {
       const result = await service.findRaw(productId);
 
       expect(result).toEqual(mockProduct);
+    });
+
+    it('should trim a padded id before querying', async () => {
+      const mockProduct = {
+        id: 'product1',
+        sellerId: 'seller1',
+        isApproved: true,
+        status: 'AVAILABLE' as const,
+      };
+      mockPrismaService.client.product.findUnique.mockResolvedValue(
+        mockProduct,
+      );
+
+      await service.findRaw('  product1  ');
+
+      expect(mockPrismaService.client.product.findUnique).toHaveBeenCalledWith({
+        where: { id: 'product1' },
+      });
     });
   });
 

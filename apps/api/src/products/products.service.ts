@@ -447,6 +447,7 @@ export class ProductsService {
   // price, or a new seller previewing their own pending listing — exactly
   // the accounts this page exists to serve.
   async getSellerProfile(id: string) {
+    id = id.trim();
     const [user, hasEverListed] = await Promise.all([
       this.prisma.client.user.findUnique({
         where: { id },
@@ -514,6 +515,7 @@ export class ProductsService {
   }
 
   async findOne(id: string, requester?: { id: string; role: Role } | null) {
+    id = id.trim();
     // Every listing is a single physical garment, never restocked — so at
     // most one order item can ever record its actual sale. Whoever that
     // order belongs to (if it went through) is the one buyer a review can
@@ -660,6 +662,7 @@ export class ProductsService {
   // section is a buyer-discovery aid, not something the listing's own
   // author needs while it awaits review.
   async getRelatedProducts(id: string) {
+    id = id.trim();
     const product = await this.prisma.client.product.findUnique({
       where: { id },
       select: { category: true, isApproved: true },
@@ -723,6 +726,7 @@ export class ProductsService {
   }
 
   async findRaw(id: string) {
+    id = id.trim();
     const product = await this.prisma.client.product.findUnique({
       where: { id },
     });
@@ -740,6 +744,7 @@ export class ProductsService {
     userId: string,
     role: Role,
   ) {
+    id = id.trim();
     const product = await this.prisma.client.product.findUnique({
       where: { id },
     });
@@ -850,6 +855,7 @@ export class ProductsService {
     role: Role,
     actionVerb: string,
   ) {
+    id = id.trim();
     const product = await this.prisma.client.product.findUnique({
       where: { id },
     });
@@ -879,6 +885,7 @@ export class ProductsService {
   // admin's later approval wouldn't explain — the seller would have to
   // separately remember to unpause a listing they never saw approved yet.
   async pauseProduct(id: string, userId: string, role: Role) {
+    id = id.trim();
     const product = await this.findOwnedUnsoldProduct(
       id,
       userId,
@@ -920,6 +927,7 @@ export class ProductsService {
   // unpausing it just means it will be visible again once it's re-approved,
   // same as any other pending listing.
   async unpauseProduct(id: string, userId: string, role: Role) {
+    id = id.trim();
     await this.findOwnedUnsoldProduct(id, userId, role, 'reactivar');
 
     try {
@@ -996,6 +1004,7 @@ export class ProductsService {
   }
 
   async remove(id: string, userId: string, role: Role) {
+    id = id.trim();
     const product = await this.prisma.client.product.findUnique({
       where: { id },
     });
@@ -1166,6 +1175,7 @@ export class ProductsService {
   }
 
   async approveProduct(id: string) {
+    id = id.trim();
     const product = await this.prisma.client.product.findUnique({
       where: { id },
     });
@@ -1232,6 +1242,7 @@ export class ProductsService {
   }
 
   async rejectProduct(id: string, reason?: string) {
+    id = id.trim();
     const product = await this.prisma.client.product.findUnique({
       where: { id },
     });
