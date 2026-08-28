@@ -123,7 +123,7 @@ test.describe("Flujos de cuenta: verificación y recuperación", () => {
     expect(rs.status()).toBe(200);
     expect((await rs.json()).message).toMatch(/Te enviamos/i);
 
-    // ponytail: resend no expone raw token — rotación probada vía invalidación del anterior
+    // ponytail: resend no expone raw token — rotación probada vía invalidación del anterior; upgrade: expose raw token only in test env if needed
     const oldTry = await req.post(`${API_URL}/auth/verify-email`, {
       data: { token: oldTok },
     });
