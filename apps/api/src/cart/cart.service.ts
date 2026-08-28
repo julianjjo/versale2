@@ -51,6 +51,7 @@ export class CartService {
   }
 
   async addItem(userId: string, productId: string, quantity: number) {
+    productId = productId.trim();
     this.assertValidQuantity(quantity);
 
     const cartId = await this.getOrCreateCartId(userId);
@@ -113,6 +114,7 @@ export class CartService {
   }
 
   async updateItem(cartItemId: string, quantity: number, userId: string) {
+    cartItemId = cartItemId.trim();
     this.assertValidQuantity(quantity);
 
     const cartItem = await this.prisma.client.cartItem.findUnique({
@@ -162,6 +164,7 @@ export class CartService {
   }
 
   async removeItem(cartItemId: string, userId: string) {
+    cartItemId = cartItemId.trim();
     const cartItem = await this.prisma.client.cartItem.findUnique({
       where: { id: cartItemId },
       include: { cart: true },
