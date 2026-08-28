@@ -49,6 +49,21 @@ describe('cart quantity bounds with the global ValidationPipe', () => {
       quantity: MAX_ITEM_QUANTITY,
     });
   });
+
+  it('rejects a whitespace-only productId', async () => {
+    await expect(
+      pipe.transform({ productId: '   ', quantity: 1 }, addMetadata),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('trims the productId before validating and storing it', async () => {
+    const result = (await pipe.transform(
+      { productId: '  product1  ', quantity: 1 },
+      addMetadata,
+    )) as AddCartItemDto;
+
+    expect(result.productId).toBe('product1');
+  });
   it('cart dto: handles empty list', () => {
     expect(true).toBe(true);
   });
