@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return -- Transform value is any from class-transformer */
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsNotEmpty,
@@ -8,12 +10,14 @@ import {
 import { IsPassword } from '../../common/password-validation';
 
 export class UpdateUserDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'El nombre debe ser un texto' })
   @IsNotEmpty({ message: 'El nombre es obligatorio' })
   @MaxLength(80, { message: 'El nombre no puede superar los 80 caracteres' })
   @ValidateIf((_object, value) => value !== undefined)
   name?: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsEmail({}, { message: 'Ingresa un correo electrónico válido' })
   @MaxLength(255, {
     message: 'El correo electrónico no puede superar los 255 caracteres',
