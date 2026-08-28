@@ -1,4 +1,5 @@
-﻿import { Test, TestingModule } from '@nestjs/testing';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- expect.objectContaining is any by design */
+import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CartService } from '../cart.service';
@@ -473,6 +474,33 @@ describe('CartService', () => {
       );
       expect(result).toEqual(existing);
     });
+
+    it('should trim a padded productId before looking up the product', async () => {
+      const userId = 'user1';
+      const productId = 'product1';
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
+      mockProductsService.findRaw.mockResolvedValue({
+        id: productId,
+        isApproved: true,
+        status: 'AVAILABLE',
+        pausedAt: null,
+        price: 50000,
+      });
+      mockPrismaService.client.cartItem.upsert.mockResolvedValue({
+        id: 'item1',
+      });
+      await service.addItem(userId, '  product1  ', 1);
+      expect(mockProductsService.findRaw).toHaveBeenCalledWith('product1');
+      expect(mockPrismaService.client.cartItem.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            cartId_productId: expect.objectContaining({
+              productId: 'product1',
+            }),
+          }),
+        }),
+      );
+    });
   });
 
   describe('updateItem', () => {
@@ -650,6 +678,38 @@ describe('CartService', () => {
         'No tienes autorización para actualizar este producto del carrito',
       );
     });
+
+    it('should trim a padded cartItemId before updating', async () => {
+      const userId = 'user1';
+      const cartItemId = 'item1';
+      mockPrismaService.client.cartItem.findUnique.mockResolvedValue({
+        id: cartItemId,
+        cartId: 'cart1',
+        productId: 'product1',
+        cart: { id: 'cart1', userId },
+      });
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
+      mockProductsService.findRaw.mockResolvedValue({
+        id: 'product1',
+        isApproved: true,
+        status: 'AVAILABLE',
+        pausedAt: null,
+        price: 50000,
+      });
+      mockPrismaService.client.cartItem.update.mockResolvedValue({
+        id: cartItemId,
+      });
+      await service.updateItem('  item1  ', 1, userId);
+      expect(mockPrismaService.client.cartItem.findUnique).toHaveBeenCalledWith(
+        {
+          where: { id: 'item1' },
+          include: { cart: true },
+        },
+      );
+      expect(mockPrismaService.client.cartItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'item1' } }),
+      );
+    });
   });
 
   describe('removeItem', () => {
@@ -704,6 +764,29 @@ describe('CartService', () => {
       await expect(service.removeItem(cartItemId, userId)).rejects.toThrow(
         'No tienes autorización para eliminar este producto del carrito',
       );
+    });
+
+    it('should trim a padded cartItemId before removing', async () => {
+      const userId = 'user1';
+      mockPrismaService.client.cartItem.findUnique.mockResolvedValue({
+        id: 'item1',
+        cartId: 'cart1',
+        cart: { id: 'cart1', userId },
+      });
+      mockPrismaService.client.cart.upsert.mockResolvedValue({ id: 'cart1' });
+      mockPrismaService.client.cartItem.delete.mockResolvedValue({
+        id: 'item1',
+      });
+      await service.removeItem('  item1  ', userId);
+      expect(mockPrismaService.client.cartItem.findUnique).toHaveBeenCalledWith(
+        {
+          where: { id: 'item1' },
+          include: { cart: true },
+        },
+      );
+      expect(mockPrismaService.client.cartItem.delete).toHaveBeenCalledWith({
+        where: { id: 'item1' },
+      });
     });
   });
 
