@@ -1,4 +1,5 @@
-import { Type } from 'class-transformer';
+/* eslint-disable @typescript-eslint/no-unsafe-return -- Transform value is any from class-transformer */
+import { Transform, Type } from 'class-transformer';
 import {
   IsNotEmpty,
   IsObject,
@@ -27,6 +28,7 @@ export class MpBackUrlsDto {
 }
 
 export class CreateMpPreferenceDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'orderId debe ser un texto' })
   @IsNotEmpty({ message: 'orderId es obligatorio' })
   orderId!: string;
