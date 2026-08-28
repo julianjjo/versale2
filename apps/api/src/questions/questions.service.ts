@@ -35,6 +35,7 @@ export class QuestionsService {
   ) {}
 
   async create(userId: string, productId: string, question: string) {
+    productId = productId.trim();
     const product = await this.productsService.findRaw(productId);
 
     // Mirrors ReviewsService#create's own visibility gate: a listing no
@@ -90,6 +91,7 @@ export class QuestionsService {
   }
 
   async answer(id: string, sellerId: string, answer: string) {
+    id = id.trim();
     const question = await this.prisma.client.productQuestion.findUnique({
       where: { id },
       include: { product: { select: { sellerId: true, title: true } } },
@@ -147,6 +149,7 @@ export class QuestionsService {
   }
 
   async remove(id: string, userId: string, role: Role) {
+    id = id.trim();
     const question = await this.prisma.client.productQuestion.findUnique({
       where: { id },
     });
