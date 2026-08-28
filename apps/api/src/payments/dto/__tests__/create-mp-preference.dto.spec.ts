@@ -48,4 +48,45 @@ describe('CreateMpPreferenceDto with the global ValidationPipe', () => {
       (result as unknown as Record<string, unknown>).extra,
     ).toBeUndefined();
   });
+
+  it('trims backUrls success and failure before validating', async () => {
+    const result = (await pipe.transform(
+      {
+        orderId: 'order1',
+        backUrls: {
+          success: '  https://example.com/success  ',
+          failure: '  https://example.com/failure  ',
+        },
+      },
+      metadata,
+    )) as CreateMpPreferenceDto;
+
+    expect(result.backUrls?.success).toBe('https://example.com/success');
+    expect(result.backUrls?.failure).toBe('https://example.com/failure');
+  });
+
+  it('converts whitespace-only backUrls to undefined', async () => {
+    const result = (await pipe.transform(
+      {
+        orderId: 'order1',
+        backUrls: { success: '   ', failure: '   ' },
+      },
+      metadata,
+    )) as CreateMpPreferenceDto;
+
+    expect(result.backUrls?.success).toBeUndefined();
+    expect(result.backUrls?.failure).toBeUndefined();
+  });
+
+  it('rejects an invalid backUrl', async () => {
+    await expect(
+      pipe.transform(
+        {
+          orderId: 'order1',
+          backUrls: { success: 'not a valid url' },
+        },
+        metadata,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
 });

@@ -15,12 +15,18 @@ import {
 // puede mandar. require_tld: false permite localhost en desarrollo.
 export class MpBackUrlsDto {
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() || undefined : value,
+  )
   @IsString()
   @MaxLength(2048)
   @IsUrl({ protocols: ['https', 'http'], require_tld: false })
   success?: string;
 
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() || undefined : value,
+  )
   @IsString()
   @MaxLength(2048)
   @IsUrl({ protocols: ['https', 'http'], require_tld: false })
