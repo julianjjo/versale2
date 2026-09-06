@@ -137,6 +137,11 @@ function SellForm() {
   useEffect(() => () => { imagesRef.current.forEach((img) => URL.revokeObjectURL(img.previewUrl)); }, []);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // `isSubmitting` sólo deshabilita el botón en el siguiente render, y el
+  // formulario sigue montado con sus valores mientras `router.push` navega.
+  // Esta bandera síncrona cierra esa ventana, igual que
+  // `if (checkout.isPending) return` en el carrito.
+  const inFlight = useRef(false);
   const [draftChangedElsewhere, setDraftChangedElsewhere] = useState(false);
 
   const { data: suggested } = useQuery({
@@ -283,6 +288,7 @@ function SellForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (inFlight.current) return;
     setError(null);
     if (isUploading) {
       setError("Espera a que terminen de subirse las fotos.");
@@ -319,6 +325,7 @@ function SellForm() {
       setError("El precio debe ser un número entero entre 1 y 100.000.000.");
       return;
     }
+    inFlight.current = true;
     setIsSubmitting(true);
     try {
       await api.post("/products", {
@@ -340,7 +347,9 @@ function SellForm() {
       router.push("/products?published=1");
     } catch (err) {
       setError(extractApiError(err, "No pudimos crear la publicación"));
-    } finally {
+      // Sólo se reabre en el fallo: en la ruta de éxito el botón debe seguir
+      // bloqueado hasta que `router.push` desmonte el formulario.
+      inFlight.current = false;
       setIsSubmitting(false);
     }
   };
